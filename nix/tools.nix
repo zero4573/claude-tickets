@@ -2,7 +2,7 @@
 # sources, for one pkgs. Each command is tools/<name>.sh with
 # tools/tickets-lib.sh prepended, built with writeShellApplication (which
 # runs shellcheck). Linux and macOS.
-{ pkgs, lib }:
+{ pkgs, lib, env ? { } }:
 let
   inherit (pkgs.stdenv.hostPlatform) isLinux;
 
@@ -30,12 +30,13 @@ let
   libInputs = with pkgs; [ coreutils git jq gnused gnugrep gawk findutils ]
     ++ [ (if isLinux then pkgs.util-linux else pkgs.flock) ];
 
-  # Where the commands find their parts unless the environment says
-  # otherwise
-  defaults = ''
-    export CLAUDE_TICKETS_PLUGIN="''${CLAUDE_TICKETS_PLUGIN:-${plugin}}"
-    export CLAUDE_TICKETS_GRAPH_DIR="''${CLAUDE_TICKETS_GRAPH_DIR:-${graphSrc}}"
-  '';
+  # Where the commands find their parts, and the settings given as `env`
+  # (the home-manager module's), unless the environment says otherwise.
+  # Built in, so they apply in every shell, tmux window and service right
+  # after a switch, not only after the next login.
+  defaults = lib.concatStrings (lib.mapAttrsToList
+    (k: v: "export ${k}=\"\${${k}:-${lib.escape [ "\"" "\\" "\$" "`" ] (toString v)}}\"\n")
+    ({ CLAUDE_TICKETS_PLUGIN = plugin; CLAUDE_TICKETS_GRAPH_DIR = graphSrc; } // env));
 
   script = name: runtimeInputs: extraText: pkgs.writeShellApplication {
     inherit name;
@@ -47,7 +48,8 @@ let
 
   ticketGraph = script "ticket-graph" [ ] "";
   ticketWs = script "ticket-ws" [ pkgs.tmux ] "";
-  ticketStart = script "ticket-start" [ ticketWs ticketGraph pkgs.tmux ] "";
+  ticketAttach = script "ticket-attach" [ pkgs.tmux ] "";
+  ticketStart = script "ticket-start" [ ticketWs ticketGraph ticketAttach pkgs.tmux ] "";
   graphifyIndex = script "graphify-index" [ ticketGraph ] "";
 
   tools = {
@@ -56,7 +58,7 @@ let
     ticket-start = ticketStart;
     graphify-index = graphifyIndex;
     ticket-status = script "ticket-status" [ pkgs.tmux ] "";
-    ticket-attach = script "ticket-attach" [ pkgs.tmux ] "";
+    ticket-attach = ticketAttach;
     ticket-open = script "ticket-open" [ ] "";
     ticket-feedback = script "ticket-feedback" [ ticketStart ] "";
     # ticket-sync-mcp.sh (MCP client) and ticket-sync-jira.sh (the Jira

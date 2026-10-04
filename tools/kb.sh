@@ -50,6 +50,7 @@ name="$(basename "$vault")"
 # and ticket-ws ls skip it)
 dir="$work_root/.kb-$name"
 ensure_workspace "$dir" KB "$vault"
+trust_workspace "$dir"
 # Identifies this session's inbox/ drafts for /tickets:save
 session_id="kb-$name-$(date +%Y%m%d-%H%M)"
 

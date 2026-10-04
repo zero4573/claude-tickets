@@ -4,8 +4,21 @@
 { config, lib, pkgs, ... }:
 let
   cfg = config.programs.claude-tickets;
-  built = import ./tools.nix { inherit pkgs lib; };
   settingsFile = pkgs.writeText "claude-tickets-session-settings.json" (builtins.toJSON cfg.sessionSettings);
+  # The settings below, built into the commands as defaults (an exported
+  # variable still wins): they apply right after a switch, in every shell,
+  # tmux window or service, not only after the next login
+  env = lib.filterAttrs (_: v: v != null) {
+    CLAUDE_TICKETS_CLAUDE = if cfg.claude == "claude" then null else cfg.claude;
+    CLAUDE_TICKETS_SESSION_SETTINGS = if cfg.sessionSettings == { } then null else "${settingsFile}";
+    CLAUDE_TICKETS_MCP_CONFIG = cfg.mcpConfig;
+    CLAUDE_TICKETS_MCP_PREPARE = cfg.mcpPrepare;
+    CLAUDE_TICKETS_CONTAINER = cfg.container;
+    CLAUDE_TICKETS_SYSTEMD_SLICE = cfg.systemdSlice;
+    CLAUDE_TICKETS_EDITOR = cfg.editor;
+    OBSIDIAN_ROOT = config.programs.claude-tickets.obsidian.vaultRoot or null;
+  };
+  built = import ./tools.nix { inherit pkgs lib env; };
 in
 {
   options.programs.claude-tickets = {
@@ -72,15 +85,5 @@ in
 
   config = lib.mkIf cfg.enable {
     home.packages = [ cfg.package ];
-    home.sessionVariables = lib.filterAttrs (_: v: v != null) {
-      CLAUDE_TICKETS_CLAUDE = if cfg.claude == "claude" then null else cfg.claude;
-      CLAUDE_TICKETS_SESSION_SETTINGS = if cfg.sessionSettings == { } then null else "${settingsFile}";
-      CLAUDE_TICKETS_MCP_CONFIG = cfg.mcpConfig;
-      CLAUDE_TICKETS_MCP_PREPARE = cfg.mcpPrepare;
-      CLAUDE_TICKETS_CONTAINER = cfg.container;
-      CLAUDE_TICKETS_SYSTEMD_SLICE = cfg.systemdSlice;
-      CLAUDE_TICKETS_EDITOR = cfg.editor;
-      OBSIDIAN_ROOT = config.programs.claude-tickets.obsidian.vaultRoot or null;
-    };
   };
 }

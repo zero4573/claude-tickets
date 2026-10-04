@@ -590,6 +590,27 @@ write_session_settings() {
     > "$dir/.claude/settings.json"
 }
 
+# Marks a workspace as trusted in Claude Code's own config
+# (projects[<dir>].hasTrustDialogAccepted in ~/.claude.json, or
+# $CLAUDE_CONFIG_DIR/.claude.json), so a session the tools start there gets
+# straight to work instead of asking whether to trust the folder. Only for
+# workspaces these tools create: trust_workspace <dir>
+# shellcheck disable=SC2329 # shared helper; not every script uses it
+trust_workspace() {
+  local file="${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json" dir
+  dir="$(realpath "$1")"
+  [[ -s "$file" ]] || echo '{}' > "$file"
+  jq -e --arg d "$dir" '.projects[$d].hasTrustDialogAccepted == true' "$file" >/dev/null 2>&1 && return 0
+  (
+    flock 9
+    # In place, not mv: running sandboxes bind-mount this very file
+    jq --arg d "$dir" '.projects[$d].hasTrustDialogAccepted = true' "$file" > "$file.tickets-tmp" \
+      && cat "$file.tickets-tmp" > "$file"
+    rm -f "$file.tickets-tmp"
+  ) 9>"$file.tickets-lock" || warn "couldn't mark $dir as trusted in $file"
+  rm -f "$file.tickets-lock"
+}
+
 # The claude command a session runs, with the plugin (skills, role agents,
 # hooks) and the directories it works in: claude_session_cmd <array name>
 # <dir>... (each dir becomes an --add-dir). Uses $CLAUDE_TICKETS_CLAUDE.

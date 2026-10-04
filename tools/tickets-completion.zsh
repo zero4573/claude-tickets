@@ -35,8 +35,10 @@ case $service in
   ticket-feedback)
     _arguments \
       '(- *)'{-h,--help}'[show help]' \
+      '--no-attach[with one ticket, don'"'"'t switch to its window]' \
       '--force[also tickets marked ignore, or covered by an open lead]' \
       '--no-fetch[skip fetching the main clones first]' \
+      '--no-attach[with one ticket, don'"'"'t switch to its window]' \
       '*:ticket:_tickets_ids'
     ;;
   *)

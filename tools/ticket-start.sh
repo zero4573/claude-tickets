@@ -1,6 +1,6 @@
 usage() {
   cat <<'EOF2'
-Usage: ticket-start [--force] [--no-fetch] [--feedback] <ID>...
+Usage: ticket-start [--force] [--no-fetch] [--feedback] [--no-attach] <ID>...
        ticket-start --list [--all]
 
 Starts (or re-opens) one sandboxed Claude session for each ticket named,
@@ -19,11 +19,15 @@ vault's open tickets (zsh).
                   review feedback on your open PRs for the ticket (ticket-feedback
                   is a shorthand). A ticket whose window is already open gets
                   /tickets:pr-feedback typed into it.
+  --no-attach     with a single ID, don't switch to its window (by
+                  default ticket-start attaches when run in a terminal)
   --list          print the vault's open tickets, one per line:
                   <ID> <status> <summary>, tab-separated (what completion uses)
   --all           with --list: done and closed tickets too
 
 A workspace that already ran a session continues its last conversation.
+The workspace is marked as trusted in Claude Code, so the session starts
+without asking.
 Attach with ticket-attach <ID>, see all of them with ticket-status.
 EOF2
 }
@@ -33,6 +37,7 @@ fetch=1
 skill=work-ticket
 list=0
 list_all=""
+attach=1
 keys=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -40,6 +45,7 @@ while [[ $# -gt 0 ]]; do
     --no-fetch) fetch=0; shift ;;
     --feedback) skill=pr-feedback; shift ;;
     --list) list=1; shift ;;
+    --no-attach) attach=0; shift ;;
     --all) list_all=--all; shift ;;
     -h|--help) usage; exit 0 ;;
     -*) usage >&2; exit 1 ;;
@@ -119,6 +125,7 @@ for key in "${launch[@]}"; do
   [[ -f "$dir/.agent-state" ]] && resume=1
   ensure_workspace "$dir" "$key" "$vault"
   write_session_settings "$dir"
+  trust_workspace "$dir"
 
   cat > "$dir/CLAUDE.md" <<EOF
 # Ticket workspace: $key
@@ -191,3 +198,9 @@ EOF
   fi
   echo "ticket-start: $key started in $tmux_session$([[ "$resume" == 1 ]] && echo " (continuing its last session)") -- ticket-attach $key"
 done
+
+# One ticket from a terminal: go straight to its window
+if [[ "$attach" == 1 && ${#keys[@]} -eq 1 && -t 0 && -t 1 ]] \
+   && tmux list-windows -t "=$tmux_session" -F '#W' 2>/dev/null | grep -qxF "${keys[0]}"; then
+  exec ticket-attach "${keys[0]}"
+fi

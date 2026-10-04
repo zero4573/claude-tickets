@@ -115,7 +115,7 @@ like one bigger ticket:
    - **Not done:** add a follow-up in the ticket note's `## Follow-ups`:
      `- [ ] Follow up with <assignee> on [[<ID>]] (<status>): <what this
      ticket needs from it> #follow-up ➕ <today>`. The user tracks these
-     in the Tasks views. Mark one `[X]` with `✅` once it's no longer
+     in the Tasks views. Mark one `[x]` with `✅` once it's no longer
      blocking.
    - **If an open blocker stops real progress**, ask the user with
      AskUserQuestion:
@@ -197,13 +197,13 @@ subtask, tagged with the role that owns it:
 ```markdown
 - [ ] Clarify requirements #role/product-owner ➕ 2026-10-02
 - [/] Design order sync change #role/architect ➕ 2026-10-02
-- [X] Confirm repos, branches, versions #role/lead ➕ 2026-10-02 ✅ 2026-10-02
+- [x] Confirm repos, branches, versions #role/lead ➕ 2026-10-02 ✅ 2026-10-02
 ```
 
-- `[ ]` is todo, `[/]` is in progress, `[X]` is done.
+- `[ ]` is todo, `[/]` is in progress, `[x]` is done.
 - Add `➕ <created date>` when a line is created and `✅ <done date>` when
   it's finished. Use today's date from `date +%F`.
-- Mark a line `[/]` before its phase starts and `[X]` right after it ends.
+- Mark a line `[/]` before its phase starts and `[x]` right after it ends.
   Add subtasks under a phase as they emerge, e.g. one developer line per
   repo.
 - Set the note's `status` as you go: `triage`, then `in-progress`, with

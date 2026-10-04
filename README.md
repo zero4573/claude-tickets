@@ -66,8 +66,10 @@ Then set up a vault with `vault-init <name>` (it creates it under
 
 ## Configuration
 
-Everything is optional. The home-manager module sets these from
-`programs.claude-tickets.*`; otherwise export them.
+Everything is optional. The home-manager module builds these into the
+commands from `programs.claude-tickets.*` (so they apply right after a
+switch, in every shell and tmux window); an exported variable still wins.
+Without the module, export them.
 
 | Variable | What |
 |---|---|
@@ -146,7 +148,7 @@ across providers or owners. `ticket-ws repos` lists them.
 | `vault-default [<vault>\|--pick\|--unset]` | The vault every other command acts on. Switch it to work on another vault. |
 | `ticket-sync [--source <name>] [--full]` | Pull your open tickets from each enabled source and reconcile the notes, unsupervised. For Jira, it finds and writes only what changed, without a model; Claude only converts HTML-only descriptions or comments. |
 | `ticket-new [--type <t>] "<summary>"` | Create a manual ticket `MAN-<n>`. |
-| `ticket-start [--force] [--feedback] <ID>...` | Open one tmux window per named ticket (Tab completes the vault's open tickets; `--list` prints them; an ID that isn't in the vault's `tickets/` stops it before anything starts), each running `/tickets:work-ticket <ID>` (or `/tickets:pr-feedback` with `--feedback`). Re-running continues the last conversation. |
+| `ticket-start [--force] [--feedback] [--no-attach] <ID>...` | Open one tmux window per named ticket, in a workspace marked as trusted in Claude Code so the session starts right away (with one ID it then switches to that window; `--no-attach` doesn't) (Tab completes the vault's open tickets; `--list` prints them; an ID that isn't in the vault's `tickets/` stops it before anything starts), each running `/tickets:work-ticket <ID>` (or `/tickets:pr-feedback` with `--feedback`). Re-running continues the last conversation. |
 | `ticket-feedback <ID>...` | Shorthand for `ticket-start --feedback`: apply the review comments on your open Bitbucket PRs. |
 | `ticket-status` | Every session: `needs-input` / `idle` / `working` / `exited`, window, source, status, dirty repos. |
 | `ticket-attach <ID>` | Jump to a ticket's window (Tab completes the open ones). |
