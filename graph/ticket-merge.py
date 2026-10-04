@@ -58,7 +58,7 @@ def log(msg: str) -> None:
 
 
 def slug_of(*parts: str) -> str:
-    """<provider>-<owner>-<repo>, kebab-case: same as repo_slug in tickets-lib.sh."""
+    """<provider>-<owner>-<repo>, kebab-case: same as repo.Slug in internal/repo."""
     return re.sub(r"[^a-z0-9]+", "-", "-".join(parts).lower()).strip("-")
 
 
@@ -114,7 +114,7 @@ def ensure_watchers() -> None:
             watchers.pop(path).terminate()
             log(f"stopped watching {path}")
     for path in current:
-        # kb-repo graph asks for a rebuild by touching this file
+        # ct kb repo graph asks for a rebuild by touching this file
         flag = path / "graphify-out" / ".rebuild"
         if flag.exists():
             flag.unlink()

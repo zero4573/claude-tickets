@@ -23,6 +23,19 @@ var stubs = map[string]string{
 echo "$@" >> "$WORK/calls/tmux"
 case "$1" in
   list-windows) [ -f "$WORK/tmux-windows" ] && cat "$WORK/tmux-windows" || exit 1 ;;
+  has-session) [ -f "$WORK/tmux-windows" ] ;;
+esac
+`,
+	// claude: one line of arguments per run (and its cwd); with -p, a
+	// stream-json conversation
+	"claude": `#!/bin/sh
+echo "$@" >> "$WORK/calls/claude"
+pwd >> "$WORK/calls/claude-cwd"
+case " $* " in
+  *" -p "*)
+    echo '{"type":"system","subtype":"init"}'
+    echo '{"type":"assistant","message":{"content":[{"type":"text","text":"Looking."},{"type":"tool_use","name":"mcp__graphify__query_graph","input":{"query":"billing\nflow"}}]}}'
+    echo '{"type":"result","is_error":false,"result":"It flows."}' ;;
 esac
 `,
 	"editor": `#!/bin/sh
@@ -104,6 +117,14 @@ func TestScripts(t *testing.T) {
 					return err
 				}
 			}
+			plugin := filepath.Join(work, "plugin")
+			if err := os.MkdirAll(filepath.Join(plugin, ".claude-plugin"), 0o755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(plugin, ".claude-plugin", "plugin.json"), []byte(`{"name": "tickets"}`), 0o644); err != nil {
+				return err
+			}
+			env.Setenv("CLAUDE_TICKETS_PLUGIN", plugin)
 			for name, body := range stubs {
 				if err := os.WriteFile(filepath.Join(stubDir, name), []byte(body), 0o755); err != nil {
 					return err

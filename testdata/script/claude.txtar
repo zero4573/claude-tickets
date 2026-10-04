@@ -1,0 +1,22 @@
+# ct claude: claude with the vault as its knowledge base
+mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/projects/github-acme-billing
+cp empty home/Documents/Obsidian/a/projects/github-acme-billing/github-acme-billing.md
+! exec ct claude
+stderr 'has no AGENTS.md'
+cp empty home/Documents/Obsidian/a/AGENTS.md
+exec git init -q home/Projects/github/acme/billing
+cd home/Projects/github/acme/billing
+exec ct claude --resume abc
+grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --append-system-prompt # Knowledge base' $WORK/calls/claude
+grep 'This repo is `github-acme-billing`. Its notes are in `projects/github-acme-billing/`' $WORK/calls/claude
+grep ' --resume abc$' $WORK/calls/claude
+# elsewhere: from the origin, here with no notes yet
+exec git init -q $WORK/elsewhere
+exec git -C $WORK/elsewhere remote add origin git@github.com:acme/web.git
+cd $WORK/elsewhere
+exec ct claude
+grep 'This repo is `github-acme-web`. It has no notes yet' $WORK/calls/claude
+exec ct claude --help
+stdout 'Runs claude in the current repo'
+
+-- empty --

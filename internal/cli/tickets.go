@@ -220,51 +220,6 @@ func newTicket(vaultDir, summary, typ, priority string) (string, error) {
 	return path, os.WriteFile(path, []byte(out.String()), 0o644)
 }
 
-// --- ct start / ct feedback ---
-
-func startCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "start [--force] [--no-fetch] [--feedback] [--no-attach] <ID>... | --list [--all]",
-		Short: "Start (or re-open) one session per named ticket",
-		Long: `Starts (or re-opens) one Claude session for each ticket named, from the
-current vault, each in its own window of the vault's tmux session
-(tickets-<vault>), running /tickets:work-ticket <ID> in its workspace.
-With one ID it then switches to that window (--no-attach doesn't).
---list prints the vault's open tickets (--all: done and closed too).
-Run ct start --help for the full help.`,
-		DisableFlagParsing: true,
-		ValidArgsFunction:  completeIDs(openTickets),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			list, all := false, false
-			for _, a := range args {
-				switch a {
-				case "--list":
-					list = true
-				case "--all":
-					all = true
-				}
-			}
-			if !list {
-				return runScript("ticket-start", args)
-			}
-			ctx, err := vault.Require()
-			if err != nil {
-				return err
-			}
-			printTickets(note.List(ctx.Vault, all))
-			return nil
-		},
-	}
-	return cmd
-}
-
-func feedbackCmd() *cobra.Command {
-	cmd := scriptCmd("feedback [--force] [--no-fetch] [--no-attach] <ID>...",
-		"ct start --feedback: apply the review feedback on your open PRs", "ticket-start", "--feedback")
-	cmd.ValidArgsFunction = completeIDs(openTickets)
-	return cmd
-}
-
 // --- ct status ---
 
 func statusCmd() *cobra.Command {

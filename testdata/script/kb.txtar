@@ -1,0 +1,25 @@
+# ct kb: a session in ~/work/<vault>/.kb-<vault>
+mkdir home/Documents/Obsidian/a/.obsidian home/Projects
+exec ct kb --no-fetch
+grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects --mcp-config .*/.kb-a/.claude/graph-mcp.json --permission-mode auto$' calls/claude
+grep '/home/work/a/.kb-a$' calls/claude-cwd
+grep '"id": "KB"' home/work/a/.kb-a/workspace.json
+grep '"Bash\(git commit:\*\)"' home/work/a/.kb-a/.claude/settings.json
+grep '^- Session id .*\n  `kb-a-[0-9]{8}-[0-9]{4}`' home/work/a/.kb-a/CLAUDE.md
+grep '"hasTrustDialogAccepted": true' home/.claude.json
+exec ct status
+! stdout KB
+
+exec ct kb --no-fetch --continue how does billing work
+grep '--continue /tickets:kb how does billing work$' calls/claude
+
+# --print: one answer, progress shown and logged
+exec ct kb --no-fetch -p 'what calls billing?'
+grep ' -p /tickets:kb what calls billing\? --output-format stream-json --verbose$' calls/claude
+stdout '^Looking.$'
+stdout '^  → query_graph  billing flow$'
+stdout '^It flows.$'
+grep '=== kb .* vault=.*/Obsidian/a: what calls billing\?' home/.local/state/kb-a.log
+grep '^  → query_graph' home/.local/state/kb-a.log
+! exec ct kb --print
+stderr '--print needs a question'

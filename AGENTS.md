@@ -16,7 +16,8 @@ move.
 ## Conventions
 
 - **Sessions are plain Claude Code.** Commands start sessions only through
-  `claude_session_cmd` (tickets-lib.sh) with standard flags
+  `internal/session` (`session.Command`; `claude_session_cmd` in
+  tickets-lib.sh for ct sync until it's ported) with standard flags
   (`--plugin-dir`, `--add-dir`, `--mcp-config`, `--settings`) and the
   workspace's `.claude/settings.json`. Never add flags or knowledge of a
   particular sandbox or proxy: anything environment-specific is an
@@ -24,13 +25,14 @@ move.
   in the README's Configuration table and the home-manager module
   (`nix/home.nix`).
 - **No workflow opinions in the defaults.** Only what the ticket system
-  needs to work goes in `write_session_settings` (today: main clones and
+  needs to work goes in `session.WriteSettings` (today: main clones and
   the graph cache are never edited). Everything else (git rules, MCP cost
   guards) is the user's, through `CLAUDE_TICKETS_SESSION_SETTINGS`, and
   recommended in the README.
 - **Plugin names are namespaced:** skills are `/tickets:<skill>`, agents
   `tickets:<agent>`. Keep every reference (skills, tools, scaffold, README)
-  in that form.
+  in that form. The plugin's hooks run `ct hook ...` (the packages point
+  them at an absolute `ct`).
 - **One command, `ct` (Go, `cmd/ct` + `internal/`), being ported from
   bash.** Ported subcommands live in `internal/cli`; the rest run their
   bash script through `scriptCmd` (libexec/claude-tickets: each is

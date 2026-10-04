@@ -1,0 +1,83 @@
+# ct start: workspace, settings, trust, graph MCP, one tmux window per ticket
+mkdir home/Documents/Obsidian/a/.obsidian home/Projects/github/acme/x/.git
+mkdir home/Documents/Obsidian/a/tickets/MAN-1 home/Documents/Obsidian/a/tickets/MAN-2 home/Documents/Obsidian/a/tickets/MAN-3
+cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+cp man-2.md home/Documents/Obsidian/a/tickets/MAN-2/MAN-2.md
+cp man-3.md home/Documents/Obsidian/a/tickets/MAN-3/MAN-3.md
+expand user-settings.json
+env CLAUDE_TICKETS_SESSION_SETTINGS=$WORK/user-settings.json
+
+exec ct start --no-fetch MAN-1
+stdout '^ct start: MAN-1 started in tickets-a -- ct attach MAN-1$'
+grep '^new-session -d -s tickets-a -n MAN-1 -c .*/home/work/a/MAN-1 bash -c env CLAUDE_TICKETS_VAULT=.*/Obsidian/a claude --plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects --add-dir=.*/home/Projects/github/acme/x/.git --add-dir=.*/graphify --mcp-config .*/MAN-1/.claude/graph-mcp.json --permission-mode auto ./tickets:work-ticket MAN-1.; echo; read -rp .Session ended' calls/tmux
+grep '"id": "MAN-1"' home/work/a/MAN-1/workspace.json
+grep '"vault": ".*/Obsidian/a"' home/work/a/MAN-1/workspace.json
+grep '^- Ticket: `MAN-1` \(source: `manual`\)$' home/work/a/MAN-1/CLAUDE.md
+grep 'ct ws sign MAN-1' home/work/a/MAN-1/CLAUDE.md
+# settings: the main clones and the cache are read-only, merged with the user's
+grep '"Edit\(//.*/home/Projects/\*\*\)"' home/work/a/MAN-1/.claude/settings.json
+grep '"Write\(//.*/home/.cache/claude-tickets/\*\*\)"' home/work/a/MAN-1/.claude/settings.json
+grep '"Bash\(git push:\*\)"' home/work/a/MAN-1/.claude/settings.json
+grep '"defaultMode": "auto"' home/work/a/MAN-1/.claude/settings.json
+# trusted, and the graph's MCP server
+grep '"hasTrustDialogAccepted": true' home/.claude.json
+grep '"keep": 1' home/.claude.json
+grep '"command": ".*ct' home/work/a/MAN-1/.claude/graph-mcp.json
+grep '"mcp",' home/work/a/MAN-1/.claude/graph-mcp.json
+
+# open already: not another window; feedback is typed into it
+cp windows tmux-windows
+exec ct start --no-fetch MAN-1
+stderr 'MAN-1: already has a window in tmux session .tickets-a., not starting another'
+exec ct feedback --no-fetch MAN-1
+stdout 'MAN-1 already open, sent /tickets:pr-feedback MAN-1 to its window'
+grep '^send-keys -t =tickets-a:MAN-1 /tickets:pr-feedback MAN-1 Enter$' calls/tmux
+rm tmux-windows
+
+# a workspace that ran a session continues it
+cp state.json home/work/a/MAN-1/.agent-state
+exec ct start --no-fetch MAN-1
+stdout 'started in tickets-a \(continuing its last session\)'
+grep 'new-session .* --permission-mode auto --continue ./tickets:work-ticket MAN-1.' calls/tmux
+
+# ignored, covered by an open lead, unknown
+! exec ct start --no-fetch MAN-2
+stderr 'MAN-2: marked ignore: true \(not mine\), skipping'
+! exec ct start --no-fetch MAN-3
+stderr 'MAN-3: covered by MAN-1, so it.s worked there: ct start MAN-1'
+exec ct start --no-fetch --force MAN-3
+stdout 'MAN-3 started'
+! exec ct start MAN-1 MAN-9
+stderr 'not a ticket of the a vault: MAN-9'
+! exec ct start nope
+stderr 'not a ticket ID'
+! exec ct start
+stderr 'name at least one ticket'
+
+-- man-1.md --
+---
+summary: First
+status: in-progress
+source: manual
+---
+-- man-2.md --
+---
+summary: Second
+status: new
+ignore: true
+ignore-reason: not mine
+---
+-- man-3.md --
+---
+summary: Third
+status: new
+covered-by: "[[MAN-1]]"
+---
+-- user-settings.json --
+{"permissions": {"deny": ["Bash(git push:*)"], "defaultMode": "auto"}}
+-- windows --
+MAN-1
+-- state.json --
+{"state": "exited", "reason": "", "ts": "2026-10-01T10:00:00-04:00"}
+-- home/.claude.json --
+{"keep": 1, "projects": {}}

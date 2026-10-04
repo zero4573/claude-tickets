@@ -1,0 +1,53 @@
+# ct kb repo: exploration clones in a kb workspace
+mkdir home/Documents/Obsidian/a/.obsidian home/work/a/.kb-a
+cp kb.json home/work/a/.kb-a/workspace.json
+expand gitconfig
+exec git init -q -b main seed
+exec git -C seed add -A
+exec git -C seed commit -q -m init
+exec git -C seed branch topic
+exec git clone -q --bare seed remote/acme/billing.git
+exec git clone -q git@github.com:acme/billing.git home/Projects/github/acme/billing
+
+! exec ct kb repo ls
+stderr 'not in a kb session'
+cd home/work/a/.kb-a
+exec ct kb repo checkout github-acme-billing
+stdout 'github-acme-billing at main \([0-9a-f]+ .* init\)'
+exists github-acme-billing/README.md
+grep '"mode": "explore"' workspace.json
+exec ct kb repo checkout github-acme-billing topic
+stdout 'at topic'
+exec git -C github-acme-billing rev-parse --abbrev-ref HEAD
+stdout '^topic$'
+exec ct kb repo ls
+stdout '^REPO +AT +BEHIND +COMMIT$'
+stdout '^github-acme-billing +topic +0 +[0-9a-f]+ .* init$'
+cp $WORK/seed/README.md github-acme-billing/edit.txt
+exec git -C github-acme-billing add edit.txt
+! exec ct kb repo checkout github-acme-billing main
+stderr 'has local edits'
+exec ct kb repo checkout --force github-acme-billing main
+! exists github-acme-billing/edit.txt
+! exec ct kb repo checkout github-acme-billing nope
+stderr 'no branch, tag or commit .nope.'
+cd github-acme-billing
+exec ct kb repo graph github-acme-billing
+exists graphify-out/.rebuild
+exec ct kb repo fetch
+stdout 'github-acme-billing fetched'
+cd ..
+exec ct kb repo reset --all
+stdout 'removed github-acme-billing.s exploration clone'
+! exists github-acme-billing
+! grep explore workspace.json
+
+-- kb.json --
+{"id": "KB", "repos": []}
+-- gitconfig --
+[url "$WORK/remote/"]
+	insteadOf = git@github.com:
+[advice]
+	detachedHead = false
+-- seed/README.md --
+# billing

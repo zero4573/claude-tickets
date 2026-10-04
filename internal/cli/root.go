@@ -36,6 +36,7 @@ vault (ct vault default; else the only vault).`,
 		kbCmd(),
 		claudeCmd(),
 		layoutCmd(),
+		hookCmd(),
 	)
 	return root
 }

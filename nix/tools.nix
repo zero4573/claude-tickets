@@ -6,14 +6,18 @@
 let
   inherit (pkgs.stdenv.hostPlatform) isLinux;
 
-  # The Claude Code plugin (skills, role agents, hooks), with the agent-state
-  # hook given its tools
+  # The Claude Code plugin (skills, role agents, hooks). Its hooks run
+  # `ct hook ...`: here the bare binary (no cycle with the ct wrapper,
+  # which points at this plugin), with notify-send for questions
+  ctHook = pkgs.runCommand "ct-hook" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
+    makeWrapper ${lib.getExe ctBin} $out/bin/ct \
+      ${lib.optionalString isLinux "--suffix PATH : ${lib.makeBinPath [ pkgs.libnotify ]}"}
+  '';
   plugin = pkgs.runCommand "claude-tickets-plugin" { } ''
     cp -r ${../plugin} $out
     chmod -R u+w $out
-    substituteInPlace $out/hooks/agent-state \
-      --replace-fail '#@PATH@' 'export PATH=${lib.makeBinPath ([ pkgs.jq pkgs.coreutils ] ++ lib.optional isLinux pkgs.libnotify)}:$PATH'
-    patchShebangs $out/hooks
+    substituteInPlace $out/hooks/hooks.json \
+      --replace-fail '"ct hook ' '"${ctHook}/bin/ct hook '
   '';
 
   # Sources of the graphify image (ct graph build)
@@ -73,14 +77,10 @@ let
   # ran them
   ct' = ctBin;
   scripts = {
-    ticket-start = script "ticket-start" [ ct' pkgs.tmux ] "";
     # ticket-sync-mcp.sh (MCP client) and ticket-sync-jira.sh (the Jira
     # planner and applier) are function libraries for it
     ticket-sync = script "ticket-sync" ([ pkgs.curl ct' ] ++ notify)
       (builtins.readFile ../tools/ticket-sync-mcp.sh + builtins.readFile ../tools/ticket-sync-jira.sh);
-    claude-vault = script "claude-vault" [ ] "";
-    kb = script "kb" [ ct' ] "";
-    kb-repo = script "kb-repo" [ ] "";
     vault-configure = script "vault-configure" [ pkgs.fzf ] "";
     vault-init = script "vault-init" [ pkgs.fzf ct' ] ''
       export VAULT_SCAFFOLD=${scaffold}

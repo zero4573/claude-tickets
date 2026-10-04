@@ -2,27 +2,27 @@
   "hooks": {
     "Notification": [
       { "matcher": "permission_prompt|elicitation_dialog",
-        "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state\" needs-input" }] }
+        "hooks": [{ "type": "command", "command": "ct hook agent-state needs-input" }] }
     ],
     "PreToolUse": [
       { "matcher": "AskUserQuestion",
-        "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state\" needs-input" }] }
+        "hooks": [{ "type": "command", "command": "ct hook agent-state needs-input" }] }
     ],
     "PostToolUse": [
       { "matcher": "AskUserQuestion",
-        "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state\" working" }] }
+        "hooks": [{ "type": "command", "command": "ct hook agent-state working" }] }
     ],
     "UserPromptSubmit": [
       { "matcher": "",
-        "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state\" working" }] }
+        "hooks": [{ "type": "command", "command": "ct hook agent-state working" }] }
     ],
     "Stop": [
       { "matcher": "",
-        "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state\" idle" }] }
+        "hooks": [{ "type": "command", "command": "ct hook agent-state idle" }] }
     ],
     "SessionEnd": [
       { "matcher": "",
-        "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state\" exited" }] }
+        "hooks": [{ "type": "command", "command": "ct hook agent-state exited" }] }
     ]
   }
 }

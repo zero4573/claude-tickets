@@ -100,70 +100,6 @@ valid_key() {
   [[ "$1" =~ ^[A-Z][A-Z0-9_]*(-[A-Z0-9]+)+$ ]]
 }
 
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-kebab() {
-  tr '[:upper:]' '[:lower:]' <<< "$1" | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
-}
-
-# Parses a git remote URL into "<provider>\t<owner>\t<repo>" (nothing if it
-# isn't a hosted remote):
-#   bitbucket  Bitbucket Server/DC (/scm/<key>/<repo>, ssh :7999/<key>/<repo>;
-#              owner = project key, upper-cased) or Cloud (bitbucket.org;
-#              owner = workspace)
-#   github     github.com or a GitHub Enterprise host (owner = user/org)
-#   gitlab     gitlab hosts (owner = group, subgroups joined with -)
-#   otherwise  the host name, kebab-cased (owner = the path before the repo)
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-remote_identity() {
-  local url="$1" rest host path provider owner repo server=0
-  url="${url%/}"
-  url="${url%.git}"
-  case "$url" in
-    *://*)
-      rest="${url#*://}"
-      rest="${rest#*@}"
-      host="${rest%%/*}"
-      path="${rest#*/}"
-      ;;
-    *@*:*)
-      rest="${url#*@}"
-      host="${rest%%:*}"
-      path="${rest#*:}"
-      ;;
-    *) return 0 ;;
-  esac
-  [[ "$path" != "$rest" && -n "$path" ]] || return 0
-  [[ "$host" == *:7999 ]] && server=1
-  host="$(tr '[:upper:]' '[:lower:]' <<< "${host%%:*}")"
-  if [[ "$path" == scm/* ]]; then
-    path="${path#scm/}"
-    server=1
-  fi
-  case "$host" in
-    bitbucket.org) provider=bitbucket ;;
-    *bitbucket*) provider=bitbucket; server=1 ;;
-    *github*) provider=github ;;
-    *gitlab*) provider=gitlab ;;
-    *) provider="$(kebab "$host")" ;;
-  esac
-  [[ "$server" == 1 ]] && provider=bitbucket
-  repo="${path##*/}"
-  owner="${path%/*}"
-  [[ -n "$repo" && -n "$owner" && "$owner" != "$path" ]] || return 0
-  owner="${owner//\//-}"
-  [[ "$provider" == bitbucket && "$host" != bitbucket.org ]] \
-    && owner="$(tr '[:lower:]' '[:upper:]' <<< "$owner")"
-  printf '%s\t%s\t%s\n' "$provider" "$owner" "$repo"
-}
-
-# The repo's slug, used wherever the vault names a repo (projects/<slug>/,
-# tags, graph tags, worktree folders): <provider>-<owner>-<repo>, kebab-case.
-# Takes "<provider>/<owner>/<repo>" (a main clone's path under ~/Projects).
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-repo_slug() {
-  kebab "${1//\//-}"
-}
-
 # Main clones under $projects_root, as <provider>/<owner>/<repo>
 # shellcheck disable=SC2329 # shared helper; not every script uses it
 list_main_clones() {
@@ -173,24 +109,6 @@ list_main_clones() {
     g="${g%/.git}"
     echo "${g#"$projects_root"/}"
   done
-}
-
-# Resolves a repo given as a slug or as <provider>/<owner>/<repo> to the
-# latter; fails if no such main clone exists
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-resolve_repo() {
-  local spec="$1" r
-  if [[ "$spec" == */*/* && -d "$projects_root/$spec/.git" ]]; then
-    echo "$spec"
-    return 0
-  fi
-  while IFS= read -r r; do
-    if [[ "$(repo_slug "$r")" == "$spec" ]]; then
-      echo "$r"
-      return 0
-    fi
-  done < <(list_main_clones)
-  return 1
 }
 
 # Every vault: a directory under $obsidian_root holding .obsidian/
@@ -349,47 +267,6 @@ ticket_note() {
   echo "$1/tickets/$2/$2.md"
 }
 
-# The vault's tickets, one "<ID>\t<status>\t<summary>" line each (status
-# gets ", ignored" when the note sets ignore: true), sorted by ID; done and
-# closed tickets only with --all: list_tickets <vault> [--all]. One awk pass
-# over every note's frontmatter (shell completion runs it on each Tab).
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-list_tickets() {
-  local vault="$1" all="${2:-}" d key notes=()
-  for d in "$vault"/tickets/*/; do
-    key="$(basename "$d")"
-    valid_key "$key" && [[ -f "$d$key.md" ]] && notes+=("$d$key.md")
-  done
-  [[ ${#notes[@]} -gt 0 ]] || return 0
-  awk -v all="$all" '
-    function val() { v = $0; sub(/^[^:]*:[ \t]*/, "", v); gsub(/^["\x27]|["\x27][ \t]*$/, "", v); return v }
-    BEGINFILE { key = FILENAME; sub(/.*\//, "", key); sub(/\.md$/, "", key)
-                status = ""; summary = ""; ignore = ""; fm = 0 }
-    FNR == 1 { if ($0 == "---") { fm = 1; next } else nextfile }
-    fm && $0 == "---" { nextfile }
-    fm && /^status:/ { status = val() }
-    fm && /^summary:/ { summary = val() }
-    fm && /^ignore:/ { ignore = val() }
-    ENDFILE {
-      if (all == "--all" || (status != "done" && status != "closed")) {
-        if (ignore == "true") status = status ", ignored"
-        gsub(/\t/, " ", summary)
-        print key "\t" (status == "" ? "-" : status) "\t" summary
-      }
-    }' "${notes[@]}" | sort
-}
-
-# True when the ticket note sets ignore: true and any ignore-until date
-# hasn't passed yet
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-ticket_ignored() {
-  local note="$1" ignore until
-  ignore="$(frontmatter_get "$note" ignore)"
-  [[ "$ignore" == true ]] || return 1
-  until="$(frontmatter_get "$note" ignore-until)"
-  [[ -z "$until" || ! "$until" < "$(date +%F)" ]]
-}
-
 # Headless runs (claude -p --output-format stream-json --verbose): turns the
 # event stream on stdin into readable progress as it happens. The agent's
 # text as it writes it, one line per tool call (with its key argument), and
@@ -480,123 +357,6 @@ json_update() {
     jq "$@" "$file" > "$file.tmp"
     mv "$file.tmp" "$file"
   ) 9>"$file.lock"
-}
-
-# A session workspace's workspace.json (~/work/<ID>, ~/work/.kb-<vault>):
-# ensure_workspace <dir> <id> <vault>. Keeps the repos already recorded.
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-ensure_workspace() {
-  local dir="$1" id="$2" vault="${3:-}" file="$1/workspace.json"
-  mkdir -p "$dir"
-  [[ -f "$file" ]] || jq -n --arg id "$id" '{id: $id, repos: []}' > "$file"
-  # shellcheck disable=SC2016 # a jq filter
-  [[ -z "$vault" ]] || json_update "$file" --arg v "$vault" '.vault = $v'
-}
-
-# Upserts a repo entry (by slug) into a workspace.json:
-# workspace_put <file> <clone> <path> <base> <branch> <mode> [<targetVersion>]
-# (clone = <provider>/<owner>/<repo>; an empty targetVersion keeps the old one)
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-workspace_put() {
-  local file="$1" clone="$2" provider owner repo
-  provider="${clone%%/*}"
-  owner="${clone#*/}"
-  repo="${owner#*/}"
-  owner="${owner%%/*}"
-  # shellcheck disable=SC2016 # a jq filter
-  json_update "$file" --arg provider "$provider" --arg owner "$owner" --arg repo "$repo" \
-    --arg slug "$(repo_slug "$clone")" --arg path "$3" --arg base "$4" --arg branch "$5" \
-    --arg mode "$6" --arg version "${7:-}" '
-    .repos |= (map(select(.slug != $slug)) + [{
-      provider: $provider, owner: $owner, repo: $repo, slug: $slug,
-      path: $path, base: $base, branch: $branch, mode: $mode,
-      targetVersion: (if $version == "" then ((.[] | select(.slug == $slug) | .targetVersion) // null) else $version end)
-    }])'
-}
-
-# A shared clone of a main clone (git alternates: it borrows the main clone's
-# objects and writes nothing there), with the main clone's remote-tracking
-# refs and tags as its own and origin pointing at the real remote:
-# shared_clone <main> <dest>
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-shared_clone() {
-  git clone --quiet --shared --no-checkout "$1" "$2"
-  shared_clone_refresh "$1" "$2"
-  git -C "$2" remote set-url origin "$(git -C "$1" remote get-url origin)"
-  seed_graph "$1" "$2"
-}
-
-# Re-reads origin's branches and tags from the main clone (local, no
-# credentials); --prune drops the refs the clone made of its local branches
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-shared_clone_refresh() {
-  git -C "$2" fetch --quiet --prune "$1" \
-    '+refs/remotes/origin/*:refs/remotes/origin/*' '+refs/tags/*:refs/tags/*'
-}
-
-# Seeds a new checkout's code graph from its main clone, so graphify only
-# re-extracts what differs. Only the current graph, manifest and cache, not
-# graphify's dated snapshots.
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-seed_graph() {
-  local src="$1/graphify-out" dest="$2/graphify-out" f
-  [[ -d "$src" && ! -e "$dest" ]] || return 0
-  mkdir -p "$dest"
-  for f in graph.json manifest.json cache; do
-    [[ -e "$src/$f" ]] && cp -r "$src/$f" "$dest/"
-  done
-  return 0
-}
-
-# A session workspace's .claude/settings.json, which Claude reads as the
-# project settings: write_session_settings <dir> [<deny rule>...]
-#  * what the ticket system needs: the main clones are read-only (worktrees
-#    exist so they stay untouched), and so is the graph image cache
-#  * the given deny rules (e.g. kb's), and
-#  * $CLAUDE_TICKETS_SESSION_SETTINGS, your own settings (see the README),
-#    merged in: arrays concatenated, objects merged
-# Regenerated on every start.
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-write_session_settings() {
-  local dir="$1" extra="{}" rules=() p
-  shift
-  for p in "$projects_root" "$cache_dir"; do
-    rules+=("Edit(/$p/**)" "Write(/$p/**)" "NotebookEdit(/$p/**)")
-  done
-  if [[ -n "${CLAUDE_TICKETS_SESSION_SETTINGS:-}" ]]; then
-    extra="$(jq -c . "$CLAUDE_TICKETS_SESSION_SETTINGS" 2>/dev/null)" \
-      || die "CLAUDE_TICKETS_SESSION_SETTINGS ($CLAUDE_TICKETS_SESSION_SETTINGS) isn't a readable JSON file"
-  fi
-  mkdir -p "$dir/.claude"
-  # shellcheck disable=SC2016 # a jq filter
-  jq -n --argjson extra "$extra" --args '
-    def merge(a; b): if (a | type) == "object" and (b | type) == "object"
-      then reduce (b | keys_unsorted[]) as $k (a; .[$k] = merge(a[$k]; b[$k]))
-      elif (a | type) == "array" and (b | type) == "array" then (a + b | unique)
-      elif b == null then a else b end;
-    merge({permissions: {deny: $ARGS.positional}}; $extra)' "${rules[@]}" "$@" \
-    > "$dir/.claude/settings.json"
-}
-
-# Marks a workspace as trusted in Claude Code's own config
-# (projects[<dir>].hasTrustDialogAccepted in ~/.claude.json, or
-# $CLAUDE_CONFIG_DIR/.claude.json), so a session the tools start there gets
-# straight to work instead of asking whether to trust the folder. Only for
-# workspaces these tools create: trust_workspace <dir>
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-trust_workspace() {
-  local file="${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json" dir
-  dir="$(realpath "$1")"
-  [[ -s "$file" ]] || echo '{}' > "$file"
-  jq -e --arg d "$dir" '.projects[$d].hasTrustDialogAccepted == true' "$file" >/dev/null 2>&1 && return 0
-  (
-    flock 9
-    # In place, not mv: running sandboxes bind-mount this very file
-    jq --arg d "$dir" '.projects[$d].hasTrustDialogAccepted = true' "$file" > "$file.tickets-tmp" \
-      && cat "$file.tickets-tmp" > "$file"
-    rm -f "$file.tickets-tmp"
-  ) 9>"$file.tickets-lock" || warn "couldn't mark $dir as trusted in $file"
-  rm -f "$file.tickets-lock"
 }
 
 # The claude command a session runs, with the plugin (skills, role agents,

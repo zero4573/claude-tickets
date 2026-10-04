@@ -110,4 +110,4 @@ vault-configure "$vault" "${configure_flags[@]}"
 if [[ ! -d "$obs/plugins/obsidian-tasks-plugin" ]]; then
   warn "the Tasks community plugin isn't installed here: add \"$(basename "$vault")\" to programs.claude-tickets.obsidian.vaults (home-manager), or install it from Obsidian"
 fi
-echo "vault-init: done. Next (on the default vault; vault-default to switch): ticket-sync, ticket-new, ticket-start <ID>"
+echo "ct vault init: done. Next (on the default vault; ct vault default to switch): ct sync, ct new, ct start <ID>"

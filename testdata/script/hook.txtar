@@ -1,0 +1,35 @@
+# ct hook agent-state: what a session is doing, for ct status
+mkdir home/work/a/MAN-1/repo/sub
+cp ws.json home/work/a/MAN-1/workspace.json
+expand ask.json prompt.json notify.json outside.json
+stdin ask.json
+exec ct hook agent-state needs-input
+grep '"state": "needs-input"' home/work/a/MAN-1/.agent-state
+grep '"reason": "Which base branch\?"' home/work/a/MAN-1/.agent-state
+grep '^ *"ts": "20' home/work/a/MAN-1/.agent-state
+stdin notify.json
+exec ct hook agent-state needs-input
+grep '"reason": "Claude needs your permission"' home/work/a/MAN-1/.agent-state
+stdin prompt.json
+exec ct hook agent-state working
+grep '"state": "working"' home/work/a/MAN-1/.agent-state
+grep '"reason": ""' home/work/a/MAN-1/.agent-state
+# outside a workspace, or garbage: nothing, and never a failure
+stdin outside.json
+exec ct hook agent-state idle
+stdin garbage.txt
+exec ct hook agent-state idle
+grep '"state": "working"' home/work/a/MAN-1/.agent-state
+
+-- ws.json --
+{"id": "MAN-1", "repos": []}
+-- ask.json --
+{"cwd": "$WORK/home/work/a/MAN-1/repo/sub", "hook_event_name": "PreToolUse", "tool_input": {"questions": [{"question": "Which base branch?"}]}}
+-- notify.json --
+{"cwd": "$WORK/home/work/a/MAN-1", "hook_event_name": "Notification", "message": "Claude needs your permission"}
+-- prompt.json --
+{"cwd": "$WORK/home/work/a/MAN-1/repo", "hook_event_name": "UserPromptSubmit"}
+-- outside.json --
+{"cwd": "$WORK/home"}
+-- garbage.txt --
+not json

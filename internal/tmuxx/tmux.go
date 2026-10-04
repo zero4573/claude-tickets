@@ -45,3 +45,39 @@ func Attach(session, name string) error {
 	}
 	return execTmux("attach-session", "-t", "="+session)
 }
+
+// HasSession reports whether the tmux session exists.
+func HasSession(session string) bool {
+	return exec.Command("tmux", "has-session", "-t", "="+session).Run() == nil
+}
+
+// Open starts shellCmd (run by bash -c) in a new detached window name of
+// session, in dir, creating the session if needed. A new session's tmux
+// server doesn't get the variables in unset (shells opened there later
+// would inherit them).
+func Open(session, name, dir, shellCmd string, unset ...string) error {
+	var cmd *exec.Cmd
+	if HasSession(session) {
+		cmd = exec.Command("tmux", "new-window", "-d", "-t", "="+session+":", "-n", name, "-c", dir, "bash", "-c", shellCmd)
+	} else {
+		cmd = exec.Command("tmux", "new-session", "-d", "-s", session, "-n", name, "-c", dir, "bash", "-c", shellCmd)
+		for _, kv := range os.Environ() {
+			keep := true
+			for _, u := range unset {
+				if strings.HasPrefix(kv, u+"=") {
+					keep = false
+				}
+			}
+			if keep {
+				cmd.Env = append(cmd.Env, kv)
+			}
+		}
+	}
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// SendKeys types text into window name of session, then Enter.
+func SendKeys(session, name, text string) error {
+	return exec.Command("tmux", "send-keys", "-t", "="+session+":"+name, text, "Enter").Run()
+}
