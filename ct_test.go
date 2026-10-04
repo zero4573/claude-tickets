@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -14,7 +15,7 @@ func TestMain(m *testing.M) {
 	testscript.Main(m, map[string]func(){"ct": cli.Main})
 }
 
-// stubs are fake tools on PATH: each records its arguments in
+// stubs are fake tools on PATH: tmux, podman and editor record their arguments in
 // $WORK/calls/<name>, and tmux lists the windows named in
 // $WORK/tmux-windows.
 var stubs = map[string]string{
@@ -27,9 +28,44 @@ esac
 	"editor": `#!/bin/sh
 echo "$@" >> "$WORK/calls/editor"
 `,
+	// git is the real one, except in a fake checkout (an empty .git dir):
+	// status says it's dirty when it has a .dirty file
 	"git": `#!/bin/sh
 case "$*" in
-  *"status --porcelain"*) [ -f "$2/.dirty" ] && echo " M file" ;;
+  *"status --porcelain"*)
+    if [ -d "$2/.git" ] && [ ! -e "$2/.git/HEAD" ]; then
+      [ -f "$2/.dirty" ] && echo " M file"
+      exit 0
+    fi ;;
+esac
+exec "$REAL_GIT" "$@"
+`,
+	// podman: images are "built" by touching $WORK/podman-built, export
+	// gives a filesystem with the graphify server, and run (ct graph index)
+	// reports each repo after "--" as ok, or as failed with $WORK/index-fail
+	"podman": `#!/bin/sh
+echo "$@" >> "$WORK/calls/podman"
+case "$1" in
+  info|rm) ;;
+  image) [ -f "$WORK/podman-built" ] ;;
+  build) touch "$WORK/podman-built" ;;
+  create) echo cid1 ;;
+  export)
+    mkdir -p "$WORK/fakeroot/opt/graphify"
+    echo '#!/bin/sh' > "$WORK/fakeroot/opt/graphify/serve.sh"
+    chmod +x "$WORK/fakeroot/opt/graphify/serve.sh"
+    tar -C "$WORK/fakeroot" -cf - . ;;
+  run)
+    cat > /dev/null
+    seen=0
+    for a in "$@"; do
+      if [ $seen = 1 ]; then
+        echo "== $a"
+        if [ -f "$WORK/index-fail" ]; then echo "   failed"; else echo "   ok"; fi
+      fi
+      [ "$a" = -- ] && seen=1
+    done
+    [ ! -f "$WORK/index-fail" ] ;;
 esac
 `,
 }
@@ -46,11 +82,25 @@ func TestScripts(t *testing.T) {
 			},
 		},
 		Setup: func(env *testscript.Env) error {
+			realGit, err := exec.LookPath("git")
+			if err != nil {
+				return err
+			}
 			work := env.WorkDir
 			home := filepath.Join(work, "home")
 			stubDir := filepath.Join(work, "stub")
 			for _, d := range []string{home, stubDir, filepath.Join(work, "calls")} {
 				if err := os.MkdirAll(d, 0o755); err != nil {
+					return err
+				}
+			}
+			// The graphify image's sources (only hashed: podman is a stub)
+			graphDir := filepath.Join(work, "graph-src")
+			if err := os.MkdirAll(graphDir, 0o755); err != nil {
+				return err
+			}
+			for _, f := range []string{"Containerfile", "graphify-requirements.txt", "serve.sh", "ticket-merge.py"} {
+				if err := os.WriteFile(filepath.Join(graphDir, f), []byte(f+"\n"), 0o644); err != nil {
 					return err
 				}
 			}
@@ -66,6 +116,16 @@ func TestScripts(t *testing.T) {
 			env.Setenv("PATH", stubDir+string(os.PathListSeparator)+env.Getenv("PATH"))
 			env.Setenv("CLAUDE_TICKETS_VAULT", "")
 			env.Setenv("TMUX", "")
+			env.Setenv("REAL_GIT", realGit)
+			// git: no system config, $WORK/gitconfig as the user's, a fixed identity
+			env.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+			env.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(work, "gitconfig"))
+			for _, who := range []string{"AUTHOR", "COMMITTER"} {
+				env.Setenv("GIT_"+who+"_NAME", "Jane Doe")
+				env.Setenv("GIT_"+who+"_EMAIL", "jane@example.com")
+			}
+			env.Setenv("CLAUDE_TICKETS_CONTAINER", "podman")
+			env.Setenv("CLAUDE_TICKETS_GRAPH_DIR", graphDir)
 			return nil
 		},
 	})

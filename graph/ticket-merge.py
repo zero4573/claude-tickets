@@ -1,4 +1,4 @@
-"""Graph merger of the ticket graph server (graph/serve.sh, ticket-graph mcp).
+"""Graph merger of the ticket graph server (graph/serve.sh, ct graph mcp).
 
 Runs in the claude-tickets graphify image with:
   PROJECT_ROOT   the ticket workspace (~/work/<ID>), read-write
@@ -6,9 +6,9 @@ Runs in the claude-tickets graphify image with:
 
 Serves one graph for the whole system so Claude needs one MCP server, not
 one per repo: for every repo with a worktree listed in
-$PROJECT_ROOT/workspace.json (written by ticket-ws), that worktree's graph
+$PROJECT_ROOT/workspace.json (written by ct ws), that worktree's graph
 (kept current with `graphify update` + `graphify watch`); for every other
-repo, its main clone's graph (built on the host by graphify-index). They are
+repo, its main clone's graph (built on the host by ct graph index). They are
 combined with `graphify merge-graphs` into
 $PROJECT_ROOT/graphify-out/graph.json. merge-graphs prefixes node ids with
 a repo tag taken from the folder holding each graphify-out/, without
@@ -34,7 +34,7 @@ from pathlib import Path
 
 POLL_SECONDS = 5
 # Quiet time before re-merging: short when a worktree changed (the session's
-# own edits), longer when only main-clone graphs did (graphify-index rewrites
+# own edits), longer when only main-clone graphs did (ct graph index rewrites
 # them all at once, and every running session would re-merge together)
 DEBOUNCE_SECONDS = 10
 MAIN_ONLY_DEBOUNCE_SECONDS = 120
@@ -108,7 +108,7 @@ def build_worktree(path: Path) -> None:
 
 def ensure_watchers() -> None:
     current = {path for _, path in worktrees()}
-    # Stop watching repos that left the workspace (kb-repo reset, ticket-ws rm)
+    # Stop watching repos that left the workspace (ct kb repo reset, ct ws rm)
     for path in list(watchers):
         if path not in current:
             watchers.pop(path).terminate()

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Entry point of the ticket graph server (ticket-graph mcp): keeps one graph
+# Entry point of the ticket graph server (ct graph mcp): keeps one graph
 # per worktree of the workspace current and merges them with every main
 # clone's graph into $PROJECT_ROOT/graphify-out/graph.json (ticket-merge.py),
 # then serves that graph as an MCP server on stdin/stdout. stdout belongs to

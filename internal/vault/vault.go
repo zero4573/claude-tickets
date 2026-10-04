@@ -215,3 +215,25 @@ func canonical(p string) string {
 	}
 	return p
 }
+
+// Optional is the current vault when there is one (exported as
+// CLAUDE_TICKETS_VAULT, as Require does), else no vault and the default
+// locations (~/work, ~/Projects), for the commands that work without one.
+func Optional() Context {
+	v, ok, _ := Default()
+	if !ok {
+		if vs := List(); len(vs) == 1 {
+			v, ok = filepath.Join(config.ObsidianRoot(), vs[0]), true
+		}
+	}
+	if ok {
+		os.Setenv("CLAUDE_TICKETS_VAULT", v)
+		return Context{v, LocationsOf(v)}
+	}
+	home := config.Home()
+	return Context{Locations: Locations{
+		WorkRoot:     filepath.Join(home, "work"),
+		ProjectsRoot: filepath.Join(home, "Projects"),
+		TmuxSession:  "tickets",
+	}}
+}

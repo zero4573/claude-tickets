@@ -33,7 +33,7 @@ note in the vault's inbox/, as tasks.
                    listing), e.g. after changing the note layout
 
 Also warns when main clones under ~/Projects have no code graph, or one
-more than 7 days old, and offers to run graphify-index.
+more than 7 days old, and offers to run ct graph index.
 EOF2
 }
 
@@ -70,7 +70,7 @@ mapfile -t sources < <(jq -r --arg only "$only_source" '
   | [.key, (.value.mcp // "")] | @tsv' "$config")
 [[ ${#sources[@]} -gt 0 ]] || { echo "ticket-sync: no enabled sources to sync in $config"; exit 0; }
 
-# Code graphs used by ticket sessions (see graphify-index)
+# Code graphs used by ticket sessions (see ct graph index)
 stale=0
 while IFS= read -r repo; do
   graph="$projects_root/$repo/graphify-out/graph.json"
@@ -81,12 +81,12 @@ done < <(list_main_clones)
 if [[ "$stale" -gt 0 ]]; then
   warn "$stale main clone(s) under $projects_root have a missing or week-old code graph"
   if [[ -t 0 ]]; then
-    read -rp "Run graphify-index now? [y/N] " answer
+    read -rp "Run ct graph index now? [y/N] " answer
     if [[ "$answer" == [yY]* ]]; then
-      graphify-index || warn "graphify-index failed; syncing anyway"
+      ct graph index || warn "ct graph index failed; syncing anyway"
     fi
   else
-    warn "run graphify-index to refresh them"
+    warn "run ct graph index to refresh them"
   fi
 fi
 

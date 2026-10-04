@@ -43,9 +43,10 @@ move.
   formats); helpers in `internal/<area>`; no new dependencies without a
   good reason (today: cobra, yaml.v3, x/sys, x/term, testscript).
 - **Portable:** Go code builds for Linux, macOS and (later) Windows: OS
-  specifics behind build tags (`internal/lock`, `exec_*.go`). The bash:
-  bash 4+, GNU tools (tickets-lib.sh maps the g-prefixed ones on macOS),
-  podman or docker through `container_run` / `container_runtime` only.
+  specifics behind build tags (`internal/lock`, `internal/gitx`,
+  `exec_*.go`); podman or docker only through `internal/container`. The
+  bash left: bash 4+, GNU tools (tickets-lib.sh maps the g-prefixed ones on
+  macOS).
 - **Keep examples neutral:** no real company, product, repository, ticket
   key or person names; use `acme`, `PROJ-12`, `Jane Doe`.
 - **Pins** (images by digest, the hashed graphify lock, fetched Obsidian
@@ -54,7 +55,7 @@ move.
 ## Checking
 
 ```sh
-go test ./...                 # unit + CLI tests (stub tmux, git, editor)
+go test ./...                 # unit + CLI tests (stub tmux, podman, editor; real git)
 nix build .#default          # builds ct and the scripts (go test + shellcheck)
 nix flake check
 ./install.sh --prefix "$(mktemp -d)"   # the non-Nix path

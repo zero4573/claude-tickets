@@ -1,0 +1,43 @@
+# ct ws sign: unpushed commits re-signed (SSH key), pushed ones untouched
+[!exec:ssh-keygen] skip 'needs ssh-keygen'
+mkdir home/Documents/Obsidian/a/.obsidian
+exec ssh-keygen -q -t ed25519 -N '' -C jane -f key
+exec sh -c 'echo "jane@example.com $(cat key.pub)" > allowed'
+expand gitconfig
+exec git init -q -b main seed
+exec git -C seed add -A
+exec git -C seed commit -q -m init
+exec git clone -q --bare seed remote/acme/billing.git
+exec git clone -q git@github.com:acme/billing.git home/Projects/github/acme/billing
+exec ct ws add MAN-1 github-acme-billing --base main
+cp seed/README.md home/work/a/MAN-1/github-acme-billing/one.txt
+exec git -C home/work/a/MAN-1/github-acme-billing add one.txt
+exec git -C home/work/a/MAN-1/github-acme-billing commit -q -m one
+cp seed/README.md home/work/a/MAN-1/github-acme-billing/two.txt
+exec git -C home/work/a/MAN-1/github-acme-billing add two.txt
+exec git -C home/work/a/MAN-1/github-acme-billing commit -q -m two
+exec git -C home/work/a/MAN-1/github-acme-billing log --format=%G? -n2
+stdout '^N$'
+
+exec ct ws sign MAN-1
+stdout 'github-acme-billing: signed 2 commit\(s\) on feature/MAN-1'
+exec git -C home/work/a/MAN-1/github-acme-billing log '--format=%G? %s' -n3
+stdout '^G two$'
+stdout '^G one$'
+stdout '^N init$'
+exec ct ws sign MAN-1
+stdout 'unpushed commits on feature/MAN-1 are already signed'
+! exec ct ws sign MAN-9
+stderr 'MAN-9 has no workspace'
+
+-- gitconfig --
+[url "$WORK/remote/"]
+	insteadOf = git@github.com:
+[gpg]
+	format = ssh
+[gpg "ssh"]
+	allowedSignersFile = $WORK/allowed
+[user]
+	signingKey = $WORK/key
+-- seed/README.md --
+# billing

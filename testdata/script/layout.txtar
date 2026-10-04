@@ -1,0 +1,41 @@
+# ct layout: repos into <root>/<provider>/<owner>/<repo>
+mkdir home/Documents/Obsidian/a/.obsidian
+exec git init -q home/Projects/misc/tools
+exec git -C home/Projects/misc/tools remote add origin https://gitlab.com/acme/infra/tools.git
+exec git init -q home/Projects/github
+exec git -C home/Projects/github remote add origin git@github.com:acme/web.git
+exec git init -q home/Projects/github/acme/billing
+exec git -C home/Projects/github/acme/billing remote add origin git@github.com:acme/billing.git
+exec git init -q home/Projects/scratch
+exec git init -q home/Projects/old/billing-copy
+exec git -C home/Projects/old/billing-copy remote add origin https://github.com/acme/billing
+cp empty home/Projects/misc/tools/uncommitted.txt
+
+exec ct layout
+
+stdout '^move   misc/tools -> gitlab/acme-infra/tools \(has uncommitted changes, kept\)$'
+stdout '^move   github -> github/acme/web \(has uncommitted changes, kept\)$'
+stdout '^move   github/acme/billing \(inside a repo that moves; staged and put back\)$'
+stdout '^skip   scratch \(no hosted origin remote: none\)$'
+stdout '^skip   old/billing-copy -> github/acme/billing \(another clone of it, github/acme/billing, goes there\)$'
+stdout '3 repo\(s\) to move, 2 skipped \(dry run'
+exists home/Projects/misc/tools/.git
+
+exec ct layout --apply
+stdout 'moved 3 repo\(s\), skipped 2'
+exists home/Projects/gitlab/acme-infra/tools/.git
+exists home/Projects/gitlab/acme-infra/tools/uncommitted.txt
+exists home/Projects/github/acme/web/.git
+exists home/Projects/github/acme/billing/.git
+! exists home/Projects/misc
+exec ct ws repos
+stdout '^github-acme-billing +github/acme/billing$'
+stdout '^github-acme-web +github/acme/web$'
+stdout '^gitlab-acme-infra-tools +gitlab/acme-infra/tools$'
+
+exec ct layout --root home/Projects
+stdout '0 repo\(s\) to move'
+! exec ct layout --root nope
+stderr 'no such directory'
+
+-- empty --

@@ -148,3 +148,46 @@ func List(workRoot string, withKB bool) []string {
 	}
 	return dirs
 }
+
+// Put records r in a workspace.json, replacing the entry of the same slug.
+// An empty TargetVersion keeps the one already recorded.
+func Put(file string, r Repo) error {
+	return Update(file, func(doc map[string]any) error {
+		old, _ := doc["repos"].([]any)
+		var repos []any
+		var version any
+		for _, e := range old {
+			if m, ok := e.(map[string]any); ok && m["slug"] == r.Slug {
+				version = m["targetVersion"]
+				continue
+			}
+			repos = append(repos, e)
+		}
+		if r.TargetVersion != nil && *r.TargetVersion != "" {
+			version = *r.TargetVersion
+		}
+		repos = append(repos, map[string]any{
+			"provider": r.Provider, "owner": r.Owner, "repo": r.Repo, "slug": r.Slug,
+			"path": r.Path, "base": r.Base, "branch": r.Branch, "mode": r.Mode,
+			"targetVersion": version,
+		})
+		doc["repos"] = repos
+		return nil
+	})
+}
+
+// Drop removes the entry of a slug from a workspace.json.
+func Drop(file, slug string) error {
+	return Update(file, func(doc map[string]any) error {
+		old, _ := doc["repos"].([]any)
+		repos := []any{}
+		for _, e := range old {
+			if m, ok := e.(map[string]any); ok && m["slug"] == slug {
+				continue
+			}
+			repos = append(repos, e)
+		}
+		doc["repos"] = repos
+		return nil
+	})
+}

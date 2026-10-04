@@ -8,7 +8,7 @@
 # Linux. Needs uv. The defaults are the lock's current spec, so to bump:
 #   graph/graphify-lock.sh <new version> [<extras>] > graph/graphify-requirements.txt.new
 #   mv graph/graphify-requirements.txt.new graph/graphify-requirements.txt
-# The next ticket-graph build rebuilds the image (its tag hashes the lock).
+# The next ct graph build rebuilds the image (its tag hashes the lock).
 set -euo pipefail
 lock="$(dirname "$0")/graphify-requirements.txt"
 current="$(sed -n 's/^# spec: //p' "$lock")"

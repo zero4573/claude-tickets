@@ -66,7 +66,7 @@ shell completions, and lists anything missing. What you need:
 | Go 1.26+ | building `ct` |
 | Claude Code (`claude`) | the sessions |
 | git, tmux | worktrees; one window per ticket session |
-| podman or docker | the code graph (graphify runs in an image) |
+| podman or docker, tar | the code graph (graphify runs in an image, unpacked for sandboxes) |
 | bash 4+, jq, curl, gawk, flock, GNU coreutils, sed and findutils | the subcommands not ported to Go yet |
 | python3 | `ct vault links` (until it's ported) |
 | fzf (optional) | picking a vault interactively |

@@ -426,8 +426,8 @@ state_log() {
   echo "$log"
 }
 
-# Follow-up note for an unattended command (ticket-sync, graphify-index,
-# ticket-ws gc): when a run leaves something for you to check or do, it's
+# Follow-up note for an unattended command (ticket-sync; ct graph index
+# and ct ws gc write theirs in Go): when a run leaves something for you to check or do, it's
 # written to <vault>/inbox/<date>-<time>-<command>-follow-ups.md as Tasks
 # plugin tasks, so it shows in pending.md. type: follow-ups tells /tickets:save it
 # isn't a knowledge draft. Prints the note's path; does nothing without
@@ -548,18 +548,6 @@ seed_graph() {
   return 0
 }
 
-# graphify keeps a dated snapshot folder per rebuild day in graphify-out/;
-# drops the ones older than a week: prune_graph_snapshots <graphify-out>...
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-prune_graph_snapshots() {
-  local d
-  for d in "$@"; do
-    [[ -d "$d" ]] || continue
-    find "$d" -mindepth 1 -maxdepth 1 -type d -name '20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]*' \
-      -mtime +7 -exec rm -rf {} + 2>/dev/null || true
-  done
-}
-
 # A session workspace's .claude/settings.json, which Claude reads as the
 # project settings: write_session_settings <dir> [<deny rule>...]
 #  * what the ticket system needs: the main clones are read-only (worktrees
@@ -640,25 +628,8 @@ plugin_dir() {
 
 # --- containers (graphify) ---
 
-# podman or docker: $CLAUDE_TICKETS_CONTAINER, else config.json's
-# container, else the first whose service answers (podman first)
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-container_runtime() {
-  local rt="${CLAUDE_TICKETS_CONTAINER:-}"
-  [[ -n "$rt" ]] || rt="$(config_get container)"
-  if [[ -n "$rt" ]]; then
-    [[ "$rt" == podman || "$rt" == docker ]] || die "container runtime must be podman or docker, not '$rt'"
-    command -v "$rt" >/dev/null || die "$rt isn't installed (CLAUDE_TICKETS_CONTAINER / vault-configure --section runtime)"
-    # podman's docker alias (docker-compat) is podman: it needs podman's flags
-    if [[ "$rt" == docker ]] && { [[ "$(basename "$(realpath "$(command -v docker)")")" == podman ]] \
-         || docker --version 2>/dev/null | grep -qi podman; }; then
-      rt=podman
-    fi
-    echo "$rt"
-    return
-  fi
-  detect_container_runtime || die "no container runtime: install podman or docker"
-}
+# Whether podman or docker is installed and answering (podman first):
+# what vault-configure offers as the default (ct reads the choice)
 # shellcheck disable=SC2329 # shared helper; not every script uses it
 detect_container_runtime() {
   local rt
@@ -666,38 +637,6 @@ detect_container_runtime() {
     command -v "$rt" >/dev/null 2>&1 && "$rt" info >/dev/null 2>&1 && { echo "$rt"; return 0; }
   done
   return 1
-}
-
-# Runs a container with the right flags for the runtime: container_run
-# <run args...>. SELinux labelling is off rather than relabelling mounted
-# trees; docker runs as you, so files it writes into mounts are yours
-# (rootless podman maps its root to you already). In
-# $CLAUDE_TICKETS_SYSTEMD_SLICE when set.
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-container_run() {
-  local rt pre=() flags=(--rm --security-opt label=disable)
-  rt="$(container_runtime)"
-  [[ "$rt" == docker ]] && flags+=(--user "$(id -u):$(id -g)")
-  if [[ -n "${CLAUDE_TICKETS_SYSTEMD_SLICE:-}" ]] && command -v systemd-run >/dev/null; then
-    pre=(systemd-run --user --scope --quiet --collect "--slice=$CLAUDE_TICKETS_SYSTEMD_SLICE" --)
-    [[ "$rt" == podman ]] && flags+=("--cgroup-parent=$CLAUDE_TICKETS_SYSTEMD_SLICE")
-  fi
-  "${pre[@]}" "$rt" run "${flags[@]}" "$@"
-}
-
-# Whether a workspace's session is running: its window is open in the
-# vault's tmux session (ticket sessions), or its hooks' last state isn't
-# exited and is less than a day old (kb sessions run in your own terminal):
-# session_running <workspace dir>
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-session_running() {
-  local dir="$1" key state
-  key="$(basename "$dir")"
-  tmux list-windows -t "=$tmux_session" -F '#W' 2>/dev/null | grep -qxF "$key" && return 0
-  [[ -f "$dir/.agent-state" ]] || return 1
-  state="$(jq -r '.state // empty' "$dir/.agent-state" 2>/dev/null || true)"
-  [[ -n "$state" && "$state" != exited ]] || return 1
-  [[ -n "$(find "$dir/.agent-state" -mmin -1440 2>/dev/null)" ]]
 }
 
 # Runs a headless claude command (claude -p ... --output-format

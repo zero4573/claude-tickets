@@ -1,6 +1,6 @@
 # The graphify image for claude-tickets: a pinned Python image plus graphify
 # and every dependency, installed from the hashed lock (pip refuses anything
-# whose hash doesn't match). Built by `ticket-graph build` as
+# whose hash doesn't match). Built by `ct graph build` as
 # localhost/claude-tickets-graphify:<hash of this directory>; see UPDATES.md
 # for bumping the base image and the lock.
 ARG PYTHON_IMAGE

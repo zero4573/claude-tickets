@@ -142,3 +142,22 @@ func load() (map[string]any, error) {
 	}
 	return m, json.Unmarshal(data, &m)
 }
+
+// StateLog is the log file of a command, <state dir>/<name>.log, kept
+// bounded: past 5 MB it's cut to its newest 1 MB.
+func StateLog(name string) string {
+	dir := StateDir()
+	_ = os.MkdirAll(dir, 0o755)
+	log := filepath.Join(dir, name+".log")
+	if st, err := os.Stat(log); err == nil && st.Size() > 5<<20 {
+		if f, err := os.Open(log); err == nil {
+			tail := make([]byte, 1<<20)
+			n, _ := f.ReadAt(tail, st.Size()-int64(len(tail)))
+			f.Close()
+			if os.WriteFile(log+".tmp", tail[:n], 0o644) == nil {
+				_ = os.Rename(log+".tmp", log)
+			}
+		}
+	}
+	return log
+}

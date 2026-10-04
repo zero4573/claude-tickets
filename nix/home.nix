@@ -35,7 +35,7 @@ in
       type = lib.types.listOf lib.types.package;
       default = built.sessionTools;
       readOnly = true;
-      description = "The commands sessions run themselves (ticket-ws, kb-repo, ticket-new, ticket-graph, vault-lock, vault-links), e.g. for a sandbox's PATH.";
+      description = "The commands sessions run themselves (ct: ct ws, ct kb repo, ct new, ct graph mcp, ct vault lock, ct vault links), e.g. for a sandbox's PATH.";
     };
 
     claude = lib.mkOption {

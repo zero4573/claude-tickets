@@ -1,0 +1,51 @@
+# ct graph with a stub podman
+exec ct graph status
+stdout '^image:   localhost/claude-tickets-graphify:[0-9a-f]{12}$'
+stdout 'not built \(podman\): ct graph build'
+stdout '^rootfs:  not unpacked: ct graph build$'
+
+exec ct graph build
+stdout '^localhost/claude-tickets-graphify:[0-9a-f]{12}$'
+stderr 'building localhost/claude-tickets-graphify:.* with podman'
+stderr 'unpacking its filesystem'
+grep '^build --pull=missing --build-arg PYTHON_IMAGE=docker.io/library/python:' calls/podman
+grep '^rm -f cid1$' calls/podman
+exec ct graph status
+stdout '^         built \(podman\)$'
+stdout '^rootfs:  .*/graphify/rootfs-[0-9a-f]{12}$'
+exec ct graph build
+! stderr building
+! stderr unpacking
+
+# mcp: the image through podman, with the workspace and the main clones
+mkdir home/Documents/Obsidian/a/.obsidian home/work/a/MAN-1 home/Projects
+cp ws.json home/work/a/MAN-1/workspace.json
+exec ct graph mcp home/work/a/MAN-1
+grep '^run --rm --security-opt label=disable -i -v .*/home/work/a/MAN-1:.*/home/work/a/MAN-1 -e PROJECT_ROOT=.* -e PROJECTS_ROOT=.*/home/Projects -v .*/home/Projects:.*/home/Projects:ro localhost/claude-tickets-graphify:[0-9a-f]+ /opt/graphify/serve.sh$' calls/podman
+! exec ct graph mcp home/work/a
+stderr 'must be a ticket or kb workspace'
+# without the image: the unpacked filesystem
+rm podman-built
+exec ct graph mcp home/work/a/MAN-1
+grep '^run --rm -i --security-opt label=disable .* --rootfs .*/rootfs-[0-9a-f]+:O /opt/graphify/serve.sh$' calls/podman
+
+# index: every main clone; failures become follow-ups in the vault
+mkdir home/Projects/github/acme/x/.git home/Projects/github/acme/y/.git
+exec ct graph index
+stderr 'indexing 2 repo\(s\)'
+stdout '^== github/acme/x$'
+exists home/.local/state/graphify-index.log
+grep '=== ct graph index' home/.local/state/graphify-index.log
+exec ct graph index github-acme-y
+stderr 'indexing 1 repo\(s\)'
+! exec ct graph index nope
+stderr 'no main clone .nope.'
+cp empty index-fail
+! exec ct graph index github-acme-x
+stdout 'follow-ups in inbox/.*-ct-graph-index-follow-ups.md'
+exec sh -c 'cat home/Documents/Obsidian/a/inbox/*-ct-graph-index-follow-ups.md'
+stdout '^- \[ \] ct graph index: building the code graph of github/acme/x failed; check ~/.local/state/graphify-index.log, then rerun ct graph index github/acme/x #ct-graph-index'
+
+-- ws.json --
+{"id": "MAN-1", "repos": []}
+-- empty --

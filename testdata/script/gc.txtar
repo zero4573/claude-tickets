@@ -1,0 +1,65 @@
+# ct ws gc: finished, idle workspaces go (dirty ones become follow-ups),
+# merged graphs of stopped sessions go, running sessions are left alone
+mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/tickets/MAN-1 home/Documents/Obsidian/a/tickets/MAN-2 home/Documents/Obsidian/a/tickets/MAN-3
+cp done.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+cp done.md home/Documents/Obsidian/a/tickets/MAN-2/MAN-2.md
+cp open.md home/Documents/Obsidian/a/tickets/MAN-3/MAN-3.md
+expand ws1.json ws2.json ws3.json
+mkdir home/work/a/MAN-1 home/work/a/MAN-2/repo/.git home/work/a/MAN-3/graphify-out home/work/a/MAN-1/graphify-out
+cp ws1.json home/work/a/MAN-1/workspace.json
+cp ws2.json home/work/a/MAN-2/workspace.json
+cp ws3.json home/work/a/MAN-3/workspace.json
+cp empty home/work/a/MAN-2/repo/.dirty
+exec touch -d '20 days ago' home/work/a/MAN-1/workspace.json home/work/a/MAN-2/workspace.json home/work/a/MAN-3/workspace.json
+
+exec ct ws gc --dry-run
+stdout 'would remove MAN-1 \(done\)'
+stdout 'would remove MAN-2 \(done\)'
+stdout 'would drop the merged graph of MAN-3'
+! stdout pruned
+exists home/work/a/MAN-1/workspace.json
+
+# MAN-3's session is running: its graph stays
+cp windows tmux-windows
+exec ct ws gc
+stdout 'remove MAN-1 \(done\)'
+stdout 'removed workspace .*/MAN-1$'
+! exists home/work/a/MAN-1
+stderr 'repo has uncommitted changes'
+stderr 'kept MAN-2'
+exists home/work/a/MAN-2/workspace.json
+! stdout 'merged graph of MAN-3'
+exists home/work/a/MAN-3/graphify-out
+stdout 'pruned graphify snapshots older than a week in 0 graph folder'
+stdout 'follow-ups in .*/inbox/.*-ct-ws-gc-follow-ups.md'
+exec sh -c 'cat home/Documents/Obsidian/a/inbox/*-ct-ws-gc-follow-ups.md'
+stdout '^source-command: ct-ws-gc$'
+stdout '^- \[ \] Clean up the workspace of \[\[MAN-2\]\] \(done\): .* Review it with ct ws diff MAN-2, then ct ws rm MAN-2 \(--force to drop it\) #ct-ws-gc ➕ '
+
+rm tmux-windows
+exec ct ws gc --days 30
+! stdout 'remove MAN-2'
+stdout 'drop the merged graph of MAN-3'
+! exists home/work/a/MAN-3/graphify-out
+
+-- done.md --
+---
+summary: Done
+status: done
+---
+-- open.md --
+---
+summary: Open
+status: in-progress
+---
+-- ws1.json --
+{"id": "MAN-1", "vault": "$WORK/home/Documents/Obsidian/a", "repos": []}
+-- ws2.json --
+{"id": "MAN-2", "vault": "$WORK/home/Documents/Obsidian/a", "repos": [
+  {"provider": "github", "owner": "acme", "repo": "x", "slug": "repo", "path": "$WORK/home/work/a/MAN-2/repo", "base": "main", "branch": "feature/MAN-2", "mode": "worktree"}
+]}
+-- ws3.json --
+{"id": "MAN-3", "vault": "$WORK/home/Documents/Obsidian/a", "repos": []}
+-- windows --
+MAN-3
+-- empty --

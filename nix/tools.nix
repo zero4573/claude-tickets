@@ -35,8 +35,9 @@ let
     };
     vendorHash = "sha256-Ld0QpIlwZQH3hGdu761fJAeBqere+q6RLPxE1ReQj/Q=";
     subPackages = [ "cmd/ct" ];
-    # Every package, and the CLI tests (stub tmux, git, editor scripts)
-    nativeCheckInputs = [ pkgs.coreutils ];
+    # Every package, and the CLI tests (stub tmux, podman, editor; real
+    # git, with an SSH signing key for ct ws sign)
+    nativeCheckInputs = with pkgs; [ coreutils git gnutar openssh ];
     checkPhase = ''
       runHook preCheck
       go test ./...
@@ -50,7 +51,7 @@ let
 
   # tickets-lib.sh needs these (jq for every JSON file, flock for
   # json_update, GNU coreutils/sed/awk/find)
-  libInputs = with pkgs; [ coreutils git jq gnused gnugrep gawk findutils ]
+  libInputs = with pkgs; [ coreutils git jq gnused gnugrep gawk findutils gnutar ]
     ++ [ (if isLinux then pkgs.util-linux else pkgs.flock) ];
 
   # Defaults the scripts (and ct) see unless the environment says otherwise
@@ -72,10 +73,7 @@ let
   # ran them
   ct' = ctBin;
   scripts = {
-    ticket-graph = script "ticket-graph" [ ] "";
-    ticket-ws = script "ticket-ws" [ pkgs.tmux ] "";
     ticket-start = script "ticket-start" [ ct' pkgs.tmux ] "";
-    graphify-index = script "graphify-index" [ ct' ] "";
     # ticket-sync-mcp.sh (MCP client) and ticket-sync-jira.sh (the Jira
     # planner and applier) are function libraries for it
     ticket-sync = script "ticket-sync" ([ pkgs.curl ct' ] ++ notify)
@@ -87,7 +85,6 @@ let
     vault-init = script "vault-init" [ pkgs.fzf ct' ] ''
       export VAULT_SCAFFOLD=${scaffold}
     '';
-    repo-layout = script "repo-layout" [ ] "";
     vault-lock = script "vault-lock" [ ] "";
     vault-links = pkgs.writers.writePython3Bin "vault-links" {
       flakeIgnore = [ "E501" ];
@@ -112,7 +109,7 @@ let
     makeWrapper ${lib.getExe ctBin} $out/bin/ct \
       --set-default CLAUDE_TICKETS_LIBEXEC ${libexec} \
       ${lib.concatStrings (lib.mapAttrsToList (k: v: "--set-default ${k} ${lib.escapeShellArg (toString v)} ") defaultsEnv)} \
-      --suffix PATH : ${lib.makeBinPath (with pkgs; [ git tmux coreutils ])}
+      --suffix PATH : ${lib.makeBinPath (with pkgs; [ git tmux coreutils gnutar ])}
     mkdir -p $out/share/zsh/site-functions $out/share/bash-completion/completions $out/share/fish/vendor_completions.d
     ${lib.getExe ctBin} completion zsh > $out/share/zsh/site-functions/_ct
     ${lib.getExe ctBin} completion bash > $out/share/bash-completion/completions/ct
