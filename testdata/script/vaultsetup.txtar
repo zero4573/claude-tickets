@@ -1,0 +1,73 @@
+# ct vault init / configure without a terminal (as --defaults)
+exec ct vault init demo
+stdout 'created vault .*/Obsidian/demo'
+stdout '^  \+ AGENTS.md$'
+stdout '^  \+ templates/ticket-manual.md$'
+! stdout obsidian-types.json
+stderr 'Tasks community plugin isn.t installed'
+exists home/Documents/Obsidian/demo/projects/system/sequences
+exists home/Documents/Obsidian/demo/tickets.base
+grep '"folder": "templates"' home/Documents/Obsidian/demo/.obsidian/templates.json
+grep '"bases": true' home/Documents/Obsidian/demo/.obsidian/core-plugins.json
+grep '"covered-by": "text"' home/Documents/Obsidian/demo/.obsidian/types.json
+grep '"workRoot": "~/work/demo"' home/Documents/Obsidian/demo/.workflow.json
+grep '"projectsRoot": "~/Projects"' home/Documents/Obsidian/demo/.workflow.json
+grep '"idPrefix": "MAN"' home/Documents/Obsidian/demo/tickets/.sources.json
+grep '"servicenow"' home/Documents/Obsidian/demo/tickets/.sources.json
+grep '"container": "podman"' home/.config/claude-tickets/config.json
+
+# re-run: nothing overwritten, settings kept; the user's types win
+cp mytypes.json home/Documents/Obsidian/demo/.obsidian/types.json
+cp mine.md home/Documents/Obsidian/demo/AGENTS.md
+exec ct vault init demo
+stdout 'added 0 file\(s\), kept [0-9]+ existing'
+stdout 'kept .*/demo/.workflow.json \(ct vault configure --section locations to change it\)'
+grep '^mine$' home/Documents/Obsidian/demo/AGENTS.md
+grep '"status": "number"' home/Documents/Obsidian/demo/.obsidian/types.json
+grep '"blocked": "checkbox"' home/Documents/Obsidian/demo/.obsidian/types.json
+
+# a second vault: its default projectsRoot is shared, an overlap
+! exec ct vault init other
+stderr 'projectsRoot ~/Projects overlaps demo.s projectsRoot ~/Projects: the vaults share main clones'
+stderr 'overlapping folders \(--allow-overlap'
+exec ct vault init other --allow-overlap
+grep '"projectsRoot": "~/Projects"' home/Documents/Obsidian/other/.workflow.json
+
+! exec ct vault configure demo --section nope
+stderr 'no section .nope.'
+! exec ct vault configure nope
+stderr 'no vault named .nope.'
+rm home/Documents/Obsidian/demo/tickets/.sources.json
+exec ct vault configure demo --section sources
+stdout 'wrote tickets/.sources.json \(jira: false, manual: true\)'
+
+# ct vault lock
+exec ct vault lock status home/Documents/Obsidian/demo
+stdout '^unlocked$'
+exec ct vault lock acquire home/Documents/Obsidian/demo PROJ-1
+exec ct vault lock status home/Documents/Obsidian/demo
+stdout '^locked by .PROJ-1.$'
+! exec ct vault lock release home/Documents/Obsidian/demo PROJ-2
+stderr 'held by .PROJ-1., not .PROJ-2.'
+exec ct vault lock release home/Documents/Obsidian/demo PROJ-1
+! exec ct vault lock run home/Documents/Obsidian/demo PROJ-3 -- sh -c 'cat $WORK/home/Documents/Obsidian/demo/.vault.lock.d/owner; exit 3'
+stdout '^PROJ-3$'
+! exists home/Documents/Obsidian/demo/.vault.lock.d
+! exec ct vault lock status home
+stderr 'not an Obsidian vault'
+
+# ct vault links
+cp note.md home/Documents/Obsidian/demo/inbox/note.md
+! exec ct vault links check home/Documents/Obsidian/demo inbox/note.md
+stdout '^inbox/note.md:1: unresolved link \[\[nowhere\]\]$'
+exec ct vault links move home/Documents/Obsidian/demo inbox/note.md knowledge-base
+stdout '^knowledge-base/note.md$'
+! exec ct vault links move home/Documents/Obsidian/demo knowledge-base/note.md projects/system/system.md
+stderr 'destination exists'
+
+-- mytypes.json --
+{"types": {"status": "number"}}
+-- mine.md --
+mine
+-- note.md --
+[[nowhere]] and [[system]]

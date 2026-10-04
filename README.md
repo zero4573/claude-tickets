@@ -27,8 +27,9 @@ so they work the same unsandboxed or inside a sandbox that wraps `claude`.
 | Part | What |
 |---|---|
 | `cmd/ct`, `internal/` | `ct`, the one command (Go): every subcommand below, its shell completion (`ct completion zsh\|bash\|fish`) |
-| `tools/` | the bash scripts some subcommands still run while they're ported to Go (`tickets-lib.sh` is prepended to each), and `vault-scaffold/` (what `ct vault init` copies) |
-| `testdata/script/`, `*_test.go` | the tests: `go test ./...` runs `ct` against a throwaway home with stub `tmux`, `git` and editor commands |
+| `tools/` | the bash `ct sync` still runs while it's ported to Go (`tickets-lib.sh` is prepended to it) |
+| `assets/vault-scaffold/` | what `ct vault init` copies into a vault (built into `ct`) |
+| `testdata/script/`, `*_test.go` | the tests: `go test ./...` runs `ct` against a throwaway home with stub `tmux`, `podman`, `claude` and editor commands and real git |
 | `plugin/` | the Claude Code plugin `tickets`: skills (`/tickets:work-ticket`, `/tickets:pr-feedback`, `/tickets:ticket-sync`, `/tickets:kb`, `/tickets:save`, `/tickets:recall`), the role agents (`tickets:product-owner`, ...), and the hooks that tell `ct status` what a session is doing |
 | `graph/` | the graphify image (`ct graph`) and the merger behind each session's code graph |
 | `nix/`, `flake.nix` | the package, a home-manager module, and Obsidian modules (Linux, Flathub) |
@@ -58,7 +59,7 @@ folder (needs [nix-flatpak](https://github.com/gmodena/nix-flatpak)).
 
 **Without Nix:** build and install from a checkout with
 `./install.sh [--prefix ~/.local]`; `./install.sh --uninstall` removes it.
-It builds `ct` with Go, installs the bash scripts it still uses and the
+It builds `ct` with Go, installs the bash script it still uses and the
 shell completions, and lists anything missing. What you need:
 
 | Tool | For |
@@ -67,9 +68,8 @@ shell completions, and lists anything missing. What you need:
 | Claude Code (`claude`) | the sessions |
 | git, tmux | worktrees; one window per ticket session |
 | podman or docker, tar | the code graph (graphify runs in an image, unpacked for sandboxes) |
-| bash 4+, jq, curl, gawk, flock, GNU coreutils, sed and findutils | the subcommands not ported to Go yet |
-| python3 | `ct vault links` (until it's ported) |
-| fzf (optional) | picking a vault interactively |
+| bash 4+, jq, curl, gawk, flock, GNU coreutils, sed and findutils | `ct sync` (until it's ported) |
+| fzf (optional) | picking a vault interactively (else a numbered list) |
 
 On macOS, use Homebrew's `bash coreutils gnu-sed findutils gawk flock`;
 the scripts pick the `g`-prefixed tools. Windows works through WSL2. For

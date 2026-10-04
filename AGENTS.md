@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Instructions for AI coding agents working on this repository (not the
-vault's rulebook: that's `tools/vault-scaffold/AGENTS.md`, copied into each
+vault's rulebook: that's `assets/vault-scaffold/AGENTS.md`, copied into each
 vault).
 
 ## What this is

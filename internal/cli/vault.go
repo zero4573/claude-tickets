@@ -35,11 +35,10 @@ are (its .workflow.json).`,
 	}
 	cmd.AddCommand(
 		vaultDefaultCmd(),
-		scriptCmd("init [<vault>] [--defaults] [--allow-overlap]", "Set a vault up for the ticket workflow", "vault-init"),
-		scriptCmd("configure [<vault>] [--section <name>]... [--missing] [--defaults] [--allow-overlap]",
-			"A vault's settings: locations, ticket sources, container runtime", "vault-configure"),
-		scriptCmd("lock acquire|release|status|run ...", "The lock /tickets:save holds while writing shared notes", "vault-lock"),
-		scriptCmd("links check|move ...", "Check wikilinks; move a note without breaking links to it", "vault-links"),
+		vaultInitCmd(),
+		vaultConfigureCmd(),
+		vaultLockCmd(),
+		vaultLinksCmd(),
 	)
 	return cmd
 }

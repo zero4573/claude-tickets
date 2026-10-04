@@ -50,26 +50,11 @@ if [[ "$(uname -s)" == Darwin ]]; then
   command -v gawk >/dev/null 2>&1 && awk() { gawk "$@"; }
 fi
 
-# Names of the servers in $CLAUDE_TICKETS_MCP_CONFIG, one per line
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-mcp_servers() {
-  [[ -n "${CLAUDE_TICKETS_MCP_CONFIG:-}" ]] || return 0
-  jq -r '.mcpServers // {} | keys[]' "$CLAUDE_TICKETS_MCP_CONFIG" 2>/dev/null || true
-}
-
 # A key of ~/.config/claude-tickets/config.json (empty if unset):
 # config_get <key>
 # shellcheck disable=SC2329 # shared helper; not every script uses it
 config_get() {
   jq -r --arg k "$1" '.[$k] // empty' "$config_file" 2>/dev/null || true
-}
-# Sets a key of config.json: config_set <key> <value>
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-config_set() {
-  mkdir -p "$config_dir"
-  [[ -s "$config_file" ]] || echo '{}' > "$config_file"
-  jq --arg k "$1" --arg v "$2" '.[$k] = $v' "$config_file" > "$config_file.tmp"
-  mv "$config_file.tmp" "$config_file"
 }
 
 # Until a vault is applied: the locations of a run without one (the tmux
@@ -90,14 +75,6 @@ die() {
 # shellcheck disable=SC2329 # shared helper; not every script uses it
 warn() {
   echo "$(basename "$0"): $*" >&2
-}
-
-# Local ticket IDs: the source's own key (Jira PROJ-12), or
-# <idPrefix>-<native id> (SNOW-INC0012345, ZD-48213, MAN-7); see the
-# vault's tickets/.sources.json
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-valid_key() {
-  [[ "$1" =~ ^[A-Z][A-Z0-9_]*(-[A-Z0-9]+)+$ ]]
 }
 
 # Main clones under $projects_root, as <provider>/<owner>/<repo>
@@ -157,7 +134,7 @@ current_vault() {
   local vaults=()
   default_vault && return
   mapfile -t vaults < <(list_vaults)
-  [[ ${#vaults[@]} -gt 0 ]] || die "no Obsidian vaults under $obsidian_root (set one up with vault-init)"
+  [[ ${#vaults[@]} -gt 0 ]] || die "no Obsidian vaults under $obsidian_root (set one up with ct vault init)"
   [[ ${#vaults[@]} -eq 1 ]] \
     || die "no default vault, and several under $obsidian_root (${vaults[*]}): pick one with vault-default <name>"
   echo "$obsidian_root/${vaults[0]}"
@@ -169,77 +146,6 @@ current_vault() {
 require_vault() {
   vault="$(current_vault)" || exit 1
   use_vault "$vault"
-}
-
-# Makes <vault path> the default vault: stores its name when it lives under
-# $obsidian_root, else its path. Prints what was stored.
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-set_default_vault() {
-  # Always the current location (and the old one goes away)
-  rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/tickets/default-vault"
-  default_vault_file="$config_dir/default-vault"
-  mkdir -p "$config_dir"
-  if [[ "$(dirname "$1")" == "$obsidian_root" ]]; then
-    basename "$1" > "$default_vault_file"
-  else
-    echo "$1" > "$default_vault_file"
-  fi
-  cat "$default_vault_file"
-}
-
-# Interactive prompts (vault-init, vault-configure)
-# ask <prompt> <default>: prints the answer (the default on Enter)
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-ask() {
-  local reply
-  read -rp "$1 [$2] " reply
-  echo "${reply:-$2}"
-}
-# yes_no <prompt> <y|n>: true for yes
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-yes_no() {
-  local reply
-  reply="$(ask "$1 (y/n)" "$2")"
-  [[ "$reply" == [yY]* ]]
-}
-# confirm_yes <prompt>: true only when `yes` is typed in full (no default)
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-confirm_yes() {
-  local reply
-  read -rp "$1 Type yes to confirm: " reply
-  [[ "$reply" == yes ]]
-}
-
-# For the vault-* commands, which name or pick a vault instead of using the
-# current one: the absolute path of $1 if given (a name under
-# $obsidian_root or a path), else the default vault (unless $2 is
-# --no-default), else the only vault, else an fzf pick
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-select_vault() {
-  local name="${1:-}" use_default="${2:-}" vaults=() count
-  if [[ -z "$name" && "$use_default" != --no-default ]] && default_vault; then
-    return
-  fi
-  if [[ -n "$name" ]]; then
-    if [[ -d "$name/.obsidian" ]]; then
-      realpath "$name"
-      return
-    fi
-    [[ -d "$obsidian_root/$name/.obsidian" ]] || die "no vault named '$name' under $obsidian_root"
-    echo "$obsidian_root/$name"
-    return
-  fi
-  mapfile -t vaults < <(list_vaults)
-  count="${#vaults[@]}"
-  [[ "$count" -gt 0 ]] || die "no Obsidian vaults under $obsidian_root"
-  if [[ "$count" -eq 1 ]]; then
-    echo "$obsidian_root/${vaults[0]}"
-    return
-  fi
-  [[ -t 0 && -t 2 ]] || die "several vaults under $obsidian_root (${vaults[*]}); name one, or set a default with vault-default <name>"
-  name="$(printf '%s\n' "${vaults[@]}" | fzf --prompt='vault> ' --height=~10 --reverse)" \
-    || die "no vault selected"
-  echo "$obsidian_root/$name"
 }
 
 # Value of a top-level scalar field in a note's YAML frontmatter (empty if
@@ -386,19 +292,6 @@ plugin_dir() {
   echo "$d"
 }
 
-# --- containers (graphify) ---
-
-# Whether podman or docker is installed and answering (podman first):
-# what vault-configure offers as the default (ct reads the choice)
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-detect_container_runtime() {
-  local rt
-  for rt in podman docker; do
-    command -v "$rt" >/dev/null 2>&1 && "$rt" info >/dev/null 2>&1 && { echo "$rt"; return 0; }
-  done
-  return 1
-}
-
 # Runs a headless claude command (claude -p ... --output-format
 # stream-json --verbose) showing progress live and appending it to a log:
 # run_headless <log> <command...>. Returns the command's exit code.
@@ -414,7 +307,7 @@ run_headless() {
 }
 
 # A vault's locations, so vaults never share workspaces (a MAN-1 exists in
-# each) or a tmux session. From <vault>/.workflow.json (vault-configure
+# each) or a tmux session. From <vault>/.workflow.json (ct vault configure
 # writes it):
 #   workRoot      ticket and kb workspaces   (default ~/work/<vault name>)
 #   projectsRoot  main clones                (default ~/Projects; vaults may
@@ -435,16 +328,6 @@ vault_locations() {
   w="${w:-$HOME/work/$name}"
   p="${p:-$HOME/Projects}"
   printf '%s\t%s\t%s\n' "${w/#\~/$HOME}" "${p/#\~/$HOME}" "tickets-$name"
-}
-
-# True when two paths are the same or one is inside the other, after `~`
-# expansion and resolving symlinks: paths_overlap <a> <b>
-# shellcheck disable=SC2329 # shared helper; not every script uses it
-paths_overlap() {
-  local a b
-  a="$(realpath -m "${1/#\~/$HOME}")"
-  b="$(realpath -m "${2/#\~/$HOME}")"
-  [[ "$a" == "$b" || "$a" == "$b"/* || "$b" == "$a"/* ]]
 }
 
 # Applies a vault's locations (vault_locations) to $work_root,

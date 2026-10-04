@@ -2,6 +2,8 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -48,6 +50,9 @@ func Main() {
 			os.Exit(int(e))
 		}
 		fmt.Fprintln(os.Stderr, "ct: "+err.Error())
+		if e, ok := err.(codeError); ok {
+			os.Exit(e.code)
+		}
 		os.Exit(1)
 	}
 }
@@ -56,6 +61,24 @@ func Main() {
 type exitError int
 
 func (e exitError) Error() string { return fmt.Sprintf("exit %d", int(e)) }
+
+// codeError is an error that ends ct with a given status.
+type codeError struct {
+	code int
+	err  error
+}
+
+func (e codeError) Error() string { return e.err.Error() }
+
+// exitWith makes err end ct with status code (its message still printed).
+func exitWith(code int, err error) error { return codeError{code, err} }
+
+// jsonUnmarshal decodes JSON keeping numbers as written (json.Number).
+func jsonUnmarshal(data []byte, v any) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	return dec.Decode(v)
+}
 
 // --- commands not ported to Go yet: they run the bash scripts in libexec ---
 

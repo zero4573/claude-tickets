@@ -4,7 +4,7 @@
 #   <prefix>/libexec/claude-tickets/     the bash scripts some ct subcommands still
 #                                        run (tickets-lib.sh prepended to each, as
 #                                        the Nix package does)
-#   <prefix>/share/claude-tickets/       plugin/, graph/, vault-scaffold/
+#   <prefix>/share/claude-tickets/       plugin/, graph/
 #   <prefix>/share/{zsh,bash-completion,fish}   ct's shell completion
 # and records the plugin and graph dirs, and the container runtime it finds,
 # in ~/.config/claude-tickets/config.json.
@@ -46,7 +46,7 @@ gnu() {  # gnu <tool>: the GNU one, g-prefixed on macOS
 }
 (( BASH_VERSINFO[0] >= 4 )) || missing+=("bash 4+ (this is $BASH_VERSION)")
 have go || missing+=("go (1.26+, to build ct)")
-for t in git jq curl tmux fzf flock python3; do have "$t" || missing+=("$t"); done
+for t in git jq curl tmux flock; do have "$t" || missing+=("$t"); done
 have gawk || missing+=(gawk)
 for t in realpath sed find; do gnu "$t" || missing+=("GNU $t"); done
 have podman || have docker || missing+=("podman or docker (for the code graph)")
@@ -77,18 +77,14 @@ for src in tools/*.sh; do
     echo 'set -euo pipefail'
     echo "export CLAUDE_TICKETS_PLUGIN=\"\${CLAUDE_TICKETS_PLUGIN:-$share/plugin}\""
     echo "export CLAUDE_TICKETS_GRAPH_DIR=\"\${CLAUDE_TICKETS_GRAPH_DIR:-$share/graph}\""
-    [[ "$name" == vault-init ]] && echo "export VAULT_SCAFFOLD=\"$share/vault-scaffold\""
     if [[ "$name" == ticket-sync ]]; then cat tools/ticket-sync-mcp.sh tools/ticket-sync-jira.sh; fi
     cat "$lib" "$src"
   } > "$out"
   chmod 0755 "$out"
   echo "libexec/claude-tickets/$name" >> "$manifest.tmp"
 done
-{ echo '#!/usr/bin/env python3'; cat tools/vault-links.py; } > "$libexec/vault-links"
-chmod 0755 "$libexec/vault-links"
-echo "libexec/claude-tickets/vault-links" >> "$manifest.tmp"
 rm -rf "$share/plugin" "$share/graph" "$share/vault-scaffold"
-cp -R plugin graph tools/vault-scaffold "$share/"
+cp -R plugin graph "$share/"
 chmod +x "$share/graph/serve.sh"
 # The plugin's hooks run ct by its path: a session's PATH may not have it
 sed -i.bak "s|\"ct hook |\"$prefix/bin/ct hook |g" "$share/plugin/hooks/hooks.json" && rm -f "$share/plugin/hooks/hooks.json.bak"

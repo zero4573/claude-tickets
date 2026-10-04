@@ -25,8 +25,6 @@ let
     cp -r ${../graph} $out
   '';
 
-  scaffold = ../tools/vault-scaffold;
-
   # --- ct (Go) ---
   ctBin = pkgs.buildGoModule {
     pname = "ct";
@@ -34,7 +32,7 @@ let
     src = lib.fileset.toSource {
       root = ../.;
       fileset = lib.fileset.unions [
-        ../go.mod ../go.sum ../cmd ../internal ../ct_test.go ../testdata
+        ../go.mod ../go.sum ../cmd ../internal ../assets ../ct_test.go ../testdata
       ];
     };
     vendorHash = "sha256-Ld0QpIlwZQH3hGdu761fJAeBqere+q6RLPxE1ReQj/Q=";
@@ -81,14 +79,6 @@ let
     # planner and applier) are function libraries for it
     ticket-sync = script "ticket-sync" ([ pkgs.curl ct' ] ++ notify)
       (builtins.readFile ../tools/ticket-sync-mcp.sh + builtins.readFile ../tools/ticket-sync-jira.sh);
-    vault-configure = script "vault-configure" [ pkgs.fzf ] "";
-    vault-init = script "vault-init" [ pkgs.fzf ct' ] ''
-      export VAULT_SCAFFOLD=${scaffold}
-    '';
-    vault-lock = script "vault-lock" [ ] "";
-    vault-links = pkgs.writers.writePython3Bin "vault-links" {
-      flakeIgnore = [ "E501" ];
-    } (builtins.readFile ../tools/vault-links.py);
   };
 
   libexec = pkgs.linkFarm "claude-tickets-libexec"
@@ -105,11 +95,10 @@ let
     ln -s ${libexec} $out/libexec/claude-tickets
     ln -s ${plugin} $out/share/claude-tickets/plugin
     ln -s ${graphSrc} $out/share/claude-tickets/graph
-    ln -s ${scaffold} $out/share/claude-tickets/vault-scaffold
     makeWrapper ${lib.getExe ctBin} $out/bin/ct \
       --set-default CLAUDE_TICKETS_LIBEXEC ${libexec} \
       ${lib.concatStrings (lib.mapAttrsToList (k: v: "--set-default ${k} ${lib.escapeShellArg (toString v)} ") defaultsEnv)} \
-      --suffix PATH : ${lib.makeBinPath (with pkgs; [ git tmux coreutils gnutar ])}
+      --suffix PATH : ${lib.makeBinPath (with pkgs; [ git tmux coreutils gnutar fzf ])}
     mkdir -p $out/share/zsh/site-functions $out/share/bash-completion/completions $out/share/fish/vendor_completions.d
     ${lib.getExe ctBin} completion zsh > $out/share/zsh/site-functions/_ct
     ${lib.getExe ctBin} completion bash > $out/share/bash-completion/completions/ct

@@ -237,3 +237,10 @@ func Optional() Context {
 		TmuxSession:  "tickets",
 	}}
 }
+
+// PathsSame reports whether a and b are the same folder (after ~
+// expansion, symlinks resolved where they exist). An empty path is never
+// the same as anything.
+func PathsSame(a, b string) bool {
+	return a != "" && b != "" && canonical(a) == canonical(b)
+}
