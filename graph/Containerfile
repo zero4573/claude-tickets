@@ -1,0 +1,16 @@
+# The graphify image for claude-tickets: a pinned Python image plus graphify
+# and every dependency, installed from the hashed lock (pip refuses anything
+# whose hash doesn't match). Built by `ticket-graph build` as
+# localhost/claude-tickets-graphify:<hash of this directory>; see UPDATES.md
+# for bumping the base image and the lock.
+ARG PYTHON_IMAGE
+FROM ${PYTHON_IMAGE}
+COPY graphify-requirements.txt /opt/graphify/requirements.txt
+RUN python3 -m venv /opt/graphify/venv \
+ && /opt/graphify/venv/bin/pip install --quiet --no-cache-dir --disable-pip-version-check \
+      --require-hashes --no-deps -r /opt/graphify/requirements.txt \
+ && chmod -R a+rX /opt/graphify
+COPY ticket-merge.py serve.sh /opt/graphify/
+ENV PATH=/opt/graphify/venv/bin:$PATH \
+    GRAPHIFY_QUERY_LOG_DISABLE=1 \
+    HOME=/tmp

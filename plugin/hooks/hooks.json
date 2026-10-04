@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "Notification": [
+      { "matcher": "permission_prompt|elicitation_dialog",
+        "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state\" needs-input" }] }
+    ],
+    "PreToolUse": [
+      { "matcher": "AskUserQuestion",
+        "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state\" needs-input" }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "AskUserQuestion",
+        "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state\" working" }] }
+    ],
+    "UserPromptSubmit": [
+      { "matcher": "",
+        "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state\" working" }] }
+    ],
+    "Stop": [
+      { "matcher": "",
+        "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state\" idle" }] }
+    ],
+    "SessionEnd": [
+      { "matcher": "",
+        "hooks": [{ "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state\" exited" }] }
+    ]
+  }
+}

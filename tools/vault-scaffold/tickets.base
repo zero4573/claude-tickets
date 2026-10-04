@@ -1,0 +1,163 @@
+# Ticket dashboard at the vault root (moved out of tickets/ so it is easy to reach).
+filters:
+  and:
+    - file.inFolder("tickets")
+    - type == "ticket"
+properties:
+  file.name:
+    displayName: Ticket
+  note.summary:
+    displayName: Summary
+  note.source:
+    displayName: Source
+  note.ticket-type:
+    displayName: Type
+  note.source-status:
+    displayName: Source status
+  note.source-priority:
+    displayName: Priority
+  note.projects:
+    displayName: Projects
+  note.versions:
+    displayName: Versions
+  note.source-updated:
+    displayName: Source updated
+  note.ignore-reason:
+    displayName: Ignored because
+  note.ignore-until:
+    displayName: Ignored until
+  note.parent:
+    displayName: Parent
+  note.covered-by:
+    displayName: Covered by
+  note.covers:
+    displayName: Covers
+  note.children:
+    displayName: Children
+  note.blocked-by:
+    displayName: Blocked by
+  note.blocks:
+    displayName: Blocks
+views:
+  - type: table
+    name: Active
+    filters:
+      and:
+        - status != "closed"
+        - status != "done"
+        - ignore != true
+    groupBy:
+      property: status
+      direction: ASC
+    order:
+      - file.name
+      - summary
+      - source
+      - ticket-type
+      - source-status
+      - source-priority
+      - projects
+      - source-updated
+  - type: table
+    name: Waiting on me
+    filters:
+      or:
+        - status == "blocked"
+        - status == "review"
+    order:
+      - file.name
+      - summary
+      - source
+      - status
+      - projects
+  - type: table
+    name: Blocked by dependencies
+    filters:
+      and:
+        - blocked == true
+        - status != "closed"
+        - status != "done"
+    order:
+      - file.name
+      - summary
+      - blocked-by
+      - status
+      - covered-by
+  - type: table
+    name: Leads (epics)
+    filters:
+      and:
+        - note["ticket-type"] == "epic"
+        - status != "closed"
+    order:
+      - file.name
+      - summary
+      - status
+      - covers
+      - children
+      - blocked-by
+  - type: table
+    name: By lead / parent
+    filters:
+      and:
+        - status != "closed"
+        - ignore != true
+    groupBy:
+      property: covered-by
+      direction: ASC
+    order:
+      - file.name
+      - summary
+      - status
+      - parent
+      - blocked-by
+      - blocks
+  - type: table
+    name: Manual
+    filters:
+      and:
+        - source == "manual"
+    order:
+      - file.name
+      - summary
+      - status
+      - ticket-type
+      - priority
+      - projects
+  - type: table
+    name: Ignored
+    filters:
+      and:
+        - ignore == true
+    order:
+      - file.name
+      - summary
+      - source
+      - status
+      - ignore-reason
+      - ignore-until
+  - type: table
+    name: Done / closed
+    filters:
+      or:
+        - status == "done"
+        - status == "closed"
+    order:
+      - file.name
+      - summary
+      - source
+      - status
+      - versions
+  - type: table
+    name: All
+    groupBy:
+      property: source
+      direction: ASC
+    order:
+      - file.name
+      - summary
+      - status
+      - ignore
+      - source-status
+      - projects
+      - source-updated

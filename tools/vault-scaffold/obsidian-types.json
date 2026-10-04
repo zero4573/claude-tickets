@@ -1,0 +1,23 @@
+{
+  "projects": "multitext",
+  "versions": "multitext",
+  "ignore": "checkbox",
+  "ignore-until": "date",
+  "ignore-reason": "text",
+  "tickets": "multitext",
+  "services": "multitext",
+  "source": "text",
+  "source-id": "text",
+  "source-fix-versions": "multitext",
+  "source-updated": "text",
+  "summary": "text",
+  "priority": "text",
+  "parent": "text",
+  "children": "multitext",
+  "covers": "multitext",
+  "covered-by": "text",
+  "blocked-by": "multitext",
+  "blocks": "multitext",
+  "related": "multitext",
+  "blocked": "checkbox"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "tickets",
+  "description": "Ticket workflow with an Obsidian vault as long-term memory: the lead playbook (work-ticket), PR feedback, ticket sync, the knowledge base (kb), save and recall, the product-owner / architect / developer / qa role agents, and the hooks that tell ticket-status what a session is doing.",
+  "version": "0.1.0",
+  "author": { "name": "claude-tickets" },
+  "hooks": "./hooks/hooks.json"
+}
