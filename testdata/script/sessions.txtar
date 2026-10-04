@@ -1,0 +1,79 @@
+mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/tickets/MAN-1 home/Documents/Obsidian/a/tickets/MAN-2 home/work/a/MAN-1 home/work/a/MAN-2
+expand ws1.json ws2.json
+cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+cp man-2.md home/Documents/Obsidian/a/tickets/MAN-2/MAN-2.md
+
+# Workspaces: MAN-1 waiting on you with its window open, MAN-2 stale
+cp ws1.json home/work/a/MAN-1/workspace.json
+cp state-needs.json home/work/a/MAN-1/.agent-state
+cp ws2.json home/work/a/MAN-2/workspace.json
+cp state-working.json home/work/a/MAN-2/.agent-state
+exec touch -d '2 days ago' home/work/a/MAN-2/.agent-state
+mkdir home/work/a/MAN-1/repo-a/.git
+mkdir home/work/a/MAN-1/repo-b/.git
+cp empty home/work/a/MAN-1/repo-b/.dirty
+cp windows tmux-windows
+
+exec ct status
+stdout '^Vault a, tmux session tickets-a$'
+stdout '^TICKET +SOURCE +AGENT'
+stdout '^MAN-1 +manual +needs-input +yes +new +2 \(1 dirty\) +10:00:00 +Which base branch\?$'
+stdout '^MAN-2 +jira +working \(stale\) +no +in-progress +0 \(0 dirty\)'
+# waiting on you first
+stdout '(?s)MAN-1.*MAN-2'
+
+# attach: only open windows
+exec ct attach --list
+stdout '^MAN-1\t'
+! stdout MAN-2
+! exec ct attach MAN-2
+stderr 'no window for MAN-2 in tmux session .tickets-a.'
+exec ct attach MAN-1
+grep 'select-window -t =tickets-a:MAN-1' calls/tmux
+grep 'attach-session -t =tickets-a' calls/tmux
+
+# open: VS Code-style editors get a multi-root workspace
+exec ct open --list
+stdout '^MAN-1\t'
+stdout '^MAN-2\t'
+env CLAUDE_TICKETS_EDITOR='no-such-editor --new-window'
+! exec ct open MAN-1
+stderr 'editor .no-such-editor. not found'
+mkdir stub2
+cp $WORK/stub/editor stub2/code
+chmod 755 stub2/code
+env PATH=$WORK/stub2:$PATH
+env CLAUDE_TICKETS_EDITOR='code --new-window'
+exec ct open MAN-1
+grep '^--new-window .*/work/a/MAN-1/MAN-1.code-workspace$' calls/editor
+grep '"name": "github-me-foo \(feature/MAN-1\)"' home/work/a/MAN-1/MAN-1.code-workspace
+grep '"name": "MAN-1 notes \(vault\)"' home/work/a/MAN-1/MAN-1.code-workspace
+! exec ct open MAN-9
+stderr 'MAN-9 has no workspace'
+
+-- man-1.md --
+---
+summary: First
+status: new
+source: manual
+---
+-- man-2.md --
+---
+summary: Second
+status: in-progress
+source: jira
+---
+-- ws1.json --
+{"id": "MAN-1", "vault": "$WORK/home/Documents/Obsidian/a", "repos": [
+  {"provider": "github", "owner": "me", "repo": "foo", "slug": "github-me-foo", "path": "$WORK/home/work/a/MAN-1/repo-a", "base": "main", "branch": "feature/MAN-1", "mode": "worktree"},
+  {"provider": "github", "owner": "me", "repo": "bar", "slug": "github-me-bar", "path": "$WORK/home/work/a/MAN-1/repo-b", "base": "main", "branch": "feature/MAN-1", "mode": "worktree"}
+]}
+-- ws2.json --
+{"id": "MAN-2", "vault": "$WORK/home/Documents/Obsidian/a", "repos": []}
+-- state-needs.json --
+{"state": "needs-input", "reason": "Which base branch?", "ts": "2026-10-03T10:00:00-04:00"}
+-- state-working.json --
+{"state": "working", "reason": "", "ts": "2026-10-03T09:00:00-04:00"}
+-- windows --
+MAN-1
+-- empty --

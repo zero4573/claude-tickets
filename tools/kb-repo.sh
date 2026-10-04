@@ -1,6 +1,6 @@
 usage() {
   cat <<'EOF'
-Usage: kb-repo <command> ...   (inside a kb session)
+Usage: ct kb repo <command> ...   (inside a kb session)
 
 Exploration clones for a kb session: look at any branch or commit of a repo
 without touching its main clone under ~/Projects (read-only here). Each is a
@@ -44,7 +44,7 @@ done
 ws="$dir/workspace.json"
 
 clone_of() {  # clone_of <repo> -> sets clone slug main path
-  clone="$(resolve_repo "$1")" || die "no main clone '$1' (see ticket-ws repos)"
+  clone="$(resolve_repo "$1")" || die "no main clone '$1' (see ct ws repos)"
   slug="$(repo_slug "$clone")"
   main="$projects_root/$clone"
   path="$dir/$slug"
@@ -56,7 +56,7 @@ refresh() {
   # Never prompt: no credentials, no host-key questions, just fail fast
   if ! GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=10" \
        timeout 30 git -C "$path" fetch --quiet --prune origin 2>/dev/null; then
-    echo "kb-repo: $slug: can't reach origin from the sandbox; using the main clone's fetch (run ticket-ws fetch $slug on the host for newer)" >&2
+    echo "ct kb repo: $slug: can't reach origin from the sandbox; using the main clone's fetch (run ct ws fetch $slug on the host for newer)" >&2
   fi
 }
 
@@ -77,11 +77,11 @@ cmd_checkout() {
     force=1
     shift
   fi
-  clone_of "${1:?kb-repo checkout [--force] <repo> [<ref>]}"
+  clone_of "${1:?ct kb repo checkout [--force] <repo> [<ref>]}"
   local ref="${2:-}"
   ensure_clone
   if [[ -n "$(git -C "$path" status --porcelain 2>/dev/null)" ]]; then
-    [[ "$force" == 1 ]] || die "$slug has local edits; kb-repo checkout --force $slug ... discards them"
+    [[ "$force" == 1 ]] || die "$slug has local edits; ct kb repo checkout --force $slug ... discards them"
     git -C "$path" reset --quiet --hard
     git -C "$path" clean --quiet -fd -e graphify-out/
   fi
@@ -96,11 +96,11 @@ cmd_checkout() {
   elif git -C "$path" rev-parse -q --verify "$ref^{commit}" >/dev/null; then
     git -C "$path" checkout --quiet --detach "$ref"
   else
-    die "no branch, tag or commit '$ref' in $slug (kb-repo fetch $slug, or ticket-ws fetch $slug on the host)"
+    die "no branch, tag or commit '$ref' in $slug (ct kb repo fetch $slug, or ct ws fetch $slug on the host)"
   fi
   register "$ref"
-  echo "kb-repo: $slug at $ref ($(git -C "$path" log -1 --format='%h %cs %s'))"
-  echo "kb-repo: path $path; the code graph picks it up within ~15s"
+  echo "ct kb repo: $slug at $ref ($(git -C "$path" log -1 --format='%h %cs %s'))"
+  echo "ct kb repo: path $path; the code graph picks it up within ~15s"
 }
 
 cmd_fetch() {
@@ -110,22 +110,22 @@ cmd_fetch() {
   fi
   for r in "${repos[@]}"; do
     clone_of "$r"
-    [[ -d "$path/.git" ]] || { warn "$slug has no exploration clone (kb-repo checkout $slug)"; continue; }
+    [[ -d "$path/.git" ]] || { warn "$slug has no exploration clone (ct kb repo checkout $slug)"; continue; }
     refresh
     if up="$(git -C "$path" rev-parse --abbrev-ref '@{u}' 2>/dev/null)" \
        && [[ -z "$(git -C "$path" status --porcelain)" ]]; then
       git -C "$path" merge --quiet --ff-only "$up" 2>/dev/null || warn "$slug: can't fast-forward to $up"
     fi
-    echo "kb-repo: $slug fetched ($(git -C "$path" log -1 --format='%h %cs %s'))"
+    echo "ct kb repo: $slug fetched ($(git -C "$path" log -1 --format='%h %cs %s'))"
   done
 }
 
 cmd_graph() {
-  clone_of "${1:?kb-repo graph <repo>}"
-  [[ -d "$path/.git" ]] || die "$slug has no exploration clone (kb-repo checkout $slug)"
+  clone_of "${1:?ct kb repo graph <repo>}"
+  [[ -d "$path/.git" ]] || die "$slug has no exploration clone (ct kb repo checkout $slug)"
   mkdir -p "$path/graphify-out"
   touch "$path/graphify-out/.rebuild"
-  echo "kb-repo: asked the graph sidecar to rebuild $slug"
+  echo "ct kb repo: asked the graph sidecar to rebuild $slug"
 }
 
 cmd_ls() {
@@ -147,14 +147,14 @@ cmd_reset() {
   if [[ "${1:-}" == --all ]]; then
     mapfile -t targets < <(jq -r '.repos[] | select(.mode == "explore") | .slug' "$ws")
   else
-    targets=("${1:?kb-repo reset <repo>|--all}")
+    targets=("${1:?ct kb repo reset <repo>|--all}")
   fi
   for t in "${targets[@]}"; do
     clone_of "$t"
     rm -rf "$path"
     # shellcheck disable=SC2016 # a jq filter
     json_update "$ws" --arg slug "$slug" '.repos |= map(select(.slug != $slug))'
-    echo "kb-repo: removed $slug's exploration clone"
+    echo "ct kb repo: removed $slug's exploration clone"
   done
 }
 

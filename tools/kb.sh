@@ -2,14 +2,14 @@ usage() {
   cat <<'EOF'
 Usage: kb [--continue] [--print] [--no-fetch] ["<question>"]
 
-Ask about the system the current vault (vault-default) describes (repos,
+Ask about the system the current vault (ct vault default) describes (repos,
 services, architecture, data flows, past tickets) without creating a
 ticket. It runs a Claude session (the `kb` skill) with:
   * the vault, read-write, as the knowledge base
   * every repo under ~/Projects, read-only, freshly fetched on the host;
-    the session explores branches in its own clones (kb-repo), where it may
+    the session explores branches in its own clones (ct kb repo), where it may
     build and test, but never commits or pushes
-  * ticket-new, to turn issues it finds into manual tickets
+  * ct new, to turn issues it finds into manual tickets
   * one code graph (graphify) merged from all the main clones
   * the MCP servers your claude command provides (e.g. Jira / Bitbucket)
 
@@ -41,13 +41,13 @@ done
 
 require_vault
 # A session may have no git credentials (e.g. sandboxed), so bring every main clone's remote
-# branches up to date here; kb-repo fetch passes them on to the session
-[[ "$fetch" == 1 ]] && ticket-ws fetch
+# branches up to date here; ct kb repo fetch passes them on to the session
+[[ "$fetch" == 1 ]] && ct ws fetch
 name="$(basename "$vault")"
 
 # A workspace like a ticket's, but with no repos of its own: its graph
-# (ticket-graph mcp) then merges every main clone (hidden, so ticket-status
-# and ticket-ws ls skip it)
+# (ct graph mcp) then merges every main clone (hidden, so ct status
+# and ct ws ls skip it)
 dir="$work_root/.kb-$name"
 ensure_workspace "$dir" KB "$vault"
 trust_workspace "$dir"
@@ -66,22 +66,22 @@ Written by kb; regenerated on every start, so don't edit it.
 
 - Vault (knowledge base, read-write): \`$vault\`. Read its \`AGENTS.md\`.
 - Repos: main clones at \`$projects_root/<provider>/<owner>/<repo>\`, read-only,
-  fetched from their remotes when this session started. \`ticket-ws repos\`
+  fetched from their remotes when this session started. \`ct ws repos\`
   lists every repo with its slug.
-- **Exploring branches:** \`kb-repo checkout <repo> [<branch>|<tag>|<commit>]\`
+- **Exploring branches:** \`ct kb repo checkout <repo> [<branch>|<tag>|<commit>]\`
   gives you an exploration clone at \`$dir/<slug>\` on that ref. The code graph
   swaps it in for the main clone and rebuilds it as the checkout changes.
-  \`kb-repo fetch\` refreshes remote branches, \`kb-repo graph <repo>\` forces a
-  rebuild, \`kb-repo ls\` shows what's checked out, \`kb-repo reset\` drops
+  \`ct kb repo fetch\` refreshes remote branches, \`ct kb repo graph <repo>\` forces a
+  rebuild, \`ct kb repo ls\` shows what's checked out, \`ct kb repo reset\` drops
   clones.
 - **Experiments are fine, changes aren't kept:** in your exploration clones
   you may edit, build, run tests and add debug output to check how something
   behaves. Those edits stay in this session: never commit or push (both
-  denied), and \`kb-repo checkout --force\` discards them. The main clones in
+  denied), and \`ct kb repo checkout --force\` discards them. The main clones in
   \`~/Projects\` are never edited.
 - **Issues become tickets:** when you find something that should be
   investigated or fixed, create a manual ticket with
-  \`ticket-new "<summary>"\` and fill it in (see the \`kb\`
+  \`ct new "<summary>"\` and fill it in (see the \`kb\`
   skill), so the work goes through the ticket workflow.
 - Code graph: the \`graphify\` MCP server holds every repo, with node ids
   prefixed by the repo's slug (\`bitbucket-acme-billing-service::…\`).
@@ -94,9 +94,9 @@ EOF
 
 session=()
 claude_session_cmd session "$vault" "$projects_root" "$cache_dir/graphify"
-if ticket-graph build >/dev/null; then
-  jq -n --arg cmd "$(command -v ticket-graph)" --arg ws "$dir" --arg vault "$vault" \
-    '{mcpServers: {graphify: {type: "stdio", command: $cmd, args: ["mcp", $ws], env: {CLAUDE_TICKETS_VAULT: $vault}}}}' \
+if ct graph build >/dev/null; then
+  jq -n --arg cmd "$(command -v ct)" --arg ws "$dir" --arg vault "$vault" \
+    '{mcpServers: {graphify: {type: "stdio", command: $cmd, args: ["graph", "mcp", $ws], env: {CLAUDE_TICKETS_VAULT: $vault}}}}' \
     > "$dir/.claude/graph-mcp.json"
   session+=(--mcp-config "$dir/.claude/graph-mcp.json")
 else

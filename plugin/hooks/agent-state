@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Records what a ticket or kb session is doing in <workspace>/.agent-state,
-# for ticket-status: agent-state <state>, with the hook's JSON payload on
+# for ct status: agent-state <state>, with the hook's JSON payload on
 # stdin. The workspace is the nearest folder at or above the session's cwd
 # whose workspace.json has an id; outside one this does nothing. needs-input
 # from an AskUserQuestion also desktop-notifies (when notify-send exists),

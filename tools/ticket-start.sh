@@ -1,26 +1,26 @@
 usage() {
   cat <<'EOF2'
-Usage: ticket-start [--force] [--no-fetch] [--feedback] [--no-attach] <ID>...
-       ticket-start --list [--all]
+Usage: ct start [--force] [--no-fetch] [--feedback] [--no-attach] <ID>...
+       ct start --list [--all]
 
 Starts (or re-opens) one sandboxed Claude session for each ticket named,
-from the current vault (vault-default), each in its own window of the
+from the current vault (ct vault default), each in its own window of the
 vault's tmux session (tickets-<vault>), running /tickets:work-ticket <ID> in the
 workspace ~/work/<vault>/<ID> (the vault's .workflow.json says where).
 Name one ticket or several; nothing starts without one. Each must be a
-ticket of the vault: tickets/<ID>/<ID>.md, synced by ticket-sync or a
-manual ticket from ticket-new. If any isn't, none start. Tab completes the
+ticket of the vault: tickets/<ID>/<ID>.md, synced by ct sync or a
+manual ticket from ct new. If any isn't, none start. Tab completes the
 vault's open tickets (zsh).
 
   --force         start tickets marked `ignore: true` too, or one covered by
                   an open lead ticket (covered-by) on its own
   --no-fetch      skip fetching the main clones under ~/Projects first
   --feedback      run /tickets:pr-feedback <ID> instead of /tickets:work-ticket <ID>: apply the
-                  review feedback on your open PRs for the ticket (ticket-feedback
+                  review feedback on your open PRs for the ticket (ct feedback
                   is a shorthand). A ticket whose window is already open gets
                   /tickets:pr-feedback typed into it.
   --no-attach     with a single ID, don't switch to its window (by
-                  default ticket-start attaches when run in a terminal)
+                  default ct start attaches when run in a terminal)
   --list          print the vault's open tickets, one per line:
                   <ID> <status> <summary>, tab-separated (what completion uses)
   --all           with --list: done and closed tickets too
@@ -28,7 +28,7 @@ vault's open tickets (zsh).
 A workspace that already ran a session continues its last conversation.
 The workspace is marked as trusted in Claude Code, so the session starts
 without asking.
-Attach with ticket-attach <ID>, see all of them with ticket-status.
+Attach with ct attach <ID>, see all of them with ct status.
 EOF2
 }
 
@@ -68,7 +68,7 @@ for key in "${keys[@]}"; do
   [[ -f "$(ticket_note "$vault" "$key")" ]] || missing+=("$key")
 done
 if [[ ${#missing[@]} -gt 0 ]]; then
-  die "not a ticket of the $(basename "$vault") vault: ${missing[*]} (no tickets/<ID>/<ID>.md; ticket-sync, or ticket-new for a manual ticket; ticket-start --list shows them). Nothing started."
+  die "not a ticket of the $(basename "$vault") vault: ${missing[*]} (no tickets/<ID>/<ID>.md; ct sync, or ct new for a manual ticket; ct start --list shows them). Nothing started."
 fi
 
 # Keys to launch, after the ignore and lead checks
@@ -86,9 +86,9 @@ for key in "${keys[@]}"; do
     lead_status="$(frontmatter_get "$(ticket_note "$vault" "$lead")" status)"
     if [[ "$lead_status" != "done" && "$lead_status" != "closed" ]]; then
       if [[ "$skill" == pr-feedback ]]; then
-        warn "$key: covered by $lead, so its PRs are handled there: ticket-feedback $lead (or --force)"
+        warn "$key: covered by $lead, so its PRs are handled there: ct feedback $lead (or --force)"
       else
-        warn "$key: covered by $lead, so it's worked there: ticket-start $lead (or --force to start it on its own)"
+        warn "$key: covered by $lead, so it's worked there: ct start $lead (or --force to start it on its own)"
       fi
       continue
     fi
@@ -100,24 +100,24 @@ for key in "${keys[@]}"; do
 done
 [[ ${#launch[@]} -gt 0 ]] || exit 1
 
-[[ "$fetch" == 1 ]] && ticket-ws fetch
+[[ "$fetch" == 1 ]] && ct ws fetch
 
 # What a session works in, given to claude as --add-dir: the vault, the main
 # clones (read-only to sessions: write_session_settings), each main clone's
-# .git (writable, so ticket-ws add can create worktrees and branches) and the
+# .git (writable, so ct ws add can create worktrees and branches) and the
 # graph image cache (read-only)
 git_dirs=()
 while IFS= read -r repo; do
   git_dirs+=("$projects_root/$repo/.git")
 done < <(list_main_clones)
 
-# The merged code graph of each workspace (ticket-graph mcp) needs its image
+# The merged code graph of each workspace (ct graph mcp) needs its image
 graph_ok=1
-if ! ticket-graph build >/dev/null; then
+if ! ct graph build >/dev/null; then
   warn "the graphify image couldn't be built; sessions start without the merged code graph"
   graph_ok=0
 fi
-graph_cmd="$(command -v ticket-graph)"
+graph_cmd="$(command -v ct)"
 
 for key in "${launch[@]}"; do
   dir="$work_root/$key"
@@ -130,7 +130,7 @@ for key in "${launch[@]}"; do
   cat > "$dir/CLAUDE.md" <<EOF
 # Ticket workspace: $key
 
-Written by ticket-start; regenerated on every start, so don't edit it.
+Written by ct start; regenerated on every start, so don't edit it.
 
 - Ticket: \`$key\` (source: \`$(frontmatter_get "$(ticket_note "$vault" "$key")" source)\`)
 - Vault: \`$vault\` (read its \`AGENTS.md\` for note rules)
@@ -140,22 +140,22 @@ Written by ticket-start; regenerated on every start, so don't edit it.
   may also write the work sections and \`status\` of the tickets in its
   \`covers\`.
 - Repos in this workspace: \`$dir/workspace.json\` (each repo's path, base
-  and branch), kept current by \`ticket-ws add\`. Checkouts are at
+  and branch), kept current by \`ct ws add\`. Checkouts are at
   \`$dir/<slug>\`, normally on \`feature/${key}[-<description>]\`.
 - Main clones: \`$projects_root/<provider>/<owner>/<repo>\`. Never edit
-  them: their \`.git\` is only writable so \`ticket-ws add\` can create
+  them: their \`.git\` is only writable so \`ct ws add\` can create
   worktrees. Each
-  repo's slug is \`<provider>-<owner>-<repo>\` (\`ticket-ws repos\` lists
+  repo's slug is \`<provider>-<owner>-<repo>\` (\`ct ws repos\` lists
   them); the vault and the code graph name repos by slug.
-- Vault tools: \`vault-lock\` and \`vault-links\` (used by \`/tickets:save\`).
-  \`ticket-new\` files a manual ticket.
+- Vault tools: \`ct vault lock\` and \`ct vault links\` (used by \`/tickets:save\`).
+  \`ct new\` files a manual ticket.
 - Code graph: the \`graphify\` MCP server merges this workspace's worktrees
   with every other repo's main clone. Query it before reading files.
 
 - Git: commit your work on the ticket branch in coherent steps (subject
   starting with \`$key\`, unless the repo's own convention says otherwise).
   Commits are unsigned here; the user signs them on the host with
-  \`ticket-ws sign $key\`. Never push, rewrite pushed commits, reset
+  \`ct ws sign $key\`. Never push, rewrite pushed commits, reset
   --hard, or remove worktrees.
 
 Run \`/tickets:work-ticket $key\` to (re)start the workflow, and
@@ -167,7 +167,7 @@ EOF
   claude_session_cmd session "$vault" "$projects_root" "${git_dirs[@]}" "$cache_dir/graphify"
   if [[ "$graph_ok" == 1 ]]; then
     jq -n --arg cmd "$graph_cmd" --arg ws "$dir" --arg vault "$vault" \
-      '{mcpServers: {graphify: {type: "stdio", command: $cmd, args: ["mcp", $ws], env: {CLAUDE_TICKETS_VAULT: $vault}}}}' \
+      '{mcpServers: {graphify: {type: "stdio", command: $cmd, args: ["graph", "mcp", $ws], env: {CLAUDE_TICKETS_VAULT: $vault}}}}' \
       > "$dir/.claude/graph-mcp.json"
     session+=(--mcp-config "$dir/.claude/graph-mcp.json")
   fi
@@ -188,7 +188,7 @@ EOF
     if [[ "$skill" == pr-feedback ]]; then
       # Queue it in the running session as if typed
       tmux send-keys -t "=$tmux_session:$key" "$prompt" Enter
-      echo "ticket-start: $key already open, sent $prompt to its window -- ticket-attach $key"
+      echo "ct start: $key already open, sent $prompt to its window -- ct attach $key"
     else
       warn "$key: already has a window in tmux session '$tmux_session', not starting another"
     fi
@@ -196,11 +196,11 @@ EOF
   else
     tmux new-window -d -t "=$tmux_session:" -n "$key" -c "$dir" bash -c "$shell_cmd"
   fi
-  echo "ticket-start: $key started in $tmux_session$([[ "$resume" == 1 ]] && echo " (continuing its last session)") -- ticket-attach $key"
+  echo "ct start: $key started in $tmux_session$([[ "$resume" == 1 ]] && echo " (continuing its last session)") -- ct attach $key"
 done
 
 # One ticket from a terminal: go straight to its window
 if [[ "$attach" == 1 && ${#keys[@]} -eq 1 && -t 0 && -t 1 ]] \
    && tmux list-windows -t "=$tmux_session" -F '#W' 2>/dev/null | grep -qxF "${keys[0]}"; then
-  exec ticket-attach "${keys[0]}"
+  exec ct attach "${keys[0]}"
 fi

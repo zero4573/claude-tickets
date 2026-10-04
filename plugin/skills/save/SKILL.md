@@ -1,6 +1,6 @@
 ---
 name: save
-description: End-of-session save to the Obsidian vault. In a ticket workspace (~/work/<ID>), writes session logs, promotes the ticket's kb-drafts into projects/, projects/system, knowledge-base/ and references/ without breaking links, tags the ticket with <project>-<target-version>, and appends the ticket summary (this replaces the old /summarize). In a repo session started with claude-vault, or a kb session, writes a session log and promotes the session's inbox/ drafts. Use when the user runs /tickets:save or asks to save, document or summarize the session.
+description: End-of-session save to the Obsidian vault. In a ticket workspace (~/work/<ID>), writes session logs, promotes the ticket's kb-drafts into projects/, projects/system, knowledge-base/ and references/ without breaking links, tags the ticket with <project>-<target-version>, and appends the ticket summary (this replaces the old /summarize). In a repo session started with ct claude, or a kb session, writes a session log and promotes the session's inbox/ drafts. Use when the user runs /tickets:save or asks to save, document or summarize the session.
 ---
 
 # /tickets:save
@@ -34,10 +34,10 @@ Follow the vault's `AGENTS.md`:
     and what's still unknown;
   - promote this session's `inbox/` drafts (step 4);
   - release the lock (step 7).
-- **Project mode:** anything else, e.g. `claude-vault` in a repo. The vault
+- **Project mode:** anything else, e.g. `ct claude` in a repo. The vault
   is the knowledge base named in the system prompt. If there's none, the
-  session wasn't started with `claude-vault`: say so (relaunch with
-  `claude-vault`, or use `kb`) and stop. The project is
+  session wasn't started with `ct claude`: say so (relaunch with
+  `ct claude`, or use `kb`) and stop. The project is
   the repo's slug, `<provider>-<owner>-<repo>`, as the system prompt names
   it (or from its path under `~/Projects`, or its origin URL). Then:
   - take the lock (step 2) with `repo-<slug>` as the owner;
@@ -51,10 +51,10 @@ Follow the vault's `AGENTS.md`:
 
   **Inbox drafts** are the notes the `kb` skill wrote in `inbox/` with
   `session:` set to this session. Promote them exactly like a ticket's
-  `kb-drafts/` (same `target:` and `update-of:` rules, `vault-links move`).
+  `kb-drafts/` (same `target:` and `update-of:` rules, `ct vault links move`).
   Drafts from other sessions stay where they are: mention them, so the user
   can `/tickets:save` them from a `kb` session. Notes with `type: follow-ups`
-  (task lists that unattended commands such as ticket-sync leave for the
+  (task lists that unattended commands such as ct sync leave for the
   user) aren't drafts: never promote, move or edit them.
 
 ## Ticket mode
@@ -68,7 +68,7 @@ Follow the vault's `AGENTS.md`:
   `dev-notes.md`, `qa-report.md`), `pr-feedback.md` if `/tickets:pr-feedback` ran,
   and `kb-drafts/`.
 - For a lead ticket, the notes of the tickets in its `covers` list.
-- `ticket-ws diff <ID> --stat`, plus the full diff where needed, to see
+- `ct ws diff <ID> --stat`, plus the full diff where needed, to see
   what actually changed. Prefer it over the hand-off files when they
   disagree: the code is what ships.
 - Any repo whose `targetVersion` is null: ask the user for it with
@@ -77,12 +77,12 @@ Follow the vault's `AGENTS.md`:
 ### 2. Take the vault lock
 
 ```sh
-vault-lock acquire <vault> <ID>
+ct vault lock acquire <vault> <ID>
 ```
 
 The owner is the ticket ID (outside tickets, see **Which mode**). It waits
 if another session is saving. Release it in step 7, **including when
-something fails**: run `vault-lock release <vault> <ID>` before you stop.
+something fails**: run `ct vault lock release <vault> <ID>` before you stop.
 Re-read each shared note right before editing it.
 
 ### 3. Session logs
@@ -100,8 +100,8 @@ For each `kb-drafts/` note, use its `target:` frontmatter (default: infer
 from its type):
 
 - **New note** (no note with that name exists): move it with
-  `vault-links move <vault> tickets/<ID>/kb-drafts/<note>.md <target-folder>/`.
-  Never move notes with mv, because `vault-links` keeps links working.
+  `ct vault links move <vault> tickets/<ID>/kb-drafts/<note>.md <target-folder>/`.
+  Never move notes with mv, because `ct vault links` keeps links working.
   After moving, remove the `target:` field and set
   `status: active`, `updated: <today>`.
 - **Update to an existing note** (a frontmatter `update-of: <note>`, or the
@@ -122,7 +122,7 @@ Where things go:
     `repo: <provider>/<owner>/<repo>` and `aliases: [<repo>]` so the short
     name still finds it) if the project is new. Repos are always named by
     slug, `<provider>-<owner>-<repo>`, from `workspace.json` or
-    `ticket-ws repos`.
+    `ct ws repos`.
 - `projects/<slug>/architecture/<slug>-decisions.md`: the project's decision
   index. Add one line per new decision note:
   `- yyyy-MM-dd [[decision-note]] (<ID>): one-line summary`. Create it if
@@ -144,7 +144,7 @@ Where things go:
 
 Every filename must be unique across the whole vault, because links use
 bare names: hence slugs for projects, `<slug>-decisions.md`, and log names
-that include the ticket ID and slug. `vault-links move` refuses a clashing name.
+that include the ticket ID and slug. `ct vault links move` refuses a clashing name.
 
 Each promoted note links back to the ticket (`[[<ID>]]`) and to its
 project index note.
@@ -152,7 +152,7 @@ project index note.
 ### 5. Check links
 
 ```sh
-vault-links check <vault> <every note created, moved or edited> tickets/<ID>/<ID>.md
+ct vault links check <vault> <every note created, moved or edited> tickets/<ID>/<ID>.md
 ```
 
 Fix every unresolved or ambiguous link (rename a clashing new note,
@@ -192,11 +192,11 @@ assigned to someone else) can stay unresolved.
 
 ### 7. Release the lock and finish
 
-Run `vault-lock release <vault> <ID>`. Then set the ticket's
+Run `ct vault lock release <vault> <ID>`. Then set the ticket's
 `status: done` (for a lead, each covered ticket's too): `/tickets:save` ends the
 agents' work, and signing and pushing are the user's steps. Tell them:
 - what was written, as wikilinks
 - that the code is committed, unsigned, on `feature/<ID>…` in each
-  worktree (plus anything `ticket-ws diff <ID>` still shows uncommitted):
-  `ticket-ws sign <ID>` on the host, then push
-- that `ticket-ws rm <ID>` cleans up the worktrees after merge
+  worktree (plus anything `ct ws diff <ID>` still shows uncommitted):
+  `ct ws sign <ID>` on the host, then push
+- that `ct ws rm <ID>` cleans up the worktrees after merge

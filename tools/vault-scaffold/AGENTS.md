@@ -16,7 +16,7 @@ ROOT
 ├── tickets.base           # Bases dashboard: Active / Waiting on me / Blocked by dependencies / Leads / By lead / Manual / Ignored / Done / All
 ├── tickets/               # one folder per ticket, from any source
 │   ├── .sources.json      #   ticket sources: jira, manual, ... (see "Ticket sources")
-│   ├── .sync-state.json   #   last ticket-sync run, per source
+│   ├── .sync-state.json   #   last ct sync run, per source
 │   └── PROJ-12/          #   one ticket, named by its ID
 │       ├── PROJ-12.md    #     ticket note: content, workspace, tasks, questions, review, summaries
 │       ├── requirements.md, design.md, investigation.md, dev-notes.md, qa-report.md
@@ -51,7 +51,7 @@ taken from its git origin. Examples: `bitbucket-acme-billing-service`
 (Bitbucket project SHIPS) and `github-ato-dotfiles` (GitHub user ato). The slug
 names the project folder and its notes, the `projects:` and `versions:` entries
 of tickets, version tags, worktree folders and the code graph's node ids. The
-main clone lives at `~/Projects/<provider>/<owner>/<repo>`; `ticket-ws repos`
+main clone lives at `~/Projects/<provider>/<owner>/<repo>`; `ct ws repos`
 lists every slug. Project index notes carry `aliases: [<repo>]` so the short
 name still finds them.
 
@@ -78,8 +78,8 @@ Note: `{{date}}`, should be replaced with the date in `yyyy-MM-dd` format, and `
 | Template | For |
 |---|---|
 | `base.md` | anything without a specific template |
-| `ticket-synced.md` | tickets synced from a source (created by ticket-sync) |
-| `ticket-manual.md` | tickets you write yourself (`ticket-new`, or insert it into `tickets/MAN-<n>/MAN-<n>.md`) |
+| `ticket-synced.md` | tickets synced from a source (created by ct sync) |
+| `ticket-manual.md` | tickets you write yourself (`ct new`, or insert it into `tickets/MAN-<n>/MAN-<n>.md`) |
 | `session-log.md` | ticket and project session logs |
 | `project.md` | `projects/<slug>/<slug>.md` index notes |
 | `feature.md` | `projects/<slug>/features/`: services touched, versions |
@@ -107,7 +107,7 @@ tags: [project, topic1, topic2, ...]
 - Don't use markdown links for internal notes (use wikilinks)
 - Don't create notes without frontmatter
 - Don't change folder structure without documenting it
-- Don't move notes with `mv`: use `vault-links move` (keeps links working)
+- Don't move notes with `mv`: use `ct vault links move` (keeps links working)
 
 ### Task lists
 When creating task lists, use the following task list options to track work:
@@ -131,27 +131,27 @@ and the hooks. Sessions run your `claude` command (which may be sandboxed).
 
 | Command | What it does |
 |---|---|
-| `vault-default [<vault>\|--pick\|--unset]` | Show or set the default vault (`~/.config/claude-tickets/default-vault`): the one every ticket command acts on. Switch it to work on another vault; running sessions keep the vault they started with. `vault-init` ignores it and always asks. |
-| `claude-vault [claude args]` | A plain repo session with the default vault as its knowledge base (see "Sessions outside tickets"). Opt-in: a plain `claude` session doesn't see the vault. |
-| `kb [--print] ["<question>"]` | Ask about the system (repos, services, architecture, flows, past tickets) without a ticket: a session with this vault, every repo (fetched first) read-only, and one code graph of all of them. It can explore any branch, tag or commit in its own clones (`kb-repo`), building and testing there, but never commits or pushes, and it files manual tickets (tag `from-kb`) for issues worth following up. It investigates unknowns and drafts what it learns into `inbox/`; `/tickets:save` promotes the drafts. |
-| `vault-init [<vault>]` | Set a vault up for this workflow: folders, this AGENTS.md, templates, the dashboard, Obsidian settings, then `vault-configure` for the settings not made yet. Never overwrites existing files, so it's safe to re-run. |
-| `vault-configure [<vault>] [--section locations\|sources\|runtime]` | The vault's settings, each prompt showing its current value: locations (`.workflow.json`, see below), ticket sources (`tickets/.sources.json`), and the container runtime of the code graph (host-wide). |
-| `ticket-sync [--source jira] [--full]` | Pull your open tickets from every syncable source into `tickets/` and reconcile the notes with the source (read-only, through each source's MCP server; for Jira see [[atlassian-rovo-mcp-setup]]). For Jira the command syncs by itself, without a model: Jira's changelog says what changed in each ticket, and only that part of the note is rewritten (frontmatter and table, description, comments, an epic's children); time tracking and other changes the note doesn't show only move the timestamp. Claude (the source's `model`, default sonnet) runs only for a description or comments Jira can give only as HTML. Problems land in an `inbox/` follow-up note. |
-| `ticket-new [--type bug] "<summary>"` | Create a manual ticket `MAN-<n>` from `templates/ticket-manual.md`. |
-| `ticket-start [--no-attach] <ID>...` | One tmux window per named ticket (with one ID it switches to it), in the tmux session `tickets-<vault>` (several at once are fine; Tab completes the open ones, `--list` prints them), each a Claude session running `/tickets:work-ticket <ID>` in its workspace `<workRoot>/<ID>`. |
-| `ticket-feedback <ID>...` | Same, but runs `/tickets:pr-feedback <ID>`: applies the review feedback on your open Bitbucket PRs for the ticket in its worktrees (committed, not pushed) and drafts a reply per thread in `tickets/<ID>/pr-feedback.md`. In an already-open ticket session, just type `/tickets:pr-feedback`. |
-| `ticket-status` | Every ticket session: waiting on you (`needs-input`), `idle`, `working`, `exited`; source; vault status; dirty repos. |
-| `ticket-attach <ID>` | Jump to a ticket's window. |
-| `ticket-open <ID>` | Open the ticket's workspace in `$CLAUDE_TICKETS_EDITOR` (default `code`; VS Code gets a multi-root workspace of its worktrees and these notes). |
-| `ticket-ws repos\|clone\|add\|ls\|diff\|rm\|fetch` | Git worktrees per ticket: `<workRoot>/<ID>/<slug>` on `feature/<ID>[-<description>]`. `clone` (run on the host) fetches a repo the kickoff found on Bitbucket; a running session can then add it straight away. |
-| `ticket-ws sign <ID>` | On the host: sign the ticket's unpushed commits (sessions commit unsigned: they may have no signing key, e.g. when sandboxed). Run it before pushing. |
-| `ticket-ws gc [--days N] [--dry-run]` | Free disk (on the host): workspaces of done or closed tickets idle for N days (default 14; dirty or unpushed work is kept), merged graphs of sessions that aren't running, idle kb clones, graphify snapshots older than a week. |
-| `kb-repo checkout\|fetch\|graph\|ls\|reset` | Inside a `kb` session: exploration clones of any branch, tag or commit, swapped into the session's code graph. |
-| `vault-lock acquire\|release\|status\|run` | The lock `/tickets:save` holds while writing shared notes (`.vault.lock.d`). A lock idle for 30 minutes is taken over. |
-| `vault-links check\|move` | Check that wikilinks resolve; move a note without breaking links to it. |
-| `graphify-index` | Refresh the code graphs of the main clones (`<projectsRoot>/<provider>/<owner>/<repo>`). |
-| `ticket-graph build\|status` | The graphify image the code graph runs in (podman or docker); built when needed. |
-| `repo-layout [--apply]` | Move repos into `<projectsRoot>/<provider>/<owner>/<repo>`. Leaves alone a main clone that any vault's workspace borrows objects from. |
+| `ct vault default [<vault>\|--pick\|--unset]` | Show or set the default vault (`~/.config/claude-tickets/default-vault`): the one every ticket command acts on. Switch it to work on another vault; running sessions keep the vault they started with. `ct vault init` ignores it and always asks. |
+| `ct claude [claude args]` | A plain repo session with the default vault as its knowledge base (see "Sessions outside tickets"). Opt-in: a plain `claude` session doesn't see the vault. |
+| `ct kb [--print] ["<question>"]` | Ask about the system (repos, services, architecture, flows, past tickets) without a ticket: a session with this vault, every repo (fetched first) read-only, and one code graph of all of them. It can explore any branch, tag or commit in its own clones (`ct kb repo`), building and testing there, but never commits or pushes, and it files manual tickets (tag `from-kb`) for issues worth following up. It investigates unknowns and drafts what it learns into `inbox/`; `/tickets:save` promotes the drafts. |
+| `ct vault init [<vault>]` | Set a vault up for this workflow: folders, this AGENTS.md, templates, the dashboard, Obsidian settings, then `ct vault configure` for the settings not made yet. Never overwrites existing files, so it's safe to re-run. |
+| `ct vault configure [<vault>] [--section locations\|sources\|runtime]` | The vault's settings, each prompt showing its current value: locations (`.workflow.json`, see below), ticket sources (`tickets/.sources.json`), and the container runtime of the code graph (host-wide). |
+| `ct sync [--source jira] [--full]` | Pull your open tickets from every syncable source into `tickets/` and reconcile the notes with the source (read-only, through each source's MCP server; for Jira see [[atlassian-rovo-mcp-setup]]). For Jira the command syncs by itself, without a model: Jira's changelog says what changed in each ticket, and only that part of the note is rewritten (frontmatter and table, description, comments, an epic's children); time tracking and other changes the note doesn't show only move the timestamp. Claude (the source's `model`, default sonnet) runs only for a description or comments Jira can give only as HTML. Problems land in an `inbox/` follow-up note. |
+| `ct new [--type bug] "<summary>"` | Create a manual ticket `MAN-<n>` from `templates/ticket-manual.md`. |
+| `ct start [--no-attach] <ID>...` | One tmux window per named ticket (with one ID it switches to it), in the tmux session `tickets-<vault>` (several at once are fine; Tab completes the open ones, `--list` prints them), each a Claude session running `/tickets:work-ticket <ID>` in its workspace `<workRoot>/<ID>`. |
+| `ct feedback <ID>...` | Same, but runs `/tickets:pr-feedback <ID>`: applies the review feedback on your open Bitbucket PRs for the ticket in its worktrees (committed, not pushed) and drafts a reply per thread in `tickets/<ID>/pr-feedback.md`. In an already-open ticket session, just type `/tickets:pr-feedback`. |
+| `ct status` | Every ticket session: waiting on you (`needs-input`), `idle`, `working`, `exited`; source; vault status; dirty repos. |
+| `ct attach <ID>` | Jump to a ticket's window. |
+| `ct open <ID>` | Open the ticket's workspace in `$CLAUDE_TICKETS_EDITOR` (default `code`; VS Code gets a multi-root workspace of its worktrees and these notes). |
+| `ct ws repos\|clone\|add\|ls\|diff\|rm\|fetch` | Git worktrees per ticket: `<workRoot>/<ID>/<slug>` on `feature/<ID>[-<description>]`. `clone` (run on the host) fetches a repo the kickoff found on Bitbucket; a running session can then add it straight away. |
+| `ct ws sign <ID>` | On the host: sign the ticket's unpushed commits (sessions commit unsigned: they may have no signing key, e.g. when sandboxed). Run it before pushing. |
+| `ct ws gc [--days N] [--dry-run]` | Free disk (on the host): workspaces of done or closed tickets idle for N days (default 14; dirty or unpushed work is kept), merged graphs of sessions that aren't running, idle kb clones, graphify snapshots older than a week. |
+| `ct kb repo checkout\|fetch\|graph\|ls\|reset` | Inside a `kb` session: exploration clones of any branch, tag or commit, swapped into the session's code graph. |
+| `ct vault lock acquire\|release\|status\|run` | The lock `/tickets:save` holds while writing shared notes (`.vault.lock.d`). A lock idle for 30 minutes is taken over. |
+| `ct vault links check\|move` | Check that wikilinks resolve; move a note without breaking links to it. |
+| `ct graph index` | Refresh the code graphs of the main clones (`<projectsRoot>/<provider>/<owner>/<repo>`). |
+| `ct graph build\|status` | The graphify image the code graph runs in (podman or docker); built when needed. |
+| `ct layout [--apply]` | Move repos into `<projectsRoot>/<provider>/<owner>/<repo>`. Leaves alone a main clone that any vault's workspace borrows objects from. |
 
 ### Per-vault locations: `.workflow.json`
 Each vault's tools work in their own places, so two vaults never share
@@ -162,7 +162,7 @@ workspaces (each has its own `MAN-1`) or a tmux session:
 
 The ticket windows run in the tmux session `tickets-<vault>`.
 
-`vault-configure` writes the file (`vault-init` runs it), and `~` is
+`ct vault configure` writes the file (`ct vault init` runs it), and `~` is
 expanded. Folders that overlap another vault's (or each other) are kept
 only when the user types `yes`. Paths like `~/work/<ID>` in these
 instructions and in the skills stand for `<workRoot>/<ID>`; a session's
@@ -180,9 +180,9 @@ settings, but only this rule holds back `executeRead`.
 ### Ticket sources
 `tickets/.sources.json` lists where tickets come from. Each source has
 `enabled`, `idPrefix`, and, unless it's manual, the `mcp` server and `query`
-ticket-sync uses.
+ct sync uses.
 - **jira**: synced. IDs are the Jira keys (`PROJ-12`).
-- **manual** (`sync: false`): you write the ticket in Obsidian and ticket-sync
+- **manual** (`sync: false`): you write the ticket in Obsidian and ct sync
   never touches it. IDs are `MAN-<n>`.
 - **servicenow** / **zendesk**: examples, disabled. Enabling one needs its MCP
   server and an adapter (`skills/ticket-sync/sources/<name>.md` in the
@@ -201,7 +201,7 @@ A ticket note `tickets/<ID>/<ID>.md` has three parts:
    `versions`, and the dependency fields below.
 2. **Content, which agents never edit:**
    - a **synced** ticket has the `source-*` fields and the block between
-     `<!-- source:start -->` and `<!-- source:end -->`, owned by ticket-sync;
+     `<!-- source:start -->` and `<!-- source:end -->`, owned by ct sync;
    - a **manual** ticket has `## Description`, `## Acceptance criteria` and
      `## Context / links`, owned by you.
 3. **Work, owned by the ticket's agents:** `## Workspace`, `## Tasks`,
@@ -209,7 +209,7 @@ A ticket note `tickets/<ID>/<ID>.md` has three parts:
    summaries `/tickets:save` appends at the end.
 
 ### Dependencies and lead tickets
-Frontmatter, as wikilinks by ticket ID (`"[[PROJ-12]]"`). ticket-sync fills
+Frontmatter, as wikilinks by ticket ID (`"[[PROJ-12]]"`). ct sync fills
 these for synced tickets; on manual tickets you set them.
 - `parent`; `children` (an epic's children, **whoever they're assigned to**);
   `blocked-by`, `blocks`, `related`; `blocked: true` while any `blocked-by`
@@ -217,8 +217,8 @@ these for synced tickets; on manual tickets you set them.
 - **Lead tickets:** an epic (`ticket-type: epic`) is worked as one lead ticket.
   `covers` lists the tickets its workspace does: the epic's open children
   assigned to you. Each of those has `covered-by: "[[<EPIC>]]"`, and
-  `ticket-start` sends you to the lead (`--force` starts one on its own).
-  ticket-sync also pulls in the parent epic of any ticket of yours (tag
+  `ct start` sends you to the lead (`--force` starts one on its own).
+  ct sync also pulls in the parent epic of any ticket of yours (tag
   `parent-epic`), even when the epic isn't assigned to you. To group manual
   tickets, set `ticket-type: epic` and `covers` on one, and `covered-by` on
   the others.
@@ -238,12 +238,12 @@ you; a ticket waiting on another ticket keeps its status, and the
 
 **Ignoring a ticket:** set `ignore: true` in its frontmatter, optionally with
 `ignore-until: yyyy-MM-dd` and `ignore-reason: ...`. It is still synced, but
-`ticket-start` skips it (unless `--force`) and the dashboard lists it under
+`ct start` skips it (unless `--force`) and the dashboard lists it under
 "Ignored". Clear the flag by hand once `ignore-until` has passed.
 
 ### Sessions outside tickets
-`claude-vault` in a repo gives the session the default vault
-(`vault-default`) as its knowledge base, and its system prompt names the
+`ct claude` in a repo gives the session the default vault
+(`ct vault default`) as its knowledge base, and its system prompt names the
 vault and the repo's `projects/<slug>/`. A plain `claude` session knows
 nothing of the vault.
 The `kb` skill answers from the vault, then the code graph, then the code.
@@ -253,7 +253,7 @@ promotes the session's drafts. `/tickets:recall` works there too.
 
 ### Who writes what
 Several agents work at once, so each part of the vault has one writer:
-1. **ticket-sync** owns a synced ticket's `source-*` fields and source block.
+1. **ct sync** owns a synced ticket's `source-*` fields and source block.
    It also sets `status: new` on new tickets and `closed` when the source
    closes one, `.sync-state.json`, and the dependency fields it reads from
    the source (`parent`, `children`, `blocked-by`, `blocks`, `related`,
@@ -274,19 +274,19 @@ Several agents work at once, so each part of the vault has one writer:
    one writer.
    Sessions outside tickets (a repo session, `kb`) write only new drafts in
    `inbox/`, each under its own name, until `/tickets:save`.
-   A `kb` session may also create a manual ticket (`ticket-new`, tag `from-kb`)
+   A `kb` session may also create a manual ticket (`ct new`, tag `from-kb`)
    for an issue it finds, writing its initial content. From then on the
    ticket is yours, like any manual ticket.
-   **Unattended commands** (`ticket-sync`, `graphify-index`, `ticket-ws gc`)
+   **Unattended commands** (`ct sync`, `ct graph index`, `ct ws gc`)
    write a new `inbox/<date>-<time>-<command>-follow-ups.md` note
    (`type: follow-ups`) when a run leaves something for you: one task per
    item, so it shows in `pending.md`. Agents never edit or promote these;
    they're yours to tick off and delete.
 4. **`/tickets:save`** is the only writer of `projects/`, `knowledge-base/` and
-   `references/`. It holds the vault lock (`vault-lock acquire <vault>
+   `references/`. It holds the vault lock (`ct vault lock acquire <vault>
    <owner>`, the owner being the ticket ID, the `kb` session's id, or
    `repo-<slug>` in a repo session) while it does, re-reads notes before
-   editing them, and moves drafts with `vault-links move`.
+   editing them, and moves drafts with `ct vault links move`.
 
 ### Roles
 The `/tickets:work-ticket` lead runs role subagents, chosen by `ticket-type`:
@@ -297,12 +297,12 @@ The `/tickets:work-ticket` lead runs role subagents, chosen by `ticket-type`:
 - `epic`: lead: plan across the covered tickets, then each one's own pipeline
 
 It always asks you for the repos (local ones from the code graph, plus related
-Bitbucket repos that aren't cloned yet, which you clone with `ticket-ws clone`),
+Bitbucket repos that aren't cloned yet, which you clone with `ct ws clone`),
 the base branch and the target version per repo at
 kickoff. It stops to ask (status `blocked`, desktop notification) on open
 questions or major tradeoffs, and stops at `review` with the work committed
 (unsigned) on the ticket branches, never pushed: you review, run `/tickets:save`,
-then `ticket-ws sign <ID>` and push yourself. Manual and synced
+then `ct ws sign <ID>` and push yourself. Manual and synced
 tickets go through the same flow.
 
 ## Session Commands (skills of the claude-tickets plugin)

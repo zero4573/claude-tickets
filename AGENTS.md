@@ -31,15 +31,21 @@ move.
 - **Plugin names are namespaced:** skills are `/tickets:<skill>`, agents
   `tickets:<agent>`. Keep every reference (skills, tools, scaffold, README)
   in that form.
-- **Each command is `tools/<name>.sh` with `tools/tickets-lib.sh`
-  prepended**, built by `nix/tools.nix` (writeShellApplication runs
-  shellcheck, so the build is the lint) and by `install.sh` the same way. A
-  new command needs an entry in both, and in `sessionTools` if sessions run
-  it. Shared helpers go in tickets-lib.sh with
-  `# shellcheck disable=SC2329 # shared helper; not every script uses it`.
-- **Portable bash:** bash 4+, GNU tools (tickets-lib.sh maps the
-  g-prefixed ones on macOS), podman or docker through `container_run` /
-  `container_runtime` only.
+- **One command, `ct` (Go, `cmd/ct` + `internal/`), being ported from
+  bash.** Ported subcommands live in `internal/cli`; the rest run their
+  bash script through `scriptCmd` (libexec/claude-tickets: each is
+  `tools/<name>.sh` with `tools/tickets-lib.sh` prepended, built by
+  `nix/tools.nix` with writeShellApplication, which runs shellcheck, and by
+  `install.sh`). Porting a subcommand: implement it in Go, add testscript
+  tests (`testdata/script/*.txtar`), delete the script, and drop it from
+  `nix/tools.nix` and `install.sh`. User-facing names are always `ct …`.
+- **Go:** behaviour first (match the bash it replaces, including file
+  formats); helpers in `internal/<area>`; no new dependencies without a
+  good reason (today: cobra, yaml.v3, x/sys, x/term, testscript).
+- **Portable:** Go code builds for Linux, macOS and (later) Windows: OS
+  specifics behind build tags (`internal/lock`, `exec_*.go`). The bash:
+  bash 4+, GNU tools (tickets-lib.sh maps the g-prefixed ones on macOS),
+  podman or docker through `container_run` / `container_runtime` only.
 - **Keep examples neutral:** no real company, product, repository, ticket
   key or person names; use `acme`, `PROJ-12`, `Jane Doe`.
 - **Pins** (images by digest, the hashed graphify lock, fetched Obsidian
@@ -48,7 +54,8 @@ move.
 ## Checking
 
 ```sh
-nix build .#default          # builds every command (shellcheck included)
+go test ./...                 # unit + CLI tests (stub tmux, git, editor)
+nix build .#default          # builds ct and the scripts (go test + shellcheck)
 nix flake check
 ./install.sh --prefix "$(mktemp -d)"   # the non-Nix path
 ```

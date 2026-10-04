@@ -1,7 +1,7 @@
-# The claude-tickets commands, the Claude Code plugin and the graphify image
-# sources, for one pkgs. Each command is tools/<name>.sh with
-# tools/tickets-lib.sh prepended, built with writeShellApplication (which
-# runs shellcheck). Linux and macOS.
+# The claude-tickets package, for one pkgs: the `ct` binary (Go), the
+# Claude Code plugin, the graphify image sources, and the bash scripts some
+# `ct` subcommands still run (libexec/claude-tickets; each moves to Go in
+# turn). Linux and macOS.
 { pkgs, lib, env ? { } }:
 let
   inherit (pkgs.stdenv.hostPlatform) isLinux;
@@ -16,13 +16,36 @@ let
     patchShebangs $out/hooks
   '';
 
-  # Sources of the graphify image (ticket-graph build)
+  # Sources of the graphify image (ct graph build)
   graphSrc = pkgs.runCommand "claude-tickets-graph" { } ''
     cp -r ${../graph} $out
   '';
 
   scaffold = ../tools/vault-scaffold;
 
+  # --- ct (Go) ---
+  ctBin = pkgs.buildGoModule {
+    pname = "ct";
+    version = "0.1.0";
+    src = lib.fileset.toSource {
+      root = ../.;
+      fileset = lib.fileset.unions [
+        ../go.mod ../go.sum ../cmd ../internal ../ct_test.go ../testdata
+      ];
+    };
+    vendorHash = "sha256-Ld0QpIlwZQH3hGdu761fJAeBqere+q6RLPxE1ReQj/Q=";
+    subPackages = [ "cmd/ct" ];
+    # Every package, and the CLI tests (stub tmux, git, editor scripts)
+    nativeCheckInputs = [ pkgs.coreutils ];
+    checkPhase = ''
+      runHook preCheck
+      go test ./...
+      runHook postCheck
+    '';
+    meta.mainProgram = "ct";
+  };
+
+  # --- the bash scripts not ported yet ---
   lib' = builtins.readFile ../tools/tickets-lib.sh;
 
   # tickets-lib.sh needs these (jq for every JSON file, flock for
@@ -30,13 +53,11 @@ let
   libInputs = with pkgs; [ coreutils git jq gnused gnugrep gawk findutils ]
     ++ [ (if isLinux then pkgs.util-linux else pkgs.flock) ];
 
-  # Where the commands find their parts, and the settings given as `env`
-  # (the home-manager module's), unless the environment says otherwise.
-  # Built in, so they apply in every shell, tmux window and service right
-  # after a switch, not only after the next login.
+  # Defaults the scripts (and ct) see unless the environment says otherwise
+  defaultsEnv = { CLAUDE_TICKETS_PLUGIN = plugin; CLAUDE_TICKETS_GRAPH_DIR = graphSrc; } // env;
   defaults = lib.concatStrings (lib.mapAttrsToList
     (k: v: "export ${k}=\"\${${k}:-${lib.escape [ "\"" "\\" "\$" "`" ] (toString v)}}\"\n")
-    ({ CLAUDE_TICKETS_PLUGIN = plugin; CLAUDE_TICKETS_GRAPH_DIR = graphSrc; } // env));
+    defaultsEnv);
 
   script = name: runtimeInputs: extraText: pkgs.writeShellApplication {
     inherit name;
@@ -46,32 +67,24 @@ let
 
   notify = lib.optional isLinux pkgs.libnotify;
 
-  ticketGraph = script "ticket-graph" [ ] "";
-  ticketWs = script "ticket-ws" [ pkgs.tmux ] "";
-  ticketAttach = script "ticket-attach" [ pkgs.tmux ] "";
-  ticketStart = script "ticket-start" [ ticketWs ticketGraph ticketAttach pkgs.tmux ] "";
-  graphifyIndex = script "graphify-index" [ ticketGraph ] "";
-
-  tools = {
-    ticket-graph = ticketGraph;
-    ticket-ws = ticketWs;
-    ticket-start = ticketStart;
-    graphify-index = graphifyIndex;
-    ticket-status = script "ticket-status" [ pkgs.tmux ] "";
-    ticket-attach = ticketAttach;
-    ticket-open = script "ticket-open" [ ] "";
-    ticket-feedback = script "ticket-feedback" [ ticketStart ] "";
+  # The scripts call `ct ws`, `ct graph`, ...: the bare binary, which finds
+  # the scripts through CLAUDE_TICKETS_LIBEXEC, passed down by the ct that
+  # ran them
+  ct' = ctBin;
+  scripts = {
+    ticket-graph = script "ticket-graph" [ ] "";
+    ticket-ws = script "ticket-ws" [ pkgs.tmux ] "";
+    ticket-start = script "ticket-start" [ ct' pkgs.tmux ] "";
+    graphify-index = script "graphify-index" [ ct' ] "";
     # ticket-sync-mcp.sh (MCP client) and ticket-sync-jira.sh (the Jira
     # planner and applier) are function libraries for it
-    ticket-sync = script "ticket-sync" ([ pkgs.curl graphifyIndex ] ++ notify)
+    ticket-sync = script "ticket-sync" ([ pkgs.curl ct' ] ++ notify)
       (builtins.readFile ../tools/ticket-sync-mcp.sh + builtins.readFile ../tools/ticket-sync-jira.sh);
-    ticket-new = script "ticket-new" (lib.optional isLinux pkgs.xdg-utils) "";
     claude-vault = script "claude-vault" [ ] "";
-    kb = script "kb" [ ticketWs ticketGraph ] "";
+    kb = script "kb" [ ct' ] "";
     kb-repo = script "kb-repo" [ ] "";
-    vault-default = script "vault-default" [ pkgs.fzf ] "";
     vault-configure = script "vault-configure" [ pkgs.fzf ] "";
-    vault-init = script "vault-init" [ pkgs.fzf tools.vault-configure ] ''
+    vault-init = script "vault-init" [ pkgs.fzf ct' ] ''
       export VAULT_SCAFFOLD=${scaffold}
     '';
     repo-layout = script "repo-layout" [ ] "";
@@ -81,30 +94,34 @@ let
     } (builtins.readFile ../tools/vault-links.py);
   };
 
-  # zsh completion of ticket IDs (ticket-start, ticket-feedback,
-  # ticket-attach, ticket-open)
-  completion = pkgs.writeTextFile {
-    name = "claude-tickets-zsh-completion";
-    destination = "/share/zsh/site-functions/_tickets";
-    text = builtins.readFile ../tools/tickets-completion.zsh;
-  };
+  libexec = pkgs.linkFarm "claude-tickets-libexec"
+    (lib.mapAttrsToList (name: drv: { inherit name; path = lib.getExe' drv name; }) scripts);
 
-  # Everything, plus the plugin and image sources under share/ (where a
-  # manual install puts them too)
-  default = pkgs.symlinkJoin {
-    name = "claude-tickets";
-    paths = builtins.attrValues tools ++ [ completion ];
-    postBuild = ''
-      mkdir -p $out/share/claude-tickets
-      ln -s ${plugin} $out/share/claude-tickets/plugin
-      ln -s ${graphSrc} $out/share/claude-tickets/graph
-      ln -s ${scaffold} $out/share/claude-tickets/vault-scaffold
-    '';
-  };
-
-  # What sessions run themselves (on PATH inside a sandbox, for instance)
-  sessionTools = with tools; [ ticket-ws kb-repo ticket-new ticket-graph vault-lock vault-links ];
+  # ct, with the defaults and the tools it runs; libexec holds the scripts
+  # it hands the not-yet-ported subcommands to
+  ct = pkgs.runCommand "claude-tickets"
+    {
+      nativeBuildInputs = [ pkgs.makeWrapper ];
+      meta.mainProgram = "ct";
+    } ''
+    mkdir -p $out/bin $out/libexec $out/share/claude-tickets
+    ln -s ${libexec} $out/libexec/claude-tickets
+    ln -s ${plugin} $out/share/claude-tickets/plugin
+    ln -s ${graphSrc} $out/share/claude-tickets/graph
+    ln -s ${scaffold} $out/share/claude-tickets/vault-scaffold
+    makeWrapper ${lib.getExe ctBin} $out/bin/ct \
+      --set-default CLAUDE_TICKETS_LIBEXEC ${libexec} \
+      ${lib.concatStrings (lib.mapAttrsToList (k: v: "--set-default ${k} ${lib.escapeShellArg (toString v)} ") defaultsEnv)} \
+      --suffix PATH : ${lib.makeBinPath (with pkgs; [ git tmux coreutils ])}
+    mkdir -p $out/share/zsh/site-functions $out/share/bash-completion/completions $out/share/fish/vendor_completions.d
+    ${lib.getExe ctBin} completion zsh > $out/share/zsh/site-functions/_ct
+    ${lib.getExe ctBin} completion bash > $out/share/bash-completion/completions/ct
+    ${lib.getExe ctBin} completion fish > $out/share/fish/vendor_completions.d/ct.fish
+  '';
 in
 {
-  inherit tools plugin graphSrc completion default sessionTools;
+  inherit plugin graphSrc;
+  default = ct;
+  # What sessions run themselves (on PATH inside a sandbox, for instance)
+  sessionTools = [ ct ];
 }

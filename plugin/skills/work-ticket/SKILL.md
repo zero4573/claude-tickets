@@ -1,6 +1,6 @@
 ---
 name: work-ticket
-description: Lead playbook for working one ticket (Jira, manual, or any other source) end to end in a ticket workspace (~/work/<ID>), launched by ticket-start as /tickets:work-ticket <ID>. Confirms repos, base branches and target versions with the user, creates worktrees, keeps a task list in the ticket note, runs the product-owner / architect / developer / qa subagents in the order the ticket type calls for, stops to ask the user on ambiguity or major tradeoffs, and ends at review with the work committed on the ticket branches, never pushed.
+description: Lead playbook for working one ticket (Jira, manual, or any other source) end to end in a ticket workspace (~/work/<ID>), launched by ct start as /tickets:work-ticket <ID>. Confirms repos, base branches and target versions with the user, creates worktrees, keeps a task list in the ticket note, runs the product-owner / architect / developer / qa subagents in the order the ticket type calls for, stops to ask the user on ambiguity or major tradeoffs, and ends at review with the work committed on the ticket branches, never pushed.
 ---
 
 # work-ticket <ID>
@@ -26,13 +26,13 @@ everything at the end, then signs and pushes.
 - In the ticket note, never touch the identity and source fields (`source`,
   `source-*`), the `ignore*` fields, or the ticket's content: the
   `<!-- source:start -->`…`<!-- source:end -->` block of a synced ticket,
-  owned by ticket-sync, or `## Description` / `## Acceptance criteria` /
+  owned by ct sync, or `## Description` / `## Acceptance criteria` /
   `## Context / links` of a manual ticket (`source: manual`), owned by the
   user. Manual tickets go through exactly the same flow.
 - Follow the vault's `AGENTS.md`: frontmatter, kebab-case, wikilinks by bare
   note name, templates from `templates/`.
 - Commits go on the ticket branches, unsigned (the sandbox has no SSH
-  agent; the user signs them on the host with `ticket-ws sign <ID>`).
+  agent; the user signs them on the host with `ct ws sign <ID>`).
   Never push, rewrite commits already on a remote, reset, or remove
   worktrees (push, `reset --hard` and worktree removal are also denied in
   `.claude/settings.json`).
@@ -87,7 +87,7 @@ which the lead owns. Pipelines:
 
 An epic, or any ticket with `ticket-type: epic`, is a **lead**. Its
 workspace does the work of every ticket in its `covers` list. Those are the
-children assigned to the user, and `ticket-start` sends them here. Run it
+children assigned to the user, and `ct start` sends them here. Run it
 like one bigger ticket:
 - **One workspace, one branch per repo:** `feature/<LEAD-ID>[-<description>]`
   for all the covered tickets together.
@@ -131,7 +131,7 @@ like one bigger ticket:
 1. Work out which **local** repos are involved: query the graph with the
    ticket's key terms (endpoints, entities, error messages, service names)
    and use `shortest_path` between services. Read `projects/system/` notes.
-   List the repos and their slugs with `ticket-ws repos`.
+   List the repos and their slugs with `ct ws repos`.
 2. Look for related repos on **Bitbucket** that aren't cloned yet. The graph
    only knows about local repos. Use the `atlassian` MCP server (`discover`,
    then `executeRead`; Bitbucket calls need no `cloudId`):
@@ -149,7 +149,7 @@ like one bigger ticket:
 
    A remote repo's slug is `bitbucket-<workspace>-<repo>` and its clone path
    is `~/Projects/bitbucket/<workspace>/<repo>`. Anything not in
-   `ticket-ws repos` is **not cloned**. Keep the list to repos with a
+   `ct ws repos` is **not cloned**. Keep the list to repos with a
    concrete reason to be involved.
 3. Ask the user with **AskUserQuestion**. The ticket often says nothing
    about branches or versions, so always ask:
@@ -159,10 +159,10 @@ like one bigger ticket:
    - If any chosen repo isn't cloned, the sandbox can't clone it (there
      are no git credentials). Give the user the exact host command, one
      per repo:
-     `ticket-ws clone bitbucket/<workspace>/<repo>`.
+     `ct ws clone bitbucket/<workspace>/<repo>`.
      Then ask whether it's done, or whether to go on without that repo.
      Once `~/Projects/bitbucket/<workspace>/<repo>/.git` exists,
-     `ticket-ws add` works for it in this session. It makes a shared clone
+     `ct ws add` works for it in this session. It makes a shared clone
      because the new repo's `.git` isn't writable here, and the graph picks
      it up within about 15 seconds.
    - For each chosen repo, the **base branch** to branch from. Offer the
@@ -177,7 +177,7 @@ like one bigger ticket:
 
    Batch these (up to 4 questions per call; several calls are fine).
 4. For each repo, run
-   `ticket-ws add <ID> <slug> --base <base> --version <version> [--desc <description>]`.
+   `ct ws add <ID> <slug> --base <base> --version <version> [--desc <description>]`.
    Add `--branch <name>` to reuse an existing branch for this ticket, e.g.
    an open PR's source. It records the repo in `workspace.json`.
 5. Write the answers into the ticket note:
@@ -247,7 +247,7 @@ and re-run QA. Do this at most twice, then ask the user how to proceed.
 3. Ask with **AskUserQuestion**. Put the recommended option first, and
    explain the tradeoffs in the option descriptions. This pings the user
    through a desktop notification and shows the ticket as `needs-input` in
-   `ticket-status`.
+   `ct status`.
 4. Record each answer under its question (`  - **Answer:** ...`), set
    `status: in-progress`, and continue. Major decisions also become a
    decision draft in `kb-drafts/` (template `templates/decision.md`).
@@ -262,7 +262,7 @@ When the last phase is done:
    - decisions for each major choice
    - a `target:` frontmatter field on each
 2. Add a `## Review` section to the ticket note:
-   - what changed per repo (`ticket-ws diff <ID> --stat`)
+   - what changed per repo (`ct ws diff <ID> --stat`)
    - for a lead, a line per covered ticket: what was done for it, and
      anything left
    - open `## Follow-ups` (blockers still waiting on someone)
@@ -275,8 +275,8 @@ When the last phase is done:
    mark the tasks done, and tell the user in a few
    lines:
    - the ticket is ready for review
-   - `ticket-ws diff <ID>` shows the changes
+   - `ct ws diff <ID>` shows the changes
    - they can ask for changes in this session
-   - after review, run `/tickets:save`, then `ticket-ws sign <ID>` on the host and
+   - after review, run `/tickets:save`, then `ct ws sign <ID>` on the host and
      push
 4. Stop. Don't run `/tickets:save` or push.

@@ -1,13 +1,13 @@
 ---
 name: kb
-description: Answer questions about the system the Obsidian knowledge-base vault describes (repos, services, architecture, data flows, versions, past tickets) from the vault first, then the code graph and code; investigate unknowns (exploring branches and building in its own clones); file manual tickets for issues worth following up; and record what was learned as drafts in the vault's inbox/ for /tickets:save to promote. Use for /tickets:kb <question>, in kb sessions, and in any session started with claude-vault, whenever the user asks how something works, where something lives, why it was built that way, or what depends on what.
+description: Answer questions about the system the Obsidian knowledge-base vault describes (repos, services, architecture, data flows, versions, past tickets) from the vault first, then the code graph and code; investigate unknowns (exploring branches and building in its own clones); file manual tickets for issues worth following up; and record what was learned as drafts in the vault's inbox/ for /tickets:save to promote. Use for /tickets:kb <question>, in kb sessions, and in any session started with ct claude, whenever the user asks how something works, where something lives, why it was built that way, or what depends on what.
 ---
 
 # /tickets:kb [question]
 
-The vault is named in the system prompt (`claude-vault`) or in `CLAUDE.md`
+The vault is named in the system prompt (`ct claude`) or in `CLAUDE.md`
 (a `kb` or ticket session). If neither names one, the session has no
-knowledge base: say so (relaunch with `claude-vault`, or use `kb`) and answer from the code graph and code only. Read the vault's
+knowledge base: say so (relaunch with `ct claude`, or use `kb`) and answer from the code graph and code only. Read the vault's
 `AGENTS.md` once per session. Without a question, ask what the user wants
 to know.
 
@@ -29,13 +29,13 @@ to know.
    slug.
 3. **The code**, read to confirm details. Main clones under `~/Projects` are
    read-only and on whatever branch they're on. In a `kb` session, look at
-   another branch, tag or commit with `kb-repo checkout <repo> <ref>`: an
+   another branch, tag or commit with `ct kb repo checkout <repo> <ref>`: an
    exploration clone in the session that the code graph swaps in and rebuilds.
-   `kb-repo fetch` gets the latest remote branches, `kb-repo graph <repo>`
-   forces a rebuild, and `kb-repo ls` shows what's checked out. The clones
+   `ct kb repo fetch` gets the latest remote branches, `ct kb repo graph <repo>`
+   forces a rebuild, and `ct kb repo ls` shows what's checked out. The clones
    are yours to experiment in: build, run tests, add debug output, or try a
    change to confirm a theory. **Never commit or push** (both are denied).
-   The edits stay in the session, and `kb-repo checkout --force` discards
+   The edits stay in the session, and `ct kb repo checkout --force` discards
    them. A fix worth keeping becomes a ticket (below), not a commit.
 4. **Atlassian, read-only and free tools only:** Jira issues, Bitbucket PRs,
    commits and repos, when history or ownership matters. Never use unified
@@ -59,11 +59,11 @@ When neither the vault nor a quick look settles it:
 ## Issues become tickets
 
 When you find something that should be investigated or fixed, file it as a
-**manual ticket**, so it enters the ticket workflow (`ticket-start <ID>`):
+**manual ticket**, so it enters the ticket workflow (`ct start <ID>`):
 1. **Check first** that it isn't already tracked: search `tickets/` by repo
    slug and keywords, and Jira for synced tickets. If it is, add what you
    found to your answer and an `inbox/` draft instead.
-2. Run `ticket-new --type <bug|investigation|dev|chore> "<summary>"`. It
+2. Run `ct new --type <bug|investigation|dev|chore> "<summary>"`. It
    files into this session's vault and prints the new note,
    `tickets/MAN-<n>/MAN-<n>.md`.
 3. **Fill it in:**
@@ -77,7 +77,7 @@ When you find something that should be investigated or fixed, file it as a
    - A review task for the user under `## Follow-ups`, so it shows up in
      `follow-ups.md`:
      `- [ ] Review this ticket filed by kb: check the findings, scope, type
-     and priority, then ticket-start it, ignore it, or close it #follow-up
+     and priority, then ct start it, ignore it, or close it #follow-up
      ➕ <today>` (date from `date +%F`).
 
    Write only that note. The ticket is the user's from then on.

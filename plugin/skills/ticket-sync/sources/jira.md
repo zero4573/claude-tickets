@@ -2,12 +2,12 @@
 
 Jira Cloud through the Atlassian Rovo MCP server, under the `mcp` name in
 `.sources.json` (normally `atlassian`): the session gets it from its claude
-command, and the `ticket-sync` command from `$CLAUDE_TICKETS_MCP_CONFIG`. The token is read-only: `read:jira:agent-interface`,
+command, and the `ct sync` command from `$CLAUDE_TICKETS_MCP_CONFIG`. The token is read-only: `read:jira:agent-interface`,
 `search:jira:agent-interface`, `read:me` and `read:account`. Without the last
 two, every Jira call fails with "Failed to fetch accessible products: 401". The vault note
 `references/atlassian-rovo-mcp-setup.md` covers the setup.
 
-The `ticket-sync` command implements this adapter itself, without a model
+The `ct sync` command implements this adapter itself, without a model
 (`tools/ticket-sync-jira.sh` in claude-tickets: planner, changelog-driven
 patches, the same mapping and layout), and hands only HTML-only parts to
 the skill. Change both together.

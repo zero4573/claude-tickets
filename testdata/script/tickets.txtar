@@ -1,0 +1,60 @@
+mkdir home/Documents/Obsidian/a/.obsidian
+mkdir home/Documents/Obsidian/a/templates
+cp ticket-manual.md home/Documents/Obsidian/a/templates/ticket-manual.md
+
+# ct new: next free ID, the template filled in
+exec ct new --type bug --priority high 'Fix "the" thing'
+stdout 'home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md$'
+exec ct new 'Second'
+stdout 'MAN-2/MAN-2.md$'
+grep '^title: MAN-1$' home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+grep '^summary: "Fix \\"the\\" thing"$' home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+grep '^created: 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]$' home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+grep '^ticket-type: bug$' home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+grep '^priority: "high"$' home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+grep '^# MAN-1: Fix "the" thing$' home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+! exec ct new --type nope x
+stderr 'type must be dev, bug'
+
+# The manual source's prefix, and turning it off
+mkdir home/Documents/Obsidian/a/tickets
+cp sources.json home/Documents/Obsidian/a/tickets/.sources.json
+exec ct new 'Third'
+stdout 'OPS-1/OPS-1.md$'
+
+# ct start --list: open tickets; --all adds done and closed ones
+mkdir home/Documents/Obsidian/a/tickets/MAN-3
+cp done.md home/Documents/Obsidian/a/tickets/MAN-3/MAN-3.md
+exec ct start --list
+stdout '^MAN-1\tnew\tFix "the" thing$'
+stdout '^MAN-2\tnew\tSecond$'
+! stdout MAN-3
+exec ct start --list --all
+stdout '^MAN-3\tdone\tFinished$'
+
+# Completion offers open tickets, minus the ones already given
+exec ct __complete start MAN-1 ''
+stdout '^MAN-2\tSecond \[new\]$'
+! stdout '^MAN-1'
+
+-- ticket-manual.md --
+---
+title: {{title}}
+summary:
+created: {{date}}
+status: new
+ticket-type: dev
+priority:
+source: manual
+---
+# {{title}}
+
+## Description
+-- sources.json --
+{"sources": {"manual": {"enabled": true, "idPrefix": "OPS"}}}
+-- done.md --
+---
+title: MAN-3
+summary: Finished
+status: done
+---

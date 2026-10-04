@@ -1,6 +1,6 @@
 ---
 name: pr-feedback
-description: Review the feedback on the user's open Bitbucket pull requests for the current ticket workspace (~/work/<ID>) and apply it in the ticket's worktrees, committing it on the PR branches but never pushing, then record what was done and draft a reply per comment in the vault. Launched by ticket-feedback / ticket-start --feedback as /tickets:pr-feedback <ID>, or run in an open ticket session; use when asked to address, apply, or go through PR review comments.
+description: Review the feedback on the user's open Bitbucket pull requests for the current ticket workspace (~/work/<ID>) and apply it in the ticket's worktrees, committing it on the PR branches but never pushing, then record what was done and draft a reply per comment in the vault. Launched by ct feedback / ct start --feedback as /tickets:pr-feedback <ID>, or run in an open ticket session; use when asked to address, apply, or go through PR review comments.
 ---
 
 # /tickets:pr-feedback [<ID>]
@@ -9,7 +9,7 @@ You handle the review feedback on the user's **own open PRs** for the
 ticket of the current workspace. Your cwd is `~/work/<ID>`, and its
 `CLAUDE.md` names the vault and the ticket. Without an argument, use that
 ticket. Outside a ticket workspace, say this only works in one (start it
-with `ticket-feedback <ID>`) and stop.
+with `ct feedback <ID>`) and stop.
 
 The ground rules of `work-ticket` apply:
 - **Vault writes:** in the vault, write only inside `tickets/<ID>/`. A lead
@@ -19,7 +19,7 @@ The ground rules of `work-ticket` apply:
   thread or coherent group, subject starting with the ticket ID), unsigned.
   Never push, rewrite commits already on a remote (the PR's existing
   commits), reset, or remove worktrees. The user reviews, signs
-  (`ticket-ws sign <ID>`), pushes, and posts the replies.
+  (`ct ws sign <ID>`), pushes, and posts the replies.
 - **Bitbucket is read-only:** the token has no write scopes, and you never
   post, resolve, approve or edit anything there. Replies are drafted in the
   vault.
@@ -53,9 +53,9 @@ with other tools or workspaces.
      `PROJ-64: ...`).
 4. For a matching PR whose repo has **no worktree** yet, add one on the PR's
    own branch:
-   `ticket-ws add <ID> bitbucket/<workspace>/<repo> --base <destination> --branch <source>`.
+   `ct ws add <ID> bitbucket/<workspace>/<repo> --base <destination> --branch <source>`.
    If the repo isn't cloned under `~/Projects/bitbucket/<workspace>/`, give
-   the user the host command, `ticket-ws clone bitbucket/<workspace>/<repo>`,
+   the user the host command, `ct ws clone bitbucket/<workspace>/<repo>`,
    and ask whether it's done. Once it is, add it as above (it becomes a
    shared clone). If the user skips it, list the PR as skipped.
 5. **Sync the worktree with the PR.**
@@ -63,8 +63,8 @@ with other tools or workspaces.
      `source.commit.hash` (Bitbucket gives a short hash, so match the
      prefix).
    - The sandbox has no git credentials, so it can't fetch: use the refs
-     already there. `ticket-feedback` fetches every main clone before the
-     session starts, and `ticket-ws fetch` (host only) passes the new refs
+     already there. `ct feedback` fetches every main clone before the
+     session starts, and `ct ws fetch` (host only) passes the new refs
      on to shared clones. A shared clone (`.git` is a folder, not a file)
      can also take its main clone's refs itself, which works in the
      sandbox: `git -C <worktree> fetch --quiet --prune <main clone>
@@ -73,8 +73,8 @@ with other tools or workspaces.
    - If `origin/<source>` has the commit and the worktree is clean and
      behind, run `git -C <worktree> merge --ff-only origin/<source>`.
    - If the commit isn't there at all, tell the user to run
-     `ticket-ws fetch <slug>` on the host, or to restart with
-     `ticket-feedback <ID>`, which fetches. Skip that PR.
+     `ct ws fetch <slug>` on the host, or to restart with
+     `ct feedback <ID>`, which fetches. Skip that PR.
    - If the worktree has uncommitted changes, ask before going further.
 
 No matching PRs: say so and stop.
@@ -168,11 +168,11 @@ Then:
 1. Mark the tasks done (in covered tickets too) and set the ticket's
    `status: review`.
 2. Add to `## Review`: the PRs handled, what changed per repo
-   (`ticket-ws diff <ID> --stat`), test results, and the threads that still
+   (`ct ws diff <ID> --stat`), test results, and the threads that still
    need the user.
 3. Tell the user, in a few lines:
    - how many threads were applied, answered, or need them
    - that `pr-feedback.md` has the replies to post
    - that the changes are committed, not pushed, on the PR branches: review
-     them, run `ticket-ws sign <ID>` on the host, then push to update the
+     them, run `ct ws sign <ID>` on the host, then push to update the
      PRs.

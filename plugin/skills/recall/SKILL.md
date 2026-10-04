@@ -15,7 +15,7 @@ Read-only. Never write to the vault.
 - **A `kb` session** (`workspace.json` id `KB`, `<workRoot>/.kb-<vault>`):
   `CLAUDE.md` names the vault.
 - **Otherwise:** the knowledge-base vault named in the system prompt
-  (`claude-vault`). Failing that, the vaults are the folders under
+  (`ct claude`). Failing that, the vaults are the folders under
   `$OBSIDIAN_ROOT` (`~/Documents/Obsidian`) that contain `.obsidian/` (recall only reads);
   if there are several, ask which one with AskUserQuestion.
 - **Subject:** the argument if given: a ticket ID like `PROJ-12` or
@@ -52,9 +52,9 @@ Read-only. Never write to the vault.
      children that aren't the user's.
    - A covered ticket (`covered-by: "[[<LEAD>]]"`): it's worked in the
      lead's workspace, so recall the lead too, and say that
-     `ticket-start <LEAD>` is where to pick it up.
+     `ct start <LEAD>` is where to pick it up.
 4. For each repo in `## Workspace`, steps 1 and 2 of **Project**.
-5. In a workspace, `ticket-ws ls <ID>` for each worktree's branch and
+5. In a workspace, `ct ws ls <ID>` for each worktree's branch and
    uncommitted changes.
 
 ## Summarize

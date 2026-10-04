@@ -35,7 +35,7 @@ tags: [ticket]
 
 <!-- source:start -->
 ## Source
-> Synced from the ticket source by ticket-sync. Edits here are overwritten.
+> Synced from the ticket source by ct sync. Edits here are overwritten.
 <!-- source:end -->
 
 ## Workspace

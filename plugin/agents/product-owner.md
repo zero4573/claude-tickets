@@ -39,7 +39,7 @@ on.
   Either way it's read-only for you.
 - **Repos are named by slug**, `<provider>-<owner>-<repo>` (e.g.
   `bitbucket-acme-billing-service`), in the vault, the graph and
-  `workspace.json`. `ticket-ws repos` lists every slug with its main clone
+  `workspace.json`. `ct ws repos` lists every slug with its main clone
   `~/Projects/<provider>/<owner>/<repo>`.
 - **Graph first.** Query the `graphify` MCP server (`query_graph`,
   `get_neighbors`, `shortest_path`, `get_node`, `god_nodes`) before reading

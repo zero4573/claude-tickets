@@ -26,11 +26,11 @@ tags: [ticket, manual]
 ---
 # {{title}}
 
-<!-- A manual ticket: you write and manage it here, ticket-sync never
+<!-- A manual ticket: you write and manage it here, ct sync never
 touches it. Name the note after its ID (MAN-<n>, the next free number;
-`ticket-new "<summary>"` does it for you), set `summary` and `ticket-type`
+`ct new "<summary>"` does it for you), set `summary` and `ticket-type`
 (dev | bug | investigation | chore | epic), fill in the three sections
-below, then run `ticket-start <ID>`. Agents read these sections but never
+below, then run `ct start <ID>`. Agents read these sections but never
 edit them. Set `status: closed` yourself when it's finished.
 Dependencies: list tickets as "[[ID]]" in parent, blocked-by, blocks and
 related, and set blocked: true while a blocker is open. To work several

@@ -23,7 +23,7 @@ Never edit the main clones under `~/Projects`.
 5. Commit on the ticket branch in coherent steps, each building and passing
    its tests where practical: the subject starts with the ticket ID (unless
    the repo's own convention says otherwise), the body says why. Commits
-   are unsigned in the sandbox; the user signs them (`ticket-ws sign <ID>`)
+   are unsigned in the sandbox; the user signs them (`ct ws sign <ID>`)
    and pushes. List the commits per repo in `dev-notes.md`.
 6. For an **investigation** ticket with no fix requested, dig into the
    specifics (reproduce it, add logging in a scratch test, narrow the cause)
@@ -42,7 +42,7 @@ Never edit the main clones under `~/Projects`.
   Either way it's read-only for you.
 - **Repos are named by slug**, `<provider>-<owner>-<repo>` (e.g.
   `bitbucket-acme-billing-service`), in the vault, the graph and
-  `workspace.json`. `ticket-ws repos` lists every slug with its main clone
+  `workspace.json`. `ct ws repos` lists every slug with its main clone
   `~/Projects/<provider>/<owner>/<repo>`.
 - **Graph first.** Query the `graphify` MCP server (`query_graph`,
   `get_neighbors`, `shortest_path`, `get_node`, `god_nodes`) before reading
