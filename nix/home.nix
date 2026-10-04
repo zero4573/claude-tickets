@@ -61,7 +61,7 @@ in
       type = lib.types.nullOr lib.types.str;
       default = null;
       example = "my-mcp-proxy start";
-      description = "Command run before ticket-sync talks to those servers (CLAUDE_TICKETS_MCP_PREPARE).";
+      description = "Command run before ct sync talks to those servers (CLAUDE_TICKETS_MCP_PREPARE).";
     };
 
     container = lib.mkOption {
@@ -79,7 +79,7 @@ in
     editor = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
-      description = "Editor ticket-open uses (CLAUDE_TICKETS_EDITOR); code when null.";
+      description = "Editor ct open uses (CLAUDE_TICKETS_EDITOR); code when null.";
     };
   };
 

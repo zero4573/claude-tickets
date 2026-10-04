@@ -1,0 +1,26 @@
+{
+  "sources": {
+    "jira": {
+      "blocked": [
+        "PROJ-1"
+      ],
+      "closed": [],
+      "created": [],
+      "epicChildren": {
+        "PROJ-20": [
+          "PROJ-7:new:mine"
+        ],
+        "PROJ-4": [
+          "PROJ-5:new:mine",
+          "PROJ-6:indeterminate:mine"
+        ]
+      },
+      "gone": [],
+      "open": 10,
+      "skipped": 9,
+      "updated": [
+        "PROJ-2"
+      ]
+    }
+  }
+}

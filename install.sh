@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
 # Installs claude-tickets without Nix: ./install.sh [--prefix <dir>]
-#   <prefix>/bin/ct                      the command (built with Go)
-#   <prefix>/libexec/claude-tickets/     the bash scripts some ct subcommands still
-#                                        run (tickets-lib.sh prepended to each, as
-#                                        the Nix package does)
-#   <prefix>/share/claude-tickets/       plugin/, graph/
+#   <prefix>/bin/ct                             the command (built with Go)
+#   <prefix>/share/claude-tickets/              plugin/ and graph/, which ct
+#                                               finds next to itself
 #   <prefix>/share/{zsh,bash-completion,fish}   ct's shell completion
-# and records the plugin and graph dirs, and the container runtime it finds,
-# in ~/.config/claude-tickets/config.json.
 #   --prefix <dir>  install location (default ~/.local)
 #   --check         only check the dependencies
 #   --uninstall     remove what a previous install put under <prefix>
@@ -20,91 +16,54 @@ while [[ $# -gt 0 ]]; do
     --prefix) prefix="${2:?--prefix needs a directory}"; shift 2 ;;
     --check) mode=check; shift ;;
     --uninstall) mode=uninstall; shift ;;
-    -h|--help) sed -n '2,11s/^# \{0,1\}//p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,9s/^# \{0,1\}//p' "$0"; exit 0 ;;
     *) echo "install.sh: unknown argument: $1" >&2; exit 1 ;;
   esac
 done
 share="$prefix/share/claude-tickets"
 manifest="$share/.installed"
-config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/claude-tickets"
 
 if [[ "$mode" == uninstall ]]; then
   [[ -f "$manifest" ]] || { echo "install.sh: nothing installed under $prefix" >&2; exit 1; }
   while IFS= read -r f; do rm -f "$prefix/$f"; done < "$manifest"
   rm -rf "$share" "$prefix/libexec/claude-tickets"
-  echo "install.sh: removed claude-tickets from $prefix (your vaults, workspaces and $config_dir are untouched)"
+  echo "install.sh: removed claude-tickets from $prefix (your vaults, workspaces and ~/.config/claude-tickets are untouched)"
   exit 0
 fi
 
 # --- dependencies ---
-darwin=0
-[[ "$(uname -s)" == Darwin ]] && darwin=1
 missing=()
 have() { command -v "$1" >/dev/null 2>&1; }
-gnu() {  # gnu <tool>: the GNU one, g-prefixed on macOS
-  if [[ "$darwin" == 1 ]]; then have "g$1"; else have "$1"; fi
-}
-(( BASH_VERSINFO[0] >= 4 )) || missing+=("bash 4+ (this is $BASH_VERSION)")
 have go || missing+=("go (1.26+, to build ct)")
-for t in git jq curl tmux flock; do have "$t" || missing+=("$t"); done
-have gawk || missing+=(gawk)
-for t in realpath sed find; do gnu "$t" || missing+=("GNU $t"); done
+for t in git tmux tar; do have "$t" || missing+=("$t"); done
 have podman || have docker || missing+=("podman or docker (for the code graph)")
 have claude || missing+=("claude (Claude Code)")
 if [[ ${#missing[@]} -gt 0 ]]; then
   echo "install.sh: missing: ${missing[*]}" >&2
-  [[ "$darwin" == 1 ]] && echo "  (macOS: brew install bash coreutils gnu-sed findutils gawk flock jq tmux fzf)" >&2
   [[ "$mode" == check ]] && exit 1
   echo "install.sh: installing anyway; the commands that need them will fail until they're there" >&2
 fi
+have fzf || echo "install.sh: fzf (optional) isn't installed: vaults are picked from a numbered list" >&2
 [[ "$mode" == check ]] && { echo "install.sh: all dependencies found"; exit 0; }
 
 # --- files ---
-libexec="$prefix/libexec/claude-tickets"
-mkdir -p "$prefix/bin" "$share" "$libexec" "$prefix/share/zsh/site-functions" \
-  "$prefix/share/bash-completion/completions" "$prefix/share/fish/vendor_completions.d"
-: > "$manifest.tmp"
 have go || { echo "install.sh: go is needed to build ct" >&2; exit 1; }
+mkdir -p "$prefix/bin" "$share" "$prefix/share/zsh/site-functions" \
+  "$prefix/share/bash-completion/completions" "$prefix/share/fish/vendor_completions.d"
 go build -o "$prefix/bin/ct" ./cmd/ct
-echo "bin/ct" >> "$manifest.tmp"
-lib="tools/tickets-lib.sh"
-for src in tools/*.sh; do
-  name="$(basename "$src" .sh)"
-  case "$name" in tickets-lib|ticket-sync-mcp|ticket-sync-jira) continue ;; esac
-  out="$libexec/$name"
-  {
-    echo '#!/usr/bin/env bash'
-    echo 'set -euo pipefail'
-    echo "export CLAUDE_TICKETS_PLUGIN=\"\${CLAUDE_TICKETS_PLUGIN:-$share/plugin}\""
-    echo "export CLAUDE_TICKETS_GRAPH_DIR=\"\${CLAUDE_TICKETS_GRAPH_DIR:-$share/graph}\""
-    if [[ "$name" == ticket-sync ]]; then cat tools/ticket-sync-mcp.sh tools/ticket-sync-jira.sh; fi
-    cat "$lib" "$src"
-  } > "$out"
-  chmod 0755 "$out"
-  echo "libexec/claude-tickets/$name" >> "$manifest.tmp"
-done
-rm -rf "$share/plugin" "$share/graph" "$share/vault-scaffold"
+# The bash scripts and settings of an earlier install
+rm -rf "$prefix/libexec/claude-tickets" "$share/vault-scaffold"
+rm -rf "$share/plugin" "$share/graph"
 cp -R plugin graph "$share/"
 chmod +x "$share/graph/serve.sh"
 # The plugin's hooks run ct by its path: a session's PATH may not have it
-sed -i.bak "s|\"ct hook |\"$prefix/bin/ct hook |g" "$share/plugin/hooks/hooks.json" && rm -f "$share/plugin/hooks/hooks.json.bak"
+sed -i.bak "s|\"ct hook |\"$prefix/bin/ct hook |g" "$share/plugin/hooks/hooks.json"
+rm -f "$share/plugin/hooks/hooks.json.bak"
 "$prefix/bin/ct" completion zsh > "$prefix/share/zsh/site-functions/_ct"
 "$prefix/bin/ct" completion bash > "$prefix/share/bash-completion/completions/ct"
 "$prefix/bin/ct" completion fish > "$prefix/share/fish/vendor_completions.d/ct.fish"
-printf '%s\n' share/zsh/site-functions/_ct share/bash-completion/completions/ct share/fish/vendor_completions.d/ct.fish >> "$manifest.tmp"
-mv "$manifest.tmp" "$manifest"
-
-# --- config ---
-mkdir -p "$config_dir"
-cfg="$config_dir/config.json"
-[[ -s "$cfg" ]] || echo '{}' > "$cfg"
-runtime=""
-for rt in podman docker; do
-  if have "$rt" && "$rt" info >/dev/null 2>&1; then runtime="$rt"; break; fi
-done
-jq --arg p "$share/plugin" --arg g "$share/graph" --arg rt "$runtime" \
-  '.pluginDir = $p | .graphDir = $g | (if $rt != "" and (.container // "") == "" then .container = $rt else . end)' \
-  "$cfg" > "$cfg.tmp" && mv "$cfg.tmp" "$cfg"
+printf '%s\n' bin/ct share/zsh/site-functions/_ct share/bash-completion/completions/ct \
+  share/fish/vendor_completions.d/ct.fish > "$manifest"
 
 echo "install.sh: installed ct into $prefix/bin"
 case ":$PATH:" in *":$prefix/bin:"*) ;; *) echo "  add $prefix/bin to your PATH" ;; esac

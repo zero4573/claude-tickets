@@ -1,0 +1,4 @@
+{"sources": {
+  "manual": {"enabled": true, "sync": false, "idPrefix": "MAN"},
+  "jira": {"enabled": true, "mcp": "atlassian", "idPrefix": "", "query": "assignee = currentUser() AND statusCategory != Done"},
+  "zendesk": {"enabled": false, "mcp": "zendesk"}}}

@@ -15,9 +15,9 @@ func TestMain(m *testing.M) {
 	testscript.Main(m, map[string]func(){"ct": cli.Main})
 }
 
-// stubs are fake tools on PATH: tmux, podman and editor record their arguments in
-// $WORK/calls/<name>, and tmux lists the windows named in
-// $WORK/tmux-windows.
+// stubs are fake tools on PATH: tmux, claude, podman, notify-send and editor
+// record their arguments in $WORK/calls/<name>, and tmux lists the windows
+// named in $WORK/tmux-windows.
 var stubs = map[string]string{
 	"tmux": `#!/bin/sh
 echo "$@" >> "$WORK/calls/tmux"
@@ -31,12 +31,20 @@ esac
 	"claude": `#!/bin/sh
 echo "$@" >> "$WORK/calls/claude"
 pwd >> "$WORK/calls/claude-cwd"
+# ct sync: keep the plan, and leave a follow-up as the skill would
+if [ -f tickets/.sync-plan.json ]; then
+  cat tickets/.sync-plan.json >> "$WORK/calls/sync-plans"
+  echo "Check the HTML parts of the plan" > tickets/.sync-followups
+fi
 case " $* " in
   *" -p "*)
     echo '{"type":"system","subtype":"init"}'
     echo '{"type":"assistant","message":{"content":[{"type":"text","text":"Looking."},{"type":"tool_use","name":"mcp__graphify__query_graph","input":{"query":"billing\nflow"}}]}}'
     echo '{"type":"result","is_error":false,"result":"It flows."}' ;;
 esac
+`,
+	"notify-send": `#!/bin/sh
+echo "$@" >> "$WORK/calls/notify-send"
 `,
 	"editor": `#!/bin/sh
 echo "$@" >> "$WORK/calls/editor"
@@ -93,6 +101,8 @@ func TestScripts(t *testing.T) {
 					ts.Check(os.WriteFile(ts.MkAbs(f), []byte(os.Expand(ts.ReadFile(f), ts.Getenv)), 0o644))
 				}
 			},
+			"fakejira": fakejira,
+			"cmpvault": cmpvault,
 		},
 		Setup: func(env *testscript.Env) error {
 			realGit, err := exec.LookPath("git")
@@ -125,6 +135,11 @@ func TestScripts(t *testing.T) {
 				return err
 			}
 			env.Setenv("CLAUDE_TICKETS_PLUGIN", plugin)
+			syncData, err := filepath.Abs(filepath.Join("testdata", "sync"))
+			if err != nil {
+				return err
+			}
+			env.Setenv("SYNCDATA", syncData)
 			for name, body := range stubs {
 				if err := os.WriteFile(filepath.Join(stubDir, name), []byte(body), 0o755); err != nil {
 					return err

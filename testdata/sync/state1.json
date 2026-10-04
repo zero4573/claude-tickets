@@ -1,0 +1,810 @@
+{
+  "me": "u-me",
+  "resources": [
+    {
+      "cloudId": "cloud-1",
+      "url": "https://acme.atlassian.net/",
+      "name": "acme",
+      "products": [
+        {
+          "id": "jira"
+        }
+      ]
+    },
+    {
+      "cloudId": "cloud-2",
+      "url": "https://acme-wiki.atlassian.net",
+      "products": [
+        {
+          "id": "confluence"
+        }
+      ]
+    }
+  ],
+  "pageSize": 4,
+  "sse": false,
+  "open": [
+    "PROJ-1",
+    "PROJ-2",
+    "PROJ-3",
+    "PROJ-4",
+    "PROJ-5",
+    "PROJ-7",
+    "PROJ-8",
+    "PROJ-10",
+    "PROJ-11",
+    "PROJ-12",
+    "PROJ-16"
+  ],
+  "issues": {
+    "PROJ-1": {
+      "fields": {
+        "issuetype": {
+          "name": "Story",
+          "hierarchyLevel": 0
+        },
+        "summary": "Add billing export",
+        "status": {
+          "name": "In Progress",
+          "statusCategory": {
+            "key": "indeterminate"
+          }
+        },
+        "assignee": {
+          "accountId": "u-me",
+          "displayName": "Jane Doe"
+        },
+        "reporter": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "priority": {
+          "name": "High"
+        },
+        "fixVersions": [
+          {
+            "name": "1.2"
+          },
+          {
+            "name": "1.3"
+          }
+        ],
+        "components": [
+          {
+            "name": "Billing"
+          }
+        ],
+        "labels": [
+          "export",
+          "csv"
+        ],
+        "issuelinks": [
+          {
+            "type": {
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks"
+            },
+            "inwardIssue": {
+              "key": "OTHER-9",
+              "fields": {
+                "status": {
+                  "name": "To Do",
+                  "statusCategory": {
+                    "key": "new"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": {
+              "name": "Relates",
+              "inward": "relates to",
+              "outward": "relates to"
+            },
+            "outwardIssue": {
+              "key": "PROJ-3"
+            }
+          }
+        ],
+        "subtasks": [
+          {
+            "key": "PROJ-7",
+            "fields": {
+              "summary": "Write the export job",
+              "status": {
+                "name": "To Do",
+                "statusCategory": {
+                  "key": "new"
+                }
+              }
+            }
+          }
+        ],
+        "updated": "2026-09-01T10:00:00.000-0400"
+      },
+      "changelog": {
+        "total": 1,
+        "histories": [
+          {
+            "created": "2026-09-10T10:00:00.000-0400",
+            "items": [
+              {
+                "field": "timeoriginalestimate"
+              },
+              {
+                "field": "rank"
+              }
+            ]
+          }
+        ]
+      },
+      "evidence": {
+        "appliedContentFormat": "markdown",
+        "fields": {
+          "description": "Export invoices as CSV.\n\n- daily\n- weekly  \n\n",
+          "customFields": {
+            "Acceptance Criteria": {
+              "value": "CSV opens in a spreadsheet  "
+            },
+            "Steps to Reproduce": {
+              "value": "   "
+            }
+          }
+        }
+      },
+      "comments": {
+        "appliedContentFormat": "markdown",
+        "comments": [
+          {
+            "id": "101",
+            "created": "2026-09-02T09:00:00.000-0400",
+            "updated": "2026-09-02T09:00:00.000-0400",
+            "author": {
+              "accountId": "u-bob",
+              "displayName": "Bob Roe"
+            },
+            "body": "Looks good.\nShip it\n\nthanks | cheers"
+          },
+          {
+            "id": 99,
+            "created": "2026-09-01T09:00:00.000-0400",
+            "updated": "2026-09-01T09:00:00.000-0400",
+            "author": {
+              "accountId": "u-me",
+              "displayName": "Jane Doe"
+            },
+            "body": "First pass done"
+          }
+        ]
+      }
+    },
+    "PROJ-2": {
+      "fields": {
+        "issuetype": {
+          "name": "Bug",
+          "hierarchyLevel": 0
+        },
+        "summary": "Totals wrong: rounding",
+        "status": {
+          "name": "To Do",
+          "statusCategory": {
+            "key": "new"
+          }
+        },
+        "assignee": {
+          "accountId": "u-me",
+          "displayName": "Jane Doe"
+        },
+        "reporter": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "priority": {
+          "name": "Low"
+        },
+        "fixVersions": [],
+        "components": [],
+        "labels": [],
+        "issuelinks": [],
+        "subtasks": [],
+        "updated": "2026-09-01T10:00:00.000-0400"
+      },
+      "changelog": {
+        "total": 1,
+        "histories": [
+          {
+            "created": "2026-09-20T10:00:00.000-0400",
+            "items": [
+              {
+                "field": "status"
+              }
+            ]
+          }
+        ]
+      },
+      "evidence": {
+        "appliedContentFormat": "html",
+        "fields": {
+          "description": "<p>panel</p>"
+        }
+      }
+    },
+    "PROJ-3": {
+      "fields": {
+        "issuetype": {
+          "name": "Task",
+          "hierarchyLevel": 0
+        },
+        "summary": "Clean up logs",
+        "status": {
+          "name": "In Review",
+          "statusCategory": {
+            "key": "indeterminate"
+          }
+        },
+        "assignee": {
+          "accountId": "u-me",
+          "displayName": "Jane Doe"
+        },
+        "reporter": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "priority": {
+          "name": "Medium"
+        },
+        "fixVersions": [],
+        "components": [],
+        "labels": [],
+        "issuelinks": [],
+        "subtasks": [],
+        "updated": "2026-09-01T10:00:00.000-0400"
+      },
+      "changelog": {
+        "total": 1,
+        "histories": [
+          {
+            "created": "2026-09-10T10:00:00.000-0400",
+            "items": [
+              {
+                "field": "assignee"
+              }
+            ]
+          }
+        ]
+      },
+      "evidence": {
+        "appliedContentFormat": "markdown",
+        "fields": {
+          "description": "Remove noisy logs."
+        }
+      },
+      "comments": {
+        "appliedContentFormat": "html",
+        "comments": [
+          {
+            "id": "301",
+            "created": "2026-09-01T10:00:00.000-0400",
+            "updated": "2026-09-01T10:00:00.000-0400",
+            "author": {
+              "accountId": "u-bob",
+              "displayName": "Bob Roe"
+            },
+            "body": "<p>see @Jane</p>"
+          }
+        ]
+      }
+    },
+    "PROJ-4": {
+      "fields": {
+        "issuetype": {
+          "name": "Epic",
+          "hierarchyLevel": 1
+        },
+        "summary": "Billing v2",
+        "status": {
+          "name": "In Progress",
+          "statusCategory": {
+            "key": "indeterminate"
+          }
+        },
+        "assignee": {
+          "accountId": "u-me",
+          "displayName": "Jane Doe"
+        },
+        "reporter": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "priority": {
+          "name": "Medium"
+        },
+        "fixVersions": [],
+        "components": [],
+        "labels": [],
+        "issuelinks": [],
+        "subtasks": [],
+        "updated": "2026-09-01T10:00:00.000-0400"
+      },
+      "evidence": {
+        "appliedContentFormat": "markdown",
+        "fields": {
+          "description": "The second billing."
+        }
+      }
+    },
+    "PROJ-5": {
+      "fields": {
+        "issuetype": {
+          "name": "Story",
+          "hierarchyLevel": 0
+        },
+        "summary": "Invoice PDF",
+        "status": {
+          "name": "To Do",
+          "statusCategory": {
+            "key": "new"
+          }
+        },
+        "assignee": {
+          "accountId": "u-me",
+          "displayName": "Jane Doe"
+        },
+        "reporter": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "priority": {
+          "name": "Medium"
+        },
+        "fixVersions": [],
+        "components": [],
+        "labels": [],
+        "issuelinks": [],
+        "subtasks": [],
+        "updated": "2026-09-01T10:00:00.000-0400",
+        "parent": {
+          "key": "PROJ-4",
+          "fields": {
+            "summary": "Billing v2",
+            "issuetype": {
+              "name": "Epic",
+              "hierarchyLevel": 1
+            }
+          }
+        }
+      },
+      "changelog": {
+        "total": 1,
+        "histories": [
+          {
+            "created": "2026-09-10T10:00:00.000-0400",
+            "items": [
+              {
+                "field": "description"
+              },
+              {
+                "field": "Sprint"
+              }
+            ]
+          }
+        ]
+      },
+      "evidence": {
+        "appliedContentFormat": "markdown",
+        "fields": {
+          "description": "Render invoices as PDF."
+        }
+      },
+      "comments": {
+        "appliedContentFormat": "markdown",
+        "comments": [
+          {
+            "id": "501",
+            "created": "2026-09-01T10:00:00.000-0400",
+            "updated": "2026-09-01T10:00:00.000-0400",
+            "author": {
+              "accountId": "u-bob",
+              "displayName": "Bob Roe"
+            },
+            "body": "Which paper size?"
+          }
+        ]
+      }
+    },
+    "PROJ-6": {
+      "fields": {
+        "issuetype": {
+          "name": "Story",
+          "hierarchyLevel": 0
+        },
+        "summary": "Refund flow",
+        "status": {
+          "name": "In Progress",
+          "statusCategory": {
+            "key": "indeterminate"
+          }
+        },
+        "assignee": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "reporter": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "priority": {
+          "name": "Medium"
+        },
+        "fixVersions": [],
+        "components": [],
+        "labels": [],
+        "issuelinks": [],
+        "subtasks": [],
+        "updated": "2026-09-01T10:00:00.000-0400",
+        "parent": {
+          "key": "PROJ-4",
+          "fields": {
+            "summary": "Billing v2",
+            "issuetype": {
+              "name": "Epic",
+              "hierarchyLevel": 1
+            }
+          }
+        }
+      },
+      "evidence": {
+        "appliedContentFormat": "markdown",
+        "fields": {
+          "description": "Refunds."
+        }
+      }
+    },
+    "PROJ-7": {
+      "fields": {
+        "issuetype": {
+          "name": "Task",
+          "hierarchyLevel": 0
+        },
+        "summary": "Write the export job",
+        "status": {
+          "name": "To Do",
+          "statusCategory": {
+            "key": "new"
+          }
+        },
+        "assignee": {
+          "accountId": "u-me",
+          "displayName": "Jane Doe"
+        },
+        "reporter": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "priority": {
+          "name": "Medium"
+        },
+        "fixVersions": [],
+        "components": [],
+        "labels": [],
+        "issuelinks": [],
+        "subtasks": [],
+        "updated": "2026-09-01T10:00:00.000-0400",
+        "parent": {
+          "key": "PROJ-20",
+          "fields": {
+            "summary": "Platform",
+            "issuetype": {
+              "name": "Epic",
+              "hierarchyLevel": 1
+            }
+          }
+        }
+      },
+      "evidence": {
+        "appliedContentFormat": "markdown",
+        "fields": {
+          "description": "Cron job."
+        }
+      }
+    },
+    "PROJ-8": {
+      "fields": {
+        "issuetype": {
+          "name": "Spike",
+          "hierarchyLevel": 0
+        },
+        "summary": "Spike: try streaming",
+        "status": {
+          "name": "To Do",
+          "statusCategory": {
+            "key": "new"
+          }
+        },
+        "assignee": {
+          "accountId": "u-me",
+          "displayName": "Jane Doe"
+        },
+        "reporter": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "priority": null,
+        "fixVersions": [],
+        "components": [],
+        "labels": [],
+        "issuelinks": [],
+        "subtasks": [],
+        "updated": "2026-09-01T10:00:00.000-0400"
+      },
+      "evidence": {
+        "appliedContentFormat": "markdown",
+        "fields": {}
+      }
+    },
+    "PROJ-10": {
+      "fields": {
+        "issuetype": {
+          "name": "Task",
+          "hierarchyLevel": 0
+        },
+        "summary": "Old task",
+        "status": {
+          "name": "To Do",
+          "statusCategory": {
+            "key": "new"
+          }
+        },
+        "assignee": {
+          "accountId": "u-me",
+          "displayName": "Jane Doe"
+        },
+        "reporter": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "priority": {
+          "name": "Medium"
+        },
+        "fixVersions": [],
+        "components": [],
+        "labels": [],
+        "issuelinks": [
+          {
+            "type": {
+              "name": "Blocks",
+              "inward": "is blocked by",
+              "outward": "blocks"
+            },
+            "inwardIssue": {
+              "key": "OTHER-9",
+              "fields": {
+                "status": {
+                  "name": "To Do",
+                  "statusCategory": {
+                    "key": "new"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "subtasks": [],
+        "updated": "2026-09-01T10:00:00.000-0400"
+      },
+      "evidence": {
+        "appliedContentFormat": "markdown",
+        "fields": {
+          "description": "Waits for OTHER-9."
+        }
+      }
+    },
+    "PROJ-11": {
+      "fields": {
+        "issuetype": {
+          "name": "Task",
+          "hierarchyLevel": 0
+        },
+        "summary": "Rate limits",
+        "status": {
+          "name": "In Progress",
+          "statusCategory": {
+            "key": "indeterminate"
+          }
+        },
+        "assignee": {
+          "accountId": "u-me",
+          "displayName": "Jane Doe"
+        },
+        "reporter": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "priority": {
+          "name": "Medium"
+        },
+        "fixVersions": [],
+        "components": [],
+        "labels": [],
+        "issuelinks": [],
+        "subtasks": [],
+        "updated": "2026-09-01T10:00:00.000-0400"
+      },
+      "changelog": {
+        "total": 30,
+        "histories": [
+          {
+            "created": "2026-09-10T10:00:00.000-0400",
+            "items": [
+              {
+                "field": "status"
+              }
+            ]
+          }
+        ]
+      },
+      "evidence": {
+        "appliedContentFormat": "markdown",
+        "fields": {
+          "description": "Limit requests."
+        }
+      }
+    },
+    "PROJ-12": {
+      "fields": {
+        "issuetype": {
+          "name": "Task",
+          "hierarchyLevel": 0
+        },
+        "summary": "Legacy note",
+        "status": {
+          "name": "In Progress",
+          "statusCategory": {
+            "key": "indeterminate"
+          }
+        },
+        "assignee": {
+          "accountId": "u-me",
+          "displayName": "Jane Doe"
+        },
+        "reporter": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "priority": {
+          "name": "Medium"
+        },
+        "fixVersions": [],
+        "components": [],
+        "labels": [],
+        "issuelinks": [],
+        "subtasks": [],
+        "updated": "2026-09-01T10:00:00.000-0400"
+      },
+      "evidence": {
+        "appliedContentFormat": "markdown",
+        "fields": {
+          "description": "From the old layout."
+        }
+      }
+    },
+    "PROJ-16": {
+      "fields": {
+        "issuetype": {
+          "name": "Task",
+          "hierarchyLevel": 0
+        },
+        "summary": "Broken",
+        "status": {
+          "name": "To Do",
+          "statusCategory": {
+            "key": "new"
+          }
+        },
+        "assignee": {
+          "accountId": "u-me",
+          "displayName": "Jane Doe"
+        },
+        "reporter": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "priority": {
+          "name": "Medium"
+        },
+        "fixVersions": [],
+        "components": [],
+        "labels": [],
+        "issuelinks": [],
+        "subtasks": [],
+        "updated": "2026-09-01T10:00:00.000-0400"
+      },
+      "failGet": true
+    },
+    "PROJ-20": {
+      "fields": {
+        "issuetype": {
+          "name": "Epic",
+          "hierarchyLevel": 1
+        },
+        "summary": "Platform",
+        "status": {
+          "name": "In Progress",
+          "statusCategory": {
+            "key": "indeterminate"
+          }
+        },
+        "assignee": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "reporter": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "priority": {
+          "name": "Medium"
+        },
+        "fixVersions": [],
+        "components": [],
+        "labels": [],
+        "issuelinks": [],
+        "subtasks": [],
+        "updated": "2026-09-01T10:00:00.000-0400"
+      },
+      "changelog": {
+        "total": 1,
+        "histories": [
+          {
+            "created": "2026-09-10T10:00:00.000-0400",
+            "items": [
+              {
+                "field": "labels"
+              }
+            ]
+          }
+        ]
+      },
+      "evidence": {
+        "appliedContentFormat": "markdown",
+        "fields": {
+          "description": "Platform work."
+        }
+      }
+    },
+    "OTHER-9": {
+      "fields": {
+        "issuetype": {
+          "name": "Task",
+          "hierarchyLevel": 0
+        },
+        "summary": "Upstream fix",
+        "status": {
+          "name": "To Do",
+          "statusCategory": {
+            "key": "new"
+          }
+        },
+        "assignee": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "reporter": {
+          "accountId": "u-bob",
+          "displayName": "Bob Roe"
+        },
+        "priority": {
+          "name": "Medium"
+        },
+        "fixVersions": [],
+        "components": [],
+        "labels": [],
+        "issuelinks": [],
+        "subtasks": [],
+        "updated": "2026-09-01T10:00:00.000-0400"
+      }
+    }
+  }
+}
