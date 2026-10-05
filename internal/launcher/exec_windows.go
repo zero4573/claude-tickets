@@ -1,6 +1,6 @@
 //go:build windows
 
-package tmuxx
+package launcher
 
 import (
 	"os"

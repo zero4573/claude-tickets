@@ -11,33 +11,28 @@ import (
 	"time"
 )
 
-// Out runs git -C dir args and returns its stdout, trailing newline
-// trimmed; stderr is discarded.
+// Out trims stdout's trailing newline and discards stderr.
 func Out(dir string, args ...string) (string, error) {
 	out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).Output()
 	return strings.TrimRight(string(out), "\n"), err
 }
 
-// Ok reports whether git -C dir args succeeds (output discarded).
 func Ok(dir string, args ...string) bool {
 	return exec.Command("git", append([]string{"-C", dir}, args...)...).Run() == nil
 }
 
-// Run runs git -C dir args with its output on ours.
 func Run(dir string, args ...string) error {
 	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return cmd.Run()
 }
 
-// Timeout runs git -C dir args quietly, killed after d.
 func Timeout(d time.Duration, dir string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), d)
 	defer cancel()
 	return exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...).Run()
 }
 
-// HasRef reports whether ref (e.g. refs/remotes/origin/main) exists.
 func HasRef(dir, ref string) bool {
 	return Ok(dir, "rev-parse", "-q", "--verify", ref)
 }
@@ -51,11 +46,25 @@ func BaseRef(dir, base string) string {
 	return base
 }
 
-// Dirty reports whether a checkout has uncommitted changes (extra: more
-// status flags, e.g. --ignore-submodules).
 func Dirty(dir string, extra ...string) bool {
-	out, _ := Out(dir, append([]string{"status", "--porcelain"}, extra...)...)
-	return out != ""
+	// A git that fails counts as dirty: callers use this to decide whether
+	// work would be lost
+	out, err := Out(dir, append([]string{"status", "--porcelain"}, extra...)...)
+	return err != nil || out != ""
+}
+
+// Unpushed reports whether a clone holds work no remote has: commits on any
+// local branch (not only HEAD's), or a stash. An error means "can't tell".
+func Unpushed(dir string) (bool, error) {
+	n, err := Out(dir, "rev-list", "--count", "--branches", "--not", "--remotes")
+	if err != nil {
+		return false, err
+	}
+	stash, err := Out(dir, "stash", "list")
+	if err != nil {
+		return false, err
+	}
+	return n != "0" || stash != "", nil
 }
 
 // SharedClone makes dest a clone of main that borrows its objects
@@ -76,14 +85,11 @@ func SharedClone(main, dest string) error {
 	return exec.Command("git", "-C", dest, "remote", "set-url", "origin", url).Run()
 }
 
-// RefreshSharedClone copies main's remote-tracking branches and tags into
-// a shared clone.
 func RefreshSharedClone(main, dest string) error {
 	return exec.Command("git", "-C", dest, "fetch", "--quiet", "--prune", main,
 		"+refs/remotes/origin/*:refs/remotes/origin/*", "+refs/tags/*:refs/tags/*").Run()
 }
 
-// InContainer reports whether ct runs inside a container (podman or docker).
 func InContainer() bool {
 	for _, f := range []string{"/run/.containerenv", "/.dockerenv"} {
 		if _, err := os.Stat(f); err == nil {

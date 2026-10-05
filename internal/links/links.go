@@ -13,10 +13,13 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/zero4573/claude-tickets/internal/fsx"
 )
 
 var (
@@ -47,7 +50,6 @@ func Files(vault string) []string {
 	return out
 }
 
-// Index finds the files a link target names.
 type Index struct {
 	vault  string
 	byName map[string][]string
@@ -63,7 +65,6 @@ func keys(p string) []string {
 	return k
 }
 
-// NewIndex indexes the vault's files.
 func NewIndex(vault string) *Index {
 	ix := &Index{vault: vault, byName: map[string][]string{}}
 	for _, p := range Files(vault) {
@@ -235,17 +236,14 @@ func resolvePath(p string) string {
 	return p
 }
 
-func inside(p, dir string) bool {
-	r, err := filepath.Rel(dir, p)
-	return err == nil && r != ".." && !strings.HasPrefix(r, "../")
-}
+func inside(p, dir string) bool { return fsx.Within(p, dir) }
 
 // Move moves a note (or attachment) inside the vault, keeping every link
 // to it working: it refuses when another file already has the
 // destination's name (bare-name links would become ambiguous), then
 // rewrites path-qualified links ([[old/path/note]]) across the vault to
-// the new path; bare-name links need no rewrite. dst may be a folder. It
-// returns the new vault-relative path and how many links it rewrote.
+// the new path (and bare-name links too on a rename). dst may be a folder.
+// It returns the new vault-relative path and how many links it rewrote.
 func Move(vault, src, dst string) (string, int, error) {
 	vault = resolvePath(vault)
 	if !filepath.IsAbs(src) {
@@ -299,6 +297,23 @@ func Move(vault, src, dst string) (string, int, error) {
 	if strings.HasSuffix(dst, ".md") {
 		newTarget = strings.TrimSuffix(newRel, ".md")
 	}
+	// A rename also breaks bare-name links ([[old]]): they're rewritten when
+	// the old name meant only this file (else they named another one)
+	bareOld, bareNew := map[string]bool{}, ""
+	if !strings.EqualFold(filepath.Base(src), filepath.Base(dst)) {
+		unique := true
+		for _, k := range keys(src) {
+			for _, p := range ix.byName[k] {
+				unique = unique && resolvePath(p) == src
+			}
+		}
+		if unique {
+			for _, k := range keys(src) {
+				bareOld[k] = true
+			}
+			bareNew = path.Base(newTarget)
+		}
+	}
 
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return "", 0, err
@@ -321,7 +336,12 @@ func Move(vault, src, dst string) (string, int, error) {
 			// A path-qualified target matches the end of the path, so
 			// [[sequences/flow]] points at projects/x/sequences/flow.md too
 			t := strings.ToLower(strings.TrimLeft(strings.TrimSpace(m[2]), "/"))
-			if strings.Contains(t, "/") {
+			if !strings.Contains(t, "/") {
+				if bareOld[t] {
+					rewritten++
+					return m[1] + "[[" + bareNew + m[3] + m[4] + "]]"
+				}
+			} else {
 				for _, form := range forms {
 					if form == t || strings.HasSuffix(form, "/"+t) {
 						rewritten++

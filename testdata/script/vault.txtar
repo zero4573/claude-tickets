@@ -6,8 +6,8 @@ stderr 'no Obsidian vaults under .*\(set one up with ct vault init\)'
 mkdir home/Documents/Obsidian/a/.obsidian
 exec ct vault
 stdout 'vault: +~/Documents/Obsidian/a'
-stdout 'workspaces: +~/work/a'
-stdout 'main clones: +~/Projects'
+stdout 'workspaces: +~/Projects/work-a$'
+stdout 'main clones: +~/Projects/repo-a$'
 stdout 'tmux session: tickets-a'
 
 # Two vaults and no default: pick one
@@ -43,7 +43,6 @@ exec ct vault
 stdout 'vault: +~/Documents/Obsidian/a'
 cd $WORK
 
-# An unknown name, and unsetting
 ! exec ct vault default nope
 stderr 'no vault named .nope.'
 exec ct vault default --unset

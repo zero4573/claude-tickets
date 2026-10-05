@@ -1,0 +1,30 @@
+# Placeholder: releases aren't published yet. When they are, this builds
+# the archives (ct per OS/arch, plus completions) on a version tag, e.g.
+# with goreleaser, and attaches them to a GitHub release. To enable it, set
+# the repository variable RELEASES_ENABLED to true (Settings > Variables)
+# and replace `on:` with
+#   push:
+#     tags: ["v*"]
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: vars.RELEASES_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        run: make cross
+      # TODO: archives (ct + completions per OS/arch), checksums, and
+      # gh release create "$GITHUB_REF_NAME" dist/*

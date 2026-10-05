@@ -15,6 +15,7 @@ import (
 	"github.com/zero4573/claude-tickets/assets"
 	"github.com/zero4573/claude-tickets/internal/config"
 	"github.com/zero4573/claude-tickets/internal/container"
+	"github.com/zero4573/claude-tickets/internal/fsx"
 	"github.com/zero4573/claude-tickets/internal/links"
 	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/prompt"
@@ -22,8 +23,6 @@ import (
 	"github.com/zero4573/claude-tickets/internal/vaultlock"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
-
-// --- ct vault init ---
 
 type setupOpts struct {
 	defaults, allowOverlap, missing bool
@@ -68,7 +67,7 @@ Without a terminal it runs as with --defaults.`,
 		},
 	}
 	cmd.Flags().BoolVar(&o.defaults, "defaults", false, "don't prompt: default locations, manual tickets on, Jira configured but disabled")
-	cmd.Flags().BoolVar(&o.allowOverlap, "allow-overlap", false, "with --defaults: accept default folders that overlap another vault's (e.g. a shared ~/Projects)")
+	cmd.Flags().BoolVar(&o.allowOverlap, "allow-overlap", false, "with --defaults: accept default folders that overlap another vault's")
 	return cmd
 }
 
@@ -103,12 +102,12 @@ func vaultInit(target string, o setupOpts) error {
 		} else {
 			return errors.New("several vaults; name one: ct vault init <vault>")
 		}
-	case strings.Contains(target, "/") || isDir(filepath.Join(target, ".obsidian")):
+	case strings.Contains(target, "/") || fsx.IsDir(filepath.Join(target, ".obsidian")):
 		v, _ = filepath.Abs(config.ExpandHome(target))
 	default:
 		v = filepath.Join(config.ObsidianRoot(), target)
 	}
-	if !isDir(filepath.Join(v, ".obsidian")) {
+	if !fsx.IsDir(filepath.Join(v, ".obsidian")) {
 		if !o.defaults && !prompt.YesNo(fmt.Sprintf("No vault at %s yet. Create it?", v), "y") {
 			return exitError(1)
 		}
@@ -162,13 +161,12 @@ func vaultInit(target string, o setupOpts) error {
 		return err
 	}
 
-	// Settings: locations, ticket sources, ... (ct vault configure)
 	o.missing = true
 	if err := vaultConfigure(v, o); err != nil {
 		return err
 	}
 
-	if !isDir(filepath.Join(v, ".obsidian", "plugins", "obsidian-tasks-plugin")) {
+	if !fsx.IsDir(filepath.Join(v, ".obsidian", "plugins", "obsidian-tasks-plugin")) {
 		warnf("the Tasks community plugin isn't installed here: add \"%s\" to programs.claude-tickets.obsidian.vaults (home-manager), or install it from Obsidian", filepath.Base(v))
 	}
 	fmt.Println("ct vault init: done. Next (on the default vault; ct vault default to switch): ct sync, ct new, ct start <ID>")
@@ -194,7 +192,6 @@ func updateObject(file string, fn func(m map[string]any)) error {
 	return config.WriteJSON(file, m)
 }
 
-// obsidianSettings turns on what the workflow uses in a vault's .obsidian/.
 func obsidianSettings(obs string) error {
 	// The core Templates plugin reads templates/; keep a folder the user set
 	folder := ""
@@ -238,8 +235,6 @@ func obsidianSettings(obs string) error {
 	})
 }
 
-// --- ct vault configure ---
-
 var allSections = []string{"locations", "sources", "runtime"}
 
 func vaultConfigureCmd() *cobra.Command {
@@ -254,8 +249,8 @@ a name under ~/Documents/Obsidian or a path; default: the current vault.
 
 Sections (all of them unless --section is given):
   locations  .workflow.json: where the vault's tools work
-               workRoot      ticket and kb workspaces (~/work/<vault>)
-               projectsRoot  main clones (~/Projects)
+               workRoot      ticket and kb workspaces (~/Projects/work-<vault>)
+               projectsRoot  main clones (~/Projects/repo-<vault>)
              (The ticket windows' tmux session is always tickets-<vault>.)
              A folder that is the same as, inside, or around another
              vault's folder (or this vault's other one) is shown with what
@@ -269,7 +264,7 @@ Sections (all of them unless --section is given):
              prompts don't cover (other sources, model, textFields) are
              kept.
   runtime    podman or docker for the code graph, host-wide
-             (~/.config/claude-tickets/config.json; default: detected,
+             (` + config.TildePath(config.File()) + `; default: detected,
              CLAUDE_TICKETS_CONTAINER overrides it)
 
 Without a terminal it runs as with --defaults.`,
@@ -316,11 +311,11 @@ func contains(list []string, s string) bool {
 
 // namedVault is a vault given by path, or by name under the Obsidian root.
 func namedVault(name string) (string, error) {
-	if isDir(filepath.Join(name, ".obsidian")) {
+	if fsx.IsDir(filepath.Join(name, ".obsidian")) {
 		return filepath.Abs(name)
 	}
 	p := filepath.Join(config.ObsidianRoot(), name)
-	if !isDir(filepath.Join(p, ".obsidian")) {
+	if !fsx.IsDir(filepath.Join(p, ".obsidian")) {
 		return "", fmt.Errorf("no vault named '%s' under %s", name, config.ObsidianRoot())
 	}
 	return p, nil
@@ -469,7 +464,7 @@ func configureLocations(v, file string, o setupOpts) error {
 
 // sourcesTemplate is a new tickets/.sources.json: every known source.
 const sourcesTemplate = `{
-  "_comment": "Ticket sources for this vault. ct sync pulls every enabled source whose sync is not false, through the MCP server named by mcp (its URL comes from the MCP config in CLAUDE_TICKETS_MCP_CONFIG; the headless Claude step uses the servers your claude command provides). A source also needs an adapter: plugin/skills/ticket-sync/sources/<name>.md in claude-tickets. Local ticket IDs are the source key when idPrefix is empty, otherwise <idPrefix>-<native id>. manual tickets are written in Obsidian (ct new, templates/ticket-manual.md) and never synced. The jira source finds its Jira site from the token; set \"site\": \"<name>.atlassian.net\" only if the token can reach several. Change the manual and jira settings with ct vault configure --section sources.",
+  "_comment": "Ticket sources for this vault. ct sync pulls every enabled source whose sync is not false, through the MCP server named by mcp (its URL comes from the MCP config in CLAUDE_TICKETS_MCP_CONFIG; the headless Claude step uses the servers your claude command provides). A source also needs an adapter: assets/plugin/skills/ticket-sync/sources/<name>.md in claude-tickets. Local ticket IDs are the source key when idPrefix is empty, otherwise <idPrefix>-<native id>. manual tickets are written in Obsidian (ct new, templates/ticket-manual.md) and never synced. The jira source finds its Jira site from the token; set \"site\": \"<name>.atlassian.net\" only if the token can reach several. Change the manual and jira settings with ct vault configure --section sources.",
   "sources": {
     "jira": {},
     "manual": {},
@@ -662,8 +657,6 @@ func configureRuntime(o setupOpts) error {
 	return nil
 }
 
-// --- ct vault lock ---
-
 func vaultLockCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lock acquire|release|status|run ...",
@@ -722,8 +715,6 @@ Dot-files are hidden from Obsidian.`,
 	return cmd
 }
 
-// --- ct vault links ---
-
 func vaultLinksCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "links check|move ...",
@@ -742,7 +733,7 @@ path. Links inside code blocks and inline code are ignored. .obsidian/,
 		if r, err := filepath.EvalSymlinks(v); err == nil {
 			v = r
 		}
-		if !isDir(filepath.Join(v, ".obsidian")) {
+		if !fsx.IsDir(filepath.Join(v, ".obsidian")) {
 			return "", exitWith(2, fmt.Errorf("not an Obsidian vault: %s", v))
 		}
 		return v, nil
@@ -786,7 +777,8 @@ anything is broken. A file is a path, or relative to the vault.`,
 working: refuses if the destination's name is already taken by another file
 (bare-name links would become ambiguous), then rewrites any path-qualified
 links ([[old/path/note]]) across the vault to the new path. Bare-name links
-([[note]]) need no rewrite. <dst> may be a folder. Prints the new path.`,
+([[note]]) only change when the name does (a rename), and then follow it.
+<dst> may be a folder. Prints the new path.`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v, err := vaultArg(args[0])

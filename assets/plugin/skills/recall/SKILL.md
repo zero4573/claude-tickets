@@ -10,7 +10,7 @@ Read-only. Never write to the vault.
 ## Find the vault and the subject
 
 - **Ticket workspace** (the cwd or a folder above it has a `workspace.json`
-  whose `id` is the ticket ID; `~/work/<ID>` by default): `CLAUDE.md` names
+  whose `id` is the ticket ID; `~/Projects/work-<vault>/<ID>` by default): `CLAUDE.md` names
   the vault and the ticket.
 - **A `kb` session** (`workspace.json` id `KB`, `<workRoot>/.kb-<vault>`):
   `CLAUDE.md` names the vault.

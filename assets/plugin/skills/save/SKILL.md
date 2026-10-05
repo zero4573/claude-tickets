@@ -21,7 +21,8 @@ Follow the vault's `AGENTS.md`:
 ## Which mode
 
 - **Ticket mode:** the cwd, or a folder above it, is a ticket workspace:
-  its `workspace.json` has the ticket ID as `id` (`~/work/<ID>` by default;
+  its `workspace.json` has the ticket ID as `id`
+  (`~/Projects/work-<vault>/<ID>` by default;
   the vault's `.workflow.json` can move it). Its `CLAUDE.md` names the
   vault and the ticket. Follow all the steps below.
 - **Knowledge-base session:** the cwd is a `kb` workspace

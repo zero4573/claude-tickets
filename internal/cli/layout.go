@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zero4573/claude-tickets/internal/config"
+	"github.com/zero4573/claude-tickets/internal/fsx"
 	"github.com/zero4573/claude-tickets/internal/gitx"
 	"github.com/zero4573/claude-tickets/internal/repo"
 	"github.com/zero4573/claude-tickets/internal/vault"
@@ -25,8 +26,8 @@ func layoutCmd() *cobra.Command {
 		Use:   "layout [--apply] [--root <dir>]",
 		Short: "Move repos into <projectsRoot>/<provider>/<owner>/<repo>",
 		Long: `Reorganizes the git repos under the current vault's projectsRoot
-(~/Projects by default; see ct vault) or --root, wherever they are nested,
-into <root>/<provider>/<owner>/<repo>, the layout the ticket workflow
+(~/Projects/repo-<vault> by default; see ct vault) or --root, wherever they
+are nested, into <root>/<provider>/<owner>/<repo>, the layout the ticket workflow
 expects. All three come from each repo's origin URL:
   bitbucket  Server/DC (/scm/<key>/<repo>, ssh :7999/<key>/<repo>; owner =
              project key, upper-cased) or Cloud (owner = workspace)
@@ -44,7 +45,7 @@ are skipped, since moving them breaks the worktrees' links back to the repo
 shared clones in ticket or kb workspaces borrow objects from (remove those
 first: ct ws rm or gc). Repos are staged in a temporary folder under the
 root and then put in place, so nested repos, and repos sitting where a
-provider or owner folder must go (e.g. a repo at ~/Projects/bitbucket), are
+provider or owner folder must go (e.g. a repo at <root>/bitbucket), are
 handled. Empty folders left behind are removed.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -92,7 +93,7 @@ func findRepos(root string) []string {
 		return nil
 	})
 	sort.Slice(repos, func(i, j int) bool {
-		di, dj := strings.Count(repos[i], "/"), strings.Count(repos[j], "/")
+		di, dj := fsx.Depth(repos[i]), fsx.Depth(repos[j])
 		if di != dj {
 			return di > dj
 		}
@@ -116,7 +117,7 @@ func borrowedRepos(ctx vault.Context, root string) map[string]bool {
 	borrowed := map[string]bool{}
 	seen := map[string]bool{}
 	for _, w := range workRoots {
-		if w == "" || !isDir(w) {
+		if w == "" || !fsx.IsDir(w) {
 			continue
 		}
 		_ = filepath.WalkDir(w, func(p string, d fs.DirEntry, err error) error {
@@ -127,7 +128,7 @@ func borrowedRepos(ctx vault.Context, root string) map[string]bool {
 			if d.IsDir() && rel != "." && strings.Count(rel, string(filepath.Separator)) >= 6 {
 				return filepath.SkipDir
 			}
-			if d.IsDir() || !strings.HasSuffix(p, "/.git/objects/info/alternates") || seen[p] {
+			if d.IsDir() || !strings.HasSuffix(filepath.ToSlash(p), "/.git/objects/info/alternates") || seen[p] {
 				return nil
 			}
 			seen[p] = true
@@ -138,8 +139,9 @@ func borrowedRepos(ctx vault.Context, root string) map[string]bool {
 			defer f.Close()
 			sc := bufio.NewScanner(f)
 			for sc.Scan() {
-				if obj := sc.Text(); strings.HasSuffix(obj, "/.git/objects") {
-					borrowed[strings.TrimSuffix(obj, "/.git/objects")] = true
+				// git writes these with / on every OS
+				if obj := filepath.ToSlash(sc.Text()); strings.HasSuffix(obj, "/.git/objects") {
+					borrowed[filepath.FromSlash(strings.TrimSuffix(obj, "/.git/objects"))] = true
 				}
 			}
 			return nil
@@ -149,19 +151,24 @@ func borrowedRepos(ctx vault.Context, root string) map[string]bool {
 }
 
 func layout(ctx vault.Context, root string, apply bool) error {
-	if !isDir(root) {
+	if !fsx.IsDir(root) {
 		return fmt.Errorf("no such directory: %s", root)
 	}
 	root, _ = filepath.Abs(root)
 	if r, err := filepath.EvalSymlinks(root); err == nil {
 		root = r
 	}
-	relOf := func(p string) string { return strings.TrimPrefix(p, root+"/") }
-	under := func(p, dir string) bool { return strings.HasPrefix(p, dir+"/") }
+	// Shown with / on every OS: the same as the <provider>/<owner>/<repo> it names
+	relOf := func(p string) string {
+		if rel, err := filepath.Rel(root, p); err == nil && fsx.Inside(p, root) {
+			return filepath.ToSlash(rel)
+		}
+		return p
+	}
+	under := fsx.Inside
 
 	repos := findRepos(root)
 	borrowed := borrowedRepos(ctx, root)
-	// the borrowed repo at or inside a path, if any
 	borrowedRepo := func(p string) (string, bool) {
 		for b := range borrowed {
 			if b == p || under(b, p) {
@@ -171,11 +178,13 @@ func layout(ctx vault.Context, root string, apply bool) error {
 		return "", false
 	}
 
-	// Plan: for each hosted repo, where it goes
 	destOf := map[string]string{}
 	claimed := map[string]string{}
 	var planned []string
 	skipped := 0
+	// Repos with linked worktrees: they stay, and so must every repo around
+	// them (moving it would carry them along; repos come deepest first)
+	var pinned []string
 	for _, r := range repos {
 		rel := relOf(r)
 		url, _ := gitx.Out(r, "remote", "get-url", "origin")
@@ -191,6 +200,13 @@ func layout(ctx vault.Context, root string, apply bool) error {
 		target := id.Clone()
 		if wts, _ := gitx.Out(r, "worktree", "list", "--porcelain"); strings.Count("\n"+wts, "\nworktree ") > 1 {
 			fmt.Printf("skip   %s -> %s (has linked worktrees; move manually, then git worktree repair)\n", rel, target)
+			pinned = append(pinned, r)
+			skipped++
+			continue
+		}
+		if p, ok := firstInside(pinned, r); ok {
+			fmt.Printf("skip   %s -> %s (holds %s, which has linked worktrees)\n", rel, target, relOf(p))
+			pinned = append(pinned, r)
 			skipped++
 			continue
 		}
@@ -305,7 +321,7 @@ func layout(ctx vault.Context, root string, apply bool) error {
 	// Phase 2: put each in place (shallowest destination first)
 	order := append([]string{}, moving...)
 	sort.SliceStable(order, func(i, j int) bool {
-		return strings.Count(destOf[order[i]], "/") < strings.Count(destOf[order[j]], "/")
+		return fsx.Depth(destOf[order[i]]) < fsx.Depth(destOf[order[j]])
 	})
 	moved := 0
 	for _, r := range order {
@@ -328,4 +344,13 @@ func layout(ctx vault.Context, root string, apply bool) error {
 	}
 	fmt.Printf("ct layout: moved %d repo(s), skipped %d\n", moved, skipped)
 	return nil
+}
+
+func firstInside(paths []string, dir string) (string, bool) {
+	for _, p := range paths {
+		if fsx.Inside(p, dir) {
+			return p, true
+		}
+	}
+	return "", false
 }

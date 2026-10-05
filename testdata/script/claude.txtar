@@ -4,13 +4,13 @@ cp empty home/Documents/Obsidian/a/projects/github-acme-billing/github-acme-bill
 ! exec ct claude
 stderr 'has no AGENTS.md'
 cp empty home/Documents/Obsidian/a/AGENTS.md
-exec git init -q home/Projects/github/acme/billing
-cd home/Projects/github/acme/billing
+exec git init -q home/Projects/repo-a/github/acme/billing
+cd home/Projects/repo-a/github/acme/billing
 exec ct claude --resume abc
 grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --append-system-prompt # Knowledge base' $WORK/calls/claude
 grep 'This repo is `github-acme-billing`. Its notes are in `projects/github-acme-billing/`' $WORK/calls/claude
 grep ' --resume abc$' $WORK/calls/claude
-# elsewhere: from the origin, here with no notes yet
+# outside the projects root: the slug comes from the origin; no notes yet
 exec git init -q $WORK/elsewhere
 exec git -C $WORK/elsewhere remote add origin git@github.com:acme/web.git
 cd $WORK/elsewhere

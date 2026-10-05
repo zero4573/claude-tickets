@@ -1,11 +1,11 @@
 # ct kb: a session in ~/work/<vault>/.kb-<vault>
-mkdir home/Documents/Obsidian/a/.obsidian home/Projects
+mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a
 exec ct kb --no-fetch
-grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects --mcp-config .*/.kb-a/.claude/graph-mcp.json --permission-mode auto$' calls/claude
-grep '/home/work/a/.kb-a$' calls/claude-cwd
-grep '"id": "KB"' home/work/a/.kb-a/workspace.json
-grep '"Bash\(git commit:\*\)"' home/work/a/.kb-a/.claude/settings.json
-grep '^- Session id .*\n  `kb-a-[0-9]{8}-[0-9]{4}`' home/work/a/.kb-a/CLAUDE.md
+grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a --mcp-config .*/.kb-a/.claude/graph-mcp.json --permission-mode auto$' calls/claude
+grep '/home/Projects/work-a/.kb-a$' calls/claude-cwd
+grep '"id": "KB"' home/Projects/work-a/.kb-a/workspace.json
+grep '"Bash\(git commit:\*\)"' home/Projects/work-a/.kb-a/.claude/settings.json
+grep '^- Session id .*\n  `kb-a-[0-9]{8}-[0-9]{4}`' home/Projects/work-a/.kb-a/CLAUDE.md
 grep '"hasTrustDialogAccepted": true' home/.claude.json
 exec ct status
 ! stdout KB

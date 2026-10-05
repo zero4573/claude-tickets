@@ -20,7 +20,6 @@ var keyRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]*(-[A-Z0-9]+)+$`)
 // (Jira PROJ-12), or <idPrefix>-<native id> (SNOW-INC0012345, MAN-7).
 func ValidKey(s string) bool { return keyRe.MatchString(s) }
 
-// TicketPath is a ticket's note: <vault>/tickets/<ID>/<ID>.md.
 func TicketPath(vault, id string) string {
 	return filepath.Join(vault, "tickets", id, id+".md")
 }
@@ -40,8 +39,9 @@ func Frontmatter(file string) map[string]string {
 	sc.Buffer(make([]byte, 1024*1024), 1024*1024)
 	first := true
 	for sc.Scan() {
-		line := sc.Text()
+		line := strings.TrimSuffix(sc.Text(), "\r")
 		if first {
+			line = strings.TrimPrefix(line, "\ufeff")
 			if line != "---" {
 				return out
 			}
@@ -63,7 +63,6 @@ func Frontmatter(file string) map[string]string {
 	return out
 }
 
-// Get is one frontmatter field ("" if absent).
 func Get(file, field string) string { return Frontmatter(file)[field] }
 
 func unquote(v string) string {
@@ -95,7 +94,6 @@ func Ignored(file string) bool {
 	return until == "" || until >= time.Now().Format("2006-01-02")
 }
 
-// Ticket is one line of the vault's ticket list.
 type Ticket struct {
 	ID, Status, Summary string
 }

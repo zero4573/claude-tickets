@@ -12,7 +12,7 @@ env CLAUDE_TICKETS_VAULT=$WORK/home/Documents/Obsidian/demo
 
 # 1: every ticket new; a parent epic pulled in; a ticket that fails; HTML to Claude
 fakejira $SYNCDATA/state1.json
-exec ct sync
+! exec ct sync
 stdout '^jira: open 11, new 10, to refresh 1, to close 0, gone 0, blocked flips 0, unchanged 0$'
 stdout '^PROJ-12: nothing the note shows \(timestamp only\) \[In Progress\] Legacy note$'
 stdout '^PROJ-16: couldn.t sync'
@@ -22,13 +22,14 @@ stderr 'getJiraIssue failed: issue PROJ-16'
 grep ' -p /tickets:ticket-sync jira --plan tickets/.sync-plan.json --followups tickets/.sync-followups --model sonnet --strict-mcp-config --permission-mode dontAsk --allowedTools mcp__atlassian,Read,Write,Edit,Glob,Grep,Bash\(date:\*\) --output-format stream-json --verbose$' calls/claude
 grep '"id": "PROJ-2",\n *"part": "description"' calls/sync-plans
 ! exists home/Documents/Obsidian/demo/tickets/.sync-plan.json
-grep '^-a ct sync ct sync done' calls/notify-send
+grep '^-a ct sync -u critical ct sync: 1 ticket\(s\) failed' calls/notify-send
 cmpvault home/Documents/Obsidian/demo $SYNCDATA/golden/run1
 
 # 2: timestamp only, description + comments, truncated changelog, closed,
 # reassigned, deleted, a blocked flip, an epic's children
 fakejira $SYNCDATA/state2.json
 exec ct sync
+grep '^-a ct sync ct sync done' calls/notify-send
 stdout '^jira: open 9, new 2, to refresh 6, to close 1, gone 1, blocked flips 1, unchanged 4$'
 stdout '^PROJ-1: nothing the note shows \(timestamp only\)'
 stdout '^PROJ-5: description; comments \[To Do\] Invoice PDF$'

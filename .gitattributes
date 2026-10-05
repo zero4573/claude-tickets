@@ -1,0 +1,6 @@
+# LF everywhere, also in Windows checkouts: the scripts, the testdata (the
+# CLI tests and ct sync's golden vaults compare bytes) and the Go sources
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

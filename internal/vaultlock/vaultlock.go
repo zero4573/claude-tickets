@@ -17,14 +17,12 @@ import (
 )
 
 var (
-	// Wait is how long Acquire waits for the lock.
 	Wait = 10 * time.Minute
 	// Stale is the age (of the owner file) past which a lock is abandoned.
 	Stale = 30 * time.Minute
 	poll  = 2 * time.Second
 )
 
-// Dir is a vault's lock directory.
 func Dir(vault string) (string, error) {
 	if st, err := os.Stat(filepath.Join(vault, ".obsidian")); err != nil || !st.IsDir() {
 		return "", fmt.Errorf("not an Obsidian vault: %s", vault)
@@ -32,16 +30,19 @@ func Dir(vault string) (string, error) {
 	return filepath.Join(vault, ".vault.lock.d"), nil
 }
 
-// Holder is who holds the lock ("" if nobody).
 func Holder(dir string) string {
 	data, _ := os.ReadFile(filepath.Join(dir, "owner"))
 	return strings.TrimSpace(string(data))
 }
 
+// age is the owner file's, else (a holder that died before writing it)
+// the lock directory's, so such a lock still goes stale.
 func age(dir string) time.Duration {
 	st, err := os.Stat(filepath.Join(dir, "owner"))
 	if err != nil {
-		return 0
+		if st, err = os.Stat(dir); err != nil {
+			return 0
+		}
 	}
 	return time.Since(st.ModTime())
 }
@@ -50,7 +51,10 @@ func take(dir, owner string) bool {
 	if os.Mkdir(dir, 0o755) != nil {
 		return false
 	}
-	_ = os.WriteFile(filepath.Join(dir, "owner"), []byte(owner+"\n"), 0o644)
+	if os.WriteFile(filepath.Join(dir, "owner"), []byte(owner+"\n"), 0o644) != nil {
+		_ = os.RemoveAll(dir)
+		return false
+	}
 	return true
 }
 
@@ -70,8 +74,7 @@ func takeOver(dir, owner string) bool {
 	return ok
 }
 
-// Acquire waits (up to Wait) until the lock is free, then takes it for
-// owner. Re-acquiring as the same owner succeeds (and refreshes it).
+// Acquire as the lock's current owner succeeds and refreshes it.
 func Acquire(vault, owner string) error {
 	dir, err := Dir(vault)
 	if err != nil {
@@ -103,7 +106,6 @@ func Acquire(vault, owner string) error {
 	}
 }
 
-// Release frees the lock if owner holds it.
 func Release(vault, owner string) error {
 	dir, err := Dir(vault)
 	if err != nil {
@@ -118,7 +120,6 @@ func Release(vault, owner string) error {
 	return os.RemoveAll(dir)
 }
 
-// Status is "locked by '<owner>'" or "unlocked".
 func Status(vault string) (string, error) {
 	dir, err := Dir(vault)
 	if err != nil {

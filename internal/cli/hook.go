@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/zero4573/claude-tickets/internal/platform"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
 
@@ -26,7 +26,7 @@ func hookCmd() *cobra.Command {
 for ct status, with the hook's JSON payload on stdin. The workspace is the
 nearest folder at or above the session's cwd whose workspace.json has an
 id; outside one this does nothing. needs-input from an AskUserQuestion also
-desktop-notifies (when notify-send exists), since a question doesn't raise
+desktop-notifies (notify-send on Linux, Notification Center on macOS), since a question doesn't raise
 a Notification hook of its own. Never fails: a hook error would only get
 in the session's way.`,
 		Args: cobra.ExactArgs(1),
@@ -55,7 +55,7 @@ func agentState(state string, in io.Reader) {
 	}
 	var dir string
 	var info workspace.Info
-	for d := p.Cwd; d != "/" && d != "." && d != ""; d = filepath.Dir(d) {
+	for d := p.Cwd; d != "" && d != "." && filepath.Dir(d) != d; d = filepath.Dir(d) {
 		if i, err := workspace.Read(d); err == nil && i.ID != "" {
 			dir, info = d, i
 			break
@@ -81,8 +81,6 @@ func agentState(state string, in io.Reader) {
 		_ = os.Rename(tmp, filepath.Join(dir, ".agent-state"))
 	}
 	if state == "needs-input" && p.Event == "PreToolUse" {
-		if ns, err := exec.LookPath("notify-send"); err == nil {
-			_ = exec.Command(ns, "-a", "Claude Code", "Claude Code ("+info.ID+"): question", reason).Run()
-		}
+		platform.Notify("Claude Code", "Claude Code ("+info.ID+"): question", reason, false)
 	}
 }

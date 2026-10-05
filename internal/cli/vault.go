@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -18,7 +19,7 @@ func vaultCmd() *cobra.Command {
 		Short: "The current vault and where its tools work; vault setup",
 		Long: `Without a subcommand: the vault every command acts on (the default vault,
 else the only one), and where its workspaces, main clones and tmux session
-are (its .workflow.json).`,
+are (its .workflow.json); and where ct keeps its own settings, cache and logs.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v, err := vault.Current()
@@ -30,6 +31,9 @@ are (its .workflow.json).`,
 			fmt.Printf("workspaces:   %s\n", config.TildePath(l.WorkRoot))
 			fmt.Printf("main clones:  %s\n", config.TildePath(l.ProjectsRoot))
 			fmt.Printf("tmux session: %s\n", l.TmuxSession)
+			fmt.Printf("config:       %s\n", config.TildePath(config.Dir()))
+			fmt.Printf("cache:        %s\n", config.TildePath(config.CacheDir()))
+			fmt.Printf("logs:         %s\n", config.TildePath(config.StateDir()))
 			return nil
 		},
 	}
@@ -58,7 +62,7 @@ vault under ~/Documents/Obsidian. ct vault init always asks.
   ct vault default --pick   choose it from the list of vaults
   ct vault default --unset  remove it
 
-The default is stored in ~/.config/claude-tickets/default-vault. Sessions
+The default is stored in ` + config.TildePath(filepath.Join(config.Dir(), "default-vault")) + `. Sessions
 already running keep the vault they started with.`,
 		Args: cobra.MaximumNArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
@@ -99,7 +103,6 @@ already running keep the vault they started with.`,
 				}
 				return nil
 			}
-			// Show it
 			switch {
 			case config.LaunchVault != "":
 				fmt.Printf("default vault: %s (CLAUDE_TICKETS_VAULT: the vault this session was started with)\n", config.LaunchVault)

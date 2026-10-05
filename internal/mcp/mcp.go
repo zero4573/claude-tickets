@@ -19,9 +19,13 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/zero4573/claude-tickets/internal/platform"
 )
 
-// Client is a session with one MCP server.
+// maxResponse caps one response (a big Jira search page is a few MB).
+const maxResponse = 256 << 20
+
 type Client struct {
 	url     string
 	headers map[string]string
@@ -57,7 +61,8 @@ func Connect(server string) (*Client, error) {
 	}
 	if prep := os.Getenv("CLAUDE_TICKETS_MCP_PREPARE"); prep != "" && !prepared {
 		prepared = true
-		cmd := exec.Command("bash", "-c", prep)
+		argv := platform.ShellCommand(prep)
+		cmd := exec.Command(argv[0], argv[1:]...)
 		cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
 		if err := cmd.Run(); err != nil {
 			return nil, errors.New("MCP: CLAUDE_TICKETS_MCP_PREPARE failed")
@@ -102,7 +107,11 @@ func (c *Client) post(msg any) ([]json.RawMessage, error) {
 	if sid := resp.Header.Get("Mcp-Session-Id"); sid != "" {
 		c.session = sid
 	}
-	data, err := io.ReadAll(resp.Body)
+	// (bounded: a response that large is a broken or hostile server)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponse+1))
+	if err == nil && len(data) > maxResponse {
+		return nil, fmt.Errorf("MCP: response over %d MB", maxResponse>>20)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +147,6 @@ func truncate(s string, n int) string {
 	return s
 }
 
-// RPC calls method and returns its result.
 func (c *Client) RPC(method string, params any) (json.RawMessage, error) {
 	id := c.nextID
 	c.nextID++

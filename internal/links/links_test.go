@@ -79,3 +79,25 @@ func TestMove(t *testing.T) {
 		t.Errorf("outside: %v", err)
 	}
 }
+
+func TestMoveRename(t *testing.T) {
+	v := vault(t)
+	write(t, v, "inbox/b.md", "[[x]] and [[X#Top|the x]] and `[[x]]`\n")
+	rel, n, err := Move(v, "projects/x/x.md", "projects/x/x-overview.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rel != "projects/x/x-overview.md" || n != 2 {
+		t.Errorf("Move = %s, %d", rel, n)
+	}
+	if data, _ := os.ReadFile(filepath.Join(v, "inbox/b.md")); string(data) != "[[x-overview]] and [[x-overview#Top|the x]] and `[[x]]`\n" {
+		t.Errorf("bare links not renamed:\n%s", data)
+	}
+	// dup.md exists twice: [[dup]] named the other one too, so it stays
+	if _, _, err := Move(v, "references/dup.md", "references/dup-ref.md"); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(filepath.Join(v, "inbox/a.md")); string(data) != "[[dup]]\n" {
+		t.Errorf("an ambiguous bare link was rewritten: %s", data)
+	}
+}

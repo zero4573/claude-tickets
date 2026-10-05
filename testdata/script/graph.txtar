@@ -1,4 +1,3 @@
-# ct graph with a stub podman
 exec ct graph status
 stdout '^image:   localhost/claude-tickets-graphify:[0-9a-f]{12}$'
 stdout 'not built \(podman\): ct graph build'
@@ -18,19 +17,19 @@ exec ct graph build
 ! stderr unpacking
 
 # mcp: the image through podman, with the workspace and the main clones
-mkdir home/Documents/Obsidian/a/.obsidian home/work/a/MAN-1 home/Projects
-cp ws.json home/work/a/MAN-1/workspace.json
-exec ct graph mcp home/work/a/MAN-1
-grep '^run --rm --security-opt label=disable -i -v .*/home/work/a/MAN-1:.*/home/work/a/MAN-1 -e PROJECT_ROOT=.* -e PROJECTS_ROOT=.*/home/Projects -v .*/home/Projects:.*/home/Projects:ro localhost/claude-tickets-graphify:[0-9a-f]+ /opt/graphify/serve.sh$' calls/podman
-! exec ct graph mcp home/work/a
+mkdir home/Documents/Obsidian/a/.obsidian home/Projects/work-a/MAN-1 home/Projects/repo-a
+cp ws.json home/Projects/work-a/MAN-1/workspace.json
+exec ct graph mcp home/Projects/work-a/MAN-1
+grep '^run --rm --security-opt label=disable -i -v .*/home/Projects/work-a/MAN-1:.*/home/Projects/work-a/MAN-1 -e PROJECT_ROOT=.* -e PROJECTS_ROOT=.*/home/Projects/repo-a -v .*/home/Projects/repo-a:.*/home/Projects/repo-a:ro localhost/claude-tickets-graphify:[0-9a-f]+ /opt/graphify/serve.sh$' calls/podman
+! exec ct graph mcp home/Projects/work-a
 stderr 'must be a ticket or kb workspace'
 # without the image: the unpacked filesystem
 rm podman-built
-exec ct graph mcp home/work/a/MAN-1
+exec ct graph mcp home/Projects/work-a/MAN-1
 grep '^run --rm -i --security-opt label=disable .* --rootfs .*/rootfs-[0-9a-f]+:O /opt/graphify/serve.sh$' calls/podman
 
 # index: every main clone; failures become follow-ups in the vault
-mkdir home/Projects/github/acme/x/.git home/Projects/github/acme/y/.git
+mkdir home/Projects/repo-a/github/acme/x/.git home/Projects/repo-a/github/acme/y/.git
 exec ct graph index
 stderr 'indexing 2 repo\(s\)'
 stdout '^== github/acme/x$'

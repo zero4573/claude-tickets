@@ -12,10 +12,10 @@ import (
 
 	"github.com/zero4573/claude-tickets/internal/config"
 	"github.com/zero4573/claude-tickets/internal/graph"
+	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/repo"
 	"github.com/zero4573/claude-tickets/internal/session"
-	"github.com/zero4573/claude-tickets/internal/tmuxx"
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
@@ -32,8 +32,8 @@ func startCmd() *cobra.Command {
 		Long: `Starts (or re-opens) one Claude session for each ticket named, from the
 current vault (ct vault default), each in its own window of the vault's tmux
 session (tickets-<vault>), running /tickets:work-ticket <ID> in the workspace
-~/work/<vault>/<ID> (the vault's .workflow.json says where). Each must be a
-ticket of the vault: tickets/<ID>/<ID>.md, synced by ct sync or a manual
+<workRoot>/<ID> (by default ~/Projects/work-<vault>/<ID>; see ct vault).
+Each must be a ticket of the vault: tickets/<ID>/<ID>.md, synced by ct sync or a manual
 ticket from ct new. If any isn't, none start.
 
 A workspace that already ran a session continues its last conversation.
@@ -120,7 +120,7 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("not a ticket of the %s vault: %s (no tickets/<ID>/<ID>.md; ct sync, or ct new for a manual ticket; ct start --list shows them). Nothing started.",
+		return fmt.Errorf("not a ticket of the %s vault: %s (no tickets/<ID>/<ID>.md; ct sync, or ct new for a manual ticket; ct start --list shows them); nothing started",
 			filepath.Base(ctx.Vault), strings.Join(missing, " "))
 	}
 	skill := "work-ticket"
@@ -128,7 +128,6 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 		skill = "pr-feedback"
 	}
 
-	// Keys to launch, after the ignore and lead checks
 	var launch []string
 	for _, k := range keys {
 		file := note.TicketPath(ctx.Vault, k)
@@ -187,10 +186,9 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 		}
 	}
 
-	// One ticket from a terminal: go straight to its window
 	if !o.noAttach && len(keys) == 1 && term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd())) &&
-		tmuxx.HasWindow(ctx.TmuxSession, keys[0]) {
-		return tmuxx.Attach(ctx.TmuxSession, keys[0])
+		launcher.HasWindow(launcher.Get(), ctx.TmuxSession, keys[0]) {
+		return launcher.Get().Attach(ctx.TmuxSession, keys[0])
 	}
 	return nil
 }
@@ -228,28 +226,25 @@ func startOne(ctx vault.Context, key, skill string, dirs []string, graphOK bool)
 	if resume {
 		argv = append(argv, "--continue")
 	}
-	// The vault goes on the command line: a tmux window gets its environment
-	// from the tmux server (whoever started it first), not from this command
-	argv = append(append([]string{"env", "CLAUDE_TICKETS_VAULT=" + ctx.Vault}, argv...), prompt)
-	// Keep the window open after the session ends, so its output stays readable
-	shellCmd := shellJoin(argv) + "; echo; read -rp 'Session ended. Press Enter to close this window. '"
+	argv = append(argv, prompt)
 
-	if tmuxx.HasWindow(ctx.TmuxSession, key) {
+	l := launcher.Get()
+	if launcher.HasWindow(l, ctx.TmuxSession, key) {
 		if skill == "pr-feedback" {
-			// Queue it in the running session as if typed
-			if err := tmuxx.SendKeys(ctx.TmuxSession, key, prompt); err != nil {
+			if err := l.SendKeys(ctx.TmuxSession, key, prompt); err != nil {
 				return err
 			}
 			fmt.Printf("ct start: %s already open, sent %s to its window -- ct attach %s\n", key, prompt, key)
 		} else {
-			warnf("%s: already has a window in tmux session '%s', not starting another", key, ctx.TmuxSession)
+			warnf("%s: already has a window in %s session '%s', not starting another", key, l.Name(), ctx.TmuxSession)
 		}
 		return nil
 	}
-	// Not exported to a new tmux server: shells opened there later would act
-	// on this vault, whatever the default
-	if err := tmuxx.Open(ctx.TmuxSession, key, dir, shellCmd, "CLAUDE_TICKETS_VAULT"); err != nil {
-		return fmt.Errorf("couldn't open a tmux window for %s: %w", key, err)
+	// The vault goes with the session (not with a backend server started now:
+	// shells opened there later would act on this vault, whatever the default)
+	if err := l.Open(launcher.Window{Group: ctx.TmuxSession, Name: key, Dir: dir, Argv: argv,
+		Env: map[string]string{"CLAUDE_TICKETS_VAULT": ctx.Vault}, Unset: []string{"CLAUDE_TICKETS_VAULT"}}); err != nil {
+		return fmt.Errorf("couldn't open a window for %s: %w", key, err)
 	}
 	cont := ""
 	if resume {
@@ -257,19 +252,6 @@ func startOne(ctx vault.Context, key, skill string, dirs []string, graphOK bool)
 	}
 	fmt.Printf("ct start: %s started in %s%s -- ct attach %s\n", key, ctx.TmuxSession, cont, key)
 	return nil
-}
-
-// shellJoin quotes argv for a POSIX shell.
-func shellJoin(argv []string) string {
-	q := make([]string, len(argv))
-	for i, a := range argv {
-		if a != "" && strings.Trim(a, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-./=:,@+%") == "" {
-			q[i] = a
-		} else {
-			q[i] = "'" + strings.ReplaceAll(a, "'", `'\''`) + "'"
-		}
-	}
-	return strings.Join(q, " ")
 }
 
 func ticketClaudeMD(ctx vault.Context, key, dir string) string {

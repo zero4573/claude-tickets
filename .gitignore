@@ -1,0 +1,28 @@
+# The code graph graphify builds of this repo (ct graph index, sessions)
+graphify-out/
+
+# Build output (make, make cross, go build)
+/ct
+/ct.exe
+/dist/
+# Written by ./configure
+/config.mk
+
+# Go test and coverage output
+*.test
+*.out
+coverage*
+
+# Nix build links
+result
+result-*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

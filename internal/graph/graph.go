@@ -1,5 +1,5 @@
 // Package graph is the code graph of ticket and kb sessions: the graphify
-// image (built from graph/ with podman or docker), its unpacked filesystem
+// image (built from assets/graph with podman or docker), its unpacked filesystem
 // for runtimes that start without images, the MCP server merging a
 // workspace's graphs, and the main clones' graphs.
 package graph
@@ -14,10 +14,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"time"
 
+	"github.com/zero4573/claude-tickets/assets"
 	"github.com/zero4573/claude-tickets/internal/config"
 	"github.com/zero4573/claude-tickets/internal/container"
+	"github.com/zero4573/claude-tickets/internal/fsx"
 )
 
 // BaseImage is the graphify image's base, pinned to a tag and the digest
@@ -25,23 +28,27 @@ import (
 // version must match the lock's ("# python:" in graphify-requirements.txt).
 const BaseImage = "docker.io/library/python:3.12.15-slim-trixie@sha256:29113dcae7aad06daa8e95260fa09f27d62be33b9687ea3774f771d601a02256"
 
+// RootFSSupported: the unpacked filesystem (podman run --rootfs) is a
+// Linux fallback; on macOS and Windows the runtime runs in a VM that can't
+// see a host directory as a root filesystem, so only the image is used.
+var RootFSSupported = runtime.GOOS == "linux"
+
 // sources are the files that go into the image (and its hash).
 var sources = []string{"Containerfile", "graphify-requirements.txt", "serve.sh", "ticket-merge.py"}
 
-// Src is the image's sources: $CLAUDE_TICKETS_GRAPH_DIR (set by the
-// package), else config.json's graphDir, else ../share/claude-tickets/graph
-// next to the ct binary.
+// Src is the image's sources: $CLAUDE_TICKETS_GRAPH_DIR (the Nix package
+// sets it), else config.json's graphDir, else the copy embedded in ct,
+// unpacked to the cache.
 func Src() (string, error) {
 	d := os.Getenv("CLAUDE_TICKETS_GRAPH_DIR")
-	if d == "" {
-		d = config.Get("graphDir")
+	// (config.json's, from an older install.sh, only while it's still there)
+	if c := config.Get("graphDir"); d == "" && c != "" && fsx.IsDir(c) {
+		d = c
 	}
 	if d == "" {
-		if exe, err := os.Executable(); err == nil {
-			if r, err := filepath.EvalSymlinks(exe); err == nil {
-				exe = r
-			}
-			d = filepath.Join(filepath.Dir(exe), "..", "share", "claude-tickets", "graph")
+		var err error
+		if d, err = assets.Materialize("graph"); err != nil {
+			return "", err
 		}
 	}
 	if _, err := os.Stat(filepath.Join(d, "Containerfile")); err != nil {
@@ -65,10 +72,8 @@ func Hash(src string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil))[:12], nil
 }
 
-// Tag is the image built for a hash.
 func Tag(hash string) string { return "localhost/claude-tickets-graphify:" + hash }
 
-// RootFS is where the image of a hash is unpacked.
 func RootFS(hash string) string {
 	return filepath.Join(config.CacheDir(), "graphify", "rootfs-"+hash)
 }
@@ -78,7 +83,6 @@ func unpacked(rootfs string) bool {
 	return err == nil && st.Mode()&0o111 != 0
 }
 
-// current is the hash and tag of the image the sources describe.
 func current() (hash, tag string, err error) {
 	src, err := Src()
 	if err != nil {
@@ -90,9 +94,7 @@ func current() (hash, tag string, err error) {
 	return hash, Tag(hash), nil
 }
 
-// Build builds the image if the runtime doesn't have it (or with force),
-// unpacks it into RootFS if it isn't, and returns its tag. Progress goes
-// to stderr.
+// Build reports progress on stderr.
 func Build(force bool) (string, error) {
 	src, err := Src()
 	if err != nil {
@@ -123,26 +125,29 @@ func Build(force bool) (string, error) {
 	}
 	rootfs := RootFS(hash)
 	cache := filepath.Dir(rootfs)
+	if !RootFSSupported {
+		return tag, nil
+	}
 	if force || !unpacked(rootfs) {
 		fmt.Fprintf(os.Stderr, "ct graph: unpacking its filesystem into %s\n", rootfs)
 		if err := unpack(rt, tag, rootfs); err != nil {
 			return "", err
 		}
 	}
-	// Other hashes' unpacked filesystems, untouched for 30 days
+	// Touch ours so only other hashes' filesystems age out (30 days)
 	now := time.Now()
 	_ = os.Chtimes(rootfs, now, now)
 	old, _ := filepath.Glob(filepath.Join(cache, "rootfs-*"))
 	for _, d := range old {
-		if d != rootfs && olderThanDays(d, 30) {
-			removeAll(d)
+		if d != rootfs && fsx.OlderThanDays(d, 30) {
+			_ = fsx.RemoveAll(d)
 		}
 	}
 	return tag, nil
 }
 
-// unpack exports a container of tag into rootfs (through a temporary dir,
-// so rootfs is either complete or absent).
+// unpack goes through a temporary dir, so rootfs is either complete or
+// absent.
 func unpack(rt, tag, rootfs string) error {
 	cache := filepath.Dir(rootfs)
 	if err := os.MkdirAll(cache, 0o755); err != nil {
@@ -154,7 +159,7 @@ func unpack(rt, tag, rootfs string) error {
 	}
 	cidOut, err := exec.Command(rt, "create", tag, "/bin/true").Output()
 	if err != nil {
-		removeAll(tmp)
+		_ = fsx.RemoveAll(tmp)
 		return fmt.Errorf("unpacking %s failed", tag)
 	}
 	cid := string(regexp.MustCompile(`\s+`).ReplaceAll(cidOut, nil))
@@ -163,25 +168,33 @@ func unpack(rt, tag, rootfs string) error {
 	untar := exec.Command("tar", "--no-same-owner", "--no-same-permissions", "-C", tmp, "-xf", "-")
 	pipe, err := export.StdoutPipe()
 	if err != nil {
-		removeAll(tmp)
+		_ = fsx.RemoveAll(tmp)
 		return err
 	}
 	untar.Stdin = pipe
 	if err := export.Start(); err != nil {
-		removeAll(tmp)
+		_ = fsx.RemoveAll(tmp)
 		return fmt.Errorf("unpacking %s failed", tag)
 	}
-	terr := untar.Run()
+	if err := untar.Start(); err != nil {
+		_ = export.Process.Kill()
+		_ = export.Wait()
+		_ = fsx.RemoveAll(tmp)
+		return fmt.Errorf("unpacking %s failed: %w", tag, err)
+	}
+	// Only tar may hold the read end: if it dies early, export then gets
+	// EPIPE instead of blocking forever
+	_ = pipe.Close()
+	terr := untar.Wait()
 	eerr := export.Wait()
 	if terr != nil || eerr != nil || !unpacked(tmp) {
-		removeAll(tmp)
+		_ = fsx.RemoveAll(tmp)
 		return fmt.Errorf("unpacking %s failed", tag)
 	}
-	removeAll(rootfs)
+	_ = fsx.RemoveAll(rootfs)
 	return os.Rename(tmp, rootfs)
 }
 
-// Status describes what's built, for which hash.
 func Status(w io.Writer) error {
 	hash, tag, err := current()
 	if err != nil {
@@ -197,7 +210,9 @@ func Status(w io.Writer) error {
 	} else {
 		fmt.Fprintln(w, "         no container runtime")
 	}
-	if rootfs := RootFS(hash); unpacked(rootfs) {
+	if !RootFSSupported {
+		fmt.Fprintf(w, "rootfs:  not used on %s (the container runtime runs in a VM)\n", runtime.GOOS)
+	} else if rootfs := RootFS(hash); unpacked(rootfs) {
 		fmt.Fprintf(w, "rootfs:  %s\n", rootfs)
 	} else {
 		fmt.Fprintln(w, "rootfs:  not unpacked: ct graph build")
@@ -225,14 +240,14 @@ func MCPCommand(ws, projectsRoot string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	mounts := []string{"-v", ws + ":" + ws, "-e", "PROJECT_ROOT=" + ws, "-e", "PROJECTS_ROOT=" + projectsRoot}
-	if st, err := os.Stat(projectsRoot); err == nil && st.IsDir() {
-		mounts = append(mounts, "-v", projectsRoot+":"+projectsRoot+":ro")
+	mounts := append(container.Mount(ws, false), "-e", "PROJECT_ROOT="+container.Path(ws), "-e", "PROJECTS_ROOT="+container.Path(projectsRoot))
+	if fsx.IsDir(projectsRoot) {
+		mounts = append(mounts, container.Mount(projectsRoot, true)...)
 	}
 	if rt, err := container.Runtime(); err == nil && container.ImageExists(rt, tag) {
 		return container.RunArgs(rt, append(append([]string{"-i"}, mounts...), tag, "/opt/graphify/serve.sh")...), nil
 	}
-	if rootfs := RootFS(hash); unpacked(rootfs) {
+	if rootfs := RootFS(hash); RootFSSupported && unpacked(rootfs) {
 		if _, err := exec.LookPath("podman"); err == nil {
 			// --rootfs takes the path where the image would go: options before it
 			args := append([]string{"podman", "run", "--rm", "-i", "--security-opt", "label=disable"}, mounts...)
@@ -257,7 +272,7 @@ func Seed(main, checkout string) {
 	}
 	for _, f := range []string{"graph.json", "manifest.json", "cache"} {
 		if _, err := os.Stat(filepath.Join(src, f)); err == nil {
-			_ = exec.Command("cp", "-r", filepath.Join(src, f), dest+"/").Run()
+			_ = fsx.CopyTree(filepath.Join(src, f), filepath.Join(dest, f))
 		}
 	}
 }
@@ -273,30 +288,9 @@ func PruneSnapshots(dirs ...string) {
 			continue
 		}
 		for _, e := range entries {
-			if p := filepath.Join(d, e.Name()); e.IsDir() && snapshotRe.MatchString(e.Name()) && olderThanDays(p, 7) {
-				removeAll(p)
+			if p := filepath.Join(d, e.Name()); e.IsDir() && snapshotRe.MatchString(e.Name()) && fsx.OlderThanDays(p, 7) {
+				_ = fsx.RemoveAll(p)
 			}
 		}
 	}
-}
-
-// olderThanDays is find's -mtime +n: modified n+1 or more days ago.
-func olderThanDays(path string, n int) bool {
-	st, err := os.Stat(path)
-	return err == nil && time.Since(st.ModTime()) >= time.Duration(n+1)*24*time.Hour
-}
-
-// removeAll is os.RemoveAll that also gets through read-only directories
-// (an unpacked image has some).
-func removeAll(path string) {
-	if os.RemoveAll(path) == nil {
-		return
-	}
-	_ = filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
-		if err == nil && info.IsDir() {
-			_ = os.Chmod(p, 0o755)
-		}
-		return nil
-	})
-	_ = os.RemoveAll(path)
 }

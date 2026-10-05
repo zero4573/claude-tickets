@@ -1,5 +1,5 @@
 ---
-title: TODAY-HHMM-ticket-sync-follow-ups
+title: ticket-sync-follow-ups-1
 created: TODAY
 updated: TODAY
 status: active
@@ -13,7 +13,7 @@ ticket-sync left these for you (TIME). Tick them off here; delete the note
 when done. Open tasks also show in [[pending]] and [[tickets.base|Tickets]].
 
 ## Tasks
-- [ ] Check [[PROJ-8]]: Jira no longer returns it (deleted, moved to another project, or access lost); close or delete the note #ticket-sync ➕ TODAY
+- [ ] Check [[PROJ-16]]: ticket-sync couldn't update it; see ~/.local/state/ticket-sync-demo.log #ticket-sync ➕ TODAY
 - [ ] Check the HTML parts of the plan #ticket-sync ➕ TODAY
 
 ## Related

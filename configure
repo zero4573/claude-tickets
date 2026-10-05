@@ -1,0 +1,57 @@
+#!/bin/sh
+# Configures the build: ./configure [--prefix=DIR] [--bindir=DIR]
+# [--datadir=DIR] [GO=go], then make && make install. Checks what ct needs
+# (Go to build it; git, tmux, podman or docker and Claude Code to run it)
+# and writes config.mk.
+#   --prefix=DIR   install under DIR (default /usr/local; ~/.local for a
+#                  user install)
+#   --bindir=DIR   ct goes here (default PREFIX/bin)
+#   --datadir=DIR  shell completions go under here (default PREFIX/share)
+set -eu
+prefix=/usr/local bindir='' datadir='' go=${GO:-go}
+for arg in "$@"; do
+  case "$arg" in
+    --prefix=*) prefix=${arg#*=} ;;
+    --bindir=*) bindir=${arg#*=} ;;
+    --datadir=*) datadir=${arg#*=} ;;
+    GO=*) go=${arg#*=} ;;
+    -h|--help) sed -n '2,10s/^# \{0,1\}//p' "$0"; exit 0 ;;
+    *) echo "configure: unknown option: $arg (see ./configure --help)" >&2; exit 1 ;;
+  esac
+done
+case "$prefix" in "~"/*) prefix=$HOME/${prefix#"~/"} ;; esac
+: "${bindir:=$prefix/bin}" "${datadir:=$prefix/share}"
+
+have() { command -v "$1" >/dev/null 2>&1; }
+status=0
+printf 'checking for go... '
+if have "$go"; then
+  v=$("$go" env GOVERSION 2>/dev/null | sed 's/^go//')
+  major=${v%%.*} rest=${v#*.} minor=${rest%%.*}
+  if [ "${major:-0}" -gt 1 ] || { [ "${major:-0}" -eq 1 ] && [ "${minor:-0}" -ge 26 ]; }; then
+    echo "$v"
+  else
+    echo "$v: too old, ct needs Go 1.26 or newer"; status=1
+  fi
+else
+  echo "no: install Go 1.26+ (https://go.dev/dl)"; status=1
+fi
+# Needed at run time, not to build: warnings only
+for t in git tmux claude; do
+  printf 'checking for %s... ' "$t"
+  if have "$t"; then echo yes; else echo "no (ct needs it at run time)"; fi
+done
+printf 'checking for podman or docker... '
+if have podman; then echo podman; elif have docker; then echo docker; else echo "no (the code graph needs one)"; fi
+printf 'checking for fzf... '
+if have fzf; then echo yes; else echo "no (optional: vaults are picked from a numbered list)"; fi
+[ "$status" -eq 0 ] || { echo "configure: fix the above, then run it again" >&2; exit 1; }
+
+cat > config.mk <<EOF2
+# Written by ./configure $*
+PREFIX = $prefix
+BINDIR = $bindir
+DATADIR = $datadir
+GO = $go
+EOF2
+echo "configure: wrote config.mk (installing into $bindir); now run make, then make install"

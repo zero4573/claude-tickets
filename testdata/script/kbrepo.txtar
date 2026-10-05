@@ -1,17 +1,21 @@
 # ct kb repo: exploration clones in a kb workspace
-mkdir home/Documents/Obsidian/a/.obsidian home/work/a/.kb-a
-cp kb.json home/work/a/.kb-a/workspace.json
+mkdir home/Documents/Obsidian/a/.obsidian home/Projects/work-a/.kb-a
+cp kb.json home/Projects/work-a/.kb-a/workspace.json
 expand gitconfig
 exec git init -q -b main seed
 exec git -C seed add -A
 exec git -C seed commit -q -m init
 exec git -C seed branch topic
 exec git clone -q --bare seed remote/acme/billing.git
-exec git clone -q git@github.com:acme/billing.git home/Projects/github/acme/billing
+exec git clone -q git@github.com:acme/billing.git home/Projects/repo-a/github/acme/billing
 
 ! exec ct kb repo ls
 stderr 'not in a kb session'
-cd home/work/a/.kb-a
+cd home/Projects/work-a/.kb-a
+# a wrong ref on the first checkout leaves nothing behind
+! exec ct kb repo checkout github-acme-billing typo
+stderr 'no branch, tag or commit .typo.'
+! exists github-acme-billing
 exec ct kb repo checkout github-acme-billing
 stdout 'github-acme-billing at main \([0-9a-f]+ .* init\)'
 exists github-acme-billing/README.md

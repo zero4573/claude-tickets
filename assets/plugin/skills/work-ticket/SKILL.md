@@ -6,8 +6,9 @@ description: Lead playbook for working one ticket (Jira, manual, or any other so
 # work-ticket <ID>
 
 You are the **lead** for ticket `<ID>`. Your cwd is the ticket's workspace
-(`~/work/<ID>` by default; the vault's `.workflow.json` can put it
-elsewhere, so `~/work/<ID>` in these skills means "the workspace"), and its
+(`<workRoot>/<ID>`, by default `~/Projects/work-<vault>/<ID>`;
+`~/work/<ID>` in these skills means "the workspace", and `~/Projects`
+the vault's projectsRoot), and its
 `CLAUDE.md` gives the real path, the vault path, the ticket note, and the
 rules. You
 coordinate. The role subagents do the analysis and the code. The developer

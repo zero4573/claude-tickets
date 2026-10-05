@@ -1,6 +1,6 @@
-// Package config holds where claude-tickets keeps its state and the
-// settings it reads from the environment (CLAUDE_TICKETS_*) and from
-// ~/.config/claude-tickets/config.json.
+// Package config holds where claude-tickets keeps its state (per OS: see
+// platform.DirsFor) and the settings it reads from the environment
+// (CLAUDE_TICKETS_*) and from config.json in its config directory.
 package config
 
 import (
@@ -11,66 +11,49 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/zero4573/claude-tickets/internal/fsx"
+	"github.com/zero4573/claude-tickets/internal/platform"
 )
 
-// Home is the user's home directory ($HOME, else the OS's idea of it).
-func Home() string {
-	if h := os.Getenv("HOME"); h != "" {
-		return h
-	}
-	h, _ := os.UserHomeDir()
-	return h
-}
+func Home() string { return platform.Home() }
 
-// ExpandHome turns a leading ~ into the home directory.
 func ExpandHome(p string) string {
 	if p == "~" {
 		return Home()
 	}
-	if strings.HasPrefix(p, "~/") {
+	if strings.HasPrefix(p, "~/") || strings.HasPrefix(p, `~\`) {
 		return filepath.Join(Home(), p[2:])
 	}
 	return p
 }
 
-// TildePath shows a path under the home directory as ~/...
 func TildePath(p string) string {
 	h := Home()
-	if p == h {
+	if h == "" || !fsx.Within(p, h) {
+		return p
+	}
+	rel, _ := filepath.Rel(h, p)
+	if rel == "." {
 		return "~"
 	}
-	if strings.HasPrefix(p, h+"/") {
-		return "~" + p[len(h):]
-	}
-	return p
+	return "~" + string(filepath.Separator) + rel
 }
 
-func xdg(env, fallback string) string {
-	if d := os.Getenv(env); d != "" {
-		return d
-	}
-	return filepath.Join(Home(), fallback)
-}
+// Dir is the config directory (Linux: ~/.config/claude-tickets; see
+// platform.DirsFor).
+func Dir() string { return platform.Current().Config }
 
-// Dir is ~/.config/claude-tickets (XDG_CONFIG_HOME respected).
-func Dir() string { return filepath.Join(xdg("XDG_CONFIG_HOME", ".config"), "claude-tickets") }
-
-// File is the host-wide settings file, config.json.
 func File() string { return filepath.Join(Dir(), "config.json") }
 
-// CacheDir is $CLAUDE_TICKETS_CACHE, else ~/.cache/claude-tickets.
-func CacheDir() string {
-	if d := os.Getenv("CLAUDE_TICKETS_CACHE"); d != "" {
-		return d
-	}
-	return filepath.Join(xdg("XDG_CACHE_HOME", ".cache"), "claude-tickets")
-}
+// CacheDir is the cache directory ($CLAUDE_TICKETS_CACHE; Linux:
+// ~/.cache/claude-tickets).
+func CacheDir() string { return platform.Current().Cache }
 
-// StateDir is where logs go: $XDG_STATE_HOME, else ~/.local/state.
-func StateDir() string { return xdg("XDG_STATE_HOME", ".local/state") }
+// StateDir is where logs go ($CLAUDE_TICKETS_STATE_DIR; Linux:
+// ~/.local/state).
+func StateDir() string { return platform.Current().Logs }
 
-// ObsidianRoot is where the vaults live: $OBSIDIAN_ROOT, else
-// ~/Documents/Obsidian.
 func ObsidianRoot() string {
 	if d := os.Getenv("OBSIDIAN_ROOT"); d != "" {
 		return d
@@ -78,12 +61,12 @@ func ObsidianRoot() string {
 	return filepath.Join(Home(), "Documents", "Obsidian")
 }
 
-// LaunchVault is the vault the command was started with
-// (CLAUDE_TICKETS_VAULT, set for the sessions the commands start).
+// LaunchVault is set (CLAUDE_TICKETS_VAULT) for the sessions ct starts.
 var LaunchVault = os.Getenv("CLAUDE_TICKETS_VAULT")
 
 // DefaultVaultFile holds the default vault's name (or path). Before
-// claude-tickets had its own config dir it lived in ~/.config/tickets.
+// claude-tickets had its own config dir it lived in ~/.config/tickets, which
+// is still read while the new file doesn't exist.
 func DefaultVaultFile() string {
 	f := filepath.Join(Dir(), "default-vault")
 	if _, err := os.Stat(f); err != nil {
@@ -95,12 +78,15 @@ func DefaultVaultFile() string {
 	return f
 }
 
-// LegacyDefaultVaultFile is the pre-claude-tickets location.
 func LegacyDefaultVaultFile() string {
-	return filepath.Join(xdg("XDG_CONFIG_HOME", ".config"), "tickets", "default-vault")
+	base := os.Getenv("XDG_CONFIG_HOME")
+	if base == "" {
+		base = filepath.Join(Home(), ".config")
+	}
+	return filepath.Join(base, "tickets", "default-vault")
 }
 
-// Get reads a string key of config.json ("" when unset or unreadable).
+// Get returns "" when the key is unset or config.json is unreadable.
 func Get(key string) string {
 	m, _ := load()
 	if v, ok := m[key].(string); ok {
@@ -109,7 +95,6 @@ func Get(key string) string {
 	return ""
 }
 
-// Set writes a string key of config.json, keeping the others.
 func Set(key, value string) error {
 	m, err := load()
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -156,7 +141,7 @@ func StateLog(name string) string {
 			tail := make([]byte, 1<<20)
 			n, _ := f.ReadAt(tail, st.Size()-int64(len(tail)))
 			f.Close()
-			if os.WriteFile(log+".tmp", tail[:n], 0o644) == nil {
+			if os.WriteFile(log+".tmp", tail[:n], 0o600) == nil {
 				_ = os.Rename(log+".tmp", log)
 			}
 		}
@@ -180,7 +165,6 @@ func ReadJSON(file string) (any, error) {
 	return v, nil
 }
 
-// WriteJSON writes v as indented JSON (through a temporary file).
 func WriteJSON(file string, v any) error {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)

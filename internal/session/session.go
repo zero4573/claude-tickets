@@ -15,25 +15,24 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/zero4573/claude-tickets/assets"
 	"github.com/zero4573/claude-tickets/internal/config"
+	"github.com/zero4573/claude-tickets/internal/fsx"
 	"github.com/zero4573/claude-tickets/internal/lock"
 )
 
 // PluginDir is the Claude Code plugin shipped with ct (skills, role
-// agents, hooks): $CLAUDE_TICKETS_PLUGIN, else config.json's pluginDir
-// (install.sh), else ../share/claude-tickets/plugin next to the ct binary.
+// agents, hooks): $CLAUDE_TICKETS_PLUGIN (the Nix package sets it), else
+// config.json's pluginDir, else the copy embedded in ct, unpacked to the
+// cache.
 func PluginDir() (string, error) {
 	d := os.Getenv("CLAUDE_TICKETS_PLUGIN")
-	if d == "" {
-		d = config.Get("pluginDir")
+	// (config.json's, from an older install.sh, only while it's still there)
+	if c := config.Get("pluginDir"); d == "" && c != "" && fsx.IsDir(c) {
+		d = c
 	}
 	if d == "" {
-		if exe, err := os.Executable(); err == nil {
-			if r, err := filepath.EvalSymlinks(exe); err == nil {
-				exe = r
-			}
-			d = filepath.Join(filepath.Dir(exe), "..", "share", "claude-tickets", "plugin")
-		}
+		return assets.Materialize("plugin")
 	}
 	if _, err := os.Stat(filepath.Join(d, ".claude-plugin", "plugin.json")); err != nil {
 		return "", fmt.Errorf("no claude-tickets plugin at %s (set CLAUDE_TICKETS_PLUGIN, or reinstall)", d)
@@ -186,9 +185,9 @@ func Trust(dir string) error {
 	if trusted(file, dir) {
 		return nil
 	}
-	lockFile := file + ".tickets-lock"
-	defer os.Remove(lockFile)
-	return lock.With(lockFile, func() error {
+	// The lock file stays: removed, a writer waiting on it and a new one
+	// creating it again would both hold "the lock"
+	return lock.With(file+".tickets-lock", func() error {
 		cfg := map[string]any{}
 		if data, err := os.ReadFile(file); err == nil && len(bytes.TrimSpace(data)) > 0 {
 			dec := json.NewDecoder(bytes.NewReader(data))

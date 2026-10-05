@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/zero4573/claude-tickets/internal/followup"
 	"github.com/zero4573/claude-tickets/internal/jira"
 	"github.com/zero4573/claude-tickets/internal/mcp"
+	"github.com/zero4573/claude-tickets/internal/platform"
 	"github.com/zero4573/claude-tickets/internal/prompt"
 	"github.com/zero4573/claude-tickets/internal/repo"
 	"github.com/zero4573/claude-tickets/internal/session"
@@ -53,7 +53,7 @@ comments that Jira can only give as HTML. Other sources run the skill over
 everything.
 
 Progress is shown as it happens and logged to
-~/.local/state/ticket-sync-<vault>.log. Anything left for you to check
+` + logPath("ticket-sync-<vault>") + `. Anything left for you to check
 (failed sources or tickets, tickets that left you) goes into a follow-up
 note in the vault's inbox/, as tasks.
 
@@ -173,12 +173,12 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 
 	logName := "ticket-sync-" + filepath.Base(ctx.Vault)
 	logFile := config.StateLog(logName)
-	logf, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	logf, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
 	defer logf.Close()
-	// The summary: what each source did, for the notification and the log
+	// What each source did, for the notification and the log
 	summaryF, err := os.CreateTemp("", "ct-sync-summary.")
 	if err != nil {
 		return err
@@ -206,6 +206,8 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 	defer os.Remove(planFile)
 
 	var failed []string
+	// Tickets that couldn't be written (their sources still count as synced)
+	var ticketsFailed []string
 	for _, src := range sources {
 		sc := all[src]
 		if sc.MCP == "" {
@@ -226,7 +228,7 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 		if src == "jira" && !full {
 			js = (&jira.Sync{
 				Vault: ctx.Vault, Source: src, Site: sc.Site, Query: sc.Query, TextFields: sc.TextFields,
-				KnownChildren: knownChildren(stateFile, src), LogName: logName + ".log",
+				KnownChildren: knownChildren(stateFile, src), LogPath: config.TildePath(logFile),
 				Say: say, Followup: func(t string) { followups = append(followups, t) },
 				Log: func(l string) { fmt.Fprintln(os.Stderr, l) },
 			})
@@ -242,7 +244,7 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 					fmt.Fprintln(os.Stderr, "ct: "+err.Error())
 				}
 				say(fmt.Sprintf("%s: couldn't reach Jira through the '%s' MCP server (see the messages above)", src, sc.MCP))
-				followups = append(followups, fmt.Sprintf("ticket-sync %s: the run failed before syncing; check ~/.local/state/%s.log", src, logName))
+				followups = append(followups, fmt.Sprintf("ticket-sync %s: the run failed before syncing; check %s", src, config.TildePath(logFile)))
 				failed = append(failed, src)
 				continue
 			}
@@ -250,7 +252,9 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 			say(js.Plan.String())
 			// Each ticket's changes are found and written here; failures become
 			// follow-ups and are retried next run (the note's source-updated stays)
-			js.Apply()
+			if bad := js.Apply(); len(bad) > 0 {
+				ticketsFailed = append(ticketsFailed, bad...)
+			}
 			// Only what Jira can give as HTML alone goes to Claude, part by part
 			if len(js.HTML) > 0 {
 				if err := config.WriteJSON(planFile, struct {
@@ -289,7 +293,7 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 				"--output-format", "stream-json", "--verbose")
 			if err := headlessIn(ctx.Vault, summary, argv); err != nil {
 				failed = append(failed, src)
-				followups = append(followups, fmt.Sprintf("ticket-sync %s: Claude's run failed; check ~/.local/state/%s.log", src, logName))
+				followups = append(followups, fmt.Sprintf("ticket-sync %s: Claude's run failed; check %s", src, config.TildePath(logFile)))
 			}
 			if data, err := os.ReadFile(fuFile); err == nil {
 				for _, l := range strings.Split(string(data), "\n") {
@@ -304,7 +308,7 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 
 		// In plan mode ct sync keeps the sync state (the skill keeps it otherwise)
 		if js != nil && !contains(failed, src) {
-			if err := saveSyncState(stateFile, src, js); err != nil {
+			if err := saveSyncState(stateFile, src, js, ticketsFailed); err != nil {
 				warnf("couldn't update %s: %v", stateFile, err)
 			}
 		}
@@ -325,7 +329,7 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 		}
 	}
 
-	if len(failed) == 0 {
+	if len(failed) == 0 && len(ticketsFailed) == 0 {
 		data, _ := os.ReadFile(summary)
 		body := lastLines(string(data), 8)
 		if noteName != "" {
@@ -338,11 +342,14 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 	if noteName != "" {
 		body += " and " + noteName
 	}
-	notify("critical", "ct sync: "+strings.Join(failed, " ")+" failed", body)
+	title := fmt.Sprintf("ct sync: %d ticket(s) failed", len(ticketsFailed))
+	if len(failed) > 0 {
+		title = "ct sync: " + strings.Join(failed, " ") + " failed"
+	}
+	notify("critical", title, body)
 	return exitError(1)
 }
 
-// headlessIn runs a headless claude command in dir (Headless).
 func headlessIn(dir, log string, argv []string) error {
 	wd, _ := os.Getwd()
 	if err := os.Chdir(dir); err != nil {
@@ -360,15 +367,8 @@ func lastLines(s string, n int) string {
 	return strings.Join(ls, "\n")
 }
 
-// notify is a desktop notification, when notify-send exists.
 func notify(urgency, title, body string) {
-	if ns, err := exec.LookPath("notify-send"); err == nil {
-		args := []string{"-a", "ct sync"}
-		if urgency == "critical" {
-			args = append(args, "-u", "critical")
-		}
-		_ = exec.Command(ns, append(args, title, body)...).Run()
-	}
+	platform.Notify("ct sync", title, body, urgency == "critical")
 }
 
 // knownChildren is the epics' children the last planned run recorded
@@ -389,8 +389,7 @@ func knownChildren(stateFile, src string) map[string][]string {
 	return st.Sources[src].EpicChildren
 }
 
-// saveSyncState records this source's run in .sync-state.json.
-func saveSyncState(stateFile, src string, js *jira.Sync) error {
+func saveSyncState(stateFile, src string, js *jira.Sync, failedTickets []string) error {
 	return workspace.Update(stateFile, func(doc map[string]any) error {
 		sources, _ := doc["sources"].(map[string]any)
 		if sources == nil {
@@ -411,6 +410,10 @@ func saveSyncState(stateFile, src string, js *jira.Sync) error {
 		}
 		for k, v := range js.ChildSigs() {
 			children[k] = v
+		}
+		// An epic that failed keeps no baseline, so the next run refreshes it
+		for _, k := range failedTickets {
+			delete(children, k)
 		}
 		sources[src] = map[string]any{
 			"lastSync": time.Now().Format(time.RFC3339), "open": p.Counts.Open, "skipped": p.Counts.Skipped,

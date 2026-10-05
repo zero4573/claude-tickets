@@ -157,16 +157,18 @@ and the hooks. Sessions run your `claude` command (which may be sandboxed).
 Each vault's tools work in their own places, so two vaults never share
 workspaces (each has its own `MAN-1`) or a tmux session:
 - `workRoot`: the ticket workspaces (`<workRoot>/<ID>`) and `kb` workspaces
-  (`<workRoot>/.kb-<vault>`). Default `~/work/<vault>`.
-- `projectsRoot`: the main clones. Default `~/Projects`; vaults can share it.
+  (`<workRoot>/.kb-<vault>`). Default `~/Projects/work-<vault>`.
+- `projectsRoot`: the main clones. Default `~/Projects/repo-<vault>`;
+  vaults can share one.
 
 The ticket windows run in the tmux session `tickets-<vault>`.
 
 `ct vault configure` writes the file (`ct vault init` runs it), and `~` is
 expanded. Folders that overlap another vault's (or each other) are kept
 only when the user types `yes`. Paths like `~/work/<ID>` in these
-instructions and in the skills stand for `<workRoot>/<ID>`; a session's
-`CLAUDE.md` gives the real one.
+instructions and in the skills stand for `<workRoot>/<ID>`, and
+`~/Projects` for `<projectsRoot>`; a session's `CLAUDE.md` gives the real
+ones.
 
 ### Cost guard: no paid Rovo calls
 Use only the single-product Atlassian tools (JQL search, `getJiraIssue`,

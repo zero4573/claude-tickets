@@ -17,7 +17,6 @@ import (
 // ErrReported is a failure already reported through Say (and Followup).
 var ErrReported = errors.New("reported")
 
-// Sync is one run over one Jira source of a vault.
 type Sync struct {
 	Vault  string
 	Source string
@@ -33,8 +32,8 @@ type Sync struct {
 	// Say reports a line (also kept for the summary); Followup leaves a
 	// task for the follow-up note; Log is progress for stderr
 	Say, Followup, Log func(string)
-	// LogName is the log's file name, for follow-up tasks
-	LogName string
+	// LogPath is the log, as follow-up tasks show it (~/...)
+	LogPath string
 
 	c         *mcp.Client
 	cloud, me string
@@ -47,7 +46,6 @@ type Sync struct {
 	parents  []string
 }
 
-// New prepares a sync over the MCP client c.
 func (s *Sync) New(c *mcp.Client) *Sync {
 	s.c = c
 	s.today = time.Now().Format("2006-01-02")
@@ -79,7 +77,6 @@ func (s *Sync) tool(name string, args map[string]any, v any) error {
 	return dec.Decode(v)
 }
 
-// search is every issue matching jql, page by page.
 func (s *Sync) search(jql string, fields []string) ([]issue, error) {
 	var all []issue
 	token := ""
@@ -96,7 +93,15 @@ func (s *Sync) search(jql string, fields []string) ([]issue, error) {
 		if err := s.tool("searchJiraIssuesUsingJql", args, &page); err != nil {
 			return nil, err
 		}
-		all = append(all, page.Issues...)
+		// Keys become file names (tickets/<KEY>/<KEY>.md): anything that isn't a
+		// ticket key is dropped, whatever the server sends
+		for _, is := range page.Issues {
+			if note.ValidKey(is.Key) {
+				all = append(all, is)
+			} else {
+				s.Log(fmt.Sprintf("ct sync: %s: skipping an issue with an unexpected key %q", s.Source, is.Key))
+			}
+		}
 		if (page.IsLast != nil && *page.IsLast) || page.NextPageToken == "" {
 			return all, nil
 		}
@@ -222,6 +227,9 @@ func (s *Sync) localIndex() []local {
 		if l.id == "" {
 			l.id = filepath.Base(filepath.Dir(f))
 		}
+		if !note.ValidKey(l.id) {
+			continue // (a source-id that isn't a key can't name a note)
+		}
 		if t := strings.TrimSuffix(strings.TrimPrefix(fm["tags"], "["), "]"); t != "" {
 			for _, x := range strings.Split(t, ",") {
 				l.tags = append(l.tags, strings.Trim(x, " "))
@@ -257,8 +265,8 @@ func sameList(a, b []string) bool {
 	return true
 }
 
-// Connect picks the Jira site and reads who you are. A false return has
-// been reported (Say, Followup).
+// Connect picks the Jira site and reads who you are. Its only error is
+// ErrReported (already reported through Say and Followup).
 func (s *Sync) Connect() error {
 	if s.Site != "" {
 		s.cloud = s.Site
@@ -374,7 +382,6 @@ func (s *Sync) MakePlan() error {
 	}
 	sigs := childSigs(s.Children)
 
-	// Blockers' status, for blocked on every open note
 	seen := map[string]bool{}
 	var blockers []string
 	for _, l := range locals {
@@ -465,8 +472,8 @@ func (s *Sync) MakePlan() error {
 			p.EpicChildren[e] = append([]string{}, sigs[e]...)
 		}
 	}
-	// No baseline yet (first planned run): the last full sync wrote the
-	// children, so record them without refreshing every epic
+	// Only against a baseline: on the first planned run the last full sync
+	// wrote the children, so they're recorded without refreshing every epic
 	if s.KnownChildren != nil {
 		var base []string
 		for _, r := range p.Refresh {

@@ -1,16 +1,19 @@
-// Package cli is the `ct` command tree.
 package cli
 
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
+
+	"github.com/zero4573/claude-tickets/internal/config"
+	"github.com/zero4573/claude-tickets/internal/version"
 )
 
-// Root builds the ct command.
 func Root() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "ct",
@@ -18,6 +21,7 @@ func Root() *cobra.Command {
 		Long: `ct: parallel Claude Code sessions that work tickets end to end, with an
 Obsidian vault as their long-term memory. Every command acts on the current
 vault (ct vault default; else the only vault).`,
+		Version:       version.Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -40,15 +44,16 @@ vault (ct vault default; else the only vault).`,
 	return root
 }
 
-// Main runs ct and exits with its status.
 func Main() {
 	if err := Root().Execute(); err != nil {
-		if e, ok := err.(exitError); ok {
-			os.Exit(int(e))
+		var quiet exitError
+		if errors.As(err, &quiet) {
+			os.Exit(int(quiet))
 		}
 		fmt.Fprintln(os.Stderr, "ct: "+err.Error())
-		if e, ok := err.(codeError); ok {
-			os.Exit(e.code)
+		var coded codeError
+		if errors.As(err, &coded) {
+			os.Exit(coded.code)
 		}
 		os.Exit(1)
 	}
@@ -59,7 +64,6 @@ type exitError int
 
 func (e exitError) Error() string { return fmt.Sprintf("exit %d", int(e)) }
 
-// codeError is an error that ends ct with a given status.
 type codeError struct {
 	code int
 	err  error
@@ -77,3 +81,7 @@ func jsonUnmarshal(data []byte, v any) error {
 	return dec.Decode(v)
 }
 
+// logPath is a command's log as help texts show it (~/...).
+func logPath(name string) string {
+	return config.TildePath(filepath.Join(config.StateDir(), name+".log"))
+}

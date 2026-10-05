@@ -7,12 +7,14 @@ vault).
 ## What this is
 
 claude-tickets: a ticket workflow for Claude Code with an Obsidian vault as
-long-term memory. One Go command, `ct` (`cmd/ct` + `internal/`, with the
-vault scaffold embedded from `assets/`), a Claude Code plugin in `plugin/`,
-the graphify image in `graph/`, Nix packaging in `nix/` + `flake.nix`, and
-`install.sh` for systems without Nix. `README.md` is the
-operator's guide; `UPDATES.md` lists every pin `nix flake update` doesn't
-move.
+long-term memory. One Go command, `ct` (`cmd/ct` + `internal/`), a single
+self-contained binary: `assets/` (the vault scaffold, the Claude Code plugin
+in `assets/plugin/`, the graphify image in `assets/graph/`) is embedded in
+it, and the plugin and graph sources are unpacked to the cache on first use
+(`assets.Materialize`). Nix packaging in `nix/` + `flake.nix`;
+`configure` + `Makefile` for systems without Nix; CI in `.github/workflows/`
+(manual-only until the first release). `README.md` is the operator's
+guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
 
 ## Conventions
 
@@ -31,8 +33,8 @@ move.
   recommended in the README.
 - **Plugin names are namespaced:** skills are `/tickets:<skill>`, agents
   `tickets:<agent>`. Keep every reference (skills, tools, scaffold, README)
-  in that form. The plugin's hooks run `ct hook ...` (the packages point
-  them at an absolute `ct`).
+  in that form. The plugin's hooks run `ct hook ...`; `assets.Materialize`
+  points them at this `ct` by path (the Nix package at its store `ct`).
 - **One command, `ct`.** Subcommands live in `internal/cli` (one file per
   group), their logic in `internal/<area>`. Every change comes with tests:
   testscript CLI tests in `testdata/script/*.txtar` (stub `tmux`,
@@ -49,9 +51,24 @@ move.
 - **Go:** keep file formats stable (notes, `.sources.json`,
   `.workflow.json`, `workspace.json`, `.sync-state.json`); helpers in
   `internal/<area>`; no new dependencies without a good reason (today: cobra, yaml.v3, x/sys, x/term, testscript).
-- **Portable:** Go code builds for Linux, macOS and (later) Windows: OS
-  specifics behind build tags (`internal/lock`, `internal/gitx`,
-  `exec_*.go`); podman or docker only through `internal/container`.
+- **Cross-platform (Linux, macOS, Windows; amd64 and arm64):** OS
+  differences live in one place each:
+  - directories and desktop tools (notify, open, shell): `internal/platform`.
+    A pure function of GOOS (`DirsFor`) for anything testable, build tags
+    otherwise.
+  - ticket windows: `internal/launcher` (tmux today; a new backend
+    implements `Launcher`).
+  - containers: `internal/container` (`Runtime`, `RunArgs`, `Mount`/`Path`).
+  - locks, exec and writability: build-tagged files (`internal/lock`,
+    `internal/gitx`, `exec_*.go`).
+
+  Never compare or split filesystem paths with `"/"`: use `filepath` and
+  `internal/fsx` (`Within`, `Inside`, `Depth`); `<provider>/<owner>/<repo>`
+  IDs and wikilinks are `/`-separated strings, converted at
+  `filepath.Join`. A new external tool comes with a seam and a fallback
+  for where it doesn't exist. Help texts and messages show real paths
+  (`config.TildePath`), not Linux ones. `GOOS=windows go vet ./...` and
+  `make cross` must stay clean.
 - **Keep examples neutral:** no real company, product, repository, ticket
   key or person names; use `acme`, `PROJ-12`, `Jane Doe`.
 - **Pins** (images by digest, the hashed graphify lock, fetched Obsidian
@@ -60,11 +77,16 @@ move.
 ## Checking
 
 ```sh
-go test ./...                 # unit + CLI tests, golden ct sync runs
-nix build .#default          # builds ct (runs go test)
+make check                    # go vet, gofmt, go test (unit + CLI tests, golden ct sync runs)
+make cross                    # every OS/arch into dist/
+nix build .#default           # builds ct (runs go test)
 nix flake check
-./install.sh --prefix "$(mktemp -d)"   # the non-Nix path
+./configure --prefix="$(mktemp -d)" && make install   # the non-Nix path
 ```
+
+The CLI tests use `sh` stubs and skip on Windows; anything OS-specific
+gets a unit test that runs everywhere (e.g. `platform.DirsFor` for every
+GOOS).
 
 Test commands in a throwaway `HOME` / `XDG_CONFIG_HOME` / `OBSIDIAN_ROOT`
 with a stub `claude` on `PATH` that records its arguments; never against a

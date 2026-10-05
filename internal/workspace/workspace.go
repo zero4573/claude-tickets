@@ -4,15 +4,16 @@ package workspace
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/zero4573/claude-tickets/internal/fsx"
+	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/lock"
-	"github.com/zero4573/claude-tickets/internal/tmuxx"
 )
 
-// Repo is one checkout in a workspace.
 type Repo struct {
 	Provider      string  `json:"provider"`
 	Owner         string  `json:"owner"`
@@ -28,7 +29,6 @@ type Repo struct {
 // Clone is the repo's main clone under the projects root.
 func (r Repo) Clone() string { return r.Provider + "/" + r.Owner + "/" + r.Repo }
 
-// File is a workspace's workspace.json.
 func File(dir string) string { return filepath.Join(dir, "workspace.json") }
 
 // Update changes a JSON file under a lock (so parallel writers, e.g.
@@ -78,21 +78,47 @@ func Ensure(dir, id, vault string) error {
 	})
 }
 
-// Info is a workspace.json's content.
 type Info struct {
 	ID    string `json:"id"`
 	Vault string `json:"vault"`
 	Repos []Repo `json:"repos"`
 }
 
-// Read loads a workspace.json.
+// Read loads a workspace.json. Repos recorded outside the workspace dir
+// are left out (with a warning): the commands remove, rebase and fetch into
+// these paths, and sessions can write the file.
 func Read(dir string) (Info, error) {
 	var info Info
 	data, err := os.ReadFile(File(dir))
 	if err != nil {
 		return info, err
 	}
-	return info, json.Unmarshal(data, &info)
+	if err := json.Unmarshal(data, &info); err != nil {
+		return info, err
+	}
+	root := resolved(dir)
+	kept := info.Repos[:0]
+	for _, r := range info.Repos {
+		if r.Path != "" && filepath.IsAbs(r.Path) && fsx.Inside(resolved(r.Path), root) {
+			kept = append(kept, r)
+		} else {
+			fmt.Fprintf(os.Stderr, "ct: %s: ignoring %s at %q: not inside the workspace\n", File(dir), r.Slug, r.Path)
+		}
+	}
+	info.Repos = kept
+	return info, nil
+}
+
+// resolved is an absolute path with symlinks resolved as far as it exists.
+func resolved(p string) string {
+	p, _ = filepath.Abs(p)
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		return r
+	}
+	if r, err := filepath.EvalSymlinks(filepath.Dir(p)); err == nil {
+		return filepath.Join(r, filepath.Base(p))
+	}
+	return p
 }
 
 // Running reports whether a workspace's session is running: its window is
@@ -100,7 +126,7 @@ func Read(dir string) (Info, error) {
 // state isn't exited and is less than a day old (kb sessions run in your
 // own terminal).
 func Running(dir, tmuxSession string) bool {
-	if tmuxx.HasWindow(tmuxSession, filepath.Base(dir)) {
+	if launcher.HasWindow(launcher.Get(), tmuxSession, filepath.Base(dir)) {
 		return true
 	}
 	st, err := os.Stat(filepath.Join(dir, ".agent-state"))
@@ -176,7 +202,6 @@ func Put(file string, r Repo) error {
 	})
 }
 
-// Drop removes the entry of a slug from a workspace.json.
 func Drop(file, slug string) error {
 	return Update(file, func(doc map[string]any) error {
 		old, _ := doc["repos"].([]any)

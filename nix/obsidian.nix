@@ -36,7 +36,7 @@
   #  * Tasks community plugin: seeded once. Installs the plugin files only if
   #    missing, and only creates community-plugins.json if it doesn't exist
   #    yet.  After that, Obsidian's own in-app plugin updater/toggle owns it.
-  #  * Tasks plugin settings: enforced. ./tasks-settings.json is the source of
+  #  * Tasks plugin settings: enforced. obsidian/tasks-settings.json is the source of
   #    truth, written to every vault's data.json on every switch -- changes
   #    made in Obsidian's settings UI are reset unless copied back here:
   #      cp <vault root>/<vault>/.obsidian/plugins/obsidian-tasks-plugin/data.json \

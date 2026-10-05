@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/zero4573/claude-tickets/internal/config"
+	"github.com/zero4573/claude-tickets/internal/fsx"
 )
 
 // List names every vault: a directory under the Obsidian root holding
@@ -27,7 +28,6 @@ func List() []string {
 	return out
 }
 
-// isVault reports whether dir holds .obsidian/.
 func isVault(dir string) bool {
 	st, err := os.Stat(filepath.Join(dir, ".obsidian"))
 	return err == nil && st.IsDir()
@@ -49,7 +49,7 @@ func Resolve(name string) (string, error) {
 // workspaceVault is the vault recorded in the workspace.json of the ticket
 // or kb workspace dir is in, if any.
 func workspaceVault(dir string) string {
-	for d := dir; d != "" && d != "/" && d != "."; d = filepath.Dir(d) {
+	for d := dir; d != "" && d != "." && filepath.Dir(d) != d; d = filepath.Dir(d) {
 		data, err := os.ReadFile(filepath.Join(d, "workspace.json"))
 		if err != nil {
 			continue
@@ -134,7 +134,6 @@ func SetDefault(vault string) (string, error) {
 	return saved, os.WriteFile(file, []byte(saved+"\n"), 0o644)
 }
 
-// UnsetDefault removes the saved default.
 func UnsetDefault() error {
 	_ = os.Remove(config.LegacyDefaultVaultFile())
 	err := os.Remove(filepath.Join(config.Dir(), "default-vault"))
@@ -144,11 +143,10 @@ func UnsetDefault() error {
 	return err
 }
 
-// Locations is where a vault's tools work.
 type Locations struct {
-	WorkRoot     string // ticket and kb workspaces (default ~/work/<vault>)
-	ProjectsRoot string // main clones (default ~/Projects; vaults may share it)
-	TmuxSession  string // always tickets-<vault>
+	WorkRoot     string // ticket and kb workspaces (default ~/Projects/work-<vault>)
+	ProjectsRoot string // main clones (default ~/Projects/repo-<vault>; vaults may share one)
+	TmuxSession  string // tickets-<vault> (tickets with no vault)
 }
 
 // LocationsOf reads <vault>/.workflow.json, defaulting missing keys.
@@ -167,15 +165,14 @@ func LocationsOf(vault string) Locations {
 		TmuxSession:  "tickets-" + name,
 	}
 	if wf.WorkRoot == "" {
-		l.WorkRoot = filepath.Join(config.Home(), "work", name)
+		l.WorkRoot = filepath.Join(config.Home(), "Projects", "work-"+name)
 	}
 	if wf.ProjectsRoot == "" {
-		l.ProjectsRoot = filepath.Join(config.Home(), "Projects")
+		l.ProjectsRoot = filepath.Join(config.Home(), "Projects", "repo-"+name)
 	}
 	return l
 }
 
-// Context is a resolved vault and its locations.
 type Context struct {
 	Vault string
 	Locations
@@ -196,7 +193,7 @@ func Require() (Context, error) {
 // other (after ~ expansion, symlinks resolved where they exist).
 func PathsOverlap(a, b string) bool {
 	a, b = canonical(a), canonical(b)
-	return a == b || strings.HasPrefix(a, b+"/") || strings.HasPrefix(b, a+"/")
+	return fsx.Within(a, b) || fsx.Within(b, a)
 }
 
 func canonical(p string) string {
@@ -206,7 +203,7 @@ func canonical(p string) string {
 	}
 	// realpath -m: resolve the longest existing prefix
 	dir, rest := p, ""
-	for dir != "/" && dir != "." {
+	for dir != "." && filepath.Dir(dir) != dir {
 		if r, err := filepath.EvalSymlinks(dir); err == nil {
 			return filepath.Join(r, rest)
 		}
@@ -218,7 +215,8 @@ func canonical(p string) string {
 
 // Optional is the current vault when there is one (exported as
 // CLAUDE_TICKETS_VAULT, as Require does), else no vault and the default
-// locations (~/work, ~/Projects), for the commands that work without one.
+// locations (~/Projects/work, ~/Projects), for the commands that work
+// without one.
 func Optional() Context {
 	v, ok, _ := Default()
 	if !ok {
@@ -232,7 +230,7 @@ func Optional() Context {
 	}
 	home := config.Home()
 	return Context{Locations: Locations{
-		WorkRoot:     filepath.Join(home, "work"),
+		WorkRoot:     filepath.Join(home, "Projects", "work"),
 		ProjectsRoot: filepath.Join(home, "Projects"),
 		TmuxSession:  "tickets",
 	}}

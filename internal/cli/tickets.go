@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,13 +17,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/tmuxx"
+	"github.com/zero4573/claude-tickets/internal/platform"
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
-
-// --- completion of ticket IDs ---
 
 // completeIDs offers IDs (with their summary and status) from list,
 // skipping the ones already on the command line.
@@ -48,13 +46,11 @@ func completeIDs(list func(vault.Context) []note.Ticket) func(*cobra.Command, []
 	}
 }
 
-// openTickets is the vault's open tickets.
 func openTickets(ctx vault.Context) []note.Ticket { return note.List(ctx.Vault, false) }
 
-// windowTickets is the tickets with an open window in the vault's tmux session.
 func windowTickets(ctx vault.Context) []note.Ticket {
 	open := map[string]bool{}
-	for _, w := range tmuxx.Windows(ctx.TmuxSession) {
+	for _, w := range launcher.Get().Windows(ctx.TmuxSession) {
 		open[w] = true
 	}
 	var out []note.Ticket
@@ -66,7 +62,6 @@ func windowTickets(ctx vault.Context) []note.Ticket {
 	return out
 }
 
-// workspaceTickets is the tickets that have a workspace.
 func workspaceTickets(ctx vault.Context) []note.Ticket {
 	var out []note.Ticket
 	for _, t := range note.List(ctx.Vault, true) {
@@ -82,8 +77,6 @@ func printTickets(ts []note.Ticket) {
 		fmt.Printf("%s\t%s\t%s\n", t.ID, t.Status, t.Summary)
 	}
 }
-
-// --- ct new ---
 
 func newCmd() *cobra.Command {
 	var typ, priority string
@@ -116,11 +109,8 @@ through the same agent workflow as synced ones.`,
 			fmt.Println(path)
 			if open {
 				link := "obsidian://open?path=" + strings.ReplaceAll(url.PathEscape(path), "/", "%2F")
-				opener := "xdg-open"
-				if runtime.GOOS == "darwin" {
-					opener = "open"
-				}
-				if err := exec.Command(opener, link).Run(); err != nil {
+				argv := platform.OpenCommand(link)
+				if err := exec.Command(argv[0], argv[1:]...).Run(); err != nil {
 					fmt.Fprintf(os.Stderr, "ct: couldn't open Obsidian; open %s yourself\n", path)
 				}
 			}
@@ -133,7 +123,6 @@ through the same agent workflow as synced ones.`,
 	return cmd
 }
 
-// yamlQuote is a YAML double-quoted scalar.
 func yamlQuote(s string) string {
 	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(s) + `"`
 }
@@ -220,8 +209,6 @@ func newTicket(vaultDir, summary, typ, priority string) (string, error) {
 	return path, os.WriteFile(path, []byte(out.String()), 0o644)
 }
 
-// --- ct status ---
-
 func statusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
@@ -269,7 +256,7 @@ var vaultLine = regexp.MustCompile("(?m)^- Vault: `([^`]*)`")
 
 func statusRows(ctx vault.Context) []statusRow {
 	windows := map[string]bool{}
-	for _, w := range tmuxx.Windows(ctx.TmuxSession) {
+	for _, w := range launcher.Get().Windows(ctx.TmuxSession) {
 		windows[w] = true
 	}
 	var rows []statusRow
@@ -347,8 +334,6 @@ func statusRows(ctx vault.Context) []statusRow {
 	return rows
 }
 
-// --- ct attach ---
-
 func attachCmd() *cobra.Command {
 	var list bool
 	cmd := &cobra.Command{
@@ -369,17 +354,15 @@ func attachCmd() *cobra.Command {
 				return cmd.Usage()
 			}
 			key := args[0]
-			if !tmuxx.HasWindow(ctx.TmuxSession, key) {
+			if !launcher.HasWindow(launcher.Get(), ctx.TmuxSession, key) {
 				return fmt.Errorf("no window for %s in tmux session '%s' (start it with ct start %s)", key, ctx.TmuxSession, key)
 			}
-			return tmuxx.Attach(ctx.TmuxSession, key)
+			return launcher.Get().Attach(ctx.TmuxSession, key)
 		},
 	}
 	cmd.Flags().BoolVar(&list, "list", false, "print the tickets with an open window")
 	return cmd
 }
-
-// --- ct open ---
 
 func openCmd() *cobra.Command {
 	var list bool
@@ -424,11 +407,10 @@ func openWorkspace(ctx vault.Context, key string) error {
 	if err != nil {
 		return fmt.Errorf("%s has no workspace in the %s vault (%s): start it with ct start %s", key, filepath.Base(ctx.Vault), dir, key)
 	}
-	editorCmd := os.Getenv("CLAUDE_TICKETS_EDITOR")
-	if editorCmd == "" {
-		editorCmd = "code"
+	editor := strings.Fields(os.Getenv("CLAUDE_TICKETS_EDITOR"))
+	if len(editor) == 0 {
+		editor = []string{"code"}
 	}
-	editor := strings.Fields(editorCmd)
 	path, err := exec.LookPath(editor[0])
 	if err != nil {
 		return fmt.Errorf("editor '%s' not found (set CLAUDE_TICKETS_EDITOR)", editor[0])

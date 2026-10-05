@@ -1,0 +1,58 @@
+# Input ct doesn't control can't make it write or delete outside its places
+
+# A workspace.json (sessions can write it) naming a repo outside the workspace:
+# ignored by every command, so ct ws rm can't delete it
+mkdir home/Documents/Obsidian/a/.obsidian home/Projects/work-a/MAN-5 home/Projects/github/acme/x/.git
+expand ws.json
+cp ws.json home/Projects/work-a/MAN-5/workspace.json
+exec ct ws ls MAN-5
+stderr 'ignoring github-acme-x at ".*/home/Projects/github/acme/x": not inside the workspace'
+! stdout github-acme-x
+exec ct ws rm MAN-5 --force
+stderr 'not inside the workspace'
+exists home/Projects/github/acme/x/.git
+! exists home/Projects/work-a/MAN-5
+
+# A Jira key that isn't a key (a path) is skipped, not written
+exec ct vault init demo --defaults --allow-overlap
+cp sources.json home/Documents/Obsidian/demo/tickets/.sources.json
+env CLAUDE_TICKETS_VAULT=$WORK/home/Documents/Obsidian/demo
+fakejira jira.json
+exec ct sync
+stderr 'skipping an issue with an unexpected key "../../evil"'
+stdout '^jira: open 1, new 1,'
+exists home/Documents/Obsidian/demo/tickets/PROJ-1/PROJ-1.md
+! exists home/Documents/evil
+! exists home/evil
+
+# An existing note ct sync can't read as a jira note is never replaced
+mkdir home/Documents/Obsidian/demo/tickets/PROJ-2
+cp mine.md home/Documents/Obsidian/demo/tickets/PROJ-2/PROJ-2.md
+fakejira jira2.json
+! exec ct sync
+stdout '^PROJ-2: couldn.t sync'
+stderr 'PROJ-2.md exists but isn.t a jira note ct sync can read'
+cmp home/Documents/Obsidian/demo/tickets/PROJ-2/PROJ-2.md mine.md
+
+-- mine.md --
+My own notes on PROJ-2, no frontmatter.
+-- jira2.json --
+{"me": "u-me",
+ "resources": [{"cloudId": "c", "url": "https://acme.atlassian.net", "products": [{"id": "jira"}]}],
+ "open": ["PROJ-2"],
+ "issues": {"PROJ-2": {"fields": {"summary": "Two", "updated": "2026-09-01T10:00:00.000-0400", "issuetype": {"name": "Task"},
+   "status": {"name": "To Do", "statusCategory": {"key": "new"}}, "assignee": {"accountId": "u-me", "displayName": "Jane Doe"}}}}}
+-- ws.json --
+{"id": "MAN-5", "repos": [
+  {"provider": "github", "owner": "acme", "repo": "x", "slug": "github-acme-x", "path": "$WORK/home/Projects/github/acme/x", "base": "main", "branch": "main", "mode": "clone"}
+]}
+-- sources.json --
+{"sources": {"jira": {"enabled": true, "mcp": "atlassian", "query": "assignee = currentUser()"}}}
+-- jira.json --
+{"me": "u-me",
+ "resources": [{"cloudId": "c", "url": "https://acme.atlassian.net", "products": [{"id": "jira"}]}],
+ "open": ["../../evil", "PROJ-1"],
+ "issues": {
+   "../../evil": {"fields": {"summary": "x", "updated": "2026-09-01T10:00:00.000-0400", "status": {"name": "To Do", "statusCategory": {"key": "new"}}}},
+   "PROJ-1": {"fields": {"summary": "Fine", "updated": "2026-09-01T10:00:00.000-0400", "issuetype": {"name": "Task"},
+     "status": {"name": "To Do", "statusCategory": {"key": "new"}}, "assignee": {"accountId": "u-me", "displayName": "Jane Doe"}}}}}

@@ -33,7 +33,6 @@ import (
 	"sync"
 )
 
-// Fixture is the Jira data the server serves.
 type Fixture struct {
 	Me        string                     `json:"me"`
 	Resources json.RawMessage            `json:"resources"`
@@ -51,7 +50,6 @@ type issueData struct {
 	FailGet   bool            `json:"failGet"`
 }
 
-// Server is a running fake.
 type Server struct {
 	*httptest.Server
 	mu      sync.Mutex
@@ -60,7 +58,6 @@ type Server struct {
 	Calls []string
 }
 
-// LoadFixture reads a fixture file.
 func LoadFixture(file string) (Fixture, error) {
 	var f Fixture
 	data, err := os.ReadFile(file)
@@ -70,7 +67,6 @@ func LoadFixture(file string) (Fixture, error) {
 	return f, err
 }
 
-// New starts a server with a fixture.
 func New(f Fixture) *Server {
 	s := &Server{fixture: f}
 	s.Server = httptest.NewServer(http.HandlerFunc(s.handle))
@@ -84,7 +80,7 @@ func (s *Server) SetFixture(f Fixture) {
 	s.fixture = f
 }
 
-// Config is an MCP config naming this server server-name.
+// Config is an MCP config (JSON) listing this server as name.
 func (s *Server) Config(name string) string {
 	b, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{name: map[string]any{"type": "http", "url": s.URL + "/mcp", "headers": map[string]string{"Authorization": "Bearer test"}}}})
 	return string(b)

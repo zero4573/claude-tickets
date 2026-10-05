@@ -3,6 +3,8 @@ package jira
 import (
 	"os"
 	"strings"
+
+	"github.com/zero4573/claude-tickets/internal/note"
 )
 
 const (
@@ -26,12 +28,12 @@ func lines(s string) []string {
 }
 
 // splitBlock reads a note's source block; ok is false when it has none.
-func splitBlock(note string) (p parts, ok bool) {
-	data, err := os.ReadFile(note)
+func splitBlock(file string) (p parts, ok bool) {
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return p, false
 	}
-	all := lines(string(data))
+	all := lines(note.Normalize(string(data)))
 	hasStart, hasEnd := false, false
 	for _, l := range all {
 		hasStart = hasStart || l == blockStart
@@ -73,7 +75,7 @@ func trimBlankTail(ls []string) []string {
 
 // writeBlock replaces the note's source block with p (adding the block
 // after the title heading when there's none).
-func writeBlock(note string, p parts) error {
+func writeBlock(file string, p parts) error {
 	var body []string
 	for _, part := range []string{p.head, p.children, p.description, p.comments} {
 		if part == "" {
@@ -84,29 +86,28 @@ func writeBlock(note string, p parts) error {
 	}
 	block := append(append([]string{blockStart}, trimBlankTail(body)...), blockEnd)
 
-	data, err := os.ReadFile(note)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}
-	all := lines(string(data))
+	all := lines(note.Normalize(string(data)))
 	var out []string
-	hasStart := false
-	for _, l := range all {
-		hasStart = hasStart || l == blockStart
-	}
-	if hasStart {
-		skip := false
-		for _, l := range all {
-			switch {
-			case l == blockStart:
-				out = append(out, block...)
-				skip = true
-			case skip && l == blockEnd:
-				skip = false
-			case !skip:
-				out = append(out, l)
-			}
+	start, end := -1, -1
+	for i, l := range all {
+		if start < 0 && l == blockStart {
+			start = i
+		} else if start >= 0 && l == blockEnd {
+			end = i
+			break
 		}
+	}
+	if start >= 0 {
+		// A start marker with no end after it (edited away) is replaced on its
+		// own: nothing after it is dropped
+		if end < 0 {
+			end = start
+		}
+		out = append(append(append(out, all[:start]...), block...), all[end+1:]...)
 	} else {
 		done := false
 		for _, l := range all {
@@ -117,5 +118,5 @@ func writeBlock(note string, p parts) error {
 			}
 		}
 	}
-	return os.WriteFile(note, []byte(strings.Join(out, "\n")+"\n"), 0o644)
+	return os.WriteFile(file, []byte(strings.Join(out, "\n")+"\n"), 0o644)
 }

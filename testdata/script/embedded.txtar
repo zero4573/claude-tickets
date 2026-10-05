@@ -1,0 +1,24 @@
+# Without CLAUDE_TICKETS_PLUGIN / CLAUDE_TICKETS_GRAPH_DIR (a plain install),
+# ct unpacks its own copies of the plugin and the graph sources to the cache
+env CLAUDE_TICKETS_PLUGIN=
+env CLAUDE_TICKETS_GRAPH_DIR=
+exec ct graph status
+stdout '^image:   localhost/claude-tickets-graphify:[0-9a-f]{12}$'
+exec sh -c 'ls home/.cache/claude-tickets'
+stdout '^graph-[0-9a-f]{12}$'
+
+mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/tickets/MAN-1 home/Projects
+cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+exec ct start --no-fetch MAN-1
+grep '--plugin-dir .*/claude-tickets/plugin-[0-9a-f]{12} ' calls/tmux
+exec sh -c 'cat home/.cache/claude-tickets/plugin-*/hooks/hooks.json'
+stdout '"command": "\\".*\\" hook agent-state needs-input"'
+exec sh -c 'ls home/.cache/claude-tickets/plugin-*/skills'
+stdout 'work-ticket'
+
+-- man-1.md --
+---
+summary: First
+status: new
+source: manual
+---

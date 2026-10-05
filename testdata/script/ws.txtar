@@ -12,7 +12,7 @@ exec git -C seed remote add origin $WORK/remote/acme/billing.git
 # clone: into ~/Projects/<provider>/<owner>/<repo>, then its graph
 exec ct ws clone github/acme/billing
 stdout 'cloned github/acme/billing \(slug github-acme-billing\)'
-exists home/Projects/github/acme/billing/.git
+exists home/Projects/repo-a/github/acme/billing/.git
 grep 'sh -s -- github/acme/billing' calls/podman
 exec ct ws clone github/acme/billing
 stdout 'already cloned'
@@ -23,18 +23,18 @@ stdout '^SLUG +REPO$'
 stdout '^github-acme-billing +github/acme/billing$'
 
 # add: a worktree on feature/<ID>-<desc>, with the .worktreeinclude files
-cp env home/Projects/github/acme/billing/.env
+cp env home/Projects/repo-a/github/acme/billing/.env
 exec ct ws add MAN-1 github-acme-billing --base main --desc 'Fix the Thing' --version 2.1
-stdout 'created .*/work/a/MAN-1/github-acme-billing \(worktree\) on feature/MAN-1-fix-the-thing \(from origin/main\)'
-exists home/work/a/MAN-1/github-acme-billing/.env
-grep '"branch": "feature/MAN-1-fix-the-thing"' home/work/a/MAN-1/workspace.json
-grep '"mode": "worktree"' home/work/a/MAN-1/workspace.json
-grep '"targetVersion": "2.1"' home/work/a/MAN-1/workspace.json
-grep '"id": "MAN-1"' home/work/a/MAN-1/workspace.json
+stdout 'created .*/work-a/MAN-1/github-acme-billing \(worktree\) on feature/MAN-1-fix-the-thing \(from origin/main\)'
+exists home/Projects/work-a/MAN-1/github-acme-billing/.env
+grep '"branch": "feature/MAN-1-fix-the-thing"' home/Projects/work-a/MAN-1/workspace.json
+grep '"mode": "worktree"' home/Projects/work-a/MAN-1/workspace.json
+grep '"targetVersion": "2.1"' home/Projects/work-a/MAN-1/workspace.json
+grep '"id": "MAN-1"' home/Projects/work-a/MAN-1/workspace.json
 exec ct ws add MAN-1 github/acme/billing --base main
 stdout 'already exists \(branch feature/MAN-1-fix-the-thing\)'
 # the version is kept when not given again
-grep '"targetVersion": "2.1"' home/work/a/MAN-1/workspace.json
+grep '"targetVersion": "2.1"' home/Projects/work-a/MAN-1/workspace.json
 ! exec ct ws add MAN-1 nope --base main
 stderr 'no main clone .nope.'
 ! exec ct ws add MAN-1 github-acme-billing
@@ -45,10 +45,10 @@ stderr 'not a ticket ID'
 stderr 'base branch .nope. not found'
 
 # ls and diff: a commit and an untracked file
-cp change.txt home/work/a/MAN-1/github-acme-billing/change.txt
-exec git -C home/work/a/MAN-1/github-acme-billing add change.txt
-exec git -C home/work/a/MAN-1/github-acme-billing commit -q -m change
-cp change.txt home/work/a/MAN-1/github-acme-billing/untracked.txt
+cp change.txt home/Projects/work-a/MAN-1/github-acme-billing/change.txt
+exec git -C home/Projects/work-a/MAN-1/github-acme-billing add change.txt
+exec git -C home/Projects/work-a/MAN-1/github-acme-billing commit -q -m change
+cp change.txt home/Projects/work-a/MAN-1/github-acme-billing/untracked.txt
 exec ct ws ls
 stdout '^TICKET +REPO +BRANCH +BASE +CHANGED +AHEAD +BEHIND$'
 stdout '^MAN-1 +github-acme-billing +feature/MAN-1-fix-the-thing +main +1 +1 +0$'
@@ -63,9 +63,9 @@ env CLAUDE_TICKETS_WS_SHARED_CLONE=1
 exec ct ws add MAN-2 github-acme-billing --base main
 stdout '\(clone\) on feature/MAN-2 \(from origin/main\)'
 env CLAUDE_TICKETS_WS_SHARED_CLONE=
-exec git -C home/work/a/MAN-2/github-acme-billing config remote.origin.url
+exec git -C home/Projects/work-a/MAN-2/github-acme-billing config remote.origin.url
 stdout '^git@github.com:acme/billing.git$'
-grep '"mode": "clone"' home/work/a/MAN-2/workspace.json
+grep '"mode": "clone"' home/Projects/work-a/MAN-2/workspace.json
 
 # fetch passes new commits on origin to the shared clones
 cp change.txt seed/second.txt
@@ -74,7 +74,7 @@ exec git -C seed commit -q -m second
 exec git -C seed push -q origin main
 exec ct ws fetch
 stderr 'fetching 1 repo\(s\)'
-exec git -C home/work/a/MAN-2/github-acme-billing log --format=%s origin/main
+exec git -C home/Projects/work-a/MAN-2/github-acme-billing log --format=%s origin/main
 stdout '^second$'
 exec ct ws ls MAN-1
 stdout '^MAN-1 +github-acme-billing +feature/MAN-1-fix-the-thing +main +1 +1 +1$'
@@ -84,26 +84,36 @@ stderr 'no main clone .nope.'
 # rm: refuses uncommitted changes, and unpushed commits in a shared clone
 ! exec ct ws rm MAN-1
 stderr 'github-acme-billing has uncommitted changes, not removing'
-exists home/work/a/MAN-1/workspace.json
-rm home/work/a/MAN-1/github-acme-billing/untracked.txt
-mkdir home/work/a/MAN-1/github-acme-billing/graphify-out
+exists home/Projects/work-a/MAN-1/workspace.json
+rm home/Projects/work-a/MAN-1/github-acme-billing/untracked.txt
+mkdir home/Projects/work-a/MAN-1/github-acme-billing/graphify-out
 exec ct ws rm MAN-1
 stdout 'removed .*/MAN-1/github-acme-billing \(branch feature/MAN-1-fix-the-thing kept\)'
-stdout 'removed workspace .*/work/a/MAN-1$'
-! exists home/work/a/MAN-1
-exec git -C home/Projects/github/acme/billing rev-parse --verify -q refs/heads/feature/MAN-1-fix-the-thing
+stdout 'removed workspace .*/work-a/MAN-1$'
+! exists home/Projects/work-a/MAN-1
+exec git -C home/Projects/repo-a/github/acme/billing rev-parse --verify -q refs/heads/feature/MAN-1-fix-the-thing
 # the branch is picked up again
 exec ct ws add MAN-1 github-acme-billing --base main
 stdout 'on existing branch feature/MAN-1-fix-the-thing'
 
-cp change.txt home/work/a/MAN-2/github-acme-billing/mine.txt
-exec git -C home/work/a/MAN-2/github-acme-billing add mine.txt
-exec git -C home/work/a/MAN-2/github-acme-billing commit -q -m mine
+# work on another branch counts too, not only the checked-out one
+exec git -C home/Projects/work-a/MAN-2/github-acme-billing checkout -q -b side
+cp change.txt home/Projects/work-a/MAN-2/github-acme-billing/side.txt
+exec git -C home/Projects/work-a/MAN-2/github-acme-billing add side.txt
+exec git -C home/Projects/work-a/MAN-2/github-acme-billing commit -q -m side
+exec git -C home/Projects/work-a/MAN-2/github-acme-billing checkout -q feature/MAN-2
 ! exec ct ws rm MAN-2
-stderr 'commits that aren.t on origin'
+stderr 'commits that aren.t on origin or stashed changes'
+exists home/Projects/work-a/MAN-2/github-acme-billing/.git
+
+cp change.txt home/Projects/work-a/MAN-2/github-acme-billing/mine.txt
+exec git -C home/Projects/work-a/MAN-2/github-acme-billing add mine.txt
+exec git -C home/Projects/work-a/MAN-2/github-acme-billing commit -q -m mine
+! exec ct ws rm MAN-2
+stderr 'commits that aren.t on origin or stashed changes'
 exec ct ws rm MAN-2 --force
 stdout 'removed .*/MAN-2/github-acme-billing \(shared clone\)'
-! exists home/work/a/MAN-2
+! exists home/Projects/work-a/MAN-2
 
 ! exec ct ws rm MAN-9
 stderr 'no workspace at'

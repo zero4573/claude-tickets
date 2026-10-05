@@ -12,21 +12,20 @@ let
       ${lib.optionalString isLinux "--suffix PATH : ${lib.makeBinPath [ pkgs.libnotify ]}"}
   '';
   plugin = pkgs.runCommand "claude-tickets-plugin" { } ''
-    cp -r ${../plugin} $out
+    cp -r ${../assets/plugin} $out
     chmod -R u+w $out
     substituteInPlace $out/hooks/hooks.json \
       --replace-fail '"ct hook ' '"${ctHook}/bin/ct hook '
   '';
 
-  # Sources of the graphify image (ct graph build)
   graphSrc = pkgs.runCommand "claude-tickets-graph" { } ''
-    cp -r ${../graph} $out
+    cp -r ${../assets/graph} $out
   '';
 
-  # --- ct (Go) ---
+  version = "0.1.0";
   ctBin = pkgs.buildGoModule {
     pname = "ct";
-    version = "0.1.0";
+    inherit version;
     src = lib.fileset.toSource {
       root = ../.;
       fileset = lib.fileset.unions [
@@ -35,6 +34,7 @@ let
     };
     vendorHash = "sha256-Ld0QpIlwZQH3hGdu761fJAeBqere+q6RLPxE1ReQj/Q=";
     subPackages = [ "cmd/ct" ];
+    ldflags = [ "-s" "-w" "-X github.com/zero4573/claude-tickets/internal/version.Version=${version}" ];
     # Every package, and the CLI tests (stub tmux, podman, editor; real
     # git, with an SSH signing key for ct ws sign)
     nativeCheckInputs = with pkgs; [ coreutils git gnutar openssh ];
@@ -54,15 +54,12 @@ let
   # notify-send (ct sync)
   tools = with pkgs; [ git tmux coreutils gnutar fzf bash ] ++ lib.optional isLinux pkgs.libnotify;
 
-  # ct, with the defaults and the tools it runs
   ct = pkgs.runCommand "claude-tickets"
     {
       nativeBuildInputs = [ pkgs.makeWrapper ];
       meta.mainProgram = "ct";
     } ''
-    mkdir -p $out/bin $out/share/claude-tickets
-    ln -s ${plugin} $out/share/claude-tickets/plugin
-    ln -s ${graphSrc} $out/share/claude-tickets/graph
+    mkdir -p $out/bin
     makeWrapper ${lib.getExe ctBin} $out/bin/ct \
       ${lib.concatStrings (lib.mapAttrsToList (k: v: "--set-default ${k} ${lib.escapeShellArg (toString v)} ") defaultsEnv)} \
       --suffix PATH : ${lib.makeBinPath tools}

@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/rogpeppe/go-internal/testscript"
@@ -92,6 +93,9 @@ esac
 }
 
 func TestScripts(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the CLI tests use sh stubs; the unit tests cover Windows")
+	}
 	testscript.Run(t, testscript.Params{
 		Dir: filepath.Join("testdata", "script"),
 		Cmds: map[string]func(ts *testscript.TestScript, neg bool, args []string){
@@ -153,7 +157,6 @@ func TestScripts(t *testing.T) {
 			env.Setenv("CLAUDE_TICKETS_VAULT", "")
 			env.Setenv("TMUX", "")
 			env.Setenv("REAL_GIT", realGit)
-			// git: no system config, $WORK/gitconfig as the user's, a fixed identity
 			env.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 			env.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(work, "gitconfig"))
 			for _, who := range []string{"AUTHOR", "COMMITTER"} {

@@ -12,7 +12,6 @@ import (
 	"github.com/zero4573/claude-tickets/internal/note"
 )
 
-// cell is a value made safe for a table cell.
 func cell(s string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(s, "\n", " "), "|", `\|`)
 }
@@ -104,7 +103,6 @@ func statusName(s *status, def string) string {
 	return s.Name
 }
 
-// head renders the block's table.
 func (s *Sync) head(is issue) string {
 	f := is.Fields
 	none := func(l []string, empty string) string {
@@ -223,7 +221,7 @@ func (s *Sync) frontmatter(is issue) (fs []fmField, mine bool, typ, project, par
 	parent := ""
 	if f.Parent != nil {
 		parent = link(f.Parent.Key)
-		if isEpic(f.Parent.Fields.IssueType) {
+		if isEpic(f.Parent.Fields.IssueType) && note.ValidKey(f.Parent.Key) {
 			parentEpic = f.Parent.Key
 		}
 	}
@@ -376,7 +374,7 @@ func (s *Sync) writeChildren(epic, file string, p *parts) error {
 	sort.Strings(files)
 	for _, cn := range files {
 		data, _ := os.ReadFile(cn)
-		if !strings.Contains("\n"+string(data), "\ncovered-by: \"[["+epic+"]]\"") {
+		if !strings.Contains("\n"+note.Normalize(string(data)), "\ncovered-by: \"[["+epic+"]]\"") {
 			continue
 		}
 		if !covered[strings.TrimSuffix(filepath.Base(cn), ".md")] {
@@ -394,7 +392,7 @@ func frontmatterGet(file, key string) string {
 	if err != nil {
 		return ""
 	}
-	ls := strings.Split(string(data), "\n")
+	ls := strings.Split(note.Normalize(string(data)), "\n")
 	if len(ls) == 0 || ls[0] != "---" {
 		return ""
 	}
@@ -424,6 +422,8 @@ var parentEpicTag = regexp.MustCompile(`(?m)^tags:.*parent-epic`)
 // apply brings one note up to date: mode create, refresh or close.
 func (s *Sync) apply(key, mode, reason string) error {
 	file := s.notePath(key)
+	created := false
+	newStatus, reopened := "", false
 	var p parts
 	all, table, desc := false, false, false
 	var changes []string
@@ -438,9 +438,29 @@ func (s *Sync) apply(key, mode, reason string) error {
 		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
 			return err
 		}
-		if err := os.WriteFile(file, []byte(t), 0o644); err != nil {
+		// Never over an existing note: one the index can't read (no jira
+		// frontmatter) still holds the user's work
+		f, err := os.OpenFile(file, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		if err != nil {
+			if os.IsExist(err) {
+				return fmt.Errorf("%s exists but isn't a jira note ct sync can read (check its frontmatter: source: jira, source-id: %s)", file, key)
+			}
 			return err
 		}
+		_, err = f.WriteString(t)
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
+			_ = os.Remove(file)
+			return err
+		}
+		// A create that fails later leaves no half-written note behind
+		defer func() {
+			if !created {
+				_ = os.Remove(file)
+			}
+		}()
 		all = true
 	} else if got, ok := splitBlock(file); ok {
 		p = got
@@ -504,7 +524,6 @@ func (s *Sync) apply(key, mode, reason string) error {
 		table, desc = true, true
 	}
 
-	// Table and frontmatter
 	if table {
 		is, err := s.getIssue(key, map[string]any{"fields": tableFetch, "fieldsByKeys": true, "view": "full"})
 		if err != nil {
@@ -531,20 +550,22 @@ func (s *Sync) apply(key, mode, reason string) error {
 				_ = note.EditTags(file, true, "parent-epic")
 			}
 		}
+		// Written last (see the end): a note closed before its other parts are
+		// written would never be retried, since the planner skips closed notes
+		statusAfter := statusNow
 		if mode == "close" || catNow == "done" {
 			if statusNow != "closed" {
-				_ = note.Set(file, "status", "closed")
+				newStatus, statusAfter = "closed", "closed"
 				changes = append(changes, "closed")
 			}
 		} else if statusNow == "closed" {
-			_ = note.Set(file, "status", "new")
+			newStatus, statusAfter, reopened = "new", "new", true
 			changes = append(changes, "reopened")
-			s.Followup("[[" + key + "]] was reopened in Jira (status: new again); check whether work should resume")
 		}
 		data, _ := os.ReadFile(file)
 		if mine {
 			_ = note.EditTags(file, false, "unassigned")
-		} else if frontmatterGet(file, "status") != "closed" && reason != "parent-epic" && !parentEpicTag.Match(data) {
+		} else if statusAfter != "closed" && reason != "parent-epic" && !parentEpicTag.Match(data) {
 			if !unassignedTag.Match(data) {
 				changes = append(changes, "no longer yours")
 			}
@@ -594,7 +615,6 @@ func (s *Sync) apply(key, mode, reason string) error {
 		}
 	}
 
-	// An epic's children
 	if frontmatterGet(file, "ticket-type") == "epic" && (table || reason == "children") {
 		if err := s.writeChildren(key, file, &p); err != nil {
 			return err
@@ -606,6 +626,12 @@ func (s *Sync) apply(key, mode, reason string) error {
 
 	if err := writeBlock(file, p); err != nil {
 		return err
+	}
+	if newStatus != "" {
+		_ = note.Set(file, "status", newStatus)
+	}
+	if reopened {
+		s.Followup("[[" + key + "]] was reopened in Jira (status: new again); check whether work should resume")
 	}
 	if updated != "" {
 		_ = note.Set(file, "source-updated", updated)
@@ -621,13 +647,14 @@ func (s *Sync) apply(key, mode, reason string) error {
 	case len(changes) == 0:
 		what = "nothing the note shows (timestamp only)"
 	}
+	created = true
 	s.Say(fmt.Sprintf("%s: %s [%s] %s", key, what, frontmatterGet(file, "source-status"), frontmatterGet(file, "summary")))
 	return nil
 }
 
 // Apply works through the plan, then the parent epics it pulled in.
-// Failures become follow-up tasks; it reports whether any happened.
-func (s *Sync) Apply() (failed bool) {
+// Failures become follow-up tasks; it returns the tickets that failed.
+func (s *Sync) Apply() (failed []string) {
 	type step struct{ key, mode, reason string }
 	var steps []step
 	for _, k := range s.Plan.Create {
@@ -645,9 +672,9 @@ func (s *Sync) Apply() (failed bool) {
 		}
 		if err := s.apply(st.key, st.mode, st.reason); err != nil {
 			s.Log(err.Error())
-			failed = true
+			failed = append(failed, st.key)
 			s.Say(st.key + ": couldn't sync (see the messages above)")
-			s.Followup("Check [[" + st.key + "]]: ticket-sync couldn't update it; see ~/.local/state/" + s.LogName)
+			s.Followup("Check [[" + st.key + "]]: ticket-sync couldn't update it; see " + s.LogPath)
 		}
 	}
 	parents := append([]string{}, s.parents...)
@@ -661,6 +688,7 @@ func (s *Sync) Apply() (failed bool) {
 		}
 		if err := s.apply(k, "create", "parent-epic"); err != nil {
 			s.Log(err.Error())
+			failed = append(failed, k)
 			s.Say(k + ": couldn't pull in the parent epic")
 			s.Followup("Check [[" + k + "]]: ticket-sync couldn't create this parent epic's note")
 		}

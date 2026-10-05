@@ -4,5 +4,5 @@ package gitx
 
 import "golang.org/x/sys/unix"
 
-// Writable reports whether ct may write in dir (read-only mounts count).
+// Writable is false on a read-only mount too, not only by permissions.
 func Writable(dir string) bool { return unix.Access(dir, unix.W_OK) == nil }

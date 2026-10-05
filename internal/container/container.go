@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/zero4573/claude-tickets/internal/config"
@@ -44,7 +45,6 @@ func Runtime() (string, error) {
 	return rt, nil
 }
 
-// Detect finds an installed runtime that answers `info`, podman first.
 func Detect() (string, bool) {
 	for _, rt := range []string{"podman", "docker"} {
 		if _, err := exec.LookPath(rt); err == nil && exec.Command(rt, "info").Run() == nil {
@@ -54,7 +54,6 @@ func Detect() (string, bool) {
 	return "", false
 }
 
-// ImageExists reports whether the runtime has image locally.
 func ImageExists(rt, image string) bool {
 	if rt == "podman" {
 		return exec.Command("podman", "image", "exists", image).Run() == nil
@@ -62,17 +61,16 @@ func ImageExists(rt, image string) bool {
 	return exec.Command("docker", "image", "inspect", image).Run() == nil
 }
 
-// RunArgs is the command line of `<runtime> run --rm <args>`: SELinux
-// labels off (the mounts are the user's own files), docker as the user
-// (podman is rootless already), and in CLAUDE_TICKETS_SYSTEMD_SLICE when
-// set (through systemd-run).
+// RunArgs turns SELinux labels off (the mounts are the user's own files)
+// and runs docker as the user (podman is rootless already).
 func RunArgs(rt string, args ...string) []string {
 	flags := []string{"--rm", "--security-opt", "label=disable"}
-	if rt == "docker" {
+	// (no uids on Windows: Getuid is -1 there)
+	if rt == "docker" && os.Getuid() >= 0 {
 		flags = append(flags, "--user", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()))
 	}
 	var pre []string
-	if slice := os.Getenv("CLAUDE_TICKETS_SYSTEMD_SLICE"); slice != "" {
+	if slice := os.Getenv("CLAUDE_TICKETS_SYSTEMD_SLICE"); slice != "" && runtime.GOOS == "linux" {
 		if _, err := exec.LookPath("systemd-run"); err == nil {
 			pre = []string{"systemd-run", "--user", "--scope", "--quiet", "--collect", "--slice=" + slice, "--"}
 			if rt == "podman" {
@@ -81,4 +79,28 @@ func RunArgs(rt string, args ...string) []string {
 		}
 	}
 	return append(append(append(pre, rt, "run"), flags...), args...)
+}
+
+// Path is where a host path appears inside a container: the same path on
+// Linux and macOS (podman machine and Docker Desktop share /Users), and the
+// drive under /mnt on Windows (C:\x -> /mnt/c/x, as in WSL; untested).
+func Path(host string) string { return containerPath(runtime.GOOS, host) }
+
+func containerPath(goos, host string) string {
+	if goos != "windows" {
+		return host
+	}
+	p := strings.ReplaceAll(host, `\`, "/")
+	if len(p) >= 2 && p[1] == ':' {
+		p = "/mnt/" + strings.ToLower(p[:1]) + p[2:]
+	}
+	return p
+}
+
+func Mount(host string, readOnly bool) []string {
+	v := host + ":" + Path(host)
+	if readOnly {
+		v += ":ro"
+	}
+	return []string{"-v", v}
 }

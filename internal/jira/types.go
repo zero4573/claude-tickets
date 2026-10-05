@@ -43,7 +43,6 @@ var tableFields = []string{"summary", "issuetype", "status", "resolution", "prio
 var DefaultTextFields = []string{"QA Testing Instructions", "Acceptance Criteria", "Steps to Reproduce",
 	"Expected Result", "Actual Result"}
 
-// Fields fetched for the table and frontmatter
 var tableFetch = []string{"summary", "issuetype", "status", "priority", "assignee", "reporter", "fixVersions",
 	"components", "labels", "parent", "issuelinks", "subtasks", "updated"}
 
@@ -115,7 +114,6 @@ type fields struct {
 	} `json:"customFields"`
 }
 
-// issue is a Jira issue as the MCP tools return it.
 type issue struct {
 	Key                  string `json:"key"`
 	Fields               fields `json:"fields"`
@@ -138,7 +136,6 @@ func (f fields) cat() string {
 	return f.Status.StatusCategory.Key
 }
 
-// comment is one of the last comments.
 type comment struct {
 	ID      any    `json:"id"`
 	Created string `json:"created"`
@@ -177,7 +174,6 @@ func or(s *string, def string) string {
 	return *s
 }
 
-// Child is a row of an epic's children.
 type Child struct {
 	Epic     string `json:"epic"`
 	Key      string `json:"key"`
@@ -202,7 +198,6 @@ type Flip struct {
 	Blocked bool   `json:"blocked"`
 }
 
-// Plan is what a sync does to the notes.
 type Plan struct {
 	Source       string              `json:"source"`
 	CloudID      string              `json:"cloudId"`

@@ -15,7 +15,6 @@ import (
 	"github.com/zero4573/claude-tickets/internal/container"
 )
 
-// indexScript runs in the image, one graphify update per repo.
 const indexScript = `set -eu
 failed=0
 for repo in "$@"; do
@@ -30,24 +29,22 @@ done
 exit "$failed"
 `
 
-// IndexLog is the log of every index run.
 const IndexLog = "graphify-index"
 
 // ErrIndexFailed: the index run itself failed (Index's failed list is
 // empty then).
 var ErrIndexFailed = errors.New("indexing failed")
 
-// Index builds or refreshes the graphs (graphify-out/graph.json, code-only
-// AST pass, incremental) of main clones (<provider>/<owner>/<repo> under
-// projectsRoot) in the graphify image, built first if needed. Output also
-// goes to the log. It returns the repos whose graph failed to build; err
-// is set when anything failed.
+// Index refreshes the graphs (code-only AST pass, incremental) of main
+// clones (<provider>/<owner>/<repo> under projectsRoot), building the image
+// first if needed. It returns the repos whose graph failed to build; err is
+// set when anything failed.
 func Index(projectsRoot string, repos []string) (failed []string, err error) {
 	tag, err := Build(false)
 	if err != nil {
 		return nil, fmt.Errorf("the graphify image couldn't be built: %w", err)
 	}
-	logf, err := os.OpenFile(config.StateLog(IndexLog), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	logf, err := os.OpenFile(config.StateLog(IndexLog), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return nil, err
 	}
@@ -60,10 +57,9 @@ func Index(projectsRoot string, repos []string) (failed []string, err error) {
 	if err != nil {
 		return nil, err
 	}
-	argv := container.RunArgs(rt, append([]string{"-i",
-		"-v", projectsRoot + ":" + projectsRoot,
-		"-e", "PROJECTS_ROOT=" + projectsRoot,
-		tag, "sh", "-s", "--"}, repos...)...)
+	args := append([]string{"-i"}, container.Mount(projectsRoot, false)...)
+	args = append(args, "-e", "PROJECTS_ROOT="+container.Path(projectsRoot), tag, "sh", "-s", "--")
+	argv := container.RunArgs(rt, append(args, repos...)...)
 	var buf bytes.Buffer
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stdin = strings.NewReader(indexScript)

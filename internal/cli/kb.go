@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zero4573/claude-tickets/internal/config"
+	"github.com/zero4573/claude-tickets/internal/fsx"
 	"github.com/zero4573/claude-tickets/internal/gitx"
 	"github.com/zero4573/claude-tickets/internal/graph"
 	"github.com/zero4573/claude-tickets/internal/repo"
@@ -20,8 +21,6 @@ import (
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
-
-// --- ct kb ---
 
 func kbCmd() *cobra.Command {
 	var cont, print, noFetch bool
@@ -32,7 +31,7 @@ func kbCmd() *cobra.Command {
 services, architecture, data flows, past tickets) without creating a ticket.
 It runs a Claude session (the kb skill) with:
   * the vault, read-write, as the knowledge base
-  * every repo under ~/Projects, read-only, freshly fetched on the host; the
+  * every repo in its projectsRoot, read-only, freshly fetched on the host; the
     session explores branches in its own clones (ct kb repo), where it may
     build and test, but never commits or pushes
   * ct new, to turn issues it finds into manual tickets
@@ -44,7 +43,7 @@ inbox/, and /tickets:save in the session promotes it into projects/,
 knowledge-base/ and references/.
 
 --print answers one question and exits (claude -p), no session; progress
-is shown live and logged to ~/.local/state/kb-<vault>.log.`,
+is shown live and logged to ` + logPath("kb-<vault>") + `.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			question := strings.Join(args, " ")
 			if print && question == "" {
@@ -132,7 +131,7 @@ func kb(ctx vault.Context, question string, cont, print, fetch bool) error {
 	}
 	// One-shot answer: progress as it happens, also logged
 	log := config.StateLog("kb-" + name)
-	if f, err := os.OpenFile(log, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
+	if f, err := os.OpenFile(log, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600); err == nil {
 		fmt.Fprintf(f, "=== kb %s vault=%s: %s\n", time.Now().Format(time.RFC3339), ctx.Vault, question)
 		f.Close()
 	}
@@ -170,8 +169,6 @@ func kbClaudeMD(ctx vault.Context, dir, sessionID string) string {
 		"  `%[4]s`\n",
 		ctx.Vault, ctx.ProjectsRoot, dir, sessionID)
 }
-
-// --- ct kb repo ---
 
 // kbRepo is an exploration clone of a kb session.
 type kbRepo struct {
@@ -227,7 +224,7 @@ func (r kbRepo) lastCommit() string {
 	return s
 }
 
-func (r kbRepo) exists() bool { return isDir(filepath.Join(r.path, ".git")) }
+func (r kbRepo) exists() bool { return fsx.IsDir(filepath.Join(r.path, ".git")) }
 
 func exploreSlugs(ws string) []string {
 	info, _ := workspace.Read(filepath.Dir(ws))
@@ -245,9 +242,8 @@ func kbRepoCmd() *cobra.Command {
 		Use:   "repo",
 		Short: "Exploration clones of a kb session (inside one)",
 		Long: `Exploration clones for a kb session: look at any branch or commit of a repo
-without touching its main clone under ~/Projects (read-only here). Each is a
-shared clone (it borrows the main clone's objects) at
-~/work/.kb-<vault>/<slug>, registered in the session's workspace.json, so
+without touching its main clone (read-only here). Each is a shared clone (it
+borrows the main clone's objects) at <workRoot>/.kb-<vault>/<slug>, registered in the session's workspace.json, so
 the session's code graph swaps it in for the main clone and rebuilds it as
 the checkout changes. A <repo> is a slug or <provider>/<owner>/<repo>.
 
@@ -255,7 +251,6 @@ The clones are the session's own: edit, build and test in them as needed to
 check how things behave, but never commit or push (both denied). Edits stay
 in the session; checkout --force or reset throws them away.`,
 	}
-	// Each subcommand runs in the kb workspace of the current vault
 	with := func(fn func(ctx vault.Context, dir string, args []string) error) func(*cobra.Command, []string) error {
 		return func(cmd *cobra.Command, args []string) error {
 			dir, err := kbWorkspace()
@@ -409,7 +404,16 @@ func (r kbRepo) checkout(ref string, force bool) error {
 	// A new clone has nothing checked out yet (its status lists every file
 	// as deleted): only an existing one can have edits
 	fresh := !r.exists()
+	done := false
 	if fresh {
+		// A clone this run made goes again if anything below fails: left
+		// behind unrecorded and with nothing checked out, it would block the
+		// next checkout
+		defer func() {
+			if !done {
+				_ = fsx.RemoveAll(r.path)
+			}
+		}()
 		if err := gitx.SharedClone(r.main, r.path); err != nil {
 			return fmt.Errorf("making an exploration clone of %s failed", r.slug)
 		}
@@ -452,5 +456,6 @@ func (r kbRepo) checkout(ref string, force bool) error {
 	}
 	fmt.Printf("ct kb repo: %s at %s (%s)\n", r.slug, ref, r.lastCommit())
 	fmt.Printf("ct kb repo: path %s; the code graph picks it up within ~15s\n", r.path)
+	done = true
 	return nil
 }

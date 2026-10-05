@@ -13,21 +13,18 @@ import (
 
 var nonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
 
-// Kebab lower-cases s and joins its alphanumeric runs with dashes.
 func Kebab(s string) string {
 	return strings.Trim(nonAlnum.ReplaceAllString(strings.ToLower(s), "-"), "-")
 }
 
-// Identity is where a repo is hosted, from its origin URL.
 type Identity struct {
 	Provider, Owner, Repo string
 }
 
-// Clone is its main clone's path under the projects root.
+// Clone is the main clone's path relative to the projects root.
 func (id Identity) Clone() string { return id.Provider + "/" + id.Owner + "/" + id.Repo }
 
-// RemoteIdentity parses a git remote URL; ok is false when it isn't a
-// hosted remote:
+// RemoteIdentity's ok is false when url isn't a hosted remote:
 //
 //	bitbucket  Server/DC (/scm/<key>/<repo>, ssh :7999/<key>/<repo>; owner =
 //	           project key, upper-cased) or Cloud (bitbucket.org; owner =
@@ -98,7 +95,6 @@ func RemoteIdentity(url string) (Identity, bool) {
 // (<provider>-<owner>-<repo>, kebab-case), from <provider>/<owner>/<repo>.
 func Slug(clone string) string { return Kebab(strings.ReplaceAll(clone, "/", "-")) }
 
-// MainClones lists the main clones under root, as <provider>/<owner>/<repo>.
 func MainClones(root string) []string {
 	matches, _ := filepath.Glob(filepath.Join(root, "*", "*", "*", ".git"))
 	var out []string

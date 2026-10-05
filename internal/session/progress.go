@@ -16,7 +16,7 @@ import (
 // (Progress) on stdout and appending it to log. It returns the command's
 // error (an *exec.ExitError when it failed).
 func Headless(logFile string, argv []string) error {
-	logf, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	logf, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
@@ -30,6 +30,8 @@ func Headless(logFile string, argv []string) error {
 	done := make(chan struct{})
 	go func() {
 		Progress(pr, io.MultiWriter(os.Stdout, logf))
+		// (if Progress stopped early, claude would block on a full pipe)
+		_, _ = io.Copy(io.Discard, pr)
 		close(done)
 	}()
 	err = cmd.Wait()

@@ -31,7 +31,7 @@ podman or docker (CLAUDE_TICKETS_CONTAINER, else detected).`,
 		Short: "Build the graphify image and unpack its filesystem",
 		Long: `Builds localhost/claude-tickets-graphify:<hash> (pinned Python image + the
 hashed graphify lock), and unpacks its filesystem into
-~/.cache/claude-tickets/graphify/rootfs-<hash>. Run it on the host; ct start,
+` + config.TildePath(filepath.Join(config.CacheDir(), "graphify")) + `/rootfs-<hash> (Linux). Run it on the host; ct start,
 ct kb and ct graph index run it when needed. Only rebuilt when the image's
 sources change (or with --force). Prints the image's tag.`,
 		Args: cobra.NoArgs,
@@ -80,11 +80,11 @@ podman run --rootfs, which works where the runtime starts with no images
 		Short: "Build or refresh the main clones' code graphs",
 		Long: `Builds or refreshes the code graph (graphify-out/graph.json, code-only AST
 pass, no LLM, incremental) of each main clone under
-~/Projects/<provider>/<owner>/<repo>: all of them, or the given ones (a
+<projectsRoot>/<provider>/<owner>/<repo>: all of them, or the given ones (a
 <repo> is a slug or <provider>/<owner>/<repo>). Ticket sessions merge these
 graphs for every repo the ticket has no checkout of. Runs graphify in the
 claude-tickets graphify image (ct graph build; podman or docker). Output is
-also logged to ~/.local/state/graphify-index.log; repos that fail become
+also logged to ` + logPath(graph.IndexLog) + `; repos that fail become
 follow-up tasks in the vault's inbox.`,
 		ValidArgsFunction: completeRepos,
 		RunE: func(cmd *cobra.Command, args []string) error {

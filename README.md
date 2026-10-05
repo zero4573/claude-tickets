@@ -26,13 +26,14 @@ so they work the same unsandboxed or inside a sandbox that wraps `claude`.
 
 | Part | What |
 |---|---|
-| `cmd/ct`, `internal/` | `ct`, the one command (Go): every subcommand below, its shell completion (`ct completion zsh\|bash\|fish`) |
-| `assets/vault-scaffold/` | what `ct vault init` copies into a vault (built into `ct`) |
+| `cmd/ct`, `internal/` | `ct`, the one command (Go): every subcommand below, its shell completion (`ct completion zsh\|bash\|fish`); OS specifics in `internal/platform` |
+| `assets/` | built into `ct`: `vault-scaffold/` (what `ct vault init` copies into a vault), `plugin/` and `graph/` (below) |
+| `assets/plugin/` | the Claude Code plugin `tickets`: skills (`/tickets:work-ticket`, `/tickets:pr-feedback`, `/tickets:ticket-sync`, `/tickets:kb`, `/tickets:save`, `/tickets:recall`), the role agents (`tickets:product-owner`, ...), and the hooks that tell `ct status` what a session is doing |
+| `assets/graph/` | the graphify image (`ct graph`) and the merger behind each session's code graph |
 | `testdata/`, `*_test.go` | the tests: `go test ./...` runs `ct` against a throwaway home with stub `tmux`, `podman`, `claude` and editor commands and real git, and `ct sync` against a fake Jira (`testdata/sync/`) |
-| `plugin/` | the Claude Code plugin `tickets`: skills (`/tickets:work-ticket`, `/tickets:pr-feedback`, `/tickets:ticket-sync`, `/tickets:kb`, `/tickets:save`, `/tickets:recall`), the role agents (`tickets:product-owner`, ...), and the hooks that tell `ct status` what a session is doing |
-| `graph/` | the graphify image (`ct graph`) and the merger behind each session's code graph |
 | `nix/`, `flake.nix` | the package, a home-manager module, and Obsidian modules (Linux, Flathub) |
-| `install.sh` | installing without Nix |
+| `configure`, `Makefile` | building and installing without Nix |
+| `.github/workflows/` | CI (tests on Linux, macOS and Windows; cross builds), run by hand for now |
 
 The vault's own `AGENTS.md` is the rulebook the agents follow inside the
 vault (note rules, ticket structure, who writes what). This README is the
@@ -56,22 +57,49 @@ and the Minimal theme (`programs.claude-tickets.obsidian.vaults`), and
 `nixosModules.obsidian` installs the Flathub Obsidian scoped to the vault
 folder (needs [nix-flatpak](https://github.com/gmodena/nix-flatpak)).
 
-**Without Nix:** build and install from a checkout with
-`./install.sh [--prefix ~/.local]`; `./install.sh --uninstall` removes it.
-It builds `ct` with Go, installs the plugin, the graph image sources and
-the shell completions, and lists anything missing. What you need:
+**Without Nix:** `ct` is one self-contained binary (the plugin, the graph
+image sources and the vault scaffold are built in; it unpacks what it needs
+to its cache). From a checkout:
+
+```sh
+./configure                    # or --prefix=$HOME/.local; checks what's missing
+make
+sudo make install              # ct and its zsh/bash/fish completions
+```
+
+`make uninstall` removes them; `make check` runs the tests, `make cross`
+builds every OS/arch into `dist/`. Or `go install
+github.com/zero4573/claude-tickets/cmd/ct@latest` (then `ct completion
+zsh` for completion). What you need:
 
 | Tool | For |
 |---|---|
 | Go 1.26+ | building `ct` |
 | Claude Code (`claude`) | the sessions |
 | git, tmux | worktrees; one window per ticket session |
-| podman or docker, tar | the code graph (graphify runs in an image, unpacked for sandboxes) |
+| podman or docker | the code graph (graphify runs in an image; on Linux also tar, to unpack it for sandboxes) |
 | fzf (optional) | picking a vault interactively (else a numbered list) |
 
-Windows works through WSL2 (a native build compiles, untested). For
-zsh completion, put `<prefix>/share/zsh/site-functions` on `fpath` (or
-`ct completion zsh > ~/.zfunc/_ct`).
+For zsh completion, put `<prefix>/share/zsh/site-functions` on `fpath`
+(or `ct completion zsh > ~/.zfunc/_ct`).
+
+| Platform | Status |
+|---|---|
+| Linux | everything |
+| macOS | everything (tmux from Homebrew); the code graph uses the image only (no unpacked filesystem: the runtime runs in a VM) |
+| Windows | the commands build and run natively, except ticket sessions (`ct start`, `ct attach`), which need tmux: run `ct` under WSL for those. Untested |
+
+Where `ct` keeps its own files (`ct vault` shows them):
+
+| | Linux | macOS | Windows |
+|---|---|---|---|
+| settings (`config.json`, `default-vault`) | `~/.config/claude-tickets` | `~/Library/Application Support/claude-tickets` | `%AppData%\claude-tickets` |
+| cache (graph image filesystem, unpacked plugin) | `~/.cache/claude-tickets` | `~/Library/Caches/claude-tickets` | `%LocalAppData%\claude-tickets\cache` |
+| logs | `~/.local/state` | `~/Library/Logs/claude-tickets` | `%LocalAppData%\claude-tickets\logs` |
+
+`XDG_CONFIG_HOME`, `XDG_CACHE_HOME` and `XDG_STATE_HOME` are honoured on
+every OS when set, and the `CLAUDE_TICKETS_*` variables below win over
+all of them.
 
 Then set up a vault with `ct vault init <name>` (it creates it under
 `~/Documents/Obsidian` if needed) and make it the default.
@@ -92,7 +120,10 @@ Without the module, export them.
 | `CLAUDE_TICKETS_CONTAINER` | `podman` or `docker` for the code graph (default: `ct vault configure --section runtime`, else detected; podman's docker alias counts as podman) |
 | `CLAUDE_TICKETS_SYSTEMD_SLICE` | systemd user slice the graph containers run in (Linux) |
 | `CLAUDE_TICKETS_EDITOR` | editor of `ct open` (default `code`) |
-| `CLAUDE_TICKETS_CACHE` | cache dir (default `~/.cache/claude-tickets`) |
+| `CLAUDE_TICKETS_CONFIG_DIR` | settings dir (default: per OS, see Install) |
+| `CLAUDE_TICKETS_CACHE` | cache dir (default: per OS) |
+| `CLAUDE_TICKETS_STATE_DIR` | log dir (default: per OS) |
+| `CLAUDE_TICKETS_PLUGIN`, `CLAUDE_TICKETS_GRAPH_DIR` | use this copy of the plugin / graph image sources instead of the built-in one (the Nix package sets them) |
 | `OBSIDIAN_ROOT` | where the vaults live (default `~/Documents/Obsidian`) |
 
 `CLAUDE_TICKETS_VAULT` is set by the commands for the sessions they start
@@ -174,7 +205,7 @@ across providers or owners. `ct ws repos` lists them.
 | `ct graph index [<repo>...]` | Build or refresh the main clones' code graphs. |
 | `ct layout [--apply]` | Move repos into `<projectsRoot>/<provider>/<owner>/<repo>`. |
 | `ct vault lock` / `ct vault links` | Used by `/tickets:save`: serialize writes to shared notes, and move notes without breaking wikilinks. |
-| `ct completion zsh\|bash\|fish` | Shell completion (installed by the Nix package and `install.sh`): subcommands, flags, and ticket IDs with their summary. |
+| `ct completion zsh\|bash\|fish` | Shell completion (installed by the Nix package and `make install`): subcommands, flags, and ticket IDs with their summary. |
 
 Every command acts on the **current vault**: the default one
 (`ct vault default`), else the only vault under `$OBSIDIAN_ROOT`. Switch the
@@ -189,10 +220,12 @@ Each vault's `.workflow.json` says where its tools work, so several vaults
 never share a workspace (a `MAN-1` exists in each) or a tmux session:
 
 ```json
-{ "workRoot": "~/work/<vault>", "projectsRoot": "~/Projects" }
+{ "workRoot": "~/Projects/work-<vault>", "projectsRoot": "~/Projects/repo-<vault>" }
 ```
 
-The values shown are the defaults when a key is missing. The ticket windows
+The values shown are the defaults when a key is missing: each vault gets
+its own folders. Point several vaults' `projectsRoot` at one folder to
+share main clones. The ticket windows
 always run in the tmux session `tickets-<vault>`, so a session says which
 vault it belongs to. `ct status` and `ct attach` only see the
 current vault's sessions, so switch back to reach the others.
@@ -364,7 +397,7 @@ flowchart LR
   that the graph swaps in for the main clone. You can build and test in
   it; it's never committed.
 - **`kb --print "<question>"`** answers once, headless, logging to
-  `~/.local/state/kb-<vault>.log`.
+  `kb-<vault>.log` in the log dir.
 - **`ct claude`** in any repo gives the same skills (`/tickets:kb`,
   `/tickets:recall`, `/tickets:save`) to a plain session. A plain `claude`
   session knows nothing of the vault.
@@ -389,7 +422,7 @@ flowchart TB
   the main-clone graphs changed, it waits about 2 min, since
   `ct graph index` rewrites them all at once.
 - **Where it runs:** `ct graph build` builds the image with podman or
-  docker and unpacks its filesystem into `~/.cache/claude-tickets/graphify`.
+  docker and, on Linux, unpacks its filesystem into `<cache>/graphify`.
   The server runs the image where the runtime has it, else that filesystem
   with `podman run --rootfs`: inside a container (a sandbox's nested
   podman, say) nothing is pulled or installed per session.
@@ -401,7 +434,7 @@ flowchart TB
 | graphify's dated snapshot folders | pruned after 7 days by `ct graph index` and `ct ws gc` |
 | graphify images' unpacked filesystems | other hashes' removed after 30 days unused (`ct graph build`) |
 | Finished ticket workspaces, merged graphs of stopped sessions, idle kb clones | `ct ws gc [--days 14] [--dry-run]`: keeps dirty or unpushed work, refuses to run inside a container |
-| Logs in `~/.local/state/*.log` | trimmed to the last 1 MB once past 5 MB |
+| Logs (`*.log` in the log dir) | trimmed to the last 1 MB once past 5 MB |
 
 `ct ws gc` is run by hand; a weekly timer is an easy addition.
 
@@ -426,8 +459,8 @@ leave these notes alone.
 
 - **`ct sync` fails for a source.** Check that the source's `mcp` name
   is in `$CLAUDE_TICKETS_MCP_CONFIG` and reachable, then the source's
-  adapter (`plugin/skills/ticket-sync/sources/<name>.md`) and the log,
-  `~/.local/state/ticket-sync-<vault>.log`. For Atlassian, see the vault
+  adapter (`assets/plugin/skills/ticket-sync/sources/<name>.md`) and the log,
+  `ticket-sync-<vault>.log` in the log dir (`ct vault` shows where). For Atlassian, see the vault
   note `atlassian-rovo-mcp-setup`.
 - **A session seems stuck.** `ct status` shows `needs-input` when it's
   waiting on you, and `stale` when its window is gone without the session

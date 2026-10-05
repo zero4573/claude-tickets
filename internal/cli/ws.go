@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zero4573/claude-tickets/internal/followup"
+	"github.com/zero4573/claude-tickets/internal/fsx"
 	"github.com/zero4573/claude-tickets/internal/gitx"
 	"github.com/zero4573/claude-tickets/internal/graph"
 	"github.com/zero4573/claude-tickets/internal/note"
@@ -29,13 +29,13 @@ func wsCmd() *cobra.Command {
 		Use:   "ws",
 		Short: "Git worktrees of ticket workspaces",
 		Long: `Manages the git worktrees of the current vault's ticket workspaces
-(~/work/<ID>; ~/work stands for the vault's workRoot, ~/Projects for its
-projectsRoot: see ct vault). Main clones live at
-~/Projects/<provider>/<owner>/<repo>, and each has a slug,
+(<workRoot>/<ID>; ct vault shows the vault's workRoot and projectsRoot, by
+default ~/Projects/work-<vault> and ~/Projects/repo-<vault>). Main clones
+live at <projectsRoot>/<provider>/<owner>/<repo>, and each has a slug,
 <provider>-<owner>-<repo> (e.g. bitbucket-acme-billing-service), which is
 how the vault and the code graph name it. A ticket's worktree of a repo is
-~/work/<ID>/<slug>, on branch feature/<ID>[-<description>]. Each
-workspace's repos are recorded in ~/work/<ID>/workspace.json.
+<workRoot>/<ID>/<slug>, on branch feature/<ID>[-<description>]. Each
+workspace's repos are recorded in <workRoot>/<ID>/workspace.json.
 
 A <repo> argument is a slug or <provider>/<owner>/<repo>.`,
 	}
@@ -46,7 +46,6 @@ A <repo> argument is a slug or <provider>/<owner>/<repo>.`,
 
 func warnf(format string, a ...any) { fmt.Fprintf(os.Stderr, "ct: "+format+"\n", a...) }
 
-// completeRepos offers the main clones' slugs.
 func completeRepos(cmd *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
 	ctx := vault.Optional()
 	var out []string
@@ -56,7 +55,6 @@ func completeRepos(cmd *cobra.Command, args []string, _ string) ([]string, cobra
 	return out, cobra.ShellCompDirectiveNoFileComp
 }
 
-// completeWorkspaceID offers ticket IDs with a workspace, as the first argument.
 func completeWorkspaceID(cmd *cobra.Command, args []string, s string) ([]string, cobra.ShellCompDirective) {
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
@@ -71,15 +69,13 @@ func requireKey(cmd, key string) error {
 	return nil
 }
 
-// wsRepos is a ticket workspace's repos (none without a workspace.json).
+// wsRepos is empty for a workspace without a workspace.json.
 func wsRepos(ctx vault.Context, key string) []workspace.Repo {
 	info, _ := workspace.Read(filepath.Join(ctx.WorkRoot, key))
 	return info.Repos
 }
 
 func table() *tabwriter.Writer { return tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0) }
-
-// --- repos ---
 
 func wsReposCmd() *cobra.Command {
 	return &cobra.Command{
@@ -98,15 +94,13 @@ func wsReposCmd() *cobra.Command {
 	}
 }
 
-// --- clone ---
-
 func wsCloneCmd() *cobra.Command {
 	var url string
 	cmd := &cobra.Command{
 		Use:   "clone <provider>/<owner>/<repo> | --url <git url>",
-		Short: "Clone a repo into ~/Projects/<provider>/<owner>/<repo> and build its code graph",
-		Long: `Clones a repo into ~/Projects/<provider>/<owner>/<repo> and builds its code
-graph. Run it on the host: a sandboxed session may have no git credentials.
+		Short: "Clone a repo into <projectsRoot>/<provider>/<owner>/<repo> and build its code graph",
+		Long: `Clones a repo into <projectsRoot>/<provider>/<owner>/<repo> and builds its
+code graph. Run it on the host: a sandboxed session may have no git credentials.
 The default URL is SSH (git@bitbucket.org:<owner>/<repo>.git, with
 CLAUDE_TICKETS_BITBUCKET_HOST for another Bitbucket host, or the GitHub
 equivalent). A running ticket session can add the new repo straight away:
@@ -164,8 +158,6 @@ ct ws add makes a shared clone when it can't write to the main clone's .git.`,
 	cmd.Flags().StringVar(&url, "url", "", "clone this git URL")
 	return cmd
 }
-
-// --- add ---
 
 func wsAddCmd() *cobra.Command {
 	var base, desc, version, useBranch string
@@ -296,9 +288,12 @@ func wsAdd(ctx vault.Context, key, spec, base, desc, version, useBranch string) 
 			// the real remote, so the user's push from it goes to the server.
 			mode = "clone"
 			if err := gitx.SharedClone(main, wt); err != nil {
+				_ = fsx.RemoveAll(wt)
 				return fmt.Errorf("add: making a shared clone of %s failed", slug)
 			}
 			if err := gitx.Run(wt, "checkout", "--quiet", "--no-track", "-B", branch, commit); err != nil {
+				// (left behind, the next add would take it for a finished checkout)
+				_ = fsx.RemoveAll(wt)
 				return fmt.Errorf("add: checking out %s failed in %s", branch, wt)
 			}
 			if gitx.HasRef(wt, "refs/remotes/origin/"+branch) {
@@ -334,42 +329,11 @@ func copyWorktreeIncludes(main, wt string) {
 		if f == "" {
 			continue
 		}
-		if err := copyFile(filepath.Join(main, f), filepath.Join(wt, f)); err != nil {
+		if err := fsx.CopyFile(filepath.Join(main, f), filepath.Join(wt, f)); err != nil {
 			warnf("couldn't copy %s into %s: %v", f, wt, err)
 		}
 	}
 }
-
-// copyFile is cp -p: mode and modification time kept.
-func copyFile(src, dest string) error {
-	st, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-		return err
-	}
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, st.Mode().Perm())
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(out, in); err != nil {
-		out.Close()
-		return err
-	}
-	if err := out.Close(); err != nil {
-		return err
-	}
-	_ = os.Chmod(dest, st.Mode().Perm())
-	return os.Chtimes(dest, st.ModTime(), st.ModTime())
-}
-
-// --- ls ---
 
 func wsLsCmd() *cobra.Command {
 	return &cobra.Command{
@@ -417,8 +381,6 @@ func wsLsCmd() *cobra.Command {
 	}
 }
 
-// --- diff ---
-
 func wsDiffCmd() *cobra.Command {
 	var stat bool
 	cmd := &cobra.Command{
@@ -465,8 +427,6 @@ committed or not, plus untracked files, per repo.`,
 	return cmd
 }
 
-// --- rm ---
-
 func wsRmCmd() *cobra.Command {
 	var force bool
 	cmd := &cobra.Command{
@@ -507,10 +467,10 @@ func wsRm(ctx vault.Context, key string, force bool) error {
 				continue
 			}
 			if st.IsDir() {
-				// A shared clone (see add): its branch lives only in it, so refuse
-				// to drop commits that were never pushed
-				if n, err := gitx.Out(r.Path, "rev-list", "--count", "HEAD", "--not", "--remotes"); !force && err == nil && n != "0" {
-					warnf("%s has commits that aren't on origin, not removing (push them, or use --force)", r.Slug)
+				// A shared clone (see add): its branches live only in it, so refuse
+				// to drop work that was never pushed (or that git can't vouch for)
+				if unpushed, err := gitx.Unpushed(r.Path); !force && (err != nil || unpushed) {
+					warnf("%s has commits that aren't on origin or stashed changes, not removing (push them, or use --force)", r.Slug)
 					failed = true
 					continue
 				}
@@ -564,8 +524,6 @@ func removeEmptyDirs(dir string) {
 	}
 	_ = os.Remove(dir) // only succeeds when empty
 }
-
-// --- sign ---
 
 func wsSignCmd() *cobra.Command {
 	return &cobra.Command{
@@ -661,8 +619,6 @@ func signRepo(r workspace.Repo) bool {
 	return true
 }
 
-// --- fetch ---
-
 func wsFetchCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "fetch [<repo>...]",
@@ -719,7 +675,7 @@ func wsFetch(ctx vault.Context, specs []string) error {
 				continue
 			}
 			main := filepath.Join(ctx.ProjectsRoot, r.Clone())
-			if !isDir(filepath.Join(r.Path, ".git")) || !isDir(filepath.Join(main, ".git")) {
+			if !fsx.IsDir(filepath.Join(r.Path, ".git")) || !fsx.IsDir(filepath.Join(main, ".git")) {
 				continue
 			}
 			if gitx.RefreshSharedClone(main, r.Path) != nil {
@@ -729,13 +685,6 @@ func wsFetch(ctx vault.Context, specs []string) error {
 	}
 	return nil
 }
-
-func isDir(p string) bool {
-	st, err := os.Stat(p)
-	return err == nil && st.IsDir()
-}
-
-// --- gc ---
 
 func wsGcCmd() *cobra.Command {
 	var days int
@@ -770,12 +719,6 @@ dated snapshots older than a week.`,
 	return cmd
 }
 
-// idleFor is find -mtime +days: untouched for more than days days.
-func idleFor(path string, days int) bool {
-	st, err := os.Stat(path)
-	return err == nil && time.Since(st.ModTime()) >= time.Duration(days+1)*24*time.Hour
-}
-
 func wsGc(ctx vault.Context, days int, dry bool) error {
 	act := ""
 	if dry {
@@ -790,8 +733,7 @@ func wsGc(ctx vault.Context, days int, dry bool) error {
 		ws := workspace.File(dir)
 		running := workspace.Running(dir, ctx.TmuxSession)
 
-		// Finished tickets
-		if !kb && !running && idleFor(ws, days) {
+		if !kb && !running && fsx.OlderThanDays(ws, days) {
 			info, _ := workspace.Read(dir)
 			status := ""
 			if info.Vault != "" {
@@ -809,29 +751,27 @@ func wsGc(ctx vault.Context, days int, dry bool) error {
 								key, status, dir, key, key))
 						}
 					}
-					if !isDir(dir) {
+					if !fsx.IsDir(dir) {
 						continue
 					}
 				}
 			}
 		}
 
-		// Merged graph of a session that isn't running
-		if !running && isDir(filepath.Join(dir, "graphify-out")) {
+		if !running && fsx.IsDir(filepath.Join(dir, "graphify-out")) {
 			fmt.Printf("ct ws gc: %sdrop the merged graph of %s\n", act, key)
 			if !dry {
 				_ = os.RemoveAll(filepath.Join(dir, "graphify-out"))
 			}
 		}
 
-		// Idle kb exploration clones
 		if kb && !running {
 			info, _ := workspace.Read(dir)
 			for _, r := range info.Repos {
-				if r.Mode != "explore" || !isDir(filepath.Join(r.Path, ".git")) {
+				if r.Mode != "explore" || !fsx.IsDir(filepath.Join(r.Path, ".git")) {
 					continue
 				}
-				if idleFor(filepath.Join(r.Path, ".git", "HEAD"), days) && !gitx.Dirty(r.Path) {
+				if fsx.OlderThanDays(filepath.Join(r.Path, ".git", "HEAD"), days) && !gitx.Dirty(r.Path) {
 					fmt.Printf("ct ws gc: %sremove kb exploration clone %s\n", act, r.Slug)
 					if !dry {
 						_ = os.RemoveAll(r.Path)
@@ -844,7 +784,6 @@ func wsGc(ctx vault.Context, days int, dry bool) error {
 		}
 	}
 
-	// graphify's dated snapshots: main clones and checkouts
 	if !dry {
 		outs := graphOutDirs(ctx)
 		graph.PruneSnapshots(outs...)
@@ -879,7 +818,7 @@ func graphOutDirs(ctx vault.Context) []string {
 			strings.HasPrefix(top, ".") && !strings.HasPrefix(top, ".kb-") {
 			continue
 		}
-		if isDir(d) {
+		if fsx.IsDir(d) {
 			out = append(out, d)
 		}
 	}

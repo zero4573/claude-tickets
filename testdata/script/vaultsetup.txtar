@@ -10,8 +10,8 @@ exists home/Documents/Obsidian/demo/tickets.base
 grep '"folder": "templates"' home/Documents/Obsidian/demo/.obsidian/templates.json
 grep '"bases": true' home/Documents/Obsidian/demo/.obsidian/core-plugins.json
 grep '"covered-by": "text"' home/Documents/Obsidian/demo/.obsidian/types.json
-grep '"workRoot": "~/work/demo"' home/Documents/Obsidian/demo/.workflow.json
-grep '"projectsRoot": "~/Projects"' home/Documents/Obsidian/demo/.workflow.json
+grep '"workRoot": "~/Projects/work-demo"' home/Documents/Obsidian/demo/.workflow.json
+grep '"projectsRoot": "~/Projects/repo-demo"' home/Documents/Obsidian/demo/.workflow.json
 grep '"idPrefix": "MAN"' home/Documents/Obsidian/demo/tickets/.sources.json
 grep '"servicenow"' home/Documents/Obsidian/demo/tickets/.sources.json
 grep '"container": "podman"' home/.config/claude-tickets/config.json
@@ -26,12 +26,14 @@ grep '^mine$' home/Documents/Obsidian/demo/AGENTS.md
 grep '"status": "number"' home/Documents/Obsidian/demo/.obsidian/types.json
 grep '"blocked": "checkbox"' home/Documents/Obsidian/demo/.obsidian/types.json
 
-# a second vault: its default projectsRoot is shared, an overlap
-! exec ct vault init other
-stderr 'projectsRoot ~/Projects overlaps demo.s projectsRoot ~/Projects: the vaults share main clones'
+# a second vault gets folders of its own
+exec ct vault init other
+grep '"projectsRoot": "~/Projects/repo-other"' home/Documents/Obsidian/other/.workflow.json
+# a default that overlaps another vault's chosen folder is refused
+cp other-workflow.json home/Documents/Obsidian/other/.workflow.json
+! exec ct vault init third
+stderr 'projectsRoot ~/Projects/repo-third overlaps other.s workRoot ~/Projects/repo-third'
 stderr 'overlapping folders \(--allow-overlap'
-exec ct vault init other --allow-overlap
-grep '"projectsRoot": "~/Projects"' home/Documents/Obsidian/other/.workflow.json
 
 ! exec ct vault configure demo --section nope
 stderr 'no section .nope.'
@@ -41,7 +43,6 @@ rm home/Documents/Obsidian/demo/tickets/.sources.json
 exec ct vault configure demo --section sources
 stdout 'wrote tickets/.sources.json \(jira: false, manual: true\)'
 
-# ct vault lock
 exec ct vault lock status home/Documents/Obsidian/demo
 stdout '^unlocked$'
 exec ct vault lock acquire home/Documents/Obsidian/demo PROJ-1
@@ -56,7 +57,6 @@ stdout '^PROJ-3$'
 ! exec ct vault lock status home
 stderr 'not an Obsidian vault'
 
-# ct vault links
 cp note.md home/Documents/Obsidian/demo/inbox/note.md
 ! exec ct vault links check home/Documents/Obsidian/demo inbox/note.md
 stdout '^inbox/note.md:1: unresolved link \[\[nowhere\]\]$'
@@ -65,6 +65,8 @@ stdout '^knowledge-base/note.md$'
 ! exec ct vault links move home/Documents/Obsidian/demo knowledge-base/note.md projects/system/system.md
 stderr 'destination exists'
 
+-- other-workflow.json --
+{"workRoot": "~/Projects/repo-third", "projectsRoot": "~/Projects/repo-other"}
 -- mytypes.json --
 {"types": {"status": "number"}}
 -- mine.md --

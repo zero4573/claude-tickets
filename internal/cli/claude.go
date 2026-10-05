@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zero4573/claude-tickets/internal/fsx"
 	"github.com/zero4573/claude-tickets/internal/gitx"
 	"github.com/zero4573/claude-tickets/internal/repo"
 	"github.com/zero4573/claude-tickets/internal/session"
@@ -52,8 +53,8 @@ are claude's own. Without ct claude a session knows nothing of the vault.`,
 	return cmd
 }
 
-// repoSlugAt is the slug of the repo dir is in: from its path under the
-// projects root, else from its origin ("" outside a repo).
+// repoSlugAt takes the slug from dir's path under the projects root, else
+// from its origin ("" outside a repo).
 func repoSlugAt(ctx vault.Context, dir string) string {
 	top, err := gitx.Out(dir, "rev-parse", "--show-toplevel")
 	if err != nil || top == "" {
@@ -63,8 +64,8 @@ func repoSlugAt(ctx vault.Context, dir string) string {
 	if r, err := filepath.EvalSymlinks(root); err == nil {
 		root = r
 	}
-	if rel, err := filepath.Rel(root, top); err == nil && !strings.HasPrefix(rel, "..") && strings.Count(rel, "/") == 2 {
-		return repo.Slug(rel)
+	if rel, err := filepath.Rel(root, top); err == nil && fsx.Inside(top, root) && fsx.Depth(rel) == 3 {
+		return repo.Slug(filepath.ToSlash(rel))
 	}
 	url, _ := gitx.Out(top, "remote", "get-url", "origin")
 	if id, ok := repo.RemoteIdentity(url); ok {

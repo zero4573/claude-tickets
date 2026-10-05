@@ -1,15 +1,15 @@
 # ct layout: repos into <root>/<provider>/<owner>/<repo>
 mkdir home/Documents/Obsidian/a/.obsidian
-exec git init -q home/Projects/misc/tools
-exec git -C home/Projects/misc/tools remote add origin https://gitlab.com/acme/infra/tools.git
-exec git init -q home/Projects/github
-exec git -C home/Projects/github remote add origin git@github.com:acme/web.git
-exec git init -q home/Projects/github/acme/billing
-exec git -C home/Projects/github/acme/billing remote add origin git@github.com:acme/billing.git
-exec git init -q home/Projects/scratch
-exec git init -q home/Projects/old/billing-copy
-exec git -C home/Projects/old/billing-copy remote add origin https://github.com/acme/billing
-cp empty home/Projects/misc/tools/uncommitted.txt
+exec git init -q home/Projects/repo-a/misc/tools
+exec git -C home/Projects/repo-a/misc/tools remote add origin https://gitlab.com/acme/infra/tools.git
+exec git init -q home/Projects/repo-a/github
+exec git -C home/Projects/repo-a/github remote add origin git@github.com:acme/web.git
+exec git init -q home/Projects/repo-a/github/acme/billing
+exec git -C home/Projects/repo-a/github/acme/billing remote add origin git@github.com:acme/billing.git
+exec git init -q home/Projects/repo-a/scratch
+exec git init -q home/Projects/repo-a/old/billing-copy
+exec git -C home/Projects/repo-a/old/billing-copy remote add origin https://github.com/acme/billing
+cp empty home/Projects/repo-a/misc/tools/uncommitted.txt
 
 exec ct layout
 
@@ -19,23 +19,35 @@ stdout '^move   github/acme/billing \(inside a repo that moves; staged and put b
 stdout '^skip   scratch \(no hosted origin remote: none\)$'
 stdout '^skip   old/billing-copy -> github/acme/billing \(another clone of it, github/acme/billing, goes there\)$'
 stdout '3 repo\(s\) to move, 2 skipped \(dry run'
-exists home/Projects/misc/tools/.git
+exists home/Projects/repo-a/misc/tools/.git
 
 exec ct layout --apply
 stdout 'moved 3 repo\(s\), skipped 2'
-exists home/Projects/gitlab/acme-infra/tools/.git
-exists home/Projects/gitlab/acme-infra/tools/uncommitted.txt
-exists home/Projects/github/acme/web/.git
-exists home/Projects/github/acme/billing/.git
-! exists home/Projects/misc
+exists home/Projects/repo-a/gitlab/acme-infra/tools/.git
+exists home/Projects/repo-a/gitlab/acme-infra/tools/uncommitted.txt
+exists home/Projects/repo-a/github/acme/web/.git
+exists home/Projects/repo-a/github/acme/billing/.git
+! exists home/Projects/repo-a/misc
 exec ct ws repos
 stdout '^github-acme-billing +github/acme/billing$'
 stdout '^github-acme-web +github/acme/web$'
 stdout '^gitlab-acme-infra-tools +gitlab/acme-infra/tools$'
 
-exec ct layout --root home/Projects
+exec ct layout --root home/Projects/repo-a
 stdout '0 repo\(s\) to move'
 ! exec ct layout --root nope
 stderr 'no such directory'
+
+# A repo holding one with linked worktrees stays (moving it would break them)
+exec git init -q -b main r2/outer
+exec git -C r2/outer remote add origin git@github.com:acme/outer.git
+exec git init -q -b main r2/outer/inner
+exec git -C r2/outer/inner remote add origin git@github.com:acme/inner.git
+exec git -C r2/outer/inner commit -q --allow-empty -m init
+exec git -C r2/outer/inner worktree add -q ../../wt
+exec ct layout --root r2
+stdout '^skip   outer/inner -> github/acme/inner \(has linked worktrees'
+stdout '^skip   outer -> github/acme/outer \(holds outer/inner, which has linked worktrees\)'
+stdout '0 repo\(s\) to move, 2 skipped'
 
 -- empty --
