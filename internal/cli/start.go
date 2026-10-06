@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -22,10 +23,33 @@ import (
 
 type startOpts struct {
 	force, noFetch, feedback, noAttach, list, all bool
+	// name is the command as typed (ct start, ct feedback), for messages
+	name string
 }
 
+// isTerminal: stdin and stdout are a terminal (a session can run here, a
+// window can be attached to).
+var isTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd())) }
+
+// AssumeTerminal makes ct treat stdin and stdout as a terminal. For tests
+// only: the ct-tty command of the CLI tests.
+func AssumeTerminal() { isTerminal = func() bool { return true } }
+
+const forceHelp = "start tickets marked ignore: true too, one covered by an open lead ticket on its own, or (without a multiplexer) one whose session only looks running from its .agent-state"
+const noAttachHelp = "with one ID, don't switch to its window (needs a terminal multiplexer)"
+
+// launcherHelp is the part of ct start's and ct feedback's help about
+// running without a terminal multiplexer.
+const launcherHelp = `Without a terminal multiplexer (CLAUDE_TICKETS_LAUNCHER, or config.json's
+launcher: tmux or none; by default tmux when it's installed, else none), the
+session runs in this terminal, in the foreground: one ticket at a time,
+from a terminal, and --no-attach is refused. A ticket whose session is
+running (its process is alive on this host) isn't started again; one whose
+session only looks running (its .agent-state is less than a day old and not
+exited, e.g. after its terminal was closed) needs --force.`
+
 func startCmd() *cobra.Command {
-	var o startOpts
+	o := startOpts{name: "ct start"}
 	cmd := &cobra.Command{
 		Use:   "start [--force] [--no-fetch] [--feedback] [--no-attach] <ID>... | --list [--all]",
 		Short: "Start (or re-open) one session per named ticket",
@@ -41,6 +65,8 @@ The workspace is marked as trusted in Claude Code, so the session starts
 without asking. With one ID, run from a terminal, it then switches to that
 window (--no-attach doesn't). Attach later with ct attach <ID>, see all of
 them with ct status.
+
+` + launcherHelp + `
 
 --feedback runs /tickets:pr-feedback <ID> instead: apply the review feedback
 on your open PRs for the ticket (ct feedback is a shorthand). A ticket whose
@@ -65,20 +91,27 @@ window is already open gets /tickets:pr-feedback typed into it.
 		},
 	}
 	f := cmd.Flags()
-	f.BoolVar(&o.force, "force", false, "start tickets marked ignore: true too, or one covered by an open lead ticket on its own")
+	f.BoolVar(&o.force, "force", false, forceHelp)
 	f.BoolVar(&o.noFetch, "no-fetch", false, "skip fetching the main clones first")
 	f.BoolVar(&o.feedback, "feedback", false, "run /tickets:pr-feedback instead of /tickets:work-ticket")
-	f.BoolVar(&o.noAttach, "no-attach", false, "with one ID, don't switch to its window")
+	f.BoolVar(&o.noAttach, "no-attach", false, noAttachHelp)
 	f.BoolVar(&o.list, "list", false, "print the vault's open tickets")
 	f.BoolVar(&o.all, "all", false, "with --list: done and closed tickets too")
 	return cmd
 }
 
 func feedbackCmd() *cobra.Command {
-	var o startOpts
+	o := startOpts{name: "ct feedback"}
 	cmd := &cobra.Command{
-		Use:               "feedback [--force] [--no-fetch] [--no-attach] <ID>...",
-		Short:             "ct start --feedback: apply the review feedback on your open PRs",
+		Use:   "feedback [--force] [--no-fetch] [--no-attach] <ID>...",
+		Short: "ct start --feedback: apply the review feedback on your open PRs",
+		Long: `Starts a session per ticket named running /tickets:pr-feedback <ID>: it
+applies the review feedback on your open PRs for the ticket, as ct start
+--feedback does. A ticket whose window is already open gets
+/tickets:pr-feedback typed into it.
+
+` + launcherHelp + ` There, a running session gets no
+keys typed into it: type /tickets:pr-feedback in its terminal yourself.`,
 		Args:              cobra.MinimumNArgs(1),
 		ValidArgsFunction: completeIDs(openTickets),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -91,9 +124,9 @@ func feedbackCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.BoolVar(&o.force, "force", false, "start tickets marked ignore: true too, or one covered by an open lead ticket on its own")
+	f.BoolVar(&o.force, "force", false, forceHelp)
 	f.BoolVar(&o.noFetch, "no-fetch", false, "skip fetching the main clones first")
-	f.BoolVar(&o.noAttach, "no-attach", false, "with one ID, don't switch to its window")
+	f.BoolVar(&o.noAttach, "no-attach", false, noAttachHelp)
 	return cmd
 }
 
@@ -108,6 +141,10 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 			seen[k] = true
 			keys = append(keys, k)
 		}
+	}
+	l, err := launcher.Resolve()
+	if err != nil {
+		return err
 	}
 	// Every ID must be one of the vault's tickets, or nothing starts
 	var missing []string
@@ -126,6 +163,18 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 	skill := "work-ticket"
 	if o.feedback {
 		skill = "pr-feedback"
+	}
+	// Without background windows, the one session runs here, in the foreground
+	foreground := !l.Caps().Background
+	if foreground {
+		switch {
+		case len(keys) > 1:
+			return fmt.Errorf("without a terminal multiplexer, %s takes one ticket (got %d); set %s=tmux to run several", o.name, len(keys), launcher.EnvVar)
+		case o.noAttach:
+			return errors.New("--no-attach needs a terminal multiplexer: without one, the session runs in this terminal")
+		case !isTerminal():
+			return fmt.Errorf("without a terminal multiplexer, the session runs in this terminal, and this isn't one (stdin/stdout); run it from a terminal, or set %s=tmux", launcher.EnvVar)
+		}
 	}
 
 	var launch []string
@@ -157,6 +206,11 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 	if len(launch) == 0 {
 		return exitError(1)
 	}
+	if foreground {
+		if err := refuseRunning(ctx, l, launch[0], o); err != nil {
+			return err
+		}
+	}
 
 	if !o.noFetch {
 		if err := wsFetch(ctx, nil); err != nil {
@@ -173,14 +227,21 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 	}
 
 	for _, k := range launch {
-		if err := startOne(ctx, k, skill, dirs, graphOK); err != nil {
+		w, resume, err := prepareSession(ctx, k, skill, dirs, graphOK)
+		if err != nil {
+			return err
+		}
+		if foreground {
+			return runForeground(l, w, resume, o)
+		}
+		if err := openWindow(ctx, l, w, skill, resume); err != nil {
 			return err
 		}
 	}
 
-	if !o.noAttach && len(keys) == 1 && term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd())) &&
-		launcher.HasWindow(launcher.Get(), ctx.TmuxSession, keys[0]) {
-		return launcher.Get().Attach(ctx.TmuxSession, keys[0])
+	if l.Caps().Attach && !o.noAttach && len(keys) == 1 && isTerminal() &&
+		launcher.HasWindow(l, ctx.TmuxSession, keys[0]) {
+		return l.Attach(ctx.TmuxSession, keys[0])
 	}
 	return nil
 }
@@ -195,6 +256,46 @@ func sessionDirs(ctx vault.Context) []string {
 		dirs = append(dirs, filepath.Join(ctx.ProjectsRoot, c, ".git"))
 	}
 	return append(dirs, filepath.Join(config.CacheDir(), "graphify"))
+}
+
+// refuseRunning keeps a second foreground session out of a workspace whose
+// session runs: always when its process is alive here, unless --force when
+// only its .agent-state says so (its terminal may have been closed).
+func refuseRunning(ctx vault.Context, l launcher.Launcher, key string, o startOpts) error {
+	st := workspace.Session(filepath.Join(ctx.WorkRoot, key), l, ctx.TmuxSession)
+	switch {
+	case !st.Running:
+		return nil
+	case st.By == workspace.ByAgentState:
+		if o.force {
+			return nil
+		}
+		ts := st.State.TS
+		if ts == "" {
+			ts = "-"
+		}
+		force := o.name + " --force " + key
+		if o.feedback && o.name == "ct start" {
+			force = "ct start --feedback --force " + key
+		}
+		if o.feedback {
+			return fmt.Errorf("%s: its session looks running (.agent-state: %s at %s); type /tickets:pr-feedback in that session's terminal, or if it isn't running, %s",
+				key, st.State.State, ts, force)
+		}
+		return fmt.Errorf("%s: its session looks running (.agent-state: %s at %s); it's in the terminal where it was started. If it isn't (terminal closed), %s",
+			key, st.State.State, ts, force)
+	case st.By == workspace.ByPID:
+		if o.feedback {
+			return fmt.Errorf("%s: its session is running (pid %d) in another terminal; type /tickets:pr-feedback there", key, st.PID)
+		}
+		started := ""
+		if t, err := time.Parse(time.RFC3339, st.Started); err == nil {
+			started = ", started " + t.Format("15:04")
+		}
+		return fmt.Errorf("%s: its session is running (pid %d%s) in another terminal; continue there, or end it first", key, st.PID, started)
+	default:
+		return fmt.Errorf("%s: its session is running in another window; continue there, or end it first", key)
+	}
 }
 
 // prepareTicketSession readies a ticket's workspace for a session (its
@@ -218,18 +319,20 @@ func prepareTicketSession(ctx vault.Context, key string, dirs []string) (string,
 	return dir, argv, err
 }
 
-func startOne(ctx vault.Context, key, skill string, dirs []string, graphOK bool) error {
+// prepareSession readies a ticket's workspace (prepareTicketSession, plus the
+// graph MCP config) and builds its session; resume when the workspace already
+// ran one (it continues it).
+func prepareSession(ctx vault.Context, key, skill string, dirs []string, graphOK bool) (launcher.Window, bool, error) {
 	_, err := os.Stat(filepath.Join(ctx.WorkRoot, key, ".agent-state"))
 	resume := err == nil
 	dir, argv, err := prepareTicketSession(ctx, key, dirs)
 	if err != nil {
-		return err
+		return launcher.Window{}, false, err
 	}
-	prompt := "/tickets:" + skill + " " + key
 	if graphOK {
 		mcp, err := session.WriteGraphMCP(dir, ctx.Vault)
 		if err != nil {
-			return err
+			return launcher.Window{}, false, err
 		}
 		argv = append(argv, "--mcp-config", mcp)
 	}
@@ -237,11 +340,22 @@ func startOne(ctx vault.Context, key, skill string, dirs []string, graphOK bool)
 	if resume {
 		argv = append(argv, "--continue")
 	}
-	argv = append(argv, prompt)
+	argv = append(argv, sessionPrompt(skill, key))
+	// The vault goes with the session (not with a backend server started now:
+	// shells opened there later would act on this vault, whatever the default)
+	return launcher.Window{Group: ctx.TmuxSession, Name: key, Dir: dir, Argv: argv,
+		Env: map[string]string{"CLAUDE_TICKETS_VAULT": ctx.Vault}, Unset: []string{"CLAUDE_TICKETS_VAULT"}}, resume, nil
+}
 
-	l := launcher.Get()
+func sessionPrompt(skill, key string) string { return "/tickets:" + skill + " " + key }
+
+// openWindow starts a session in a background window, or (feedback) types
+// the prompt into its window when it's open already.
+func openWindow(ctx vault.Context, l launcher.Launcher, w launcher.Window, skill string, resume bool) error {
+	key := w.Name
 	if launcher.HasWindow(l, ctx.TmuxSession, key) {
 		if skill == "pr-feedback" {
+			prompt := sessionPrompt(skill, key)
 			if err := l.SendKeys(ctx.TmuxSession, key, prompt); err != nil {
 				return err
 			}
@@ -251,10 +365,12 @@ func startOne(ctx vault.Context, key, skill string, dirs []string, graphOK bool)
 		}
 		return nil
 	}
-	// The vault goes with the session (not with a backend server started now:
-	// shells opened there later would act on this vault, whatever the default)
-	if err := l.Open(launcher.Window{Group: ctx.TmuxSession, Name: key, Dir: dir, Argv: argv,
-		Env: map[string]string{"CLAUDE_TICKETS_VAULT": ctx.Vault}, Unset: []string{"CLAUDE_TICKETS_VAULT"}}); err != nil {
+	// A record left by a foreground session that has ended would otherwise
+	// make this window's session look dead
+	if err := workspace.PruneSessions(w.Dir); err != nil {
+		warnf("couldn't update %s: %v", workspace.SessionsFile(w.Dir), err)
+	}
+	if err := l.Open(w); err != nil {
 		return fmt.Errorf("couldn't open a window for %s: %w", key, err)
 	}
 	cont := ""
@@ -263,6 +379,28 @@ func startOne(ctx vault.Context, key, skill string, dirs []string, graphOK bool)
 	}
 	fmt.Printf("ct start: %s started in %s%s -- ct attach %s\n", key, ctx.TmuxSession, cont, key)
 	return nil
+}
+
+// runForeground runs the session in this terminal: ct becomes claude
+// (Windows: waits for it), and the session's process is recorded so other
+// commands see it running.
+func runForeground(l launcher.Resolved, w launcher.Window, resume bool, o startOpts) error {
+	cont := ""
+	if resume {
+		cont = " (continuing its last session)"
+	}
+	fmt.Printf("ct start: %s runs in this terminal%s; no window to come back to, ct start %s later continues it\n", w.Name, cont, w.Name)
+	if l.Source == launcher.FromDetected {
+		fmt.Fprintln(os.Stderr, "ct start: tmux not found, so the session runs here; install tmux for background windows and several sessions at once")
+	}
+	command := "start"
+	if o.feedback {
+		command = "feedback"
+	}
+	if err := workspace.RecordSession(w.Dir, command); err != nil {
+		warnf("couldn't record the session in %s: %v", workspace.SessionsFile(w.Dir), err)
+	}
+	return passExit(launcher.Run(w))
 }
 
 func ticketClaudeMD(ctx vault.Context, key, dir string) string {

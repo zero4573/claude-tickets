@@ -127,6 +127,10 @@ func kb(ctx vault.Context, question string, cont, print, fetch bool) error {
 		if err != nil {
 			return err
 		}
+		// So ct ws gc sees the session running while its process lives
+		if err := workspace.RecordSession(dir, "kb"); err != nil {
+			warnf("couldn't record the session in %s: %v", workspace.SessionsFile(dir), err)
+		}
 		return passExit(execReplaceOrRun(path, argv))
 	}
 	// One-shot answer: progress as it happens, also logged

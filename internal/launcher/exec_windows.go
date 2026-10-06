@@ -2,14 +2,7 @@
 
 package launcher
 
-import (
-	"os"
-	"os/exec"
-)
+import "errors"
 
-// execTmux runs tmux in the foreground (Windows has no exec).
-func execTmux(args ...string) error {
-	cmd := exec.Command("tmux", args...)
-	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
-	return cmd.Run()
-}
+// execReplace isn't possible on Windows: the caller runs the program instead.
+func execReplace(path string, argv, env []string) error { return errors.New("no exec on windows") }

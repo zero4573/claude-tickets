@@ -48,9 +48,22 @@ func completeIDs(list func(vault.Context) []note.Ticket) func(*cobra.Command, []
 
 func openTickets(ctx vault.Context) []note.Ticket { return note.List(ctx.Vault, false) }
 
+// windowTickets is the tickets with an open window (none with a launcher
+// that doesn't list windows, or a bad launcher setting).
 func windowTickets(ctx vault.Context) []note.Ticket {
+	l, err := launcher.Resolve()
+	if err != nil {
+		return nil
+	}
+	return windowTicketsOf(ctx, l)
+}
+
+func windowTicketsOf(ctx vault.Context, l launcher.Launcher) []note.Ticket {
+	if !l.Caps().List {
+		return nil
+	}
 	open := map[string]bool{}
-	for _, w := range launcher.Get().Windows(ctx.TmuxSession) {
+	for _, w := range l.Windows(ctx.TmuxSession) {
 		open[w] = true
 	}
 	var out []note.Ticket
@@ -225,20 +238,35 @@ first:
   AGENT   what the session is doing, from its hooks (.agent-state):
           needs-input (a question or permission prompt is waiting),
           idle (finished its turn, waiting for your next message),
-          working, exited; "stale" when its window is gone without the
-          session having ended
-  WINDOW  whether its window in the vault's tmux session is open
+          working, exited; "stale" when its window is gone, or its
+          process has ended, without the session having ended
+  WINDOW  whether its window in the vault's tmux session is open; "-"
+          without a terminal multiplexer (CLAUDE_TICKETS_LAUNCHER=none, or
+          no tmux installed), where sessions run in their own terminal
   SOURCE  where the ticket comes from (jira, manual, ...)
   STATUS  the ticket note's status in the vault
-  REPOS   worktrees, and how many have uncommitted changes`,
+  REPOS   worktrees, and how many have uncommitted changes
+
+A session counts as running when its window is open, else when its process
+(recorded by ct start without a multiplexer) is alive on this host, else,
+when that can't be checked, when its .agent-state is less than a day old
+and not exited.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := vault.Require()
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Vault %s, tmux session %s\n", filepath.Base(ctx.Vault), ctx.TmuxSession)
-			rows := statusRows(ctx)
+			l, err := launcher.Resolve()
+			if err != nil {
+				return err
+			}
+			if l.Caps().Background {
+				fmt.Printf("Vault %s, %s session %s\n", filepath.Base(ctx.Vault), l.Name(), ctx.TmuxSession)
+			} else {
+				fmt.Printf("Vault %s, no terminal multiplexer (sessions run in their own terminal)\n", filepath.Base(ctx.Vault))
+			}
+			rows := statusRows(ctx, l)
 			if len(rows) == 0 {
 				fmt.Printf("No ticket workspaces under %s (start one with ct start <ID>).\n", ctx.WorkRoot)
 				return nil
@@ -261,9 +289,9 @@ type statusRow struct {
 
 var vaultLine = regexp.MustCompile("(?m)^- Vault: `([^`]*)`")
 
-func statusRows(ctx vault.Context) []statusRow {
+func statusRows(ctx vault.Context, l launcher.Launcher) []statusRow {
 	windows := map[string]bool{}
-	for _, w := range launcher.Get().Windows(ctx.TmuxSession) {
+	for _, w := range l.Windows(ctx.TmuxSession) {
 		windows[w] = true
 	}
 	var rows []statusRow
@@ -274,11 +302,14 @@ func statusRows(ctx vault.Context) []statusRow {
 		if state == "" {
 			state = "-"
 		}
-		if state != "exited" && state != "-" && !workspace.Running(dir, ctx.TmuxSession) {
+		if state != "exited" && state != "-" && !workspace.Running(dir, l, ctx.TmuxSession) {
 			state += " (stale)"
 		}
 		window := "no"
-		if windows[key] {
+		switch {
+		case !l.Caps().List:
+			window = "-"
+		case windows[key]:
 			window = "yes"
 		}
 		info, _ := workspace.Read(dir)
@@ -344,8 +375,16 @@ func statusRows(ctx vault.Context) []statusRow {
 func attachCmd() *cobra.Command {
 	var list bool
 	cmd := &cobra.Command{
-		Use:               "attach <ID> | --list",
-		Short:             "Switch to a ticket's window in the vault's tmux session",
+		Use:   "attach <ID> | --list",
+		Short: "Switch to a ticket's window in the vault's tmux session (tmux)",
+		Long: `Switches to a ticket's window in the vault's tmux session (tickets-<vault>):
+inside tmux it switches the client, outside it attaches.
+
+Without a terminal multiplexer (CLAUDE_TICKETS_LAUNCHER=none, or no tmux
+installed) there are no windows: a running session (see ct status) is in
+the terminal where it was started, --list prints nothing, and ct attach
+<ID> fails. Switching the launcher hides the windows opened under the
+other one (they keep running).`,
 		Args:              cobra.MaximumNArgs(1),
 		ValidArgsFunction: completeIDs(windowTickets),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -353,18 +392,25 @@ func attachCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			l, err := launcher.Resolve()
+			if err != nil {
+				return err
+			}
 			if list {
-				printTickets(windowTickets(ctx))
+				printTickets(windowTicketsOf(ctx, l))
 				return nil
 			}
 			if len(args) != 1 {
 				return cmd.Usage()
 			}
 			key := args[0]
-			if !launcher.HasWindow(launcher.Get(), ctx.TmuxSession, key) {
-				return fmt.Errorf("no window for %s in tmux session '%s' (start it with ct start %s)", key, ctx.TmuxSession, key)
+			if !l.Caps().Attach {
+				return errors.New("no windows to attach to without a terminal multiplexer: a running session (see ct status) is in the terminal where it was started")
 			}
-			return launcher.Get().Attach(ctx.TmuxSession, key)
+			if !launcher.HasWindow(l, ctx.TmuxSession, key) {
+				return fmt.Errorf("no window for %s in %s session '%s' (start it with ct start %s)", key, l.Name(), ctx.TmuxSession, key)
+			}
+			return l.Attach(ctx.TmuxSession, key)
 		},
 	}
 	cmd.Flags().BoolVar(&list, "list", false, "print the tickets with an open window")

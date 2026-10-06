@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/links"
 	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/workspace"
@@ -34,13 +35,14 @@ const (
 // Options is a run's flags and where it works.
 type Options struct {
 	Vault, WorkRoot, TmuxSession string
-	IDs                          []string // only these (default: every ticket)
+	Launcher                     launcher.Launcher // whose windows count as running sessions
+	IDs                          []string          // only these (default: every ticket)
 	IncludeDone, KeepManual      bool
 	Purge, Save                  bool
 	Days                         int
 	Now                          time.Time
 	// Running tells a workspace's session is running (default:
-	// workspace.Running with TmuxSession)
+	// workspace.Running with Launcher and TmuxSession)
 	Running func(dir string) bool
 }
 
@@ -68,7 +70,7 @@ func (o Options) running(dir string) bool {
 	if o.Running != nil {
 		return o.Running(dir)
 	}
-	return workspace.Running(dir, o.TmuxSession)
+	return workspace.Running(dir, o.Launcher, o.TmuxSession)
 }
 
 func (o Options) wsDir(id string) string { return filepath.Join(o.WorkRoot, id) }

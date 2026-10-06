@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zero4573/claude-tickets/internal/config"
+	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/prompt"
 	"github.com/zero4573/claude-tickets/internal/vault"
 )
@@ -19,7 +20,9 @@ func vaultCmd() *cobra.Command {
 		Short: "The current vault and where its tools work; vault setup",
 		Long: `Without a subcommand: the vault every command acts on (the default vault,
 else the only one), and where its workspaces, main clones and tmux session
-are (its .workflow.json); and where ct keeps its own settings, cache and logs.`,
+are (its .workflow.json); the launcher ticket sessions run in (tmux or none:
+CLAUDE_TICKETS_LAUNCHER, config.json's launcher, or detected) and where that
+choice comes from; and where ct keeps its own settings, cache and logs.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v, err := vault.Current()
@@ -30,7 +33,15 @@ are (its .workflow.json); and where ct keeps its own settings, cache and logs.`,
 			fmt.Printf("vault:        %s\n", config.TildePath(v))
 			fmt.Printf("workspaces:   %s\n", config.TildePath(l.WorkRoot))
 			fmt.Printf("main clones:  %s\n", config.TildePath(l.ProjectsRoot))
-			fmt.Printf("tmux session: %s\n", l.TmuxSession)
+			// A diagnostic: a bad launcher setting is shown, not an error
+			if r, err := launcher.Resolve(); err != nil {
+				fmt.Printf("launcher:     error: %v\n", err)
+			} else {
+				fmt.Printf("launcher:     %s (%s)\n", r.Name(), r.Source)
+				if r.Caps().Background {
+					fmt.Printf("%s session: %s\n", r.Name(), l.TmuxSession)
+				}
+			}
 			fmt.Printf("config:       %s\n", config.TildePath(config.Dir()))
 			fmt.Printf("cache:        %s\n", config.TildePath(config.CacheDir()))
 			fmt.Printf("logs:         %s\n", config.TildePath(config.StateDir()))

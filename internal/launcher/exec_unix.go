@@ -2,17 +2,8 @@
 
 package launcher
 
-import (
-	"os"
-	"os/exec"
-	"syscall"
-)
+import "syscall"
 
-// execTmux replaces this process with tmux (so the terminal belongs to it).
-func execTmux(args ...string) error {
-	path, err := exec.LookPath("tmux")
-	if err != nil {
-		return err
-	}
-	return syscall.Exec(path, append([]string{"tmux"}, args...), os.Environ())
-}
+// execReplace replaces this process with path (so the terminal belongs to
+// it); it returns only on failure.
+func execReplace(path string, argv, env []string) error { return syscall.Exec(path, argv, env) }

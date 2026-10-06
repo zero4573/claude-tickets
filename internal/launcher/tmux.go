@@ -12,6 +12,8 @@ type Tmux struct{}
 
 func (Tmux) Name() string { return "tmux" }
 
+func (Tmux) Caps() Caps { return Caps{Background: true, List: true, SendKeys: true, Attach: true} }
+
 func (Tmux) Windows(group string) []string {
 	out, err := exec.Command("tmux", "list-windows", "-t", "="+group, "-F", "#W").Output()
 	if err != nil {
@@ -82,6 +84,21 @@ func (Tmux) Attach(group, name string) error {
 		return exec.Command("tmux", "switch-client", "-t", "="+group).Run()
 	}
 	return execTmux("attach-session", "-t", "="+group)
+}
+
+// execTmux replaces this process with tmux (so the terminal belongs to it),
+// or runs it in the foreground where the OS has no exec.
+func execTmux(args ...string) error {
+	path, err := exec.LookPath("tmux")
+	if err != nil {
+		return err
+	}
+	if execReplace(path, append([]string{"tmux"}, args...), os.Environ()) == nil {
+		return nil
+	}
+	cmd := exec.Command(path, args...)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	return cmd.Run()
 }
 
 // ShellJoin quotes argv for a POSIX shell.

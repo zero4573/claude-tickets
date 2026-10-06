@@ -121,20 +121,61 @@ func resolved(p string) string {
 	return p
 }
 
-// Running reports whether a workspace's session is running: its window is
-// open in the vault's tmux session (ticket sessions), or its hooks' last
-// state isn't exited and is less than a day old (kb sessions run in your
-// own terminal).
-func Running(dir, tmuxSession string) bool {
-	if launcher.HasWindow(launcher.Get(), tmuxSession, filepath.Base(dir)) {
-		return true
+// By is what told Session a session is running.
+type By int
+
+const (
+	ByNone       By = iota // not running
+	ByWindow               // its window is open (a launcher with List)
+	ByPID                  // its recorded process is alive on this host
+	ByAgentState           // only its hooks' last state says so
+)
+
+// Status is a workspace's session as Session sees it. PID and Started are
+// set with ByPID; State is always the hooks' last state.
+type Status struct {
+	Running bool
+	By      By
+	PID     int
+	Started string
+	State   State
+}
+
+// Session tells whether a workspace's session is running, in this order:
+//  1. its window is open in the vault's group (l lists windows; with the
+//     none launcher there are none, even if tmux has some);
+//  2. its recorded process (.sessions.json: ct start without a
+//     multiplexer, ct kb) is alive on this host; when every record is
+//     provably dead, it isn't running, whatever .agent-state says;
+//  3. when no record can be checked (none, another host, a container, an
+//     OS that can't tell): its hooks' last state isn't exited and is less
+//     than a day old.
+func Session(dir string, l launcher.Launcher, group string) Status {
+	st := Status{State: ReadState(dir)}
+	if l != nil && l.Caps().List && launcher.HasWindow(l, group, filepath.Base(dir)) {
+		st.Running, st.By = true, ByWindow
+		return st
 	}
-	st, err := os.Stat(filepath.Join(dir, ".agent-state"))
-	if err != nil || time.Since(st.ModTime()) > 24*time.Hour {
-		return false
+	switch live, rec := sessionLiveness(dir); live {
+	case LivenessAlive:
+		st.Running, st.By, st.PID, st.Started = true, ByPID, rec.PID, rec.Started
+		return st
+	case LivenessDead:
+		return st
 	}
-	state := ReadState(dir)
-	return state.State != "" && state.State != "exited"
+	fi, err := os.Stat(filepath.Join(dir, ".agent-state"))
+	if err != nil || time.Since(fi.ModTime()) > 24*time.Hour {
+		return st
+	}
+	if st.State.State != "" && st.State.State != "exited" {
+		st.Running, st.By = true, ByAgentState
+	}
+	return st
+}
+
+// Running is Session(...).Running.
+func Running(dir string, l launcher.Launcher, group string) bool {
+	return Session(dir, l, group).Running
 }
 
 // State is what the session's hooks last recorded (.agent-state).
