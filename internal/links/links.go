@@ -115,107 +115,240 @@ func lines(text string) []string {
 	return out
 }
 
-// link is one wikilink: its line, and the regexp's submatches.
+// Place is where a link is: its note and line, and for a line of the
+// frontmatter the field it belongs to; SourceBlock is a line between
+// <!-- source:start --> and <!-- source:end --> (a synced ticket's part
+// that the sync rewrites).
+type Place struct {
+	File        string
+	Line        int
+	Frontmatter bool
+	Field       string
+	SourceBlock bool
+}
+
+const (
+	sourceStart = "<!-- source:start -->"
+	sourceEnd   = "<!-- source:end -->"
+)
+
+var fieldRe = regexp.MustCompile(`^([A-Za-z0-9_][A-Za-z0-9_-]*):`)
+
+// eachLine calls fn for every line of text (with its line ending), saying
+// whether it's code (a fence, or inside a fenced block) and where it is.
+func eachLine(file, text string, fn func(l string, code bool, p Place)) {
+	fence, front, source := false, false, false
+	field := ""
+	for i, l := range lines(text) {
+		bare := strings.TrimRight(l, "\r\n")
+		p := Place{File: file, Line: i + 1}
+		switch {
+		case i == 0 && strings.TrimPrefix(bare, "\ufeff") == "---":
+			front = true
+			p.Frontmatter = true
+		case front && bare == "---":
+			front = false
+			p.Frontmatter = true
+		case front:
+			// An indented line or a list item belongs to the key above it
+			if m := fieldRe.FindStringSubmatch(bare); m != nil {
+				field = m[1]
+			}
+			p.Frontmatter, p.Field = true, field
+		case fenceRe.MatchString(bare):
+			fence = !fence
+			fn(l, true, p)
+			continue
+		case fence:
+			fn(l, true, p)
+			continue
+		default:
+			switch strings.TrimSpace(bare) {
+			case sourceStart:
+				source = true
+			case sourceEnd:
+				source = false
+			}
+			p.SourceBlock = source
+		}
+		fn(l, false, p)
+	}
+}
+
+// link is one wikilink: where it is, and the regexp's submatches.
 type link struct {
-	line  int
+	Place
 	parts []string
 }
 
-// linksIn is the wikilinks of text outside code.
-func linksIn(text string) []link {
+// target is a link's target as Obsidian reads it: trimmed, without the
+// backslash of a pipe escaped in a table ([[x\|alias]]).
+func target(m []string) string {
+	return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(m[2]), `\`))
+}
+
+// linksIn is the wikilinks of a note's text outside code.
+func linksIn(file, text string) []link {
 	var out []link
-	fence := false
-	for i, l := range lines(text) {
+	eachLine(file, text, func(l string, code bool, p Place) {
+		if code {
+			return
+		}
 		l = strings.TrimRight(l, "\r\n")
-		if fenceRe.MatchString(l) {
-			fence = !fence
-			continue
-		}
-		if fence {
-			continue
-		}
 		scrubbed := inlineCodeRe.ReplaceAllStringFunc(l, func(s string) string { return strings.Repeat(" ", len(s)) })
 		for _, m := range linkRe.FindAllStringSubmatch(scrubbed, -1) {
-			out = append(out, link{i + 1, m})
+			out = append(out, link{p, m})
 		}
-	}
+	})
 	return out
+}
+
+// at is a link being rewritten: where it is, its line (without the line
+// ending) and its span in the line.
+type at struct {
+	Place
+	line       string
+	start, end int
+}
+
+// rewriteLinks rewrites the wikilinks of a note's text outside code with
+// repl (given the regexp's submatches and where the link is, it returns
+// the replacement).
+func rewriteLinks(file, text string, repl func(m []string, a at) string) string {
+	var b strings.Builder
+	eachLine(file, text, func(l string, code bool, p Place) {
+		if code {
+			b.WriteString(l)
+			return
+		}
+		bare := strings.TrimRight(l, "\r\n")
+		sub := func(from, to int) {
+			seg, prev := l[from:to], 0
+			for _, loc := range linkRe.FindAllStringSubmatchIndex(seg, -1) {
+				m := make([]string, len(loc)/2)
+				for i := range m {
+					if loc[2*i] >= 0 {
+						m[i] = seg[loc[2*i]:loc[2*i+1]]
+					}
+				}
+				b.WriteString(seg[prev:loc[0]])
+				b.WriteString(repl(m, at{p, bare, from + loc[0], from + loc[1]}))
+				prev = loc[1]
+			}
+			b.WriteString(seg[prev:])
+		}
+		// Inline code spans stay as they are
+		last := 0
+		for _, loc := range inlineCodeRe.FindAllStringIndex(l, -1) {
+			sub(last, loc[0])
+			b.WriteString(l[loc[0]:loc[1]])
+			last = loc[1]
+		}
+		sub(last, len(l))
+	})
+	return b.String()
 }
 
 // replaceOutsideCode rewrites the wikilinks of text outside code with repl
 // (given the regexp's submatches, it returns the replacement).
 func replaceOutsideCode(text string, repl func(m []string) string) string {
-	var b strings.Builder
-	fence := false
-	sub := func(s string) string {
-		return linkRe.ReplaceAllStringFunc(s, func(x string) string { return repl(linkRe.FindStringSubmatch(x)) })
+	return rewriteLinks("", text, func(m []string, _ at) string { return repl(m) })
+}
+
+// notes is every note in the vault outside templates/.
+func notes(vault string) []string {
+	var out []string
+	for _, p := range Files(vault) {
+		rel, _ := filepath.Rel(vault, p)
+		if strings.HasSuffix(p, ".md") && strings.Split(filepath.ToSlash(rel), "/")[0] != "templates" {
+			out = append(out, p)
+		}
 	}
-	for _, l := range lines(text) {
-		if fenceRe.MatchString(strings.TrimRight(l, "\r\n")) {
-			fence = !fence
-			b.WriteString(l)
+	return out
+}
+
+// Problem is a link that resolves to no file (Found empty) or to several,
+// or a file to check that doesn't exist (Missing).
+type Problem struct {
+	Place
+	Target  string
+	Found   []string
+	Missing bool
+}
+
+// Problems is the broken links in files (default: every note outside
+// templates/).
+func Problems(vault string, files []string) []Problem {
+	ix := NewIndex(vault)
+	if len(files) == 0 {
+		files = notes(vault)
+	}
+	var out []Problem
+	for _, f := range files {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			out = append(out, Problem{Place: Place{File: f}, Missing: true})
 			continue
 		}
-		if fence {
-			b.WriteString(l)
-			continue
+		for _, l := range linksIn(f, string(data)) {
+			t := target(l.parts)
+			if t == "" {
+				continue
+			}
+			if found := ix.Resolve(t); len(found) != 1 {
+				out = append(out, Problem{Place: l.Place, Target: t, Found: found})
+			}
 		}
-		// Inline code spans stay as they are
-		last := 0
-		for _, loc := range inlineCodeRe.FindAllStringIndex(l, -1) {
-			b.WriteString(sub(l[last:loc[0]]))
-			b.WriteString(l[loc[0]:loc[1]])
-			last = loc[1]
-		}
-		b.WriteString(sub(l[last:]))
 	}
-	return b.String()
+	return out
+}
+
+// CheckOpts tunes CheckWith.
+type CheckOpts struct {
+	// Exempt marks unresolved links that aren't counted as problems: they
+	// get one summary line instead, ExemptNote (with %d for their number).
+	Exempt     func(p Place, target string) bool
+	ExemptNote string
 }
 
 // Check reports the wikilinks in files (default: every note outside
 // templates/) that resolve to no file, or to several (ambiguous by bare
 // name), one per line on w. It returns the number of problems.
 func Check(vault string, files []string, w io.Writer) int {
-	ix := NewIndex(vault)
+	return CheckWith(vault, files, w, CheckOpts{})
+}
+
+// CheckWith is Check, leaving out the unresolved links o.Exempt marks.
+func CheckWith(vault string, files []string, w io.Writer, o CheckOpts) int {
 	if len(files) == 0 {
-		for _, p := range Files(vault) {
-			rel, _ := filepath.Rel(vault, p)
-			if strings.HasSuffix(p, ".md") && strings.Split(filepath.ToSlash(rel), "/")[0] != "templates" {
-				files = append(files, p)
-			}
-		}
+		files = notes(vault)
 	}
-	problems := 0
-	for _, f := range files {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			fmt.Fprintf(w, "%s: file not found\n", f)
-			problems++
-			continue
-		}
-		rel := f
-		if r, err := filepath.Rel(vault, f); err == nil && !strings.HasPrefix(r, "..") {
+	problems, exempt := 0, 0
+	for _, p := range Problems(vault, files) {
+		rel := p.File
+		if r, err := filepath.Rel(vault, p.File); err == nil && !strings.HasPrefix(r, "..") {
 			rel = r
 		}
-		for _, l := range linksIn(string(data)) {
-			target := l.parts[2]
-			if strings.TrimSpace(target) == "" {
-				continue
+		switch {
+		case p.Missing:
+			fmt.Fprintf(w, "%s: file not found\n", p.File)
+		case len(p.Found) == 0 && o.Exempt != nil && o.Exempt(p.Place, p.Target):
+			exempt++
+			continue
+		case len(p.Found) == 0:
+			fmt.Fprintf(w, "%s:%d: unresolved link [[%s]]\n", rel, p.Line, p.Target)
+		default:
+			var where []string
+			for _, f := range p.Found {
+				r, _ := filepath.Rel(vault, f)
+				where = append(where, r)
 			}
-			switch found := ix.Resolve(target); {
-			case len(found) == 0:
-				fmt.Fprintf(w, "%s:%d: unresolved link [[%s]]\n", rel, l.line, target)
-				problems++
-			case len(found) > 1:
-				var where []string
-				for _, p := range found {
-					r, _ := filepath.Rel(vault, p)
-					where = append(where, r)
-				}
-				fmt.Fprintf(w, "%s:%d: ambiguous link [[%s]] -> %s\n", rel, l.line, target, strings.Join(where, ", "))
-				problems++
-			}
+			fmt.Fprintf(w, "%s:%d: ambiguous link [[%s]] -> %s\n", rel, p.Line, p.Target, strings.Join(where, ", "))
 		}
+		problems++
+	}
+	if exempt > 0 && o.ExemptNote != "" {
+		fmt.Fprintf(w, o.ExemptNote+"\n", exempt)
 	}
 	if problems == 0 {
 		fmt.Fprintf(w, "ct vault links: %d file(s) checked, all links resolve\n", len(files))
@@ -289,14 +422,8 @@ func Move(vault, src, dst string) (string, int, error) {
 	oldRel, _ := filepath.Rel(vault, src)
 	newRel, _ := filepath.Rel(vault, dst)
 	oldRel, newRel = filepath.ToSlash(oldRel), filepath.ToSlash(newRel)
-	forms := []string{strings.ToLower(oldRel)}
-	if strings.HasSuffix(src, ".md") {
-		forms = append(forms, strings.ToLower(strings.TrimSuffix(oldRel, ".md")))
-	}
-	newTarget := newRel
-	if strings.HasSuffix(dst, ".md") {
-		newTarget = strings.TrimSuffix(newRel, ".md")
-	}
+	forms := pathForms(oldRel)
+	newTarget := linkPath(newRel)
 	// A rename also breaks bare-name links ([[old]]): they're rewritten when
 	// the old name meant only this file (else they named another one)
 	bareOld, bareNew := map[string]bool{}, ""
@@ -333,21 +460,15 @@ func Move(vault, src, dst string) (string, int, error) {
 		}
 		text := string(data)
 		out := replaceOutsideCode(text, func(m []string) string {
-			// A path-qualified target matches the end of the path, so
-			// [[sequences/flow]] points at projects/x/sequences/flow.md too
 			t := strings.ToLower(strings.TrimLeft(strings.TrimSpace(m[2]), "/"))
 			if !strings.Contains(t, "/") {
 				if bareOld[t] {
 					rewritten++
 					return m[1] + "[[" + bareNew + m[3] + m[4] + "]]"
 				}
-			} else {
-				for _, form := range forms {
-					if form == t || strings.HasSuffix(form, "/"+t) {
-						rewritten++
-						return m[1] + "[[" + newTarget + m[3] + m[4] + "]]"
-					}
-				}
+			} else if namesPath(t, forms) {
+				rewritten++
+				return m[1] + "[[" + newTarget + m[3] + m[4] + "]]"
 			}
 			return m[0]
 		})
@@ -360,6 +481,33 @@ func Move(vault, src, dst string) (string, int, error) {
 	}
 	return newRel, rewritten, nil
 }
+
+// pathForms is the lower-cased forms a path-qualified link to the file at
+// vault-relative rel ("/"-separated) can take: with and, for a note,
+// without .md.
+func pathForms(rel string) []string {
+	forms := []string{strings.ToLower(rel)}
+	if strings.HasSuffix(rel, ".md") {
+		forms = append(forms, strings.ToLower(strings.TrimSuffix(rel, ".md")))
+	}
+	return forms
+}
+
+// namesPath reports whether path-qualified target t (lower-cased, no
+// leading "/") names the file with these forms. It matches the end of the
+// path, so [[sequences/flow]] points at projects/x/sequences/flow.md too.
+func namesPath(t string, forms []string) bool {
+	for _, form := range forms {
+		if form == t || strings.HasSuffix(form, "/"+t) {
+			return true
+		}
+	}
+	return false
+}
+
+// linkPath is the target of a path-qualified link to vault-relative rel
+// (a note's without .md).
+func linkPath(rel string) string { return strings.TrimSuffix(rel, ".md") }
 
 // moveFile renames, or copies and removes across filesystems.
 func moveFile(src, dst string) error {
