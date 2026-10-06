@@ -1,11 +1,13 @@
 // Package scaffold is what ct ships into a vault (assets/vault-scaffold/,
 // copied by ct vault init) and how a vault's copies compare with it: each
 // shipped file is missing, up to date, an unedited older version (stale),
-// or edited in the vault. A copy is unedited when its content is a version
-// ct has shipped: the one recorded in the vault's .scaffold.json, or any
-// version in the built-in history (assets/scaffold-history.json, generated
-// from git; see genhistory). Contents are compared normalized (Norm), so
-// line endings and trailing newlines don't count as edits.
+// or edited in the vault. A copy is an unedited older version when its
+// content is in the built-in history (assets/scaffold-history.json,
+// generated from git; see genhistory). A copy whose content is what the
+// vault's .scaffold.json records but this ct doesn't know was shipped by a
+// newer ct: it's kept (Newer), never downgraded. Contents are compared
+// normalized (Norm), so line endings and trailing newlines don't count as
+// edits.
 package scaffold
 
 import (
@@ -97,10 +99,13 @@ type State int
 const (
 	Missing       State = iota // shipped, absent from the vault: added
 	UpToDate                   // the current shipped version: nothing to do
-	Stale                      // an older shipped version, or the recorded one: updated
+	Stale                      // an older version this ct knows: updated
 	Edited                     // matches no shipped version, or isn't a regular file: kept
 	RetiredClean               // not shipped any more, unedited: kept
 	RetiredEdited              // not shipped any more, edited: kept
+	// Newer: what the record says was shipped, but a version this ct doesn't
+	// know, so a newer ct wrote it: kept (never downgraded), its entry too
+	Newer
 )
 
 // Entry is one file's state in a vault.
@@ -162,7 +167,10 @@ func Classify(vault string, src Source, rec Record) ([]Entry, error) {
 			e.State = Edited
 		case have == f.Hash:
 			e.State = UpToDate
-		case recorded && r.SHA256 == have, contains(src.History[f.Rel], have):
+		case recorded && r.SHA256 == have && !contains(src.History[f.Rel], have):
+			// what a newer ct shipped: never downgraded
+			e.State = Newer
+		case contains(src.History[f.Rel], have):
 			e.State = Stale
 		default:
 			e.State = Edited
@@ -191,8 +199,12 @@ func Classify(vault string, src Source, rec Record) ([]Entry, error) {
 		}
 		e := Entry{Rel: rel, Have: have, Reason: reason, State: RetiredEdited}
 		r, recorded := rec.Files[rel]
-		if reason == "" && (contains(src.History[rel], have) || recorded && r.SHA256 == have) {
+		switch {
+		case reason != "":
+		case contains(src.History[rel], have):
 			e.State = RetiredClean
+		case recorded && r.SHA256 == have:
+			e.State = Newer // shipped by a newer ct, not by this one
 		}
 		entries = append(entries, e)
 	}

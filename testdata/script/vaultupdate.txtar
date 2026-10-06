@@ -115,20 +115,43 @@ stderr '--diff only reports'
 ! exec ct vault update nope
 stderr 'no vault named .nope.'
 
-# a file an earlier ct shipped and this one doesn't: kept, never deleted
+# a file only a newer ct shipped (its record entry is a version this ct
+# doesn't know): kept, never deleted; once edited, it's reported as such
 env O=$WORK/home/Documents/Obsidian/old
 exec ct vault init old
 cp retired.md $O/templates/retired.md
 cp retired-record.json $O/.scaffold.json
 exec ct vault update old
-stdout '^  - templates/retired.md \(not shipped any more, unedited; kept\)$'
-stdout 'not shipped any more 1$'
+stdout '^  > templates/retired.md \(newer than this ct; kept\)$'
+stdout 'newer than this ct 1 \(kept\)$'
+stdout 'never downgraded; update ct, or replace one with --take <file>'
 exists $O/templates/retired.md
 grep '"templates/retired.md"' $O/.scaffold.json
 exec sh -c 'echo x >> $O/templates/retired.md'
 exec ct vault update old
 stdout '^  - templates/retired.md \(not shipped any more, edited; kept\)$'
 exists $O/templates/retired.md
+
+# a shipped file a newer ct wrote: never downgraded, by update or init;
+# --take still replaces it
+cp newer.md $O/templates/base.md
+cp newer-file-record.json $O/.scaffold.json
+exec ct vault update old --diff
+stdout '^  > templates/base.md \(newer than this ct; kept\)$'
+stdout '^-newer$'
+exec ct vault update old
+stdout '^  > templates/base.md \(newer than this ct; kept\)$'
+stdout 'added 0, updated 0, up to date [0-9]+, edited 0 \(kept\), newer than this ct 1 \(kept\)$'
+cmp $O/templates/base.md newer.md
+grep '"version": "9.0"' $O/.scaffold.json
+exec ct vault init old
+! stdout 'out of date'
+cmp $O/templates/base.md newer.md
+exec ct vault update old --take templates/base.md
+stdout '^  ~ templates/base.md \(taken; the old one is kept as templates/base.md.bak\)$'
+cmp $O/templates/base.md.bak newer.md
+! grep '^newer$' $O/templates/base.md
+! grep '"version": "9.0"' $O/.scaffold.json
 
 # a record from a newer ct: ignored, never rewritten
 cp newer-record.json $O/.scaffold.json
@@ -177,6 +200,10 @@ my own note
 retired
 -- retired-record.json --
 {"format": 1, "files": {"templates/retired.md": {"sha256": "8b86d3b824a855c1b156ba78756ca36a80a6f1b1290204878987a662e0951324", "version": "0.1"}}}
+-- newer.md --
+newer
+-- newer-file-record.json --
+{"format": 1, "files": {"templates/base.md": {"sha256": "77e30f34ca80fc7e2683e3953d0701a800862b2290d5617e8e5ef8230999e35f", "version": "9.0"}}}
 -- newer-record.json --
 {"format": 2, "files": {}}
 -- old-ticket-manual.md --

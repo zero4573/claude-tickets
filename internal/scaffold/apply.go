@@ -94,7 +94,7 @@ func Apply(vault string, src Source, o Options) (Result, error) {
 
 	// Takes are checked before anything is written
 	for _, e := range entries {
-		if !take[e.Rel] || e.State != Edited {
+		if !take[e.Rel] || e.State != Edited && e.State != Newer {
 			continue
 		}
 		if e.Reason != "" {
@@ -114,7 +114,7 @@ func Apply(vault string, src Source, o Options) (Result, error) {
 			res.Done[e.Rel] = Added
 		case e.State == Stale && !o.AddOnly:
 			res.Done[e.Rel] = Updated
-		case e.State == Edited && take[e.Rel]:
+		case (e.State == Edited || e.State == Newer) && take[e.Rel]:
 			res.Done[e.Rel] = Taken
 		default:
 			continue

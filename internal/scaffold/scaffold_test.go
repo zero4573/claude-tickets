@@ -196,6 +196,7 @@ func TestClassify(t *testing.T) {
 	}
 	rec := Record{Files: map[string]Shipped{
 		"recorded.md":      {SHA256: Hash([]byte("mine, recorded\n"))},
+		"stale.md":         {SHA256: Hash([]byte("old\n"))}, // recorded and known: stale
 		"gone-recorded.md": {SHA256: Hash([]byte("recorded\n"))},
 		"../outside.md":    {SHA256: Hash([]byte("x"))},
 	}}
@@ -208,14 +209,14 @@ func TestClassify(t *testing.T) {
 		"current.md":       UpToDate,
 		"crlf.md":          UpToDate,
 		"stale.md":         Stale,
-		"recorded.md":      Stale,
+		"recorded.md":      Newer, // recorded, unknown to this ct: a newer ct wrote it
 		"edited.md":        Edited,
 		"dir.md":           Edited,
 		"t/nested.md":      UpToDate,
 		"t/edited2.md":     Edited,
 		"gone.md":          RetiredClean,
 		"gone-edited.md":   RetiredEdited,
-		"gone-recorded.md": RetiredClean,
+		"gone-recorded.md": Newer,
 	}
 	got := states(entries)
 	for rel, s := range want {

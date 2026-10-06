@@ -141,7 +141,12 @@ func vaultInit(target string, o setupOpts) error {
 	for _, w := range res.Warnings {
 		warnf("%s", w)
 	}
-	kept := res.Count(scaffold.UpToDate) + res.Count(scaffold.Stale) + res.Count(scaffold.Edited)
+	kept := 0
+	for _, e := range res.Entries {
+		if e.Ship != nil && e.State != scaffold.Missing {
+			kept++
+		}
+	}
 	fmt.Printf("ct vault init: added %d file(s), kept %d existing\n", len(res.Done), kept)
 	for _, e := range res.Entries {
 		if res.Done[e.Rel] == scaffold.Added {
@@ -192,15 +197,17 @@ current vault. For each file:
                  differs, --take <file> takes the shipped version)
   - not shipped  an earlier ct shipped it, this one doesn't: kept, never
                  deleted
+  > newer        a newer ct shipped it (.scaffold.json says so, this ct
+                 doesn't know that version): kept, never downgraded
+                 (--take <file> still replaces it)
   (files already up to date are only counted)
 
-A file counts as unedited when its content is a version some ct has shipped
-(recorded in .scaffold.json, or known to ct), ignoring line endings and
-trailing newlines. Obsidian rewrites tickets.base when you change a view in
-it, so it then counts as edited. Settings (.obsidian/, .workflow.json,
-tickets/.sources.json) and your own notes are never touched. Writes happen
-under the vault lock (ct vault lock), and .scaffold.json records what was
-shipped.`,
+A file counts as unedited when its content is a version this ct knows it
+shipped, ignoring line endings and trailing newlines. Obsidian rewrites
+tickets.base when you change a view in it, so it then counts as edited.
+Settings (.obsidian/, .workflow.json, tickets/.sources.json) and your own
+notes are never touched. Writes happen under the vault lock (ct vault
+lock), and .scaffold.json records what was shipped.`,
 		Args:              cobra.MaximumNArgs(1),
 		ValidArgsFunction: completeVaults,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -252,7 +259,7 @@ func vaultUpdate(v string, o updateOpts) error {
 		return done
 	}
 	count := map[string]int{}
-	edited := 0
+	edited, newer := 0, 0
 	for _, e := range res.Entries {
 		showDiff := false
 		switch {
@@ -275,6 +282,10 @@ func vaultUpdate(v string, o updateOpts) error {
 			}
 			fmt.Printf("  ! %s (edited, kept%s)\n", e.Rel, why)
 			showDiff = e.Reason == ""
+		case e.State == scaffold.Newer:
+			newer++
+			fmt.Printf("  > %s (newer than this ct; kept)\n", e.Rel)
+			showDiff = e.Ship != nil
 		case e.State == scaffold.RetiredClean:
 			fmt.Printf("  - %s (not shipped any more, unedited; kept)\n", e.Rel)
 		case e.State == scaffold.RetiredEdited:
@@ -302,9 +313,15 @@ func vaultUpdate(v string, o updateOpts) error {
 	if n := res.Count(scaffold.RetiredClean) + res.Count(scaffold.RetiredEdited); n > 0 {
 		parts = append(parts, fmt.Sprintf("not shipped any more %d", n))
 	}
+	if newer > 0 {
+		parts = append(parts, fmt.Sprintf("newer than this ct %d (kept)", newer))
+	}
 	fmt.Printf("ct vault update: %s\n", strings.Join(parts, ", "))
 	if edited > 0 {
 		fmt.Println("ct vault update: see the differences with ct vault update --diff; take the shipped version of a file with ct vault update --take <file> (the old one is kept as <file>.bak)")
+	}
+	if newer > 0 {
+		fmt.Println("ct vault update: files newer than this ct were shipped by a newer ct and are never downgraded; update ct, or replace one with --take <file>")
 	}
 	return nil
 }

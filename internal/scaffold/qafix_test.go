@@ -123,3 +123,50 @@ func TestApplyKeepsMode(t *testing.T) {
 		t.Error("not updated")
 	}
 }
+
+// TestApplyNeverDowngrades: a file whose content is what the record says
+// was shipped, in a version this ct doesn't know, came from a newer ct: it
+// isn't replaced (also not by init), its record entry stays, and only an
+// explicit --take replaces it (the old copy kept as .bak).
+func TestApplyNeverDowngrades(t *testing.T) {
+	src, v := applySetup(t)
+	newer := "newer\n"
+	write(t, v, "current.md", newer)
+	write(t, v, "gone-newer.md", "from a newer ct\n") // a file this ct never shipped
+	age(t, v, "current.md")
+	prev := map[string]Shipped{
+		"current.md":    {Hash([]byte(newer)), "9.0"},
+		"gone-newer.md": {Hash([]byte("from a newer ct\n")), "9.0"},
+	}
+	if err := saveRecord(v, prev); err != nil {
+		t.Fatal(err)
+	}
+	for _, o := range []Options{{Version: "1.0"}, {Version: "1.0", AddOnly: true}} {
+		res, err := Apply(v, src, o)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := states(res.Entries)
+		if got["current.md"] != Newer || got["gone-newer.md"] != Newer {
+			t.Errorf("states %v", got)
+		}
+		if res.Done["current.md"] != "" || read(t, v, "current.md") != newer || !mtime(t, v, "current.md").Equal(old) {
+			t.Error("a newer ct's file was replaced")
+		}
+		rec := loadRec(t, v)
+		if rec.Files["current.md"] != prev["current.md"] || rec.Files["gone-newer.md"] != prev["gone-newer.md"] {
+			t.Errorf("record %v", rec.Files)
+		}
+	}
+
+	res, err := Apply(v, src, Options{Version: "1.0", Take: []string{"current.md"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Done["current.md"] != Taken || read(t, v, "current.md") != "new\n" || read(t, v, "current.md.bak") != newer {
+		t.Errorf("take: done %v", res.Done)
+	}
+	if loadRec(t, v).Files["current.md"] != (Shipped{Hash([]byte("new\n")), "1.0"}) {
+		t.Error("take: not recorded")
+	}
+}
