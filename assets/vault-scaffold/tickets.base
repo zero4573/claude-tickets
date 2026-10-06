@@ -1,4 +1,3 @@
-# Ticket dashboard at the vault root (moved out of tickets/ so it is easy to reach).
 filters:
   and:
     - file.inFolder("tickets")
