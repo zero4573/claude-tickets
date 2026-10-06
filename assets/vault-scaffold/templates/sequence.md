@@ -4,7 +4,7 @@ created: {{date}}
 updated: {{date}}
 status: active
 type: sequence
-services: []
+projects: []
 tickets: []
 tags: [sequence, data-flow]
 ---
@@ -14,18 +14,18 @@ What triggers this flow and what it achieves.
 
 ```mermaid
 sequenceDiagram
-    participant A as service-a
-    participant B as service-b
+    participant A as project-a
+    participant B as project-b
     A->>B: POST /thing {id}
     B-->>A: 202 Accepted
 ```
 
 ## Steps and contracts
-1. `service-a` → `service-b`: payload, auth, errors, retries
+1. `project-a` → `project-b`: payload, auth, errors, retries
 
 ## Versions
-| Service | From version |
+| Project | From version |
 |---|---|
-| [[provider-owner-service-a]] | 2.4.0 |
+| [[provider-owner-repo]] | 2.4.0 |
 
 Feature: [[feature-note]] · Ticket: [[TICKET-ID]]

@@ -17,4 +17,4 @@ What this is a reference for.
 
 ## Links
 - Source: 
-- Related: [[related-note]], [[another-note]]
+- Related: [[note-a]], [[note-b]]

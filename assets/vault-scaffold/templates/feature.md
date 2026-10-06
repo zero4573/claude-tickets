@@ -4,6 +4,7 @@ created: {{date}}
 updated: {{date}}
 status: active
 type: feature
+projects: []
 tickets: []
 tags: [feature]
 ---
@@ -11,17 +12,18 @@ tags: [feature]
 
 What the feature does and why, in a paragraph.
 
-## Services touched
-| Service | Change | Introduced in |
+## Projects touched
+| Project | Change | Introduced in |
 |---|---|---|
-| [[provider-owner-service-a]] | new endpoint `POST /orders/sync` | 2.4.0 |
+| [[provider-owner-repo]] | new endpoint `POST /orders/sync` | 2.4.0 |
 
 ## Data flow
 [[feature-flow-sequence]]
 
 ## Compatibility
-What older versions of the peer services see. Also recorded in
-[[compatibility-matrix]].
+What older versions of the projects that depend on these changes see. In a
+group, also a row per project in the group's `<group>-compatibility` note.
+n/a for a standalone project.
 
 ## Tickets
 - [[TICKET-ID]]: what it added

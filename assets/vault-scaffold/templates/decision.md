@@ -5,6 +5,7 @@ updated: {{date}}
 status: active
 type: decision
 decided-by: user
+projects: []
 tickets: []
 tags: [decision]
 ---
@@ -23,4 +24,4 @@ What was chosen and why.
 ## Consequences
 What this commits us to, and what would make us revisit it.
 
-Project: [[provider-owner-repo]] · Ticket: [[TICKET-ID]]
+Projects: [[provider-owner-repo]] · Group: [[group-name]] (if shared) · Ticket: [[TICKET-ID]]

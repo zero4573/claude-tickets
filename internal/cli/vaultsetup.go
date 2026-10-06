@@ -42,10 +42,11 @@ func vaultInitCmd() *cobra.Command {
 you pick one of the existing vaults.
 
   * folders: raw, tickets, templates, inbox, logs, references,
-    knowledge-base, projects/system/{architecture,sequences,features,data,logs}
-  * files: AGENTS.md, templates/, tickets.base (dashboard), the task views
-    (pending.md, done.md, follow-ups.md), projects/system notes, the
-    Atlassian setup reference
+    knowledge-base, projects (one folder per repo, and per group of
+    projects that work together, written by /tickets:save)
+  * files: AGENTS.md, templates/ (group.md included), tickets.base
+    (dashboard), projects.base (projects and groups), the task views
+    (pending.md, done.md, follow-ups.md), the Atlassian setup reference
   * Obsidian settings: the templates folder, the Bases / Templates /
     Properties core plugins, and the workflow's property types
   * its settings, through ct vault configure: where its workspaces and main
@@ -83,9 +84,7 @@ func completeVaults(cmd *cobra.Command, args []string, _ string) ([]string, cobr
 	return vault.List(), cobra.ShellCompDirectiveNoFileComp
 }
 
-var vaultFolders = []string{"raw", "tickets", "templates", "inbox", "logs", "references", "knowledge-base",
-	"projects/system/architecture", "projects/system/sequences", "projects/system/features",
-	"projects/system/data", "projects/system/logs"}
+var vaultFolders = []string{"raw", "tickets", "templates", "inbox", "logs", "references", "knowledge-base", "projects"}
 
 func vaultInit(target string, o setupOpts) error {
 	var v string

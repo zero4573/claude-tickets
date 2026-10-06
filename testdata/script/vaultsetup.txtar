@@ -6,11 +6,18 @@ stdout '^  \+ templates/ticket-manual.md$'
 exists home/Documents/Obsidian/demo/.scaffold.json
 ! stdout obsidian-types.json
 stderr 'Tasks community plugin isn.t installed'
-exists home/Documents/Obsidian/demo/projects/system/sequences
+stdout '^  \+ templates/group.md$'
+stdout '^  \+ projects.base$'
+! stdout 'projects/system'
+exists home/Documents/Obsidian/demo/projects
+! exists home/Documents/Obsidian/demo/projects/system
 exists home/Documents/Obsidian/demo/tickets.base
 grep '"folder": "templates"' home/Documents/Obsidian/demo/.obsidian/templates.json
 grep '"bases": true' home/Documents/Obsidian/demo/.obsidian/core-plugins.json
 grep '"covered-by": "text"' home/Documents/Obsidian/demo/.obsidian/types.json
+grep '"depends-on": "multitext"' home/Documents/Obsidian/demo/.obsidian/types.json
+grep '"groups": "multitext"' home/Documents/Obsidian/demo/.obsidian/types.json
+! grep '"services"' home/Documents/Obsidian/demo/.obsidian/types.json
 grep '"workRoot": "~/Projects/work-demo"' home/Documents/Obsidian/demo/.workflow.json
 grep '"projectsRoot": "~/Projects/repo-demo"' home/Documents/Obsidian/demo/.workflow.json
 grep '"idPrefix": "MAN"' home/Documents/Obsidian/demo/tickets/.sources.json
@@ -26,6 +33,15 @@ stdout 'kept .*/demo/.workflow.json \(ct vault configure --section locations to 
 grep '^mine$' home/Documents/Obsidian/demo/AGENTS.md
 grep '"status": "number"' home/Documents/Obsidian/demo/.obsidian/types.json
 grep '"blocked": "checkbox"' home/Documents/Obsidian/demo/.obsidian/types.json
+! exists home/Documents/Obsidian/demo/projects/system
+
+# a vault set up before 0.1.0: init adds what's new and leaves what it doesn't ship alone
+mkdir home/Documents/Obsidian/old/.obsidian home/Documents/Obsidian/old/projects/system
+cp old-system.md home/Documents/Obsidian/old/projects/system/system.md
+exec ct vault init old
+stdout '^  \+ templates/group.md$'
+! stdout 'projects/system'
+cmp home/Documents/Obsidian/old/projects/system/system.md old-system.md
 
 # a second vault gets folders of its own
 exec ct vault init other
@@ -63,7 +79,7 @@ cp note.md home/Documents/Obsidian/demo/inbox/note.md
 stdout '^inbox/note.md:1: unresolved link \[\[nowhere\]\]$'
 exec ct vault links move home/Documents/Obsidian/demo inbox/note.md knowledge-base
 stdout '^knowledge-base/note.md$'
-! exec ct vault links move home/Documents/Obsidian/demo knowledge-base/note.md projects/system/system.md
+! exec ct vault links move home/Documents/Obsidian/demo knowledge-base/note.md AGENTS.md
 stderr 'destination exists'
 
 -- other-workflow.json --
@@ -72,5 +88,13 @@ stderr 'destination exists'
 {"types": {"status": "number"}}
 -- mine.md --
 mine
+-- old-system.md --
+---
+title: system
+type: project
+services: [a, b]
+---
+# system
+See [[service-map]].
 -- note.md --
-[[nowhere]] and [[system]]
+[[nowhere]] and [[AGENTS]]

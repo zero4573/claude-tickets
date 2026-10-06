@@ -14,10 +14,10 @@ Ticket: [[TICKET-ID]] · Project: [[provider-owner-repo]]
 - 
 
 ## Decisions
-- [[decision-note]]: one-line summary
+- [[note-a]]: one-line summary
 
 ## Pending
 - [ ] 
 
 ## Notes created or modified
-- [[note]]
+- [[note-b]]

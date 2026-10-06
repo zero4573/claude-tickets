@@ -15,6 +15,7 @@ ROOT
 ├── done.md                #   finished tasks (agents: ignore)
 ├── follow-ups.md          #   open #follow-up tasks: people to chase about blockers (agents: ignore)
 ├── tickets.base           # Bases dashboard: Active / Waiting on me / Blocked by dependencies / Leads / By lead / Manual / Ignored / Done / All
+├── projects.base          # Bases view of projects/: Projects / Groups / Ungrouped
 ├── tickets/               # one folder per ticket, from any source
 │   ├── .sources.json      #   ticket sources: jira, manual, ... (see "Ticket sources")
 │   ├── .sync-state.json   #   last ct sync run, per source
@@ -33,18 +34,20 @@ ROOT
 ├── logs/                  # global session logs (not tied to a project)
 ├── references/            # reference material on specific behaviour outside any project/ticket
 ├── knowledge-base/        # general findings, in topic subfolders
-├── projects/              # folder for all project notes
-│   ├── system/            #   pseudo-project for what spans services
-│   │   ├── system.md      #     index
-│   │   ├── architecture/  #     service-map.md, compatibility-matrix.md, system-decisions.md
-│   │   └── sequences/     #     data flows across services (mermaid), one note per flow
-│   └── <slug>/            #   one project per repo, named by the repo's slug (below)
-│       ├── <slug>.md      #     index note (template: project.md)
-│       ├── architecture/  #     architecture, conventions; <slug>-decisions.md (decision index)
-│       ├── sequences/     #     data flows within the service
-│       ├── data/          #     schema, data model
-│       ├── features/      #     planned/implemented features (services touched, versions)
-│       └── logs/          #     project session logs
+├── projects/              # folder for all project notes (see "Projects and groups")
+│   ├── <slug>/            #   one project per repo, named by the repo's slug (below); standalone by default
+│   │   ├── <slug>.md      #     index note (template: project.md): depends-on, groups
+│   │   ├── architecture/  #     architecture, conventions; <slug>-decisions.md (decision index)
+│   │   ├── sequences/     #     data flows within the project (mermaid)
+│   │   ├── data/          #     schema, data model
+│   │   ├── features/      #     planned/implemented features (projects touched, versions)
+│   │   └── logs/          #     project session logs
+│   └── <group>/           #   (optional) a group of projects that work together
+│       ├── <group>.md     #     index note (template: group.md, type: group): interactions
+│       ├── architecture/  #     <group>-decisions.md, <group>-compatibility.md
+│       ├── sequences/     #     data flows across its members (mermaid)
+│       ├── features/      #     features across its members
+│       └── logs/          #     group session logs
 └── AGENTS.md              # global instructions for AI Agents
 ```
 
@@ -58,6 +61,41 @@ main clone lives at `~/Projects/<provider>/<owner>/<repo>`; `ct ws repos`
 lists every slug. Project index notes carry `aliases: [<repo>]` so the short
 name still finds them.
 
+### Projects and groups
+Every repo is a **project**, `projects/<slug>/`, and stands alone unless
+its notes say otherwise. A vault may hold unrelated projects, one set of
+projects that work together, or several such sets.
+- **`depends-on`** (frontmatter of the project's index note,
+  `["[[<other-slug>]]", …]`): the projects of this vault this one needs at
+  run, build or deploy time (it calls their API, consumes their events,
+  reads their database, packages or imports them). `A depends-on B` means
+  a change to B can break A; a two-way interaction gets a link on each
+  side. The `## Depends on` table in the body says how (interface or
+  contract) and since which version; dependencies outside the vault go
+  there as text. "Used by" isn't stored: backlinks show it.
+- **`groups`** (`["[[<group>]]", …]`): the groups the project belongs to.
+  A missing or empty `depends-on` or `groups` means none.
+- **Groups** are optional: `projects/<group>/<group>.md` (template
+  `group.md`, `type: group`) holds what several projects share: the
+  interaction map (`## Interactions`, mermaid, kept in step with the
+  members' `depends-on`), flows across members (`sequences/`),
+  `<group>-compatibility` (feature, project, minimum version) and
+  `<group>-decisions`. A group has no members list: its members are the
+  projects whose `groups` link it. Groups are flat, and a project may be
+  in several. A group's name is kebab-case, unique in the vault, says
+  what the projects do together (`orders-platform`, `home-infra`), and is
+  never a repo slug. Only `/tickets:save` creates one, and only after
+  asking you.
+- **Related or not:** projects and groups linked through `depends-on` or
+  `groups`, directly or not, form a **cluster**: they're related.
+  Projects in different clusters are unrelated; a project without links
+  is standalone. Only notes with `type: project` or `type: group` count.
+- **`ct vault groups <vault> [<slug|group>...]`** prints the clusters, or
+  one project's groups, `depends-on`, used-by and cluster (`--json`;
+  `--check` fails on a `groups` link that isn't a group, a `depends-on`
+  link that isn't a project, or a project depending on itself). By hand:
+  read the index note, then grep `projects/*/*.md` for `[[<slug>]]`.
+
 ## Note Rules
 
 ### Creation
@@ -66,7 +104,8 @@ name still finds them.
   (`[[projects/x/order-sync-flow]]`). Obsidian resolves bare names across the
   whole vault, so notes can move between folders without breaking links.
 - Every **filename is unique across the vault** (bare-name links depend on
-  it): projects are named by slug, decision indexes are `<slug>-decisions.md`,
+  it): projects are named by slug, groups by a name that is never a slug,
+  decision indexes are `<slug>-decisions.md` (`<group>-decisions.md`),
   and session logs are `yyyy-MM-dd-<ID>-<slug>-<description>.md`.
 - Mandatory YAML frontmatter on every note
 - Filenames in kebab-case: `auth-flow.md`, not `Auth Flow.md`
@@ -84,8 +123,9 @@ Note: `{{date}}`, should be replaced with the date in `yyyy-MM-dd` format, and `
 | `ticket-synced.md` | tickets synced from a source (created by ct sync) |
 | `ticket-manual.md` | tickets you write yourself (`ct new`, or insert it into `tickets/MAN-<n>/MAN-<n>.md`) |
 | `session-log.md` | ticket and project session logs |
-| `project.md` | `projects/<slug>/<slug>.md` index notes |
-| `feature.md` | `projects/<slug>/features/`: services touched, versions |
+| `project.md` | `projects/<slug>/<slug>.md` index notes (`depends-on`, `groups`) |
+| `group.md` | `projects/<group>/<group>.md`: a group of projects that work together |
+| `feature.md` | `projects/<slug>/features/` or `projects/<group>/features/`: projects touched, versions |
 | `sequence.md` | data flows (mermaid `sequenceDiagram`) |
 | `decision.md` | decisions with their tradeoffs |
 | `investigation.md` | bug traces and investigations |
@@ -137,7 +177,7 @@ and the hooks. Sessions run your `claude` command (which may be sandboxed).
 |---|---|
 | `ct vault default [<vault>\|--pick\|--unset]` | Show or set the default vault (`~/.config/claude-tickets/default-vault`): the one every ticket command acts on. Switch it to work on another vault; running sessions keep the vault they started with. `ct vault init` ignores it and always asks. |
 | `ct claude [claude args]` | A plain repo session with the default vault as its knowledge base (see "Sessions outside tickets"). Opt-in: a plain `claude` session doesn't see the vault. |
-| `ct kb [--print] ["<question>"]` | Ask about the system (repos, services, architecture, flows, past tickets) without a ticket: a session with this vault, every repo (fetched first) read-only, and one code graph of all of them. It can explore any branch, tag or commit in its own clones (`ct kb repo`), building and testing there, but never commits or pushes, and it files manual tickets (tag `from-kb`) for issues worth following up. It investigates unknowns and drafts what it learns into `inbox/`; `/tickets:save` promotes the drafts. |
+| `ct kb [--print] ["<question>"]` | Ask about the projects (repos, how they work together, architecture, flows, past tickets) without a ticket: a session with this vault, every repo (fetched first) read-only, and one code graph of all of them. It can explore any branch, tag or commit in its own clones (`ct kb repo`), building and testing there, but never commits or pushes, and it files manual tickets (tag `from-kb`) for issues worth following up. It investigates unknowns and drafts what it learns into `inbox/`; `/tickets:save` promotes the drafts. |
 | `ct vault init [<vault>]` | Set a vault up for this workflow: folders, this AGENTS.md, templates, the dashboard, Obsidian settings, then `ct vault configure` for the settings not made yet. Keeps existing files, so it's safe to re-run; `ct vault update` brings unedited ones up to date. |
 | `ct vault update [<vault>] [--dry-run] [--diff] [--take <file>]` | Bring the files ct ships (this AGENTS.md, templates, the dashboard, task views) up to date: unedited ones are replaced, edited ones (and ones a newer ct wrote) kept and reported, nothing deleted or downgraded. |
 | `ct vault configure [<vault>] [--section locations\|sources\|runtime]` | The vault's settings, each prompt showing its current value: locations (`.workflow.json`, see below), ticket sources (`tickets/.sources.json`), and the container runtime of the code graph (host-wide). |
@@ -155,6 +195,7 @@ and the hooks. Sessions run your `claude` command (which may be sandboxed).
 | `ct kb repo checkout\|fetch\|graph\|ls\|reset` | Inside a `kb` session: exploration clones of any branch, tag or commit, swapped into the session's code graph. |
 | `ct vault lock acquire\|release\|status\|run` | The lock `/tickets:save` holds while writing shared notes (`.vault.lock.d`). A lock idle for 30 minutes is taken over. |
 | `ct vault links check\|move` | Check that wikilinks resolve; move a note without breaking links to it. |
+| `ct vault groups <vault> [<slug\|group>...] [--json] [--check]` | Which projects work together (groups, `depends-on`, used-by) and which are unrelated; `--check` validates those links. Read-only. See "Projects and groups". |
 | `ct graph index` | Refresh the code graphs of the main clones (`<projectsRoot>/<provider>/<owner>/<repo>`). |
 | `ct graph build\|status` | The graphify image the code graph runs in (podman or docker); built when needed. |
 | `ct layout [--apply]` | Move repos into `<projectsRoot>/<provider>/<owner>/<repo>`. Leaves alone a main clone that any vault's workspace borrows objects from. |
@@ -334,7 +375,7 @@ tickets go through the same flow.
 `/resume`, which reopens past conversations.)
 When you receive this command:
 1. Read the 3 most recent session logs in projects/`<slug>`/logs/ (or for a ticket: its logs, task list, and each of its projects)
-2. Read architecture/`<slug>`-decisions.md for the current project
+2. Read architecture/`<slug>`-decisions.md for the current project, and `<group>`-decisions.md of each group it belongs to (`ct vault groups <vault> <slug>`)
 3. Summarize current state and what's left to do
 
 ### /tickets:save
@@ -346,9 +387,12 @@ When you receive this command:
 In a ticket workspace (`~/work/<ID>`), `/tickets:save` also does what `/summarize`
 did:
 4. Promotes `tickets/<ID>/kb-drafts/` into `projects/<slug>/…`,
-   `projects/system/…`, `knowledge-base/` and `references/`. This covers the
-   services touched by the feature, the versions it shipped in, and the
-   cross-service data flows as mermaid diagrams. Links stay intact.
+   `projects/<group>/…`, `knowledge-base/` and `references/`. This covers the
+   projects touched by the feature, the versions it shipped in, the
+   dependencies between projects (`depends-on`), and the flows across
+   projects as mermaid diagrams. It asks you before creating a group, and
+   runs `ct vault links check` and `ct vault groups <vault> --check`. Links
+   stay intact.
 5. Tags and links all documentation updated in the session with the ticket.
 6. Adds tags `[slug]-[release-version]` to tickets/`ticket` for every
    project modified (dots as dashes, e.g. `bitbucket-sops-orders-service-2-4-0`,

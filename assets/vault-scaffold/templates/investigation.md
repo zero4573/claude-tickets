@@ -17,9 +17,9 @@ What was observed, where, since when.
 - [ ] Hypothesis 1: how to confirm or rule it out
 
 ## Trace
-| Step | Service | Location | Notes |
+| Step | Project | Location | Notes |
 |---|---|---|---|
-| 1 | [[provider-owner-service-a]] | `src/orders/sync.ts:120` | |
+| 1 | [[provider-owner-repo]] | `src/orders/sync.ts:120` | |
 
 ## Root cause
 
