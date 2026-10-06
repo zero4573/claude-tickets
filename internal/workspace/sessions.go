@@ -3,6 +3,7 @@ package workspace
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -45,13 +46,42 @@ var (
 // it just before exec: the process that replaces ct keeps its PID and
 // start time.
 func RecordSession(dir, command string) error {
+	return updateSessions(dir, func(recs []Record) ([]Record, error) {
+		return append(alive(recs), ownRecord(command)), nil
+	})
+}
+
+// RunningError is ClaimSession's refusal: a recorded session's process is
+// alive on this host.
+type RunningError struct{ Record Record }
+
+func (e *RunningError) Error() string {
+	return fmt.Sprintf("a session is running in this workspace (pid %d)", e.Record.PID)
+}
+
+// ClaimSession is RecordSession for a workspace that runs one session at a
+// time (a ticket's): under the same lock, it first checks that no recorded
+// session is alive here, and refuses with a *RunningError if one is. Two
+// starts racing for the workspace can't both get it.
+func ClaimSession(dir, command string) error {
+	return updateSessions(dir, func(recs []Record) ([]Record, error) {
+		if !inContainer() {
+			for _, r := range recs {
+				if recordLiveness(r) == LivenessAlive {
+					return nil, &RunningError{r}
+				}
+			}
+		}
+		return append(alive(recs), ownRecord(command)), nil
+	})
+}
+
+// ownRecord is this process's record.
+func ownRecord(command string) Record {
 	pid := os.Getpid()
 	host, _ := hostname()
 	id, _ := identity(pid) // "" where it can't be told: such a record is never proved alive or dead
-	return updateSessions(dir, func(recs []Record) []Record {
-		recs = alive(recs)
-		return append(recs, Record{PID: pid, Host: host, Proc: id, Command: command, Started: time.Now().Format(time.RFC3339)})
-	})
+	return Record{PID: pid, Host: host, Proc: id, Command: command, Started: time.Now().Format(time.RFC3339)}
 }
 
 // PruneSessions drops the records of sessions that have provably ended on
@@ -60,7 +90,7 @@ func PruneSessions(dir string) error {
 	if _, err := os.Stat(SessionsFile(dir)); err != nil {
 		return nil
 	}
-	return updateSessions(dir, alive)
+	return updateSessions(dir, func(recs []Record) ([]Record, error) { return alive(recs), nil })
 }
 
 func alive(recs []Record) []Record {
@@ -76,11 +106,15 @@ func alive(recs []Record) []Record {
 	return out
 }
 
-func updateSessions(dir string, fn func([]Record) []Record) error {
+func updateSessions(dir string, fn func([]Record) ([]Record, error)) error {
 	file := SessionsFile(dir)
 	return lock.With(file+".lock", func() error {
 		doc := readSessions(file)
-		doc.Sessions = fn(doc.Sessions)
+		recs, err := fn(doc.Sessions)
+		if err != nil {
+			return err
+		}
+		doc.Sessions = recs
 		if doc.Sessions == nil {
 			doc.Sessions = []Record{}
 		}

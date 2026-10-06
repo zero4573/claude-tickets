@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -285,17 +286,23 @@ func refuseRunning(ctx vault.Context, l launcher.Launcher, key string, o startOp
 		return fmt.Errorf("%s: its session looks running (.agent-state: %s at %s); it's in the terminal where it was started. If it isn't (terminal closed), %s",
 			key, st.State.State, ts, force)
 	case st.By == workspace.ByPID:
-		if o.feedback {
-			return fmt.Errorf("%s: its session is running (pid %d) in another terminal; type /tickets:pr-feedback there", key, st.PID)
-		}
-		started := ""
-		if t, err := time.Parse(time.RFC3339, st.Started); err == nil {
-			started = ", started " + t.Format("15:04")
-		}
-		return fmt.Errorf("%s: its session is running (pid %d%s) in another terminal; continue there, or end it first", key, st.PID, started)
+		return runningPIDError(key, st.PID, st.Started, o)
 	default:
 		return fmt.Errorf("%s: its session is running in another window; continue there, or end it first", key)
 	}
+}
+
+// runningPIDError refuses a ticket whose session's process is alive here
+// (--force doesn't override it: that session isn't stale).
+func runningPIDError(key string, pid int, startedAt string, o startOpts) error {
+	if o.feedback {
+		return fmt.Errorf("%s: its session is running (pid %d) in another terminal; type /tickets:pr-feedback there", key, pid)
+	}
+	started := ""
+	if t, err := time.Parse(time.RFC3339, startedAt); err == nil {
+		started = ", started " + t.Format("15:04")
+	}
+	return fmt.Errorf("%s: its session is running (pid %d%s) in another terminal; continue there, or end it first", key, pid, started)
 }
 
 // prepareTicketSession readies a ticket's workspace for a session (its
@@ -385,6 +392,23 @@ func openWindow(ctx vault.Context, l launcher.Launcher, w launcher.Window, skill
 // (Windows: waits for it), and the session's process is recorded so other
 // commands see it running.
 func runForeground(l launcher.Resolved, w launcher.Window, resume bool, o startOpts) error {
+	// A missing claude fails before anything is said or recorded
+	if _, err := exec.LookPath(w.Argv[0]); err != nil {
+		return err
+	}
+	command := "start"
+	if o.feedback {
+		command = "feedback"
+	}
+	// Checked again under the record's lock: another ct start of this ticket
+	// may have passed refuseRunning while this one fetched and built the graph
+	if err := workspace.ClaimSession(w.Dir, command); err != nil {
+		var running *workspace.RunningError
+		if errors.As(err, &running) {
+			return runningPIDError(w.Name, running.Record.PID, running.Record.Started, o)
+		}
+		warnf("couldn't record the session in %s: %v", workspace.SessionsFile(w.Dir), err)
+	}
 	cont := ""
 	if resume {
 		cont = " (continuing its last session)"
@@ -392,13 +416,6 @@ func runForeground(l launcher.Resolved, w launcher.Window, resume bool, o startO
 	fmt.Printf("ct start: %s runs in this terminal%s; no window to come back to, ct start %s later continues it\n", w.Name, cont, w.Name)
 	if l.Source == launcher.FromDetected {
 		fmt.Fprintln(os.Stderr, "ct start: tmux not found, so the session runs here; install tmux for background windows and several sessions at once")
-	}
-	command := "start"
-	if o.feedback {
-		command = "feedback"
-	}
-	if err := workspace.RecordSession(w.Dir, command); err != nil {
-		warnf("couldn't record the session in %s: %v", workspace.SessionsFile(w.Dir), err)
 	}
 	return passExit(launcher.Run(w))
 }

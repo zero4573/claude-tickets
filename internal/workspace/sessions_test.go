@@ -217,3 +217,63 @@ func TestSession(t *testing.T) {
 		})
 	}
 }
+
+func TestClaimSession(t *testing.T) {
+	onHost(t)
+	me := self(t)
+	dir := t.TempDir()
+	// a dead record doesn't hold the workspace (and is dropped)
+	writeRecords(t, dir, Record{PID: deadPID(t), Host: me.Host, Proc: me.Proc})
+	if err := ClaimSession(dir, "start"); err != nil {
+		t.Fatalf("claim over a dead record: %v", err)
+	}
+	recs := readSessions(SessionsFile(dir)).Sessions
+	if len(recs) != 1 || recs[0].PID != os.Getpid() || recs[0].Command != "start" {
+		t.Fatalf("records after claim: %+v", recs)
+	}
+	// a live one does, and the file is left as it was
+	var running *RunningError
+	if err := ClaimSession(dir, "feedback"); !errors.As(err, &running) || running.Record.PID != os.Getpid() {
+		t.Fatalf("claim over a live record: %v", err)
+	}
+	if recs := readSessions(SessionsFile(dir)).Sessions; len(recs) != 1 || recs[0].Command != "start" {
+		t.Errorf("a refused claim changed the records: %+v", recs)
+	}
+	// another host's record can't be checked: it doesn't block
+	elsewhere := me
+	elsewhere.Host += "-elsewhere"
+	writeRecords(t, dir, elsewhere)
+	if err := ClaimSession(dir, "start"); err != nil {
+		t.Errorf("claim next to another host's record: %v", err)
+	}
+}
+
+// Starts racing for one workspace: the check and the record happen under
+// one lock, so exactly one gets it (all claim as this process, which is
+// alive, so every later claim sees the first one's record).
+func TestClaimSessionRace(t *testing.T) {
+	onHost(t)
+	dir := t.TempDir()
+	const n = 8
+	errs := make(chan error, n)
+	for range n {
+		go func() { errs <- ClaimSession(dir, "start") }()
+	}
+	won := 0
+	for range n {
+		err := <-errs
+		var running *RunningError
+		switch {
+		case err == nil:
+			won++
+		case !errors.As(err, &running):
+			t.Errorf("unexpected error: %v", err)
+		}
+	}
+	if won != 1 {
+		t.Errorf("%d claims succeeded, want 1", won)
+	}
+	if recs := readSessions(SessionsFile(dir)).Sessions; len(recs) != 1 {
+		t.Errorf("records: %+v", recs)
+	}
+}

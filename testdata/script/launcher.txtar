@@ -7,6 +7,8 @@ cp ignored.md home/Documents/Obsidian/a/tickets/MAN-2/MAN-2.md
 cp open.md home/Documents/Obsidian/a/tickets/MAN-3/MAN-3.md
 cp done.md home/Documents/Obsidian/a/tickets/MAN-4/MAN-4.md
 cp open.md home/Documents/Obsidian/a/tickets/MAN-5/MAN-5.md
+mkdir home/Documents/Obsidian/a/tickets/MAN-6
+cp open.md home/Documents/Obsidian/a/tickets/MAN-6/MAN-6.md
 
 # none, even with (the stub) tmux on PATH
 env CLAUDE_TICKETS_LAUNCHER=none
@@ -78,6 +80,14 @@ grep '"command": "feedback"' home/Projects/work-a/MAN-1/.sessions.json
 stderr 'MAN-2: marked ignore: true \(not mine\), skipping'
 ! grep MAN-2 calls/claude
 ! exists calls/tmux
+
+# no claude: it fails before saying it runs, or recording a session
+env CLAUDE_TICKETS_CLAUDE=no-such-claude
+! exec ct-tty start --no-fetch MAN-6
+stderr '"no-such-claude": executable file not found'
+! stdout 'runs in this terminal'
+! exists home/Projects/work-a/MAN-6/.sessions.json
+env CLAUDE_TICKETS_CLAUDE=
 
 # status: no windows (tmux's are hidden), AGENT from .agent-state
 rm home/Projects/work-a/MAN-1/.sessions.json
