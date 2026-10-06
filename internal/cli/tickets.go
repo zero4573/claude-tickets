@@ -159,12 +159,19 @@ func newTicket(vaultDir, summary, typ, priority string) (string, error) {
 	if err := os.MkdirAll(tickets, 0o755); err != nil {
 		return "", err
 	}
-	// Next free number; mkdir is atomic, so two concurrent runs can't take
-	// the same ID
+	// Next free number, past the archived tickets' too (ct clean): a reused
+	// ID would give two notes one name. mkdir is atomic, so two concurrent
+	// runs can't take the same ID
 	n := 0
 	entries, _ := os.ReadDir(tickets)
+	names := note.ArchivedIDs(vaultDir)
 	for _, e := range entries {
-		if num, ok := strings.CutPrefix(e.Name(), prefix+"-"); ok && e.IsDir() {
+		if e.IsDir() {
+			names = append(names, e.Name())
+		}
+	}
+	for _, name := range names {
+		if num, ok := strings.CutPrefix(name, prefix+"-"); ok {
 			if v, err := strconv.Atoi(num); err == nil && v > n {
 				n = v
 			}

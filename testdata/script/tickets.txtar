@@ -22,6 +22,11 @@ cp sources.json home/Documents/Obsidian/a/tickets/.sources.json
 exec ct new 'Third'
 stdout 'OPS-1/OPS-1.md$'
 
+# An archived ticket's number (ct clean) is never reused
+mkdir home/Documents/Obsidian/a/archive/tickets/OPS-5
+exec ct new 'Fourth'
+stdout 'OPS-6/OPS-6.md$'
+
 # ct start --list: open tickets; --all adds done and closed ones
 mkdir home/Documents/Obsidian/a/tickets/MAN-3
 cp done.md home/Documents/Obsidian/a/tickets/MAN-3/MAN-3.md
