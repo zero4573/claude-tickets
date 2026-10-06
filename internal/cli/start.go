@@ -163,15 +163,7 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 			return err
 		}
 	}
-	// What a session works in, given to claude as --add-dir: the vault, the
-	// main clones (read-only to sessions: session.WriteSettings), each main
-	// clone's .git (writable, so ct ws add can create worktrees and branches)
-	// and the graph image cache (read-only)
-	dirs := []string{ctx.Vault, ctx.ProjectsRoot}
-	for _, c := range repo.MainClones(ctx.ProjectsRoot) {
-		dirs = append(dirs, filepath.Join(ctx.ProjectsRoot, c, ".git"))
-	}
-	dirs = append(dirs, filepath.Join(config.CacheDir(), "graphify"))
+	dirs := sessionDirs(ctx)
 	// The merged code graph of each workspace (ct graph mcp) needs its image
 	graphOK := true
 	if _, err := graph.Build(false); err != nil {
@@ -193,28 +185,47 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 	return nil
 }
 
-func startOne(ctx vault.Context, key, skill string, dirs []string, graphOK bool) error {
+// sessionDirs is what a ticket session works in, given to claude as
+// --add-dir: the vault, the main clones (read-only to sessions:
+// session.WriteSettings), each main clone's .git (writable, so ct ws add can
+// create worktrees and branches) and the graph image cache (read-only).
+func sessionDirs(ctx vault.Context) []string {
+	dirs := []string{ctx.Vault, ctx.ProjectsRoot}
+	for _, c := range repo.MainClones(ctx.ProjectsRoot) {
+		dirs = append(dirs, filepath.Join(ctx.ProjectsRoot, c, ".git"))
+	}
+	return append(dirs, filepath.Join(config.CacheDir(), "graphify"))
+}
+
+// prepareTicketSession readies a ticket's workspace for a session (its
+// workspace.json, settings, trust, CLAUDE.md) and returns it with the
+// claude command line to run there (no prompt yet).
+func prepareTicketSession(ctx vault.Context, key string, dirs []string) (string, []string, error) {
 	dir := filepath.Join(ctx.WorkRoot, key)
-	_, err := os.Stat(filepath.Join(dir, ".agent-state"))
-	resume := err == nil
 	if err := workspace.Ensure(dir, key, ctx.Vault); err != nil {
-		return err
+		return "", nil, err
 	}
 	if err := session.WriteSettings(dir, ctx.ProjectsRoot); err != nil {
-		return err
+		return "", nil, err
 	}
 	if err := session.Trust(dir); err != nil {
 		warnf("couldn't mark %s as trusted in %s: %v", dir, session.ClaudeConfig(), err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(ticketClaudeMD(ctx, key, dir)), 0o644); err != nil {
-		return err
+		return "", nil, err
 	}
-
-	prompt := "/tickets:" + skill + " " + key
 	argv, err := session.Command(dirs...)
+	return dir, argv, err
+}
+
+func startOne(ctx vault.Context, key, skill string, dirs []string, graphOK bool) error {
+	_, err := os.Stat(filepath.Join(ctx.WorkRoot, key, ".agent-state"))
+	resume := err == nil
+	dir, argv, err := prepareTicketSession(ctx, key, dirs)
 	if err != nil {
 		return err
 	}
+	prompt := "/tickets:" + skill + " " + key
 	if graphOK {
 		mcp, err := session.WriteGraphMCP(dir, ctx.Vault)
 		if err != nil {

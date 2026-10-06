@@ -15,13 +15,18 @@ import (
 // stream-json --verbose) with no input, showing its progress as it goes
 // (Progress) on stdout and appending it to log. It returns the command's
 // error (an *exec.ExitError when it failed).
-func Headless(logFile string, argv []string) error {
+func Headless(logFile string, argv []string) error { return HeadlessIn("", logFile, argv) }
+
+// HeadlessIn is Headless with dir as the command's working directory ("":
+// the current one).
+func HeadlessIn(dir, logFile string, argv []string) error {
 	logf, err := os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
 	defer logf.Close()
 	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.Dir = dir
 	pr, pw := io.Pipe()
 	cmd.Stdout, cmd.Stderr = pw, pw
 	if err := cmd.Start(); err != nil {
