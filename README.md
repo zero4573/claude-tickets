@@ -15,11 +15,12 @@ What it gives you:
   task list in the ticket note and gets its own git worktrees, and you get
   a desktop notification when it needs you.
 - **Knowledge base:** the vault holds what the sessions learn: projects
-  named by repo slug, the features and versions they shipped in, and data
-  flows across services as mermaid diagrams. `kb` answers questions about
-  the system without a ticket.
+  named by repo slug, the features and versions they shipped in, which
+  projects work together (`depends-on`, optional groups), and flows across
+  the projects that work together as mermaid diagrams. `kb` answers
+  questions about the vault's projects without a ticket.
 - **A code graph:** graphify gives every session the call graph of the
-  repos it works in, across services, so it reads less code.
+  repos it works in, across repos, so it reads less code.
 
 It's plain Claude Code underneath: sessions run your `claude` command with
 standard flags (`--plugin-dir`, `--add-dir`, `--mcp-config`, `--settings`),
@@ -189,6 +190,19 @@ clones there. The slug names the vault project folder, the version tags,
 the worktree folders and the graph's node ids, so names never collide
 across providers or owners. `ct ws repos` lists them.
 
+### Projects and groups
+
+Each repo is a project in the vault (`projects/<slug>/`), standalone by
+default, so a vault can hold unrelated repos as well as repos that work
+together. A project lists the projects it needs in `depends-on`
+(wikilinks on its index note, with a `## Depends on` table saying over
+what). Projects that share flows, compatibility rules or decisions can
+also join an optional **group**, `projects/<group>/<group>.md`
+(`type: group`), through their `groups` property; `/tickets:save` creates
+one only after asking you. Projects linked either way, directly or not,
+are related; the rest are unrelated. `ct vault groups <vault>` prints the
+clusters, and the vault's `AGENTS.md` has the rules.
+
 
 ## Commands
 
@@ -208,13 +222,14 @@ across providers or owners. `ct ws repos` lists them.
 | `ct open <ID>` | Open the ticket's workspace in `$CLAUDE_TICKETS_EDITOR` (default `code`). For VS Code and its forks it opens `<ID>.code-workspace`: one folder per worktree plus the ticket's vault notes, so each repo gets its own source control. |
 | `ct ws repos\|clone\|add\|ls\|diff\|sign\|rm\|fetch\|gc` | Worktrees per ticket, on `feature/<ID>[-<desc>]`. Sessions run it to create their own. `sign` signs the sessions' commits on the host; `gc` frees disk (see below). |
 | `ct clean [<ID>...] [--dry-run] [--yes] [--save] [--include-done] [--keep-manual] [--purge] [--days N]` | Clean up closed tickets: remove the workspace, then move a synced ticket's folder to the vault's `.trash/` (links to it become `[ID](<source-url>)`; files other notes link or embed move to `archive/tickets/<ID>/`) and a manual one's to `archive/tickets/<ID>/`. Skips open tickets, running sessions, uncommitted or unpushed work (commits already in `origin/<base>`, e.g. squash-merged, count as pushed) and unsaved sessions (`--save` runs `/tickets:save` headless first). Prints the plan and asks; `--yes` without a terminal. |
-| `ct kb [--continue] [--print] ["<question>"]` | Ask about the system without a ticket: a session with the vault, every repo read-only, and a graph merged from every repo. |
+| `ct kb [--continue] [--print] ["<question>"]` | Ask about the vault's projects without a ticket: a session with the vault, every repo read-only, and a graph merged from every repo. |
 | `ct kb repo checkout\|fetch\|graph\|ls\|reset` | Inside a kb session: exploration clones of any branch, to build and test in (never committed). |
 | `ct claude [claude args]` | `claude` in the current repo with the vault as its knowledge base: the vault added, the plugin's skills, and the repo's project notes named in the system prompt. |
 | `ct graph build\|status\|mcp` | The graphify image (`localhost/claude-tickets-graphify:<hash>`, podman or docker) and the stdio MCP server sessions use for their code graph. |
 | `ct graph index [<repo>...]` | Build or refresh the main clones' code graphs. |
 | `ct layout [--apply]` | Move repos into `<projectsRoot>/<provider>/<owner>/<repo>`. |
 | `ct vault lock` / `ct vault links` | Used by `/tickets:save`: serialize writes to shared notes, and move notes without breaking wikilinks. |
+| `ct vault groups <vault> [<project\|group>...] [--json] [--check]` | Which projects work together (groups, `depends-on`, used-by) and which are unrelated; `--check` validates those links (used by `/tickets:save`). Read-only. |
 | `ct completion zsh\|bash\|fish` | Shell completion (installed by the Nix package and `make install`): subcommands, flags, and ticket IDs with their summary. |
 
 Every command acts on the **current vault**: the default one
@@ -397,8 +412,8 @@ sequenceDiagram
   S->>L: acquire vault ID (waits for other saves)
   S->>V: session logs: tickets/ID/logs, projects/slug/logs
   S->>V: promote kb-drafts (ct vault links move: links kept)
-  S->>V: features, sequences (mermaid), decisions index,<br/>projects/system service map + compatibility matrix
-  S->>V: ct vault links check
+  S->>V: features, sequences (mermaid), decisions index,<br/>depends-on and group notes (asks before creating a group)
+  S->>V: ct vault links check, ct vault groups --check
   S->>V: ticket: tags slug-version, versions, summary,<br/>saved: timestamp, status done (closed stays closed)
   S->>L: release
 ```
