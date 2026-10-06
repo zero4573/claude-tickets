@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -77,6 +78,107 @@ func UnpushedHead(dir string) (bool, error) {
 		return false, err
 	}
 	return n != "0", nil
+}
+
+// Lost reports whether removing a checkout would lose commits: HEAD's
+// commits that no remote has, unless their changes are already in
+// origin/<base> (MergedInto: merged, rebased or squash-merged, the branch
+// since deleted on the server); and, for a shared clone (its branches live
+// only in it), a stash or commits on its other branches. Uncommitted
+// changes are Dirty's. An error means "can't tell".
+func Lost(dir, base string) (bool, error) {
+	if st, err := os.Stat(filepath.Join(dir, ".git")); err == nil && st.IsDir() {
+		stash, err := Out(dir, "stash", "list")
+		if err != nil || stash != "" {
+			return true, err
+		}
+		other, err := Out(dir, "rev-list", "--count", "--branches", "--not", "--remotes", "HEAD")
+		if err != nil || other != "0" {
+			return true, err
+		}
+	}
+	unpushed, err := UnpushedHead(dir)
+	if err != nil || !unpushed {
+		return unpushed, err
+	}
+	if base == "" || !HasRef(dir, "refs/remotes/origin/"+base) {
+		return true, nil
+	}
+	merged, err := MergedInto(dir, "origin/"+base)
+	return !merged, err
+}
+
+// MergedInto reports whether HEAD's changes since it left base are
+// already in base, however they got there. Any of:
+//   - the files HEAD changed since the merge base read the same in base
+//     (merged or squash-merged, nothing in base touching them since);
+//   - every commit's patch is in base (git cherry: rebased or
+//     cherry-picked);
+//   - HEAD's whole change since the merge base is the patch of one commit
+//     of base (git patch-id: squash-merged, base having moved on since).
+//
+// Each only says yes when nothing of HEAD's change is missing from base;
+// a change that conflicted or was edited in the merge reads as not merged,
+// which is the safe answer. It only reads.
+func MergedInto(dir, base string) (bool, error) {
+	mb, err := Out(dir, "merge-base", base, "HEAD")
+	if err != nil {
+		return false, err
+	}
+	names, err := Out(dir, "diff", "--name-only", "--no-renames", "-z", mb, "HEAD")
+	if err != nil {
+		return false, err
+	}
+	var files []string
+	for _, f := range strings.Split(names, "\x00") {
+		if f != "" {
+			files = append(files, f)
+		}
+	}
+	if len(files) == 0 {
+		return true, nil
+	}
+	if Ok(dir, append([]string{"diff", "--quiet", base, "HEAD", "--"}, files...)...) {
+		return true, nil
+	}
+	if cherry, err := Out(dir, "cherry", base, "HEAD"); err == nil && !strings.Contains("\n"+cherry, "\n+") {
+		return true, nil
+	}
+	mine, err := patchIDs(dir, "diff", mb, "HEAD")
+	if err != nil || len(mine) != 1 {
+		return false, err
+	}
+	theirs, err := patchIDs(dir, "log", "--no-merges", "-p", "--format=commit %H", mb+".."+base)
+	if err != nil {
+		return false, err
+	}
+	for _, id := range theirs {
+		if id == mine[0] {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// patchIDs is git patch-id --stable over the patches a git command prints.
+func patchIDs(dir string, args ...string) ([]string, error) {
+	patch, err := exec.Command("git", append([]string{"-C", dir}, args...)...).Output()
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.Command("git", "-C", dir, "patch-id", "--stable")
+	cmd.Stdin = strings.NewReader(string(patch))
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	for _, l := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if id, _, ok := strings.Cut(l, " "); ok {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
 }
 
 // SharedClone makes dest a clone of main that borrows its objects

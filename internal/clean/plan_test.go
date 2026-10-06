@@ -199,7 +199,9 @@ func TestPlanSafety(t *testing.T) {
 	if got := plan(o); got["PROJ-1"].Action != Trash {
 		t.Fatalf("clean and pushed: %+v", got["PROJ-1"])
 	}
-	git(t, wt, "commit", "--quiet", "--allow-empty", "-m", "work")
+	put(t, wt, "work.txt", "work")
+	git(t, wt, "add", "work.txt")
+	git(t, wt, "commit", "--quiet", "-m", "work")
 	if got := plan(o); got["PROJ-1"].Reason != "commits on no remote in repo" || got["PROJ-1"].Task == "" {
 		t.Errorf("unpushed worktree: %+v", got["PROJ-1"])
 	}

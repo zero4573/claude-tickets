@@ -44,7 +44,9 @@ exec git -C $W/PROJ-12/x push -q origin HEAD:feature/PROJ-12
 exec git -C home/Projects/repo-a/github/acme/x worktree add -q -b feature/PROJ-16 $WORK/$W/PROJ-16/x
 cp empty $W/PROJ-16/x/new.txt
 exec git -C home/Projects/repo-a/github/acme/x worktree add -q -b feature/PROJ-17 $WORK/$W/PROJ-17/x
-exec git -C $W/PROJ-17/x commit -q --allow-empty -m work
+cp empty $W/PROJ-17/x/work.txt
+exec git -C $W/PROJ-17/x add work.txt
+exec git -C $W/PROJ-17/x commit -q -m work
 exec sh -c 'for t in PROJ-12 PROJ-16 PROJ-17; do sed "s/ID/$t/g" ws.json > $W/$t/workspace.json; done'
 mkdir $W/PROJ-18 $W/PROJ-14 $W/PROJ-21
 exec sh -c 'echo "{\"id\": \"PROJ-18\", \"repos\": []}" > $W/PROJ-18/workspace.json'

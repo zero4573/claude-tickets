@@ -449,7 +449,12 @@ deleted, and refused while it has commits that aren't on origin.`,
 	return cmd
 }
 
-func wsRm(ctx vault.Context, key string, force bool) error {
+func wsRm(ctx vault.Context, key string, force bool) error { return wsRemove(ctx, key, force, false) }
+
+// wsRemove is wsRm; merged also lets a shared clone go when its unpushed
+// commits are already in origin/<base> (gitx.Lost: e.g. squash-merged, the
+// branch deleted on the server), as ct clean judges it.
+func wsRemove(ctx vault.Context, key string, force, merged bool) error {
 	if err := requireKey("rm", key); err != nil {
 		return err
 	}
@@ -469,7 +474,11 @@ func wsRm(ctx vault.Context, key string, force bool) error {
 			if st.IsDir() {
 				// A shared clone (see add): its branches live only in it, so refuse
 				// to drop work that was never pushed (or that git can't vouch for)
-				if unpushed, err := gitx.Unpushed(r.Path); !force && (err != nil || unpushed) {
+				unpushed, err := gitx.Unpushed(r.Path)
+				if merged && (err != nil || unpushed) {
+					unpushed, err = gitx.Lost(r.Path, r.Base)
+				}
+				if !force && (err != nil || unpushed) {
 					warnf("%s has commits that aren't on origin or stashed changes, not removing (push them, or use --force)", r.Slug)
 					failed = true
 					continue

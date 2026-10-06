@@ -64,3 +64,106 @@ func TestDirty(t *testing.T) {
 		t.Error("a failing git must count as dirty")
 	}
 }
+
+func commitFile(t *testing.T, dir, name, body, msg string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git(t, dir, "add", name)
+	git(t, dir, "commit", "--quiet", "-m", msg)
+}
+
+// branch gives the worktree two commits on the ticket branch, and returns
+// the clone with origin/main fetched.
+func branch(t *testing.T) (clone, wt string) {
+	clone, wt = repo(t)
+	commitFile(t, wt, "a.txt", "a\n", "a")
+	commitFile(t, wt, "b.txt", "b\n", "b")
+	return clone, wt
+}
+
+// squash puts the branch's net change on main as one commit, from a
+// second checkout, as a server's squash merge would, and fetches it.
+func squash(t *testing.T, clone string, files map[string]string, then map[string]string) {
+	t.Helper()
+	other := filepath.Join(t.TempDir(), "other")
+	git(t, filepath.Dir(other), "clone", "--quiet", clone+"/../remote.git", other)
+	for name, body := range files {
+		commitFile(t, other, name, body, "squash "+name)
+	}
+	git(t, other, "reset", "--quiet", "--soft", "origin/main")
+	git(t, other, "commit", "--quiet", "-m", "PROJ-12 squashed")
+	for name, body := range then {
+		commitFile(t, other, name, body, "later "+name)
+	}
+	git(t, other, "push", "--quiet", "origin", "HEAD:main")
+	git(t, clone, "fetch", "--quiet", "--prune", "origin")
+}
+
+func lost(t *testing.T, wt string) bool {
+	t.Helper()
+	l, err := Lost(wt, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return l
+}
+
+func TestLostSquashMerged(t *testing.T) {
+	clone, wt := branch(t)
+	if !lost(t, wt) {
+		t.Fatal("unpushed, unmerged: not lost")
+	}
+	squash(t, clone, map[string]string{"a.txt": "a\n", "b.txt": "b\n"}, nil)
+	if lost(t, wt) {
+		t.Error("squash-merged: lost")
+	}
+}
+
+func TestLostSquashMergedThenChanged(t *testing.T) {
+	clone, wt := branch(t)
+	// main changes a.txt again after the squash: only patch-id can tell
+	squash(t, clone, map[string]string{"a.txt": "a\n", "b.txt": "b\n"}, map[string]string{"a.txt": "a2\n"})
+	if lost(t, wt) {
+		t.Error("squash-merged, then changed: lost")
+	}
+}
+
+func TestLostRebaseMerged(t *testing.T) {
+	clone, wt := branch(t)
+	// the same commits re-applied on a moved main (cherry), then a.txt changed
+	other := filepath.Join(t.TempDir(), "other")
+	git(t, filepath.Dir(other), "clone", "--quiet", filepath.Join(filepath.Dir(clone), "remote.git"), other)
+	commitFile(t, other, "c.txt", "c\n", "c")
+	commitFile(t, other, "a.txt", "a\n", "a")
+	commitFile(t, other, "b.txt", "b\n", "b")
+	commitFile(t, other, "a.txt", "a3\n", "later")
+	git(t, other, "push", "--quiet", "origin", "HEAD:main")
+	git(t, clone, "fetch", "--quiet", "origin")
+	if lost(t, wt) {
+		t.Error("rebase-merged: lost")
+	}
+}
+
+func TestLostPartlyMerged(t *testing.T) {
+	clone, wt := branch(t)
+	squash(t, clone, map[string]string{"a.txt": "a\n"}, nil)
+	if !lost(t, wt) {
+		t.Error("only a.txt merged: not lost")
+	}
+	// No origin/<base> to compare with: lost
+	if l, _ := Lost(wt, "nope"); !l {
+		t.Error("no base on origin: not lost")
+	}
+}
+
+func TestLostSharedCloneStash(t *testing.T) {
+	clone, _ := repo(t)
+	os.WriteFile(filepath.Join(clone, "s.txt"), []byte("x"), 0o644)
+	git(t, clone, "add", "s.txt")
+	git(t, clone, "stash", "--quiet")
+	if l, err := Lost(clone, "main"); err != nil || !l {
+		t.Errorf("stash: %t, %v", l, err)
+	}
+}

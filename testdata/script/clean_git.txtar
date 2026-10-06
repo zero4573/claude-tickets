@@ -6,7 +6,7 @@ env M=home/Projects/repo-a/github/acme/x
 mkdir $V/.obsidian $V/inbox
 cp empty $V/pending.md
 cp empty $V/tickets.base
-exec sh -c 'cd home/Documents/Obsidian/a && for t in PROJ-70 PROJ-71 PROJ-72 PROJ-73 MAN-70 MAN-71; do mkdir -p tickets/$t; sed "s/ID/$t/" $WORK/synced.md > tickets/$t/$t.md; done'
+exec sh -c 'cd home/Documents/Obsidian/a && for t in PROJ-70 PROJ-71 PROJ-72 PROJ-73 PROJ-74 MAN-70 MAN-71; do mkdir -p tickets/$t; sed "s/ID/$t/" $WORK/synced.md > tickets/$t/$t.md; done'
 cp manual-lead.md $V/tickets/MAN-70/MAN-70.md
 cp manual-covered.md $V/tickets/MAN-71/MAN-71.md
 
@@ -30,17 +30,30 @@ exec git -C $W/PROJ-71/x stash -q
 # PROJ-72: a running session (agent state)
 mkdir $W/PROJ-72
 cp running.json $W/PROJ-72/.agent-state
-# PROJ-73: squash-merged; its remote branch deleted and pruned
+# PROJ-73: squash-merged into main; its remote branch deleted and pruned:
+# its changes are in origin/main, so nothing is lost (user decision, R1)
 exec git -C $M worktree add -q -b feature/PROJ-73 $WORK/$W/PROJ-73/x
-exec git -C $W/PROJ-73/x commit -q --allow-empty -m w73
+cp dirt $W/PROJ-73/x/w73.txt
+exec git -C $W/PROJ-73/x add w73.txt
+exec git -C $W/PROJ-73/x commit -q -m w73
 exec git -C $W/PROJ-73/x push -q origin HEAD:feature/PROJ-73
+exec git -C $M merge -q --squash feature/PROJ-73
+exec git -C $M commit -q -m 'PROJ-73 (squashed)'
+exec git -C $M push -q origin HEAD:main
 exec git -C $M push -q origin --delete feature/PROJ-73
+# PROJ-74: pushed, never merged, its remote branch deleted: its work is lost with it
+exec git -C $M worktree add -q -b feature/PROJ-74 $WORK/$W/PROJ-74/x
+cp dirt $W/PROJ-74/x/w74.txt
+exec git -C $W/PROJ-74/x add w74.txt
+exec git -C $W/PROJ-74/x commit -q -m w74
+exec git -C $W/PROJ-74/x push -q origin HEAD:feature/PROJ-74
+exec git -C $M push -q origin --delete feature/PROJ-74
 exec git -C $M fetch -q --prune origin
 # MAN-70 lead (closed) with dirty workspace; MAN-71 covered (closed)
 exec git -C $M worktree add -q -b feature/MAN-70 $WORK/$W/MAN-70/x
 cp dirt $W/MAN-70/x/new.txt
-exec sh -c 'for t in PROJ-70 PROJ-71 PROJ-72 PROJ-73 MAN-70; do sed "s/ID/$t/g" ws.json > $W/$t/workspace.json; done'
-expand $W/PROJ-70/workspace.json $W/PROJ-71/workspace.json $W/PROJ-72/workspace.json $W/PROJ-73/workspace.json $W/MAN-70/workspace.json
+exec sh -c 'for t in PROJ-70 PROJ-71 PROJ-72 PROJ-73 PROJ-74 MAN-70; do sed "s/ID/$t/g" ws.json > $W/$t/workspace.json; done'
+expand $W/PROJ-70/workspace.json $W/PROJ-71/workspace.json $W/PROJ-72/workspace.json $W/PROJ-73/workspace.json $W/PROJ-74/workspace.json $W/MAN-70/workspace.json
 
 exec sh -c 'find home/Documents home/Projects remote.git -printf "%p %T@ %s %m\n" | sort'
 cp stdout before.txt
@@ -53,9 +66,16 @@ exec cat plan.txt
 stdout 'PROJ-70 \(closed\): remove the workspace; move to .trash/PROJ-70'
 stdout 'PROJ-71 \(closed\): skip: commits on no remote in x'
 stdout 'PROJ-72 \(closed\): skip: session running \(PROJ-72\)'
-stdout 'PROJ-73 \(closed\): skip: commits on no remote in x'
+stdout 'PROJ-73 \(closed\): remove the workspace; move to .trash/PROJ-73'
+stdout 'PROJ-74 \(closed\): skip: commits on no remote in x'
 stdout 'MAN-70 \(closed\): skip: uncommitted changes in x'
 stdout 'MAN-71 \(closed\): skip: uncommitted changes in x'
+
+# The squash-merged one goes; its branch stays in the main clone
+exec ct clean --yes PROJ-73
+stdout 'PROJ-73: removed its workspace; moved to .trash/PROJ-73'
+! exists $W/PROJ-73
+exec git -C $M rev-parse --verify -q refs/heads/feature/PROJ-73
 
 -- empty --
 -- dirt --

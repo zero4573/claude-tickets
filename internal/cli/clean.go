@@ -55,7 +55,9 @@ A ticket is skipped, with the reason, when:
   done ones: ct sync would re-create them while they're open at the source);
 - --days N and its note was updated less than N days ago;
 - its session is running, or its workspace has uncommitted changes, or
-  commits on no remote (or a stash);
+  commits on no remote (or a stash). Commits whose changes are already in
+  origin/<base> count as pushed: a squash-merged branch whose remote
+  branch was deleted goes;
 - its work wasn't saved: no saved: marker (written by /tickets:save) or
   summary block, and it has hand-off files, logs or commits, or kb-drafts
   not yet promoted. --save runs /tickets:save headless in its workspace
@@ -130,7 +132,7 @@ func runClean(ctx vault.Context, o clean.Options, dry, yes bool) error {
 	res := clean.Run(o, items, clean.Env{
 		Out:             os.Stdout,
 		Save:            func(id string) (string, error) { return headlessSave(ctx, id) },
-		RemoveWorkspace: func(id string) error { return wsRm(ctx, id, false) },
+		RemoveWorkspace: func(id string) error { return wsRemove(ctx, id, false, true) },
 	})
 	if res.Failed {
 		return exitError(1)
