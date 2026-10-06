@@ -48,7 +48,7 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
   `UPDATE_GOLDEN=1 go test -run TestScripts/sync .`, then review the diff.
   The `ticket-sync` skill writes the same layout for other sources: change
   both together.
-- **Go:** keep file formats stable (notes, `.sources.json`,
+- **Go:** keep file formats stable (notes, `.sources.json`, `.scaffold.json`,
   `.workflow.json`, `workspace.json`, `.sync-state.json`); helpers in
   `internal/<area>`; no new dependencies without a good reason (today: cobra, yaml.v3, x/sys, x/term, testscript).
 - **Cross-platform (Linux, macOS, Windows; amd64 and arm64):** OS
@@ -73,12 +73,20 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
   `make cross` must stay clean.
 - **Keep examples neutral:** no real company, product, repository, ticket
   key or person names; use `acme`, `PROJ-12`, `Jane Doe`.
+- **The vault scaffold has a history:** a change to `assets/vault-scaffold/`
+  needs `go generate ./assets`, which adds the new versions' hashes to
+  `assets/scaffold-history.json` (read from git, so it needs full, not
+  shallow, history; hashes are only ever added). `ct vault update` uses it
+  to tell an unedited old copy in a vault from an edited one, and
+  `TestHistoryCoversScaffold` fails until it's run. On a merge conflict in
+  the file, take either side and run it again.
 - **Pins** (images by digest, the hashed graphify lock, fetched Obsidian
   assets) get a row in `UPDATES.md`.
 
 ## Checking
 
 ```sh
+go generate ./assets          # after changing assets/vault-scaffold/: its hash history
 make check                    # go vet, gofmt, go test (unit + CLI tests, golden ct sync runs)
 make cross                    # every OS/arch into dist/
 nix build .#default           # builds ct (runs go test)
