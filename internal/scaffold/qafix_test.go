@@ -170,3 +170,72 @@ func TestApplyNeverDowngrades(t *testing.T) {
 		t.Error("take: not recorded")
 	}
 }
+
+// TestTakePaths: --take names a file relative to the vault root, or by a
+// path (absolute, or relative to the current directory) inside the vault;
+// paths outside the vault are refused.
+func TestTakePaths(t *testing.T) {
+	src, v := applySetup(t)
+	write(t, v, "t/x.md", "mine\n") // t/ exists, for a cwd inside the vault
+	outside := t.TempDir()
+	known := func(rel string) bool { return rel == "edited.md" || rel == "t/missing.md" || rel == "gone.md" }
+	t.Chdir(outside)
+	for _, tc := range []struct{ take, rel, err string }{
+		{"edited.md", "edited.md", ""},
+		{"./edited.md", "edited.md", ""},
+		{filepath.Join("t", "missing.md"), "t/missing.md", ""},
+		{filepath.Join(v, "edited.md"), "edited.md", ""},
+		{filepath.Join(v, "t", "..", "edited.md"), "edited.md", ""},
+		{"nope.md", "nope.md", ""}, // vault-relative, unknown: Apply says it isn't shipped
+		{filepath.Join(outside, "edited.md"), "", "is outside the vault"},
+		{filepath.Join("..", "edited.md"), "", "is outside the vault"},
+		{filepath.Join(v, "..", "edited.md"), "", "is outside the vault"},
+	} {
+		rel, err := takeRel(v, tc.take, known)
+		if tc.err != "" {
+			if err == nil || !strings.Contains(err.Error(), tc.err) {
+				t.Errorf("%s: rel %q err %v, want %q", tc.take, rel, err, tc.err)
+			}
+			continue
+		}
+		if err != nil || rel != tc.rel {
+			t.Errorf("%s: rel %q err %v, want %q", tc.take, rel, err, tc.rel)
+		}
+	}
+
+	// relative to a current directory inside the vault
+	t.Chdir(filepath.Join(v, "t"))
+	for take, want := range map[string]string{"missing.md": "t/missing.md", filepath.Join("..", "edited.md"): "edited.md"} {
+		if rel, err := takeRel(v, take, known); err != nil || rel != want {
+			t.Errorf("from t/: %s: rel %q err %v, want %q", take, rel, err, want)
+		}
+	}
+
+	// through a symlink to the vault
+	if runtime.GOOS != "windows" {
+		link := filepath.Join(outside, "link")
+		if err := os.Symlink(v, link); err != nil {
+			t.Fatal(err)
+		}
+		if rel, err := takeRel(v, filepath.Join(link, "edited.md"), known); err != nil || rel != "edited.md" {
+			t.Errorf("through a link: rel %q err %v", rel, err)
+		}
+		if rel, err := takeRel(link, filepath.Join(v, "edited.md"), known); err != nil || rel != "edited.md" {
+			t.Errorf("vault given as a link: rel %q err %v", rel, err)
+		}
+	}
+
+	// Apply takes an absolute path, and refuses one outside the vault
+	t.Chdir(outside)
+	res, err := Apply(v, src, Options{Version: "1.0", Take: []string{filepath.Join(v, "edited.md")}})
+	if err != nil || res.Done["edited.md"] != Taken {
+		t.Fatalf("take by absolute path: done %v err %v", res.Done, err)
+	}
+	write(t, outside, "a.md", "x\n")
+	if _, err := Apply(v, src, Options{Take: []string{filepath.Join(outside, "a.md")}}); err == nil || !strings.Contains(err.Error(), "outside the vault") {
+		t.Errorf("outside: %v", err)
+	}
+	if _, err := Apply(v, src, Options{Take: []string{"gone.md"}}); err == nil || err.Error() != "gone.md isn't shipped any more" {
+		t.Errorf("retired: %v", err)
+	}
+}

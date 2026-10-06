@@ -56,7 +56,10 @@ func Apply(vault string, src Source, o Options) (Result, error) {
 	}
 	take := map[string]bool{}
 	for _, t := range o.Take {
-		rel := filepath.ToSlash(filepath.Clean(t))
+		rel, err := takeRel(vault, t, func(rel string) bool { return ship[rel] || len(src.History[rel]) > 0 })
+		if err != nil {
+			return Result{}, err
+		}
 		switch {
 		case ship[rel]:
 			take[rel] = true
@@ -192,4 +195,57 @@ func sameRecord(a, b map[string]Shipped) bool {
 		}
 	}
 	return true
+}
+
+// takeRel is the vault-relative, slash-separated path a --take names: a
+// path relative to the vault root, or one (absolute, or relative to the
+// current directory) that's inside the vault. known says whether a
+// vault-relative path is one ct ships or has shipped. Paths outside the
+// vault are refused.
+func takeRel(vault, t string, known func(rel string) bool) (string, error) {
+	clean := filepath.Clean(t)
+	local := !filepath.IsAbs(clean) && filepath.IsLocal(clean)
+	if local && known(filepath.ToSlash(clean)) {
+		return filepath.ToSlash(clean), nil
+	}
+	abs, err := filepath.Abs(clean)
+	if err != nil {
+		return "", err
+	}
+	if rel, ok := inVault(vault, abs); ok {
+		return rel, nil
+	}
+	if !local {
+		return "", fmt.Errorf("%s is outside the vault", t)
+	}
+	return filepath.ToSlash(clean), nil
+}
+
+// inVault is abs relative to the vault, when it's inside it: lexically, or
+// else with symlinks resolved (e.g. a vault reached through a link).
+func inVault(vault, abs string) (string, bool) {
+	root, err := filepath.Abs(vault)
+	if err != nil {
+		return "", false
+	}
+	rel := func(root, p string) (string, bool) {
+		r, err := filepath.Rel(root, p)
+		if err != nil || !filepath.IsLocal(r) {
+			return "", false
+		}
+		return filepath.ToSlash(r), true
+	}
+	if r, ok := rel(root, abs); ok {
+		return r, true
+	}
+	realRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", false
+	}
+	// the file itself may be a link or missing: resolve its folder
+	dir, err := filepath.EvalSymlinks(filepath.Dir(abs))
+	if err != nil {
+		return "", false
+	}
+	return rel(realRoot, filepath.Join(dir, filepath.Base(abs)))
 }

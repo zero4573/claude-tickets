@@ -105,6 +105,11 @@ stderr 'AGENTS.md.bak exists'
 rm $V/AGENTS.md.bak
 exec ct vault update demo --dry-run --take AGENTS.md
 stdout '^  ~ AGENTS.md \(would take; the old one would be kept as AGENTS.md.bak\)$'
+# by a path inside the vault too, never outside it
+exec ct vault update demo --dry-run --take $V/AGENTS.md
+stdout '^  ~ AGENTS.md \(would take; the old one would be kept as AGENTS.md.bak\)$'
+! exec ct vault update demo --dry-run --take $WORK/mine.md
+stderr 'mine.md is outside the vault'
 grep '^mine$' $V/AGENTS.md
 ! exists $V/AGENTS.md.bak
 

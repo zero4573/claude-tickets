@@ -230,7 +230,7 @@ lock), and .scaffold.json records what was shipped.`,
 	f := cmd.Flags()
 	f.BoolVar(&o.dryRun, "dry-run", false, "only report what would change; write nothing")
 	f.BoolVar(&o.diff, "diff", false, "as --dry-run, plus a diff (vault copy to shipped version) of each file that would be updated or is edited")
-	f.StringArrayVar(&o.take, "take", nil, "replace this edited file with the shipped version, keeping the old one as <file>.bak (repeatable)")
+	f.StringArrayVar(&o.take, "take", nil, "replace this edited (or newer) file with the shipped version, keeping the old one as <file>.bak: a path relative to the vault root, or any path inside the vault (repeatable)")
 	return cmd
 }
 
