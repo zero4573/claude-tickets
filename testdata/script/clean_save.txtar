@@ -1,0 +1,85 @@
+# ct clean: --save when claude fails; a run that fails after rewriting finishes on re-run; archive collision; IDs as typed
+env V=home/Documents/Obsidian/a
+env W=home/Projects/work-a
+mkdir $V/.obsidian $V/inbox $V/notes
+cp empty $V/pending.md
+cp empty $V/tickets.base
+exec sh -c 'cd home/Documents/Obsidian/a && for t in MAN-60 MAN-61 PROJ-60 PROJ-61 MAN-62; do mkdir -p tickets/$t; done'
+cp unsaved-manual.md $V/tickets/MAN-60/MAN-60.md
+cp empty $V/tickets/MAN-60/design.md
+mkdir $W/MAN-60
+exec sh -c 'echo "{\"id\": \"MAN-60\", \"repos\": []}" > home/Projects/work-a/MAN-60/workspace.json'
+# 2. --save where claude itself fails: skipped, follow-up task, nothing removed
+mkdir failstub
+cp failclaude failstub/claude
+chmod 0755 failstub/claude
+env PATH=$WORK/failstub:$PATH
+! exec ct clean --yes --save MAN-60
+stdout 'MAN-60: running /tickets:save'
+stdout 'MAN-60: skipped: /tickets:save failed'
+exists $V/tickets/MAN-60/MAN-60.md
+exists $W/MAN-60/workspace.json
+exec sh -c 'cat home/Documents/Obsidian/a/inbox/*-ct-clean-follow-ups.md'
+stdout 'MAN-60.*couldn.t save it'
+
+# 3. .trash is a file: the run fails after rewriting links; fixing it and
+# re-running finishes the job with nothing left dangling
+cp synced.md $V/tickets/PROJ-60/PROJ-60.md
+cp links60.md $V/notes/links60.md
+cp empty $V/.trash
+! exec ct clean --yes PROJ-60
+stdout 'PROJ-60: '
+exists $V/tickets/PROJ-60/PROJ-60.md
+grep '\[PROJ-60\]\(https://x.example/browse/PROJ-60\)' $V/notes/links60.md
+rm $V/.trash
+exec ct clean --yes PROJ-60
+stdout 'PROJ-60: moved to .trash/PROJ-60; rewrote 0 link\(s\) in 0 note\(s\)'
+! exists $V/tickets/PROJ-60
+
+# 4. archive destination already exists: refused before anything moves
+cp manual.md $V/tickets/MAN-61/MAN-61.md
+mkdir $V/archive/tickets/MAN-61
+cp manual.md $V/archive/tickets/MAN-61/MAN-61.md
+! exec ct clean --yes MAN-61
+stdout 'MAN-61: move: destination exists'
+exists $V/tickets/MAN-61/MAN-61.md
+
+# 5. IDs are matched as typed (lower case is not found), exit 1
+cp synced61.md $V/tickets/PROJ-61/PROJ-61.md
+! exec ct clean --dry-run proj-61
+stdout 'proj-61: skip: not a ticket in the vault'
+
+
+-- empty --
+-- failclaude --
+#!/bin/sh
+echo "$@" >> "$WORK/calls/claude"
+echo '{"type":"result","is_error":true,"result":"boom"}'
+exit 3
+-- unsaved-manual.md --
+---
+status: closed
+source: manual
+---
+-- manual.md --
+---
+status: closed
+saved: 2026-10-01T10:00:00
+source: manual
+---
+-- synced.md --
+---
+status: closed
+saved: 2026-10-01T10:00:00
+source: jira
+source-url: https://x.example/browse/PROJ-60
+---
+-- synced61.md --
+---
+status: closed
+saved: 2026-10-01T10:00:00
+source: jira
+source-url: https://x.example/browse/PROJ-61
+---
+-- links60.md --
+See [[PROJ-60]].

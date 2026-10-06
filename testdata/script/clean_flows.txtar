@@ -1,0 +1,126 @@
+# ct clean: dry run changes no mtime; referenced attachments, ignored tickets, bad source-url, leads and covered tickets
+env GIT_CONFIG_GLOBAL=/dev/null
+env V=home/Documents/Obsidian/a
+env W=home/Projects/work-a
+mkdir $V/.obsidian $V/projects/p $V/inbox $V/attachments
+cp empty $V/pending.md
+cp empty $V/tickets.base
+cp proj.md $V/projects/p/p.md
+exec sh -c 'cd home/Documents/Obsidian/a && for t in PROJ-50 PROJ-51 PROJ-52 PROJ-53 MAN-50 MAN-51 MAN-52 MAN-53 MAN-54 MAN-55; do mkdir -p tickets/$t; done'
+cp synced.md $V/tickets/PROJ-50/PROJ-50.md
+cp empty $V/tickets/PROJ-50/diagram.png
+cp empty $V/tickets/PROJ-50/unused.png
+cp synced.md $V/tickets/PROJ-51/PROJ-51.md
+cp ignored.md $V/tickets/PROJ-52/PROJ-52.md
+cp badurl.md $V/tickets/PROJ-53/PROJ-53.md
+cp manual.md $V/tickets/MAN-50/MAN-50.md
+cp links51.md $V/tickets/MAN-50/notes.md
+cp lead.md $V/tickets/MAN-51/MAN-51.md
+cp covered-closed.md $V/tickets/MAN-52/MAN-52.md
+cp lead-nocovers.md $V/tickets/MAN-53/MAN-53.md
+cp covered-open.md $V/tickets/MAN-54/MAN-54.md
+cp manual.md $V/tickets/MAN-55/MAN-55.md
+# synced PROJ-51's attachment is linked only from PROJ-50, also trashed in this run
+cp empty $V/tickets/PROJ-51/only-from-50.png
+exec sh -c 'echo "![[only-from-50.png]]" >> home/Documents/Obsidian/a/tickets/PROJ-50/PROJ-50.md'
+# a leftover workspace folder without workspace.json, holding a file
+mkdir $W/PROJ-51
+cp empty $W/PROJ-51/precious.txt
+
+# Dry run: nothing in the vault or the work root changes (contents, mtimes, modes, dirs)
+exec sh -c 'find home/Documents home/Projects -printf "%p %T@ %s %m\n" | sort'
+cp stdout before.txt
+exec ct clean --dry-run
+cp stdout plan.txt
+exec sh -c 'find home/Documents home/Projects -printf "%p %T@ %s %m\n" | sort'
+cmp stdout before.txt
+
+exec ct clean --yes
+cp stdout run.txt
+exec cat run.txt
+# referenced attachment kept, unreferenced one trashed
+exists $V/archive/tickets/PROJ-50/diagram.png
+exists $V/.trash/PROJ-50/unused.png
+# only linked from another ticket trashed in the same run: not kept
+! exists $V/archive/tickets/PROJ-51/only-from-50.png
+# ignored tickets are cleaned
+exists $V/.trash/PROJ-52/PROJ-52.md
+# synced without a usable source-url: archived, links keep resolving
+exists $V/archive/tickets/PROJ-53/PROJ-53.md
+# the lead and its closed covered ticket go together
+exists $V/archive/tickets/MAN-51/MAN-51.md
+exists $V/archive/tickets/MAN-52/MAN-52.md
+# a lead with no covers goes; its open covered ticket stays, covered-by still resolves
+exists $V/archive/tickets/MAN-53/MAN-53.md
+exists $V/tickets/MAN-54/MAN-54.md
+exec ct vault links check $V
+stdout 'all links resolve'
+# the leftover workspace folder's file is kept
+exists $W/PROJ-51/precious.txt
+
+-- empty --
+-- proj.md --
+---
+title: p
+---
+![[diagram.png]] [[PROJ-50]] [[PROJ-52]] [[PROJ-53]] [[MAN-50]]
+-- synced.md --
+---
+status: closed
+saved: 2026-10-01T10:00:00
+source: jira
+source-url: https://x.example/browse/X
+---
+-- ignored.md --
+---
+status: closed
+ignore: true
+saved: 2026-10-01T10:00:00
+source: jira
+source-url: https://x.example/browse/PROJ-52
+---
+-- badurl.md --
+---
+status: closed
+saved: 2026-10-01T10:00:00
+source: jira
+source-url: x.example/PROJ-53
+---
+-- manual.md --
+---
+status: closed
+saved: 2026-10-01T10:00:00
+source: manual
+---
+-- links51.md --
+See [[PROJ-51]].
+-- lead.md --
+---
+status: closed
+saved: 2026-10-01T10:00:00
+source: manual
+ticket-type: epic
+covers:
+  - "[[MAN-52]]"
+---
+-- covered-closed.md --
+---
+status: closed
+saved: 2026-10-01T10:00:00
+source: manual
+covered-by: "[[MAN-51]]"
+---
+-- lead-nocovers.md --
+---
+status: closed
+saved: 2026-10-01T10:00:00
+source: manual
+ticket-type: epic
+covers: []
+---
+-- covered-open.md --
+---
+status: review
+source: manual
+covered-by: "[[MAN-53]]"
+---

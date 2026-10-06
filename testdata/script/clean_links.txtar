@@ -1,0 +1,154 @@
+# ct clean: link rewriting edge cases (aliases, headings, blocks, embeds, path forms, code, CRLF, BOM, frontmatter forms, sync-owned places)
+env V=home/Documents/Obsidian/a
+mkdir $V/.obsidian $V/tickets/PROJ-12 $V/tickets/PROJ-120 $V/tickets/PROJ-1 $V/tickets/MAN-5 $V/tickets/PROJ-40 $V/templates $V/notes
+cp proj-12.md $V/tickets/PROJ-12/PROJ-12.md
+cp open.md $V/tickets/PROJ-120/PROJ-120.md
+cp open.md $V/tickets/PROJ-1/PROJ-1.md
+cp man-5.md $V/tickets/MAN-5/MAN-5.md
+cp proj-40.md $V/tickets/PROJ-40/PROJ-40.md
+cp body.md $V/notes/body.md
+cp tpl.md $V/templates/tpl.md
+cp fm.md $V/notes/fm.md
+cp empty $V/pending.md
+cp empty $V/tickets.base
+exec sh -c 'printf -- "---\r\ntitle: crlf\r\n---\r\nSee [[PROJ-12]].\r\n" > home/Documents/Obsidian/a/notes/crlf.md'
+exec sh -c 'printf "\357\273\277---\nrelated: [\"[[PROJ-12]]\"]\n---\nBOM [[PROJ-12]]\n" > home/Documents/Obsidian/a/notes/bom.md'
+exec ct clean --yes
+stdout 'PROJ-12: moved to .trash/PROJ-12; rewrote'
+stdout 'warning: notes/fm.md:9 still links \[\[PROJ-12\]\]'
+exec cat $V/notes/body.md
+cmp $V/notes/body.md body-after.md
+cmp $V/templates/tpl.md tpl.md
+cmp $V/notes/fm.md fm-after.md
+cmp $V/tickets/MAN-5/MAN-5.md man-5-after.md
+cmp $V/tickets/PROJ-40/PROJ-40.md proj-40-after.md
+exec sh -c 'od -c home/Documents/Obsidian/a/notes/crlf.md | head -3'
+stdout '\\r'
+grep 'See \[PROJ-12\]\(https://x.example/browse/PROJ-12\)\.' $V/notes/crlf.md
+grep 'BOM \[PROJ-12\]' $V/notes/bom.md
+grep 'related: \["\[PROJ-12\]' $V/notes/bom.md
+exec sh -c 'cat home/Documents/Obsidian/a/inbox/*-ct-clean-follow-ups.md'
+stdout 'notes/fm.md:9 still links PROJ-12 \(removed by ct clean\) in a frontmatter form it can.t rewrite'
+! exec ct vault links check $V
+stdout -count=1 'unresolved link'
+stdout 'notes/fm.md:9: unresolved link \[\[PROJ-12\]\]'
+stdout '3 link\(s\) in sync-owned parts'
+
+-- proj-12.md --
+---
+status: closed
+saved: 2026-10-01T10:00:00
+source: jira
+source-url: https://x.example/browse/PROJ-12
+---
+-- open.md --
+---
+status: in-progress
+source: jira
+source-url: https://x.example/browse/X
+---
+-- tpl.md --
+Template [[PROJ-12]]
+-- body.md --
+# Body
+a [[PROJ-12]] b [[PROJ-120]] c [[PROJ-1]] d [[proj-12]]
+| col | [[PROJ-12\|in table]] | [[PROJ-12#H\|t2]] |
+heading [[PROJ-12#Some heading]] block [[PROJ-12#^abc123]] alias [[PROJ-12#H|al]]
+embed ![[PROJ-12]] embed-h ![[PROJ-12#Review]] embed-a ![[PROJ-12|shown]]
+paths [[tickets/PROJ-12/PROJ-12]] [[PROJ-12/PROJ-12]] [[PROJ-12.md]] [[ PROJ-12 ]]
+empty alias [[PROJ-12|]] two `[[PROJ-12]]` and [[PROJ-12]] in one line
+<!-- comment [[PROJ-12]] -->
+```
+fenced [[PROJ-12]]
+```
+~~~md
+tilde [[PROJ-12]]
+~~~
+-- body-after.md --
+# Body
+a [PROJ-12](https://x.example/browse/PROJ-12) b [[PROJ-120]] c [[PROJ-1]] d [PROJ-12](https://x.example/browse/PROJ-12)
+| col | [in table](https://x.example/browse/PROJ-12) | [t2](https://x.example/browse/PROJ-12) |
+heading [PROJ-12](https://x.example/browse/PROJ-12) block [PROJ-12](https://x.example/browse/PROJ-12) alias [al](https://x.example/browse/PROJ-12)
+embed [PROJ-12](https://x.example/browse/PROJ-12) embed-h [PROJ-12](https://x.example/browse/PROJ-12) embed-a [shown](https://x.example/browse/PROJ-12)
+paths [PROJ-12](https://x.example/browse/PROJ-12) [PROJ-12](https://x.example/browse/PROJ-12) [PROJ-12](https://x.example/browse/PROJ-12) [PROJ-12](https://x.example/browse/PROJ-12)
+empty alias [PROJ-12](https://x.example/browse/PROJ-12) two `[[PROJ-12]]` and [PROJ-12](https://x.example/browse/PROJ-12) in one line
+<!-- comment [PROJ-12](https://x.example/browse/PROJ-12) -->
+```
+fenced [[PROJ-12]]
+```
+~~~md
+tilde [[PROJ-12]]
+~~~
+-- fm.md --
+---
+title: fm
+related: ["[[PROJ-12]]", "[[PROJ-120]]"]
+single: '[[PROJ-12]]'
+bare: [[PROJ-12]]
+list:
+  - "[[PROJ-12]]"
+  - [[PROJ-12]]
+prose: "see [[PROJ-12]] there"
+---
+body
+-- fm-after.md --
+---
+title: fm
+related: ["[PROJ-12](https://x.example/browse/PROJ-12)", "[[PROJ-120]]"]
+single: '[PROJ-12](https://x.example/browse/PROJ-12)'
+bare: "[PROJ-12](https://x.example/browse/PROJ-12)"
+list:
+  - "[PROJ-12](https://x.example/browse/PROJ-12)"
+  - "[PROJ-12](https://x.example/browse/PROJ-12)"
+prose: "see [[PROJ-12]] there"
+---
+body
+-- man-5.md --
+---
+status: in-progress
+source: manual
+related: ["[[PROJ-12]]"]
+covered-by: "[[PROJ-12]]"
+---
+<!-- source:start -->
+manual [[PROJ-12]]
+<!-- source:end -->
+-- man-5-after.md --
+---
+status: in-progress
+source: manual
+related: ["[PROJ-12](https://x.example/browse/PROJ-12)"]
+covered-by: "[PROJ-12](https://x.example/browse/PROJ-12)"
+---
+<!-- source:start -->
+manual [PROJ-12](https://x.example/browse/PROJ-12)
+<!-- source:end -->
+-- proj-40.md --
+---
+status: in-progress
+source: jira
+source-url: https://x.example/browse/PROJ-40
+related: ["[[PROJ-12]]"]
+blocked-by:
+  - "[[PROJ-12]]"
+projects: ["[[PROJ-12]]"]
+---
+<!-- source:start -->
+Parent: [[PROJ-12]]
+<!-- source:end -->
+Work [[PROJ-12]]
+-- proj-40-after.md --
+---
+status: in-progress
+source: jira
+source-url: https://x.example/browse/PROJ-40
+related: ["[[PROJ-12]]"]
+blocked-by:
+  - "[[PROJ-12]]"
+projects: ["[PROJ-12](https://x.example/browse/PROJ-12)"]
+---
+<!-- source:start -->
+Parent: [[PROJ-12]]
+<!-- source:end -->
+Work [PROJ-12](https://x.example/browse/PROJ-12)
+-- empty --

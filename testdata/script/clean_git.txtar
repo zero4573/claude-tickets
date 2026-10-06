@@ -1,0 +1,90 @@
+# ct clean: git safety (stale index on dry run, shared-clone stash, agent state, squash-merged branch pruned, dirty lead blocks covered)
+env GIT_CONFIG_GLOBAL=/dev/null
+env V=home/Documents/Obsidian/a
+env W=home/Projects/work-a
+env M=home/Projects/repo-a/github/acme/x
+mkdir $V/.obsidian $V/inbox
+cp empty $V/pending.md
+cp empty $V/tickets.base
+exec sh -c 'cd home/Documents/Obsidian/a && for t in PROJ-70 PROJ-71 PROJ-72 PROJ-73 MAN-70 MAN-71; do mkdir -p tickets/$t; sed "s/ID/$t/" $WORK/synced.md > tickets/$t/$t.md; done'
+cp manual-lead.md $V/tickets/MAN-70/MAN-70.md
+cp manual-covered.md $V/tickets/MAN-71/MAN-71.md
+
+exec git init -q --bare -b main remote.git
+exec git clone -q remote.git $M
+cp empty $M/f.txt
+exec git -C $M add f.txt
+exec git -C $M commit -q -m base
+exec git -C $M push -q origin HEAD:main
+# PROJ-70: pushed worktree whose index is stale (a tracked file touched)
+exec git -C $M worktree add -q -b feature/PROJ-70 $WORK/$W/PROJ-70/x
+exec git -C $W/PROJ-70/x commit -q --allow-empty -m w70
+exec git -C $W/PROJ-70/x push -q origin HEAD:feature/PROJ-70
+exec touch -d '2030-01-01' $W/PROJ-70/x/f.txt
+# PROJ-71: a shared clone with a stash
+exec git clone -q --shared $M $WORK/$W/PROJ-71/x
+exec git -C $W/PROJ-71/x remote set-url origin $WORK/remote.git
+exec git -C $W/PROJ-71/x fetch -q origin
+cp dirt $W/PROJ-71/x/f.txt
+exec git -C $W/PROJ-71/x stash -q
+# PROJ-72: a running session (agent state)
+mkdir $W/PROJ-72
+cp running.json $W/PROJ-72/.agent-state
+# PROJ-73: squash-merged; its remote branch deleted and pruned
+exec git -C $M worktree add -q -b feature/PROJ-73 $WORK/$W/PROJ-73/x
+exec git -C $W/PROJ-73/x commit -q --allow-empty -m w73
+exec git -C $W/PROJ-73/x push -q origin HEAD:feature/PROJ-73
+exec git -C $M push -q origin --delete feature/PROJ-73
+exec git -C $M fetch -q --prune origin
+# MAN-70 lead (closed) with dirty workspace; MAN-71 covered (closed)
+exec git -C $M worktree add -q -b feature/MAN-70 $WORK/$W/MAN-70/x
+cp dirt $W/MAN-70/x/new.txt
+exec sh -c 'for t in PROJ-70 PROJ-71 PROJ-72 PROJ-73 MAN-70; do sed "s/ID/$t/g" ws.json > $W/$t/workspace.json; done'
+expand $W/PROJ-70/workspace.json $W/PROJ-71/workspace.json $W/PROJ-72/workspace.json $W/PROJ-73/workspace.json $W/MAN-70/workspace.json
+
+exec sh -c 'find home/Documents home/Projects remote.git -printf "%p %T@ %s %m\n" | sort'
+cp stdout before.txt
+exec ct clean --dry-run
+cp stdout plan.txt
+exec sh -c 'find home/Documents home/Projects remote.git -printf "%p %T@ %s %m\n" | sort'
+cmp stdout before.txt
+
+exec cat plan.txt
+stdout 'PROJ-70 \(closed\): remove the workspace; move to .trash/PROJ-70'
+stdout 'PROJ-71 \(closed\): skip: commits on no remote in x'
+stdout 'PROJ-72 \(closed\): skip: session running \(PROJ-72\)'
+stdout 'PROJ-73 \(closed\): skip: commits on no remote in x'
+stdout 'MAN-70 \(closed\): skip: uncommitted changes in x'
+stdout 'MAN-71 \(closed\): skip: uncommitted changes in x'
+
+-- empty --
+-- dirt --
+changed
+-- running.json --
+{"state": "working", "ts": "2099-01-01T00:00:00"}
+-- ws.json --
+{"id": "ID", "vault": "$WORK/home/Documents/Obsidian/a", "repos": [
+  {"provider": "github", "owner": "acme", "repo": "x", "slug": "x", "path": "$WORK/home/Projects/work-a/ID/x", "base": "main", "branch": "feature/ID", "mode": "worktree", "targetVersion": "1.0"}
+]}
+-- synced.md --
+---
+status: closed
+saved: 2026-10-01T10:00:00
+source: jira
+source-url: https://x.example/browse/ID
+---
+-- manual-lead.md --
+---
+status: closed
+saved: 2026-10-01T10:00:00
+source: manual
+ticket-type: epic
+covers: ["[[MAN-71]]"]
+---
+-- manual-covered.md --
+---
+status: closed
+saved: 2026-10-01T10:00:00
+source: manual
+covered-by: "[[MAN-70]]"
+---
