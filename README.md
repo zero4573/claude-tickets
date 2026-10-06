@@ -198,6 +198,7 @@ across providers or owners. `ct ws repos` lists them.
 | `ct attach <ID>` | Jump to a ticket's window (Tab completes the open ones). |
 | `ct open <ID>` | Open the ticket's workspace in `$CLAUDE_TICKETS_EDITOR` (default `code`). For VS Code and its forks it opens `<ID>.code-workspace`: one folder per worktree plus the ticket's vault notes, so each repo gets its own source control. |
 | `ct ws repos\|clone\|add\|ls\|diff\|sign\|rm\|fetch\|gc` | Worktrees per ticket, on `feature/<ID>[-<desc>]`. Sessions run it to create their own. `sign` signs the sessions' commits on the host; `gc` frees disk (see below). |
+| `ct clean [<ID>...] [--dry-run] [--yes] [--save] [--include-done] [--keep-manual] [--purge] [--days N]` | Clean up closed tickets: remove the workspace, then move a synced ticket's folder to the vault's `.trash/` (links to it become `[ID](<source-url>)`; files other notes link or embed move to `archive/tickets/<ID>/`) and a manual one's to `archive/tickets/<ID>/`. Skips open tickets, running sessions, uncommitted or unpushed work and unsaved sessions (`--save` runs `/tickets:save` headless first). Prints the plan and asks; `--yes` without a terminal. |
 | `ct kb [--continue] [--print] ["<question>"]` | Ask about the system without a ticket: a session with the vault, every repo read-only, and a graph merged from every repo. |
 | `ct kb repo checkout\|fetch\|graph\|ls\|reset` | Inside a kb session: exploration clones of any branch, to build and test in (never committed). |
 | `ct claude [claude args]` | `claude` in the current repo with the vault as its knowledge base: the vault added, the plugin's skills, and the repo's project notes named in the system prompt. |
@@ -321,9 +322,23 @@ stateDiagram-v2
   in_progress --> review: work done, committed, not pushed
   review --> done: you review, run /tickets:save, ct ws sign, push
   new --> closed: source closed it (sync), or you (manual)
-  done --> [*]
-  closed --> [*]
+  done --> closed: source closed it (sync), or you (manual)
+  closed --> cleaned: ct clean
+  done --> cleaned: ct clean --include-done (manual tickets)
+  cleaned --> [*]: synced in .trash/, manual in archive/tickets/
 ```
+
+`ct clean` takes a closed ticket out of `tickets/` once its work is saved
+and pushed: a synced one goes to the vault's `.trash/<ID>/` (Obsidian's
+trash; `--purge` deletes it), and every link to it becomes a link to its
+source page, `[ID](<source-url>)`, except in the parts of synced tickets
+ct sync writes (it would write them back). A manual ticket has no remote
+page, so it moves whole to `archive/tickets/<ID>/`, where links to it keep
+resolving (`--keep-manual` leaves it). `done` tickets need `--include-done`,
+and never synced ones: the source still has them open, so ct sync would
+re-create them. A lead goes with or after its covered tickets. It works
+one ticket at a time under the vault lock, re-checking first, so an
+interrupted run finishes when run again.
 
 ### Inside a ticket session
 
@@ -375,9 +390,12 @@ sequenceDiagram
   S->>V: promote kb-drafts (ct vault links move: links kept)
   S->>V: features, sequences (mermaid), decisions index,<br/>projects/system service map + compatibility matrix
   S->>V: ct vault links check
-  S->>V: ticket: tags slug-version, versions, summary, status done
+  S->>V: ticket: tags slug-version, versions, summary,<br/>saved: timestamp, status done (closed stays closed)
   S->>L: release
 ```
+
+The `saved:` timestamp tells `ct clean` the ticket's work is in the vault
+(tickets saved before it existed are recognized by their summary block).
 
 
 ## Knowledge base without a ticket
@@ -434,6 +452,7 @@ flowchart TB
 | graphify's dated snapshot folders | pruned after 7 days by `ct graph index` and `ct ws gc` |
 | graphify images' unpacked filesystems | other hashes' removed after 30 days unused (`ct graph build`) |
 | Finished ticket workspaces, merged graphs of stopped sessions, idle kb clones | `ct ws gc [--days 14] [--dry-run]`: keeps dirty or unpushed work, refuses to run inside a container |
+| Closed tickets' notes and folders | `ct clean [--dry-run]`: synced ones to `.trash/`, manual ones to `archive/tickets/`; keeps open, running, unsaved, dirty or unpushed ones, refuses to run inside a container |
 | Logs (`*.log` in the log dir) | trimmed to the last 1 MB once past 5 MB |
 
 `ct ws gc` is run by hand; a weekly timer is an easy addition.
@@ -450,6 +469,7 @@ Tasks-plugin task per item, so they appear in `pending.md`:
 | `ct sync` | a source that failed or isn't set up, a ticket it couldn't update, one Jira no longer returns or reopened, problems Claude hit with an HTML part |
 | `ct graph index` | repos whose graph failed to build (into the default vault) |
 | `ct ws gc` | finished tickets whose workspace it kept (uncommitted or unpushed work) |
+| `ct clean` | closed tickets it skipped for a reason you can act on (unsaved, a failed `--save`, uncommitted or unpushed work), and frontmatter links it couldn't rewrite |
 
 Tick the tasks off and delete the note when done. `/tickets:save` and the agents
 leave these notes alone.

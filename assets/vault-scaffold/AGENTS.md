@@ -24,6 +24,8 @@ ROOT
 │       ├── pr-feedback.md #     PR review threads: outcome + draft reply each (/tickets:pr-feedback)
 │       ├── kb-drafts/     #     knowledge notes drafted during the ticket; promoted by /tickets:save
 │       └── logs/          #     ticket session logs
+├── archive/               # left by ct clean (never edit): tickets/<ID>/ of archived manual tickets,
+│                          #   and the files other notes still link from removed synced tickets
 ├── inbox/                 # knowledge drafts from non-ticket sessions (kb skill); promoted by /tickets:save
 │                          #   also follow-up notes (type: follow-ups): tasks unattended commands leave for you
 ├── templates/             # templates to use for various note types
@@ -103,7 +105,8 @@ tags: [project, topic1, topic2, ...]
 ```
 
 ### Never do
-- Don't delete notes without asking
+- Don't delete notes without asking. `ct clean`, run by you, is the only way
+  ticket notes leave the vault; nothing else deletes them
 - Don't use markdown links for internal notes (use wikilinks)
 - Don't create notes without frontmatter
 - Don't change folder structure without documenting it
@@ -146,6 +149,7 @@ and the hooks. Sessions run your `claude` command (which may be sandboxed).
 | `ct ws repos\|clone\|add\|ls\|diff\|rm\|fetch` | Git worktrees per ticket: `<workRoot>/<ID>/<slug>` on `feature/<ID>[-<description>]`. `clone` (run on the host) fetches a repo the kickoff found on Bitbucket; a running session can then add it straight away. |
 | `ct ws sign <ID>` | On the host: sign the ticket's unpushed commits (sessions commit unsigned: they may have no signing key, e.g. when sandboxed). Run it before pushing. |
 | `ct ws gc [--days N] [--dry-run]` | Free disk (on the host): workspaces of done or closed tickets idle for N days (default 14; dirty or unpushed work is kept), merged graphs of sessions that aren't running, idle kb clones, graphify snapshots older than a week. |
+| `ct clean [<ID>...] [--dry-run] [--yes] [--save] [--include-done] [--keep-manual] [--purge] [--days N]` | Clean up closed tickets (on the host): remove the workspace, then move a synced ticket's folder to `.trash/<ID>/` (links to it become `[ID](<source-url>)`; files other notes link or embed move to `archive/tickets/<ID>/` first) and a manual ticket's whole folder to `archive/tickets/<ID>/` (links keep working). Skips open tickets, running sessions, uncommitted or unpushed work, and unsaved sessions (`--save` runs `/tickets:save` headless first); skipped ones you can act on become follow-up tasks. `done` tickets only with `--include-done`, never synced ones. |
 | `ct kb repo checkout\|fetch\|graph\|ls\|reset` | Inside a `kb` session: exploration clones of any branch, tag or commit, swapped into the session's code graph. |
 | `ct vault lock acquire\|release\|status\|run` | The lock `/tickets:save` holds while writing shared notes (`.vault.lock.d`). A lock idle for 30 minutes is taken over. |
 | `ct vault links check\|move` | Check that wikilinks resolve; move a note without breaking links to it. |
@@ -237,6 +241,10 @@ becomes `closed` when the source closes the ticket (set by sync) or, for a
 manual ticket, when you set it. `status: blocked` always means waiting on
 you; a ticket waiting on another ticket keeps its status, and the
 `blocked: true` field says so.
+Once closed, saved and pushed, `ct clean` takes it out of `tickets/` (to
+`.trash/` for a synced ticket, `archive/tickets/` for a manual one).
+`/tickets:save` sets `saved: <timestamp>` on the ticket so `ct clean` knows
+its work is in the vault, and leaves a `closed` status as it is.
 
 **Ignoring a ticket:** set `ignore: true` in its frontmatter, optionally with
 `ignore-until: yyyy-MM-dd` and `ignore-reason: ...`. It is still synced, but
@@ -289,6 +297,16 @@ Several agents work at once, so each part of the vault has one writer:
    <owner>`, the owner being the ticket ID, the `kb` session's id, or
    `repo-<slug>` in a repo session) while it does, re-reads notes before
    editing them, and moves drafts with `ct vault links move`.
+   As its last step it sets the ticket's `saved:` timestamp (and `status:
+   done`, unless the ticket is `closed`).
+5. **`ct clean`** (run by you) moves the folders of the closed tickets it
+   cleans (to `.trash/` or `archive/tickets/`) and rewrites links to a
+   removed ticket in any note to `[ID](<source-url>)`, under the vault lock,
+   one ticket at a time. It never edits the sync-owned parts of synced
+   tickets (their dependency fields and source block: ct sync writes those
+   back, so a link there to a removed ticket stays, and `ct vault links
+   check` doesn't count it). Tickets it skips leave tasks in
+   `inbox/<date>-<time>-ct-clean-follow-ups.md`.
 
 ### Roles
 The `/tickets:work-ticket` lead runs role subagents, chosen by `ticket-type`:
