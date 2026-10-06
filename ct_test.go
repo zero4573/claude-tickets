@@ -1,11 +1,14 @@
 package main_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/rogpeppe/go-internal/testscript"
@@ -35,12 +38,13 @@ case "$1" in
   has-session) [ -f "$WORK/tmux-windows" ] ;;
 esac
 `,
-	// claude: one line of arguments per run (and its cwd and vault); with
+	// claude: one line of arguments per run (and its cwd, vault and PID); with
 	// -p, a stream-json conversation
 	"claude": `#!/bin/sh
 echo "$@" >> "$WORK/calls/claude"
 pwd >> "$WORK/calls/claude-cwd"
 echo "CLAUDE_TICKETS_VAULT=$CLAUDE_TICKETS_VAULT" >> "$WORK/calls/claude-env"
+echo "$$" >> "$WORK/calls/claude-pid"
 # ct sync: keep the plan, and leave a follow-up as the skill would
 if [ -f tickets/.sync-plan.json ]; then
   cat tickets/.sync-plan.json >> "$WORK/calls/sync-plans"
@@ -131,6 +135,27 @@ func TestScripts(t *testing.T) {
 					ts.Fatalf("usage: live-session <dir>")
 				}
 				ts.Check(workspace.RecordSession(ts.MkAbs(args[0]), "start"))
+			},
+			// samepid <dir>: the last session recorded in workspace dir has
+			// the PID the claude stub last ran as (ct became claude: exec)
+			"samepid": func(ts *testscript.TestScript, neg bool, args []string) {
+				if len(args) != 1 {
+					ts.Fatalf("usage: samepid <dir>")
+				}
+				var doc struct {
+					Sessions []struct {
+						PID int `json:"pid"`
+					} `json:"sessions"`
+				}
+				ts.Check(json.Unmarshal([]byte(ts.ReadFile(filepath.Join(args[0], ".sessions.json"))), &doc))
+				pids := strings.Fields(ts.ReadFile("calls/claude-pid"))
+				if len(doc.Sessions) == 0 || len(pids) == 0 {
+					ts.Fatalf("no session recorded, or claude never ran")
+				}
+				rec, ran := strconv.Itoa(doc.Sessions[len(doc.Sessions)-1].PID), pids[len(pids)-1]
+				if (rec == ran) == neg {
+					ts.Fatalf("recorded pid %s, claude ran as pid %s", rec, ran)
+				}
 			},
 		},
 		Condition: func(cond string) (bool, error) {

@@ -1,0 +1,93 @@
+# none mode, continued: what the session record says and who cleans it up,
+# and how a recorded process counts for the other commands
+mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a
+mkdir home/Documents/Obsidian/a/tickets/MAN-1 home/Documents/Obsidian/a/tickets/MAN-2 home/Documents/Obsidian/a/tickets/MAN-3
+cp open.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+cp open.md home/Documents/Obsidian/a/tickets/MAN-2/MAN-2.md
+cp done.md home/Documents/Obsidian/a/tickets/MAN-3/MAN-3.md
+env CLAUDE_TICKETS_LAUNCHER=none
+
+# ct becomes claude (exec): the recorded PID is the session's own
+exec ct-tty start --no-fetch MAN-1
+samepid home/Projects/work-a/MAN-1
+grep '"host": ' home/Projects/work-a/MAN-1/.sessions.json
+grep '"proc": ' home/Projects/work-a/MAN-1/.sessions.json
+grep '"started": "[0-9]{4}-' home/Projects/work-a/MAN-1/.sessions.json
+
+# ct start --list and ID completion don't depend on the launcher
+exec ct start --list
+stdout '^MAN-1\t'
+exec ct __complete start ''
+stdout '^MAN-1\t'
+exec ct __complete attach ''
+! stdout MAN-
+
+# ct ws rm deletes the session record with the other files ct owns
+exec ct ws rm MAN-1
+! exists home/Projects/work-a/MAN-1
+
+# a live recorded process, with an old hook state: running, not stale
+mkdir home/Projects/work-a/MAN-2
+expand ws2.json
+cp ws2.json home/Projects/work-a/MAN-2/workspace.json
+cp state-idle.json home/Projects/work-a/MAN-2/.agent-state
+exec touch -d '3 days ago' home/Projects/work-a/MAN-2/.agent-state
+[!container] live-session home/Projects/work-a/MAN-2
+[!container] exec ct status
+[!container] stdout '^MAN-2 +manual +idle +- +in-progress '
+[!container] ! stdout 'stale'
+
+# gc keeps a finished workspace whose recorded process is alive, even
+# without any hook state
+mkdir home/Projects/work-a/MAN-3/graphify-out
+expand ws3.json
+cp ws3.json home/Projects/work-a/MAN-3/workspace.json
+exec touch -d '20 days ago' home/Projects/work-a/MAN-3/workspace.json
+[!container] live-session home/Projects/work-a/MAN-3
+[!container] exec ct ws gc
+[!container] ! stdout 'MAN-3'
+[!container] exists home/Projects/work-a/MAN-3/graphify-out
+# ... and so does tmux mode (the setting hides windows, not processes)
+[!container] env CLAUDE_TICKETS_LAUNCHER=tmux
+[!container] exec ct ws gc
+[!container] ! stdout 'MAN-3'
+[!container] exists home/Projects/work-a/MAN-3/workspace.json
+[!container] env CLAUDE_TICKETS_LAUNCHER=none
+
+# tmux mode drops the record of an ended foreground session before it
+# opens a window (so it can't make that window's session look dead)
+exec ct-tty start --no-fetch MAN-1
+grep '"pid": ' home/Projects/work-a/MAN-1/.sessions.json
+env CLAUDE_TICKETS_LAUNCHER=tmux
+exec ct start --no-fetch --no-attach MAN-1
+stdout 'MAN-1 started in tickets-a'
+[!container] ! grep '"pid": ' home/Projects/work-a/MAN-1/.sessions.json
+[container] grep '"pid": ' home/Projects/work-a/MAN-1/.sessions.json
+
+# a non-string launcher in config.json counts as unset, like container
+env CLAUDE_TICKETS_LAUNCHER=
+mkdir home/.config/claude-tickets
+cp config-number.json home/.config/claude-tickets/config.json
+exec ct vault
+stdout '^launcher: +tmux \(detected\)$'
+
+-- open.md --
+---
+summary: Open
+status: in-progress
+source: manual
+---
+-- done.md --
+---
+summary: Done
+status: done
+source: manual
+---
+-- ws2.json --
+{"id": "MAN-2", "vault": "$WORK/home/Documents/Obsidian/a", "repos": []}
+-- ws3.json --
+{"id": "MAN-3", "vault": "$WORK/home/Documents/Obsidian/a", "repos": []}
+-- state-idle.json --
+{"state": "idle", "reason": "", "ts": "2026-10-06T10:00:00-04:00"}
+-- config-number.json --
+{"launcher": 5}

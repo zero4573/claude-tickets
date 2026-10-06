@@ -3,6 +3,7 @@ package launcher
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -54,6 +55,12 @@ func TestResolve(t *testing.T) {
 			err: `tmux isn't installed (CLAUDE_TICKETS_LAUNCHER / config.json "launcher"); install it, or set the launcher to none`},
 		{name: "explicit tmux in config missing", cfg: "tmux", tmux: false,
 			err: `tmux isn't installed (CLAUDE_TICKETS_LAUNCHER / config.json "launcher"); install it, or set the launcher to none`},
+		{name: "tabs and newlines trimmed", env: "\tnone\n", tmux: true, want: "none", src: FromEnv},
+		{name: "blank config is unset", cfg: " \t", tmux: false, want: "none", src: FromDetected},
+		{name: "env wins over a bad config", env: "tmux", cfg: "zz", tmux: true, want: "tmux", src: FromEnv},
+		{name: "explicit none with tmux missing", env: "none", tmux: false, want: "none", src: FromEnv},
+		{name: "not a list", env: "none,tmux", tmux: true,
+			err: "unknown launcher 'none,tmux' (from CLAUDE_TICKETS_LAUNCHER): use tmux or none"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, err := resolve(tc.env, tc.cfg, fakes(tc.tmux))
@@ -92,6 +99,23 @@ func TestResolveExtensible(t *testing.T) {
 	_, err = resolve("screen", "", bs)
 	if want := "unknown launcher 'screen' (from CLAUDE_TICKETS_LAUNCHER): use tmux, zellij or none"; err == nil || err.Error() != want {
 		t.Errorf("err = %v, want %q", err, want)
+	}
+}
+
+// With nothing available (none unregistered), detection is an error that
+// names the backends, never a nil launcher.
+func TestResolveNothingAvailable(t *testing.T) {
+	bs := fakes(false)[:1]
+	if r, err := resolve("", "", bs); err == nil || r.Launcher != nil || err.Error() != "no launcher available: install tmux" {
+		t.Errorf("resolve = %v, %v", r.Launcher, err)
+	}
+}
+
+func TestOrList(t *testing.T) {
+	for in, want := range map[string]string{"": "", "a": "a", "a b": "a or b", "a b c": "a, b or c"} {
+		if got := orList(strings.Fields(in)); got != want {
+			t.Errorf("orList(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
 
