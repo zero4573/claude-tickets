@@ -28,14 +28,17 @@ clusters are unrelated, and a project without links stands alone.
 Without names: every cluster (its groups, projects and the bridges between
 its groups, or its depends-on links when it has no group), the standalone
 projects, then the problems. With names: each one's groups, depends-on,
-used-by (projects) or members (groups), and cluster. Read-only.
+used-by (projects) or members (groups), and cluster. A name without a
+project or group note (e.g. a repo not saved to the vault yet) is reported
+as "<name>: no note (standalone)". Read-only.
 
-  --json   the same as JSON
+  --json   the same as JSON ("noNote" lists the names without a note)
   --check  exit 1 when a groups link isn't a group, a depends-on link isn't
            a project, or a project depends on itself (an empty group is
-           only a warning)
+           only a warning). With names, only the named notes' problems
+           count; without, the whole vault's.
 
-Exits 1 on an unknown name, 2 when <vault> isn't a vault.`,
+Exits 2 when <vault> isn't a vault.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v, err := vaultArg(args[0])
@@ -44,11 +47,8 @@ Exits 1 on an unknown name, 2 when <vault> isn't a vault.`,
 			}
 			g, problems := projects.Load(v)
 			names := args[1:]
-			for i, n := range names {
-				if g.Kind(n) == "" {
-					return fmt.Errorf("no project or group named %s in %s", n, filepath.Join(v, "projects"))
-				}
-				names[i] = g.Name(n)
+			if len(names) > 0 {
+				problems = problemsOf(g, names, problems)
 			}
 			if asJSON {
 				if err := groupsJSON(os.Stdout, g, names, problems); err != nil {
@@ -78,6 +78,23 @@ Exits 1 on an unknown name, 2 when <vault> isn't a vault.`,
 	return cmd
 }
 
+// problemsOf keeps the problems found in the named notes.
+func problemsOf(g *projects.Graph, names []string, problems []projects.Problem) []projects.Problem {
+	files := map[string]bool{}
+	for _, n := range names {
+		if f := g.File(n); f != "" {
+			files[f] = true
+		}
+	}
+	var out []projects.Problem
+	for _, p := range problems {
+		if files[p.File] {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 func listOrNone(l []string) string {
 	if len(l) == 0 {
 		return "none"
@@ -101,7 +118,15 @@ func groupsAll(w io.Writer, g *projects.Graph) {
 	for i, c := range g.Clusters() {
 		fmt.Fprintf(w, "cluster %d: %s\n", i+1, clusterSummary(c))
 		if len(c.Groups) > 0 {
-			fmt.Fprintf(w, "  bridges: %s\n", listOrNone(c.Bridges))
+			// One per line: a bridge's own text has commas
+			if len(c.Bridges) == 0 {
+				fmt.Fprintln(w, "  bridges: none")
+			} else {
+				fmt.Fprintln(w, "  bridges:")
+				for _, b := range c.Bridges {
+					fmt.Fprintf(w, "    %s\n", b)
+				}
+			}
 			continue
 		}
 		for _, p := range c.Projects {
@@ -116,6 +141,11 @@ func groupsAll(w io.Writer, g *projects.Graph) {
 func groupsNamed(w io.Writer, g *projects.Graph, names []string) {
 	for _, n := range names {
 		kind := g.Kind(n)
+		if kind == "" {
+			fmt.Fprintf(w, "%s: no note (standalone)\n", n)
+			continue
+		}
+		n = g.Name(n)
 		fmt.Fprintf(w, "%s (%s)\n", n, kind)
 		if kind == projects.KindGroup {
 			fmt.Fprintf(w, "  members: %s\n", listOrNone(g.Members(n)))
@@ -156,15 +186,16 @@ type groupsGroup struct {
 }
 
 // groupsJSON writes the whole model, or with names only those names and
-// their clusters. Problems are always the whole vault's.
+// their clusters. Names without a note go in noNote (and standalone).
 func groupsJSON(w io.Writer, g *projects.Graph, names []string, problems []projects.Problem) error {
 	out := struct {
 		Clusters   []projects.Cluster       `json:"clusters"`
 		Standalone []string                 `json:"standalone"`
+		NoNote     []string                 `json:"noNote"`
 		Projects   map[string]groupsProject `json:"projects"`
 		Groups     map[string]groupsGroup   `json:"groups"`
 		Problems   []projects.Problem       `json:"problems"`
-	}{[]projects.Cluster{}, []string{}, map[string]groupsProject{}, map[string]groupsGroup{}, []projects.Problem{}}
+	}{[]projects.Cluster{}, []string{}, []string{}, map[string]groupsProject{}, map[string]groupsGroup{}, []projects.Problem{}}
 	all := len(names) == 0
 	if all {
 		names = append(g.Projects(), g.Groups()...)
@@ -172,6 +203,12 @@ func groupsJSON(w io.Writer, g *projects.Graph, names []string, problems []proje
 	}
 	seen := map[int]bool{}
 	for _, n := range names {
+		if g.Kind(n) == "" {
+			out.NoNote = append(out.NoNote, n)
+			out.Standalone = append(out.Standalone, n)
+			continue
+		}
+		n = g.Name(n)
 		i, ok := g.ClusterOf(n)
 		if ok && !all && !seen[i] {
 			seen[i] = true

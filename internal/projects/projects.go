@@ -228,6 +228,14 @@ func (g *Graph) Kind(name string) string {
 	return ""
 }
 
+// File is a known name's index note, relative to the vault, else "".
+func (g *Graph) File(name string) string {
+	if n := g.nodes[strings.ToLower(name)]; n != nil {
+		return n.file
+	}
+	return ""
+}
+
 // Name is a known name as its folder spells it, else "".
 func (g *Graph) Name(name string) string {
 	if n := g.nodes[strings.ToLower(name)]; n != nil {

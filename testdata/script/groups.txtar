@@ -33,8 +33,9 @@ stdout '^  members: p1, p2$'
 stdout '^  cluster: groups alpha; projects p1, p2$'
 stdout '^web \(project\)$'
 stdout '^  cluster: standalone$'
-! exec ct vault groups v nope
-stderr 'no project or group named nope'
+# a name without a note (a repo not saved yet) is standalone, not an error
+exec ct vault groups v nope
+stdout '^nope: no note \(standalone\)$'
 
 exec ct vault groups v --json
 stdout '"standalone": \['
@@ -43,6 +44,10 @@ stdout '"members": \['
 exec ct vault groups v nix --json
 stdout '"nix": \{'
 ! stdout '"web"'
+stdout '"noNote": \[\]'
+exec ct vault groups v nix new-repo --json
+stdout '"noNote": \[\n\s+"new-repo"'
+stdout '"standalone": \[\n\s+"new-repo"'
 
 # --check: warnings pass, errors fail
 exec ct vault groups v --check
@@ -66,14 +71,19 @@ stderr 'not an Obsidian vault'
 ! exec ct vault groups v/projects
 stderr 'not an Obsidian vault'
 
-# a name among others that's unknown fails the whole call, before any output
-! exec ct vault groups v nix nope
-! stdout .
-stderr 'no project or group named nope'
-# --check with names: the whole vault's errors count, not only the names'
-! exec ct vault groups v nix --check
+# a name without a note among others: the others are still shown, exit 0
+exec ct vault groups v nix nope --check
 stdout '^  depends-on: cli$'
+stdout '^nope: no note \(standalone\)$'
+! stderr .
+# --check with names: only the named notes' problems count
+exec ct vault groups v nix --check
+stdout '^  depends-on: cli$'
+! stdout '^error'
+! exec ct vault groups v nix web --check
 stdout '^error: groups links \[\[cli\]\]'
+exec ct vault groups v nix --json
+stdout '"problems": \[\]'
 
 # a vault set up before 0.1.0: its old system note is a standalone project,
 # a quoted type counts, and an old services property means nothing
@@ -86,6 +96,19 @@ stdout '^cluster 1: groups infra; projects box$'
 stdout '^standalone: system$'
 ! stdout 'warning|error'
 exec ct vault groups old --check
+
+# bridges: one per line, since a bridge's own text has commas
+mkdir br/.obsidian br/projects/ga br/projects/gb br/projects/gc br/projects/q br/projects/r
+cp ga.md br/projects/ga/ga.md
+cp gb.md br/projects/gb/gb.md
+cp ga.md br/projects/gc/gc.md
+cp q.md br/projects/q/q.md
+cp r.md br/projects/r/r.md
+exec ct vault groups br
+stdout '^cluster 1: groups ga, gb, gc; projects q, r$'
+stdout '^  bridges:$'
+stdout '^    q is in groups ga, gb$'
+stdout '^    r \(gc\) depends-on q \(ga, gb\)$'
 
 -- alpha.md --
 ---
@@ -162,4 +185,23 @@ title: box
 type: project
 groups:
 - "[[infra]]"
+---
+-- ga.md --
+---
+type: group
+---
+-- gb.md --
+---
+type: group
+---
+-- q.md --
+---
+type: project
+groups: ["[[ga]]", "[[gb]]"]
+---
+-- r.md --
+---
+type: project
+groups: [[gc]]
+depends-on: "[[q]]"
 ---
