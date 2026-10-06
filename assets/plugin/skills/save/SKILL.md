@@ -76,7 +76,8 @@ Follow the vault's `AGENTS.md`:
   disagree: the code is what ships.
 - `ct vault groups <vault> <slug>...` for the ticket's repos: their
   `depends-on`, used-by and groups, and so which group notes step 4 may
-  touch.
+  touch. A repo without a project note yet shows as
+  `<slug>: no note (standalone)`.
 - Any repo whose `targetVersion` is null: ask the user for it with
   AskUserQuestion. When AskUserQuestion isn't available (`ct clean --save`
   runs this skill headless), stop without saving anything and say which
@@ -203,19 +204,24 @@ ct vault links check <vault> <every note created, moved or edited> tickets/<ID>/
 
 Fix every unresolved or ambiguous link (rename a clashing new note,
 qualify nothing by path), then check again until it's clean.
+Links to source tickets that aren't in the vault yet (e.g. a linked issue
+assigned to someone else) can stay unresolved.
 
-Then check the links between projects and groups:
+Then check the links between projects and groups, for the project and
+group index notes this session created or edited (with names, only those
+notes' problems count):
 
 ```sh
-ct vault groups <vault> --check
+ct vault groups <vault> <every project and group whose index note you wrote> --check
 ```
 
 Fix every error it reports (a `groups` link that isn't a group, a
-`depends-on` link that isn't a project, a project depending on itself) in
-the notes you wrote, and run it again until it exits 0. An empty group is
-only a warning; mention it to the user.
-Links to source tickets that aren't in the vault yet (e.g. a linked issue
-assigned to someone else) can stay unresolved.
+`depends-on` link that isn't a project, a project depending on itself),
+and run it again until it exits 0. Then run
+`ct vault groups <vault> --check` once for the whole vault: don't fix
+errors in notes this session didn't write, and don't loop on them; list
+them for the user. An empty group is only a warning; mention it to the
+user.
 
 ### 6. Update the ticket note
 

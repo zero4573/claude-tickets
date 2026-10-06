@@ -20,7 +20,7 @@ What it gives you:
   the projects that work together as mermaid diagrams. `kb` answers
   questions about the vault's projects without a ticket.
 - **A code graph:** graphify gives every session the call graph of the
-  repos it works in, across repos, so it reads less code.
+  repos it works in, and of the calls between them, so it reads less code.
 
 It's plain Claude Code underneath: sessions run your `claude` command with
 standard flags (`--plugin-dir`, `--add-dir`, `--mcp-config`, `--settings`),
@@ -229,7 +229,7 @@ clusters, and the vault's `AGENTS.md` has the rules.
 | `ct graph index [<repo>...]` | Build or refresh the main clones' code graphs. |
 | `ct layout [--apply]` | Move repos into `<projectsRoot>/<provider>/<owner>/<repo>`. |
 | `ct vault lock` / `ct vault links` | Used by `/tickets:save`: serialize writes to shared notes, and move notes without breaking wikilinks. |
-| `ct vault groups <vault> [<project\|group>...] [--json] [--check]` | Which projects work together (groups, `depends-on`, used-by) and which are unrelated; `--check` validates those links (used by `/tickets:save`). Read-only. |
+| `ct vault groups <vault> [<project\|group>...] [--json] [--check]` | Which projects work together (groups, `depends-on`, used-by) and which are unrelated; a name without a note is reported as standalone. `--check` validates those links, in the named notes or the whole vault (used by `/tickets:save`). Read-only. |
 | `ct completion zsh\|bash\|fish` | Shell completion (installed by the Nix package and `make install`): subcommands, flags, and ticket IDs with their summary. |
 
 Every command acts on the **current vault**: the default one

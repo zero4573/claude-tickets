@@ -122,8 +122,9 @@ files), handle them together and draft a reply for each.
 
 **Ask the user** with AskUserQuestion, batched, for every "disagree" or
 "unclear" thread, and for any change that's large or touches contracts,
-schemas or projects that depend on it. Recommend an option. Record the questions and
-answers in the ticket note's `## Questions`, as `work-ticket` does.
+schemas, or anything other projects depend on. Recommend an option.
+Record the questions and answers in the ticket note's `## Questions`, as
+`work-ticket` does.
 
 ## 4. Apply
 
@@ -139,7 +140,7 @@ answers in the ticket note's `## Questions`, as `work-ticket` does.
   behaviour.
 - **Check:** after the changes, run the repo's tests and linters, and add a
   regression test where a comment found a bug. Run the `qa` subagent if the
-  changes touch behaviour projects that depend on it rely on.
+  changes touch behaviour that other projects depend on.
 - Changes are committed on the PR's branch in the worktree, on top of its
   pushed commits, and not pushed.
 

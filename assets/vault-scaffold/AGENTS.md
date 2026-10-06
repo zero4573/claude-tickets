@@ -91,9 +91,12 @@ projects that work together, or several such sets.
   Projects in different clusters are unrelated; a project without links
   is standalone. Only notes with `type: project` or `type: group` count.
 - **`ct vault groups <vault> [<slug|group>...]`** prints the clusters, or
-  one project's groups, `depends-on`, used-by and cluster (`--json`;
-  `--check` fails on a `groups` link that isn't a group, a `depends-on`
-  link that isn't a project, or a project depending on itself). By hand:
+  one project's groups, `depends-on`, used-by and cluster. A repo with
+  no project note yet shows as `<slug>: no note (standalone)`. With
+  `--json` it prints JSON; `--check` fails on a `groups` link that isn't
+  a group, a `depends-on` link that isn't a project, or a project
+  depending on itself (with names, only in those notes; without, anywhere
+  in the vault). By hand:
   read the index note, then grep `projects/*/*.md` for `[[<slug>]]`.
 
 ## Note Rules
@@ -391,8 +394,9 @@ did:
    projects touched by the feature, the versions it shipped in, the
    dependencies between projects (`depends-on`), and the flows across
    projects as mermaid diagrams. It asks you before creating a group, and
-   runs `ct vault links check` and `ct vault groups <vault> --check`. Links
-   stay intact.
+   runs `ct vault links check` and `ct vault groups --check` on the notes
+   it wrote (problems elsewhere are reported, not fixed). Links stay
+   intact.
 5. Tags and links all documentation updated in the session with the ticket.
 6. Adds tags `[slug]-[release-version]` to tickets/`ticket` for every
    project modified (dots as dashes, e.g. `bitbucket-sops-orders-service-2-4-0`,

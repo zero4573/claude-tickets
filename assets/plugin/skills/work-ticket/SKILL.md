@@ -61,7 +61,8 @@ everything at the end, then signs and pushes.
 2. For each repo in the workspace, or clearly named by the ticket, read
    `projects/<slug>/architecture/<slug>-decisions.md` and the 3 latest
    `projects/<slug>/logs/` notes if they exist. Then run
-   `ct vault groups <vault> <slug>...` for those repos (read-only): read
+   `ct vault groups <vault> <slug>...` for those repos (read-only; a repo
+   without a project note yet shows as `<slug>: no note (standalone)`): read
    the index notes of their direct neighbours (`depends-on`, used-by), and
    for each group they belong to its index (interactions),
    `<group>-decisions`, and the relevant `sequences/` and
