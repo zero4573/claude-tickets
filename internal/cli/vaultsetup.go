@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zero4573/claude-tickets/assets"
+	"github.com/zero4573/claude-tickets/internal/clean"
 	"github.com/zero4573/claude-tickets/internal/config"
 	"github.com/zero4573/claude-tickets/internal/container"
 	"github.com/zero4573/claude-tickets/internal/fsx"
@@ -744,7 +745,13 @@ path. Links inside code blocks and inline code are ignored. .obsidian/,
 		Long: `Reports wikilinks and embeds ([[x]], ![[x]], [[x#heading]], [[x|alias]])
 that resolve to no note, or to more than one note (ambiguous by bare name).
 Without files, checks the whole vault except templates/. Exits 1 if
-anything is broken. A file is a path, or relative to the vault.`,
+anything is broken. A file is a path, or relative to the vault.
+
+In a synced ticket, links to tickets that aren't in the vault from the parts
+ct sync writes (parent, children, blocked-by, blocks, related, covers,
+covered-by, source-* fields, and the source block) don't count: sync writes
+them for tickets it never pulled, and for ones ct clean removed, and puts
+them back on every refresh. They get one summary line instead.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v, err := vaultArg(args[0])
@@ -765,7 +772,11 @@ anything is broken. A file is a path, or relative to the vault.`,
 				}
 				files = append(files, f)
 			}
-			if links.Check(v, files, os.Stdout) > 0 {
+			owned := clean.SyncOwned()
+			if links.CheckWith(v, files, os.Stdout, links.CheckOpts{
+				Exempt:     func(p links.Place, target string) bool { return note.ValidKey(target) && owned(p) },
+				ExemptNote: "ct vault links: %d link(s) in sync-owned parts of synced tickets point to tickets not in the vault (not counted)",
+			}) > 0 {
 				return exitError(1)
 			}
 			return nil
