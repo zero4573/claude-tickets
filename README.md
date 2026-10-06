@@ -29,7 +29,7 @@ so they work the same unsandboxed or inside a sandbox that wraps `claude`.
 | Part | What |
 |---|---|
 | `cmd/ct`, `internal/` | `ct`, the one command (Go): every subcommand below, its shell completion (`ct completion zsh\|bash\|fish`); OS specifics in `internal/platform` |
-| `assets/` | built into `ct`: `vault-scaffold/` (what `ct vault init` copies into a vault), `scaffold-history.json` (the hash of every version of those files ever shipped, so `ct vault update` knows an unedited old copy; `go generate ./assets`), `plugin/` and `graph/` (below) |
+| `assets/` | built into `ct`: `vault-scaffold/` (what `ct vault init` copies into a vault), `scaffold-history.json` (the hash of every version of those files ever shipped, so `ct vault update` knows an unedited old copy; `go generate ./assets`), `obsidian/` (the Tasks plugin pin and settings, shared with the Nix module), `plugin/` and `graph/` (below) |
 | `assets/plugin/` | the Claude Code plugin `tickets`: skills (`/tickets:work-ticket`, `/tickets:pr-feedback`, `/tickets:ticket-sync`, `/tickets:kb`, `/tickets:save`, `/tickets:recall`), the role agents (`tickets:product-owner`, ...), and the hooks that tell `ct status` what a session is doing |
 | `assets/graph/` | the graphify image (`ct graph`) and the merger behind each session's code graph |
 | `testdata/`, `*_test.go` | the tests: `go test ./...` runs `ct` against a throwaway home with stub `tmux`, `podman`, `claude` and editor commands and real git, and `ct sync` against a fake Jira (`testdata/sync/`) |
@@ -54,8 +54,9 @@ programs.claude-tickets.enable = true;
 
 `nix profile install github:<you>/claude-tickets` works too, without the
 module's settings (set the environment variables below yourself).
-`homeModules.obsidianVaults` seeds vaults with the Tasks plugin, its settings
-and the Minimal theme (`programs.claude-tickets.obsidian.vaults`), and
+`homeModules.obsidianVaults` seeds vaults with the Tasks plugin (the same
+pinned release `ct vault init` installs), its settings and the Minimal
+theme (`programs.claude-tickets.obsidian.vaults`), and
 `nixosModules.obsidian` installs the Flathub Obsidian scoped to the vault
 folder (needs [nix-flatpak](https://github.com/gmodena/nix-flatpak)).
 
@@ -105,7 +106,14 @@ every OS when set, and the `CLAUDE_TICKETS_*` variables below win over
 all of them.
 
 Then set up a vault with `ct vault init <name>` (it creates it under
-`~/Documents/Obsidian` if needed) and make it the default.
+`~/Documents/Obsidian` if needed) and make it the default. It also
+downloads and enables the Tasks community plugin (a pinned,
+checksum-verified release from GitHub) when the vault doesn't have it, and
+gives it the workflow's settings when it has none; `--skip-plugins` leaves
+that out. An installed Tasks plugin is never replaced: Obsidian updates it
+(Settings → Community plugins → Check for updates). With the Nix module,
+both may seed a vault: they install the same version and settings, and
+neither replaces an installed plugin.
 
 ## Configuration
 
@@ -129,6 +137,7 @@ Without the module, export them.
 | `CLAUDE_TICKETS_STATE_DIR` | log dir (default: per OS) |
 | `CLAUDE_TICKETS_PLUGIN`, `CLAUDE_TICKETS_GRAPH_DIR` | use this copy of the plugin / graph image sources instead of the built-in one (the Nix package sets them) |
 | `OBSIDIAN_ROOT` | where the vaults live (default `~/Documents/Obsidian`) |
+| `CLAUDE_TICKETS_TASKS_URL` | where `ct vault init` downloads the Tasks plugin release from: a mirror holding `<version>/<file>` (default: the GitHub releases); the checksums are always the pinned ones |
 
 To set the launcher without the variable, add `"launcher": "none"` (or
 `"tmux"`) to `config.json` in the settings dir. Switching the launcher hides
@@ -209,7 +218,7 @@ clusters, and the vault's `AGENTS.md` has the rules.
 | Command | What it does |
 |---|---|
 | `ct vault` | The current vault and where its workspaces, main clones and tmux session are, and the launcher in effect (and where it was chosen). |
-| `ct vault init [<vault>]` | Set a vault up: folders, `AGENTS.md`, templates, the `tickets.base` dashboard, task views, then `ct vault configure` for the settings not made yet. Keeps existing files (and records what it shipped in `.scaffold.json`); `ct vault update` brings them up to date. |
+| `ct vault init [<vault>]` | Set a vault up: folders, `AGENTS.md`, templates, the `tickets.base` dashboard, task views, then `ct vault configure` for the settings not made yet, and the Tasks plugin (downloaded when missing; `--skip-plugins` to leave it out). Keeps existing files (and records what it shipped in `.scaffold.json`); `ct vault update` brings them up to date. |
 | `ct vault update [<vault>] [--dry-run] [--diff] [--take <file>]` | Bring the files `ct` ships into a vault (`AGENTS.md`, templates, `tickets.base`, task views) up to date: missing ones are added, unedited old versions replaced in place, edited ones kept and reported (`--diff` shows the difference, `--take <file>` takes the shipped version and keeps the old one as `<file>.bak`; `<file>` is relative to the vault root or any path inside it), files a newer `ct` wrote (per `.scaffold.json`) kept and never downgraded, files no longer shipped reported, never deleted. `--dry-run` previews it. Settings and your own notes are never touched. |
 | `ct vault configure [<vault>] [--section locations\|sources\|runtime]` | The vault's settings, each prompt showing its current value: locations (`.workflow.json`, see below), ticket sources (`tickets/.sources.json`), and the container runtime (host-wide). |
 | `ct vault default [<vault>\|--pick\|--unset]` | The vault every other command acts on. Switch it to work on another vault. |

@@ -17,6 +17,7 @@ let
     CLAUDE_TICKETS_LAUNCHER = cfg.launcher;
     CLAUDE_TICKETS_SYSTEMD_SLICE = cfg.systemdSlice;
     CLAUDE_TICKETS_EDITOR = cfg.editor;
+    CLAUDE_TICKETS_TASKS_URL = cfg.tasksUrl;
     OBSIDIAN_ROOT = config.programs.claude-tickets.obsidian.vaultRoot or null;
   };
   built = import ./tools.nix { inherit pkgs lib env; };
@@ -87,6 +88,13 @@ in
       type = lib.types.nullOr lib.types.str;
       default = null;
       description = "Editor ct open uses (CLAUDE_TICKETS_EDITOR); code when null.";
+    };
+
+    tasksUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "https://mirror.example.com/obsidian-tasks";
+      description = "Where ct vault init downloads the Tasks plugin release from (CLAUDE_TICKETS_TASKS_URL): a mirror holding <version>/<file>; the GitHub releases when null. The checksums are always the pinned ones.";
     };
   };
 
