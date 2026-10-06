@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,10 +11,17 @@ import (
 	"github.com/rogpeppe/go-internal/testscript"
 
 	"github.com/zero4573/claude-tickets/internal/cli"
+	"github.com/zero4573/claude-tickets/internal/gitx"
+	"github.com/zero4573/claude-tickets/internal/workspace"
 )
 
 func TestMain(m *testing.M) {
-	testscript.Main(m, map[string]func(){"ct": cli.Main})
+	testscript.Main(m, map[string]func(){
+		"ct": cli.Main,
+		// ct-tty is ct with stdin and stdout taken for a terminal (testscript
+		// gives it pipes), for the sessions that run in this terminal
+		"ct-tty": func() { cli.AssumeTerminal(); cli.Main() },
+	})
 }
 
 // stubs are fake tools on PATH: tmux, claude, podman, notify-send and editor
@@ -27,11 +35,12 @@ case "$1" in
   has-session) [ -f "$WORK/tmux-windows" ] ;;
 esac
 `,
-	// claude: one line of arguments per run (and its cwd); with -p, a
-	// stream-json conversation
+	// claude: one line of arguments per run (and its cwd and vault); with
+	// -p, a stream-json conversation
 	"claude": `#!/bin/sh
 echo "$@" >> "$WORK/calls/claude"
 pwd >> "$WORK/calls/claude-cwd"
+echo "CLAUDE_TICKETS_VAULT=$CLAUDE_TICKETS_VAULT" >> "$WORK/calls/claude-env"
 # ct sync: keep the plan, and leave a follow-up as the skill would
 if [ -f tickets/.sync-plan.json ]; then
   cat tickets/.sync-plan.json >> "$WORK/calls/sync-plans"
@@ -115,6 +124,22 @@ func TestScripts(t *testing.T) {
 			},
 			"fakejira": fakejira,
 			"cmpvault": cmpvault,
+			// live-session <dir>: records this (running) test process as the
+			// session of workspace dir, as ct start does without a multiplexer
+			"live-session": func(ts *testscript.TestScript, neg bool, args []string) {
+				if neg || len(args) != 1 {
+					ts.Fatalf("usage: live-session <dir>")
+				}
+				ts.Check(workspace.RecordSession(ts.MkAbs(args[0]), "start"))
+			},
+		},
+		Condition: func(cond string) (bool, error) {
+			// [container]: inside a container, where ct ws gc refuses to run
+			// and recorded PIDs can't be checked
+			if cond == "container" {
+				return gitx.InContainer(), nil
+			}
+			return false, fmt.Errorf("unknown condition %q", cond)
 		},
 		Setup: func(env *testscript.Env) error {
 			realGit, err := exec.LookPath("git")
@@ -164,6 +189,7 @@ func TestScripts(t *testing.T) {
 			env.Setenv("PATH", stubDir+string(os.PathListSeparator)+env.Getenv("PATH"))
 			env.Setenv("CLAUDE_TICKETS_VAULT", "")
 			env.Setenv("TMUX", "")
+			env.Setenv("CLAUDE_TICKETS_LAUNCHER", "")
 			env.Setenv("REAL_GIT", realGit)
 			env.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 			env.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(work, "gitconfig"))

@@ -1,0 +1,207 @@
+# The launcher: CLAUDE_TICKETS_LAUNCHER, else config.json's launcher, else
+# tmux when installed, else none. With none, a session runs in this terminal.
+mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a
+mkdir home/Documents/Obsidian/a/tickets/MAN-1 home/Documents/Obsidian/a/tickets/MAN-2 home/Documents/Obsidian/a/tickets/MAN-3 home/Documents/Obsidian/a/tickets/MAN-4 home/Documents/Obsidian/a/tickets/MAN-5
+cp open.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+cp ignored.md home/Documents/Obsidian/a/tickets/MAN-2/MAN-2.md
+cp open.md home/Documents/Obsidian/a/tickets/MAN-3/MAN-3.md
+cp done.md home/Documents/Obsidian/a/tickets/MAN-4/MAN-4.md
+cp open.md home/Documents/Obsidian/a/tickets/MAN-5/MAN-5.md
+
+# none, even with (the stub) tmux on PATH
+env CLAUDE_TICKETS_LAUNCHER=none
+exec ct vault
+stdout '^launcher: +none \(CLAUDE_TICKETS_LAUNCHER\)$'
+! stdout 'tmux session'
+
+# one ticket only, from a terminal, and no --no-attach: refused before anything
+! exec ct-tty start --no-fetch MAN-1 MAN-2
+stderr 'without a terminal multiplexer, ct start takes one ticket \(got 2\); set CLAUDE_TICKETS_LAUNCHER=tmux to run several'
+! exec ct-tty feedback --no-fetch MAN-1 MAN-2
+stderr 'ct feedback takes one ticket \(got 2\)'
+! exec ct-tty start --no-fetch --no-attach MAN-1
+stderr '--no-attach needs a terminal multiplexer: without one, the session runs in this terminal'
+! exec ct start --no-fetch MAN-1
+stderr 'the session runs in this terminal, and this isn.t one \(stdin/stdout\)'
+! exists home/Projects/work-a/MAN-1
+! exists calls/claude
+
+# one ticket (named twice): claude runs here, in its workspace, with no
+# window and no shell wrapper; its process is recorded
+exec ct-tty start --no-fetch MAN-1 MAN-1
+stdout '^ct start: MAN-1 runs in this terminal; no window to come back to, ct start MAN-1 later continues it$'
+! stderr 'tmux not found'
+grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a .*--mcp-config .*/MAN-1/.claude/graph-mcp.json --permission-mode auto /tickets:work-ticket MAN-1$' calls/claude
+! grep 'read -rp' calls/claude
+grep '/home/Projects/work-a/MAN-1$' calls/claude-cwd
+grep '^CLAUDE_TICKETS_VAULT=.*/Obsidian/a$' calls/claude-env
+grep '"id": "MAN-1"' home/Projects/work-a/MAN-1/workspace.json
+grep '"pid": [0-9]+' home/Projects/work-a/MAN-1/.sessions.json
+grep '"command": "start"' home/Projects/work-a/MAN-1/.sessions.json
+! exists calls/tmux
+
+# its .agent-state alone says it's running (no record to check): refused,
+# unless --force (its terminal was closed)
+cp state-working.json home/Projects/work-a/MAN-1/.agent-state
+rm home/Projects/work-a/MAN-1/.sessions.json
+! exec ct-tty start --no-fetch MAN-1
+stderr 'MAN-1: its session looks running \(.agent-state: working at 2026-10-06T10:00:00-04:00\); it.s in the terminal where it was started. If it isn.t \(terminal closed\), ct start --force MAN-1'
+exec ct-tty start --no-fetch --force MAN-1
+stdout 'MAN-1 runs in this terminal \(continuing its last session\)'
+grep '--permission-mode auto --continue /tickets:work-ticket MAN-1$' calls/claude
+
+# the recorded process has ended (the stub claude): a fresh .agent-state
+# doesn't count (PIDs can't be checked inside a container)
+[!container] exec ct-tty start --no-fetch MAN-1
+[!container] stdout 'MAN-1 runs in this terminal'
+
+# a live process: refused, even with --force
+[!container] live-session home/Projects/work-a/MAN-1
+[!container] ! exec ct-tty start --no-fetch --force MAN-1
+[!container] stderr 'MAN-1: its session is running \(pid [0-9]+, started [0-9]{2}:[0-9]{2}\) in another terminal; continue there, or end it first'
+[!container] ! exec ct-tty feedback --no-fetch MAN-1
+[!container] stderr 'MAN-1: its session is running \(pid [0-9]+\) in another terminal; type /tickets:pr-feedback there'
+
+# feedback: nothing is typed into a running session; else it runs here
+rm home/Projects/work-a/MAN-1/.sessions.json
+! exec ct-tty feedback --no-fetch MAN-1
+stderr 'type /tickets:pr-feedback in that session.s terminal, or if it isn.t running, ct feedback --force MAN-1'
+! exec ct-tty start --feedback --no-fetch MAN-1
+stderr 'ct start --feedback --force MAN-1'
+cp state-exited.json home/Projects/work-a/MAN-1/.agent-state
+exec ct-tty feedback --no-fetch MAN-1
+grep '--continue /tickets:pr-feedback MAN-1$' calls/claude
+grep '"command": "feedback"' home/Projects/work-a/MAN-1/.sessions.json
+
+# an ignored ticket is skipped, as with tmux
+! exec ct-tty start --no-fetch MAN-2
+stderr 'MAN-2: marked ignore: true \(not mine\), skipping'
+! grep MAN-2 calls/claude
+! exists calls/tmux
+
+# status: no windows (tmux's are hidden), AGENT from .agent-state
+rm home/Projects/work-a/MAN-1/.sessions.json
+cp state-working.json home/Projects/work-a/MAN-1/.agent-state
+mkdir home/Projects/work-a/MAN-3
+expand ws3.json
+cp ws3.json home/Projects/work-a/MAN-3/workspace.json
+cp state-working.json home/Projects/work-a/MAN-3/.agent-state
+exec touch -d '2 days ago' home/Projects/work-a/MAN-3/.agent-state
+cp windows tmux-windows
+exec ct status
+stdout '^Vault a, no terminal multiplexer \(sessions run in their own terminal\)$'
+stdout '^MAN-1 +manual +working +- +in-progress '
+stdout '^MAN-3 +manual +working \(stale\) +- +in-progress '
+
+# attach: no windows to attach to
+! exec ct attach MAN-1
+stderr 'no windows to attach to without a terminal multiplexer: a running session \(see ct status\) is in the terminal where it was started'
+exec ct attach --list
+! stdout .
+! exists calls/tmux
+
+# gc: a fresh, not exited .agent-state keeps a finished workspace (gc
+# refuses to run inside a container)
+mkdir home/Projects/work-a/MAN-4/graphify-out
+expand ws4.json
+cp ws4.json home/Projects/work-a/MAN-4/workspace.json
+cp state-working.json home/Projects/work-a/MAN-4/.agent-state
+exec touch -d '20 days ago' home/Projects/work-a/MAN-4/workspace.json
+[!container] exec ct ws gc
+[!container] ! stdout 'MAN-4'
+[!container] exists home/Projects/work-a/MAN-4/graphify-out
+[!container] exec touch -d '2 days ago' home/Projects/work-a/MAN-4/.agent-state
+[!container] exec ct ws gc
+[!container] stdout 'remove MAN-4 \(done\)'
+[!container] ! exists home/Projects/work-a/MAN-4
+rm tmux-windows
+
+# a bad value: the commands that use the launcher fail, the others don't
+env CLAUDE_TICKETS_LAUNCHER=tmx
+! exec ct status
+stderr 'unknown launcher .tmx. \(from CLAUDE_TICKETS_LAUNCHER\): use tmux or none'
+! exec ct-tty start --no-fetch MAN-5
+stderr 'unknown launcher .tmx.'
+! exists home/Projects/work-a/MAN-5
+! exec ct attach --list
+stderr 'unknown launcher'
+exec ct start --list
+stdout '^MAN-5\t'
+exec ct vault
+stdout '^launcher: +error: unknown launcher .tmx.'
+exec ct ws repos
+
+# config.json's launcher, trimmed and case-insensitive; the variable wins
+env CLAUDE_TICKETS_LAUNCHER=
+mkdir home/.config/claude-tickets
+cp config-none.json home/.config/claude-tickets/config.json
+exec ct vault
+stdout '^launcher: +none \(config.json\)$'
+cp config-bad.json home/.config/claude-tickets/config.json
+! exec ct status
+stderr 'unknown launcher .screen. \(from config.json "launcher"\): use tmux or none'
+env CLAUDE_TICKETS_LAUNCHER=' TMUX '
+exec ct vault
+stdout '^launcher: +tmux \(CLAUDE_TICKETS_LAUNCHER\)$'
+stdout '^tmux session: tickets-a$'
+rm home/.config/claude-tickets/config.json
+
+# tmux by default when installed (the stub)
+env CLAUDE_TICKETS_LAUNCHER=
+exec ct vault
+stdout '^launcher: +tmux \(detected\)$'
+
+# no tmux at all
+rm stub/tmux
+[exec:tmux] skip 'a real tmux is installed'
+env CLAUDE_TICKETS_LAUNCHER=tmux
+! exec ct-tty start --no-fetch MAN-5
+stderr 'tmux isn.t installed \(CLAUDE_TICKETS_LAUNCHER / config.json "launcher"\); install it, or set the launcher to none'
+! exists home/Projects/work-a/MAN-5
+! exec ct status
+stderr 'tmux isn.t installed'
+! exec ct attach MAN-1
+stderr 'tmux isn.t installed'
+[!container] ! exec ct ws gc
+[!container] stderr 'tmux isn.t installed'
+# not set: none, with a hint
+env CLAUDE_TICKETS_LAUNCHER=
+exec ct vault
+stdout '^launcher: +none \(detected\)$'
+exec ct-tty start --no-fetch MAN-5
+stdout 'MAN-5 runs in this terminal'
+stderr '^ct start: tmux not found, so the session runs here; install tmux for background windows and several sessions at once$'
+grep '/tickets:work-ticket MAN-5$' calls/claude
+
+-- open.md --
+---
+summary: Open
+status: in-progress
+source: manual
+---
+-- ignored.md --
+---
+summary: Not mine
+status: new
+ignore: true
+ignore-reason: not mine
+---
+-- done.md --
+---
+summary: Done
+status: done
+---
+-- ws3.json --
+{"id": "MAN-3", "vault": "$WORK/home/Documents/Obsidian/a", "repos": []}
+-- ws4.json --
+{"id": "MAN-4", "vault": "$WORK/home/Documents/Obsidian/a", "repos": []}
+-- state-working.json --
+{"state": "working", "reason": "", "ts": "2026-10-06T10:00:00-04:00"}
+-- state-exited.json --
+{"state": "exited", "reason": "", "ts": "2026-10-06T11:00:00-04:00"}
+-- windows --
+MAN-1
+-- config-none.json --
+{"launcher": "None "}
+-- config-bad.json --
+{"launcher": "screen"}

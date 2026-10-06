@@ -4,6 +4,7 @@ exec ct kb --no-fetch
 grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a --mcp-config .*/.kb-a/.claude/graph-mcp.json --permission-mode auto$' calls/claude
 grep '/home/Projects/work-a/.kb-a$' calls/claude-cwd
 grep '"id": "KB"' home/Projects/work-a/.kb-a/workspace.json
+grep '"command": "kb"' home/Projects/work-a/.kb-a/.sessions.json
 grep '"Bash\(git commit:\*\)"' home/Projects/work-a/.kb-a/.claude/settings.json
 grep '^- Session id .*\n  `kb-a-[0-9]{8}-[0-9]{4}`' home/Projects/work-a/.kb-a/CLAUDE.md
 grep '"hasTrustDialogAccepted": true' home/.claude.json
