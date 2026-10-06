@@ -878,19 +878,6 @@ Obsidian: a link target without "/" matches by file name (case-insensitive,
 path. Links inside code blocks and inline code are ignored. .obsidian/,
 .trash/ and other dot-folders are skipped.`,
 	}
-	vaultArg := func(p string) (string, error) {
-		v, err := filepath.Abs(p)
-		if err != nil {
-			return "", err
-		}
-		if r, err := filepath.EvalSymlinks(v); err == nil {
-			v = r
-		}
-		if !fsx.IsDir(filepath.Join(v, ".obsidian")) {
-			return "", exitWith(2, fmt.Errorf("not an Obsidian vault: %s", v))
-		}
-		return v, nil
-	}
 	cmd.AddCommand(&cobra.Command{
 		Use:   "check <vault> [file...]",
 		Short: "Report links that resolve to no note, or to several; exit 1 if any",
@@ -960,4 +947,20 @@ links ([[old/path/note]]) across the vault to the new path. Bare-name links
 		},
 	})
 	return cmd
+}
+
+// vaultArg is a vault given by path to a vault tool (links, groups): an
+// absolute, symlink-free path, or exit 2 when it isn't an Obsidian vault.
+func vaultArg(p string) (string, error) {
+	v, err := filepath.Abs(p)
+	if err != nil {
+		return "", err
+	}
+	if r, err := filepath.EvalSymlinks(v); err == nil {
+		v = r
+	}
+	if !fsx.IsDir(filepath.Join(v, ".obsidian")) {
+		return "", exitWith(2, fmt.Errorf("not an Obsidian vault: %s", v))
+	}
+	return v, nil
 }

@@ -1,0 +1,121 @@
+# ct vault groups: which projects work together, read-only
+mkdir v/.obsidian v/projects/notes v/projects/empty v/projects/alpha v/projects/beta v/projects/p1 v/projects/p2 v/projects/cli v/projects/nix v/projects/web
+cp alpha.md v/projects/alpha/alpha.md
+cp beta.md v/projects/beta/beta.md
+cp p1.md v/projects/p1/p1.md
+cp p2.md v/projects/p2/p2.md
+cp cli.md v/projects/cli/cli.md
+cp nix.md v/projects/nix/nix.md
+cp web.md v/projects/web/web.md
+cp other.md v/projects/notes/notes.md
+
+exec ct vault groups v
+stdout '^cluster 1: projects cli, nix$'
+stdout '^  nix depends-on cli$'
+stdout '^cluster 2: groups alpha; projects p1, p2$'
+stdout '^  bridges: none$'
+stdout '^standalone: web$'
+stdout '^warning: group beta has no members \(projects/beta/beta.md\)$'
+! stdout notes
+! stdout error
+
+exec ct vault groups v nix
+stdout '^nix \(project\)$'
+stdout '^  depends-on: cli$'
+stdout '^  groups: none$'
+stdout '^  cluster: projects cli, nix$'
+exec ct vault groups v CLI
+stdout '^cli \(project\)$'
+stdout '^  used-by: nix$'
+exec ct vault groups v alpha web
+stdout '^alpha \(group\)$'
+stdout '^  members: p1, p2$'
+stdout '^  cluster: groups alpha; projects p1, p2$'
+stdout '^web \(project\)$'
+stdout '^  cluster: standalone$'
+! exec ct vault groups v nope
+stderr 'no project or group named nope'
+
+exec ct vault groups v --json
+stdout '"standalone": \['
+stdout '"dependsOn": \['
+stdout '"members": \['
+exec ct vault groups v nix --json
+stdout '"nix": \{'
+! stdout '"web"'
+
+# --check: warnings pass, errors fail
+exec ct vault groups v --check
+cp web-bad.md v/projects/web/web.md
+exec ct vault groups v
+stdout '^error: groups links \[\[cli\]\], which is a project, not a group \(projects/web/web.md\)$'
+! exec ct vault groups v --check
+stdout '^error: groups links \[\[cli\]\]'
+! exec ct vault groups v web --check
+stdout '^web \(project\)$'
+stdout '^error: '
+! exec ct vault groups v --check --json
+stdout '"error": true'
+
+# no project notes; not a vault
+mkdir empty/.obsidian
+exec ct vault groups empty
+stdout '^no projects$'
+! exec ct vault groups nowhere
+stderr 'not an Obsidian vault'
+
+-- alpha.md --
+---
+title: alpha
+type: group
+---
+-- beta.md --
+---
+title: beta
+type: group
+---
+-- p1.md --
+---
+title: p1
+type: project
+groups: ["[[alpha]]"]
+depends-on: []
+---
+-- p2.md --
+---
+title: p2
+type: project
+groups:
+  - "[[alpha|Alpha]]"
+depends-on:
+  - "[[p1#API]]"
+---
+-- cli.md --
+---
+title: cli
+type: project
+---
+-- nix.md --
+---
+title: nix
+type: project
+depends-on: ["[[cli]]"]
+---
+-- web.md --
+---
+title: web
+type: project
+groups: []
+---
+-- web-bad.md --
+---
+title: web
+type: project
+groups: ["[[cli]]"]
+---
+-- other.md --
+---
+title: notes
+type: reference
+depends-on: ["[[nowhere]]"]
+---

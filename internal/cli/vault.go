@@ -55,6 +55,7 @@ choice comes from; and where ct keeps its own settings, cache and logs.`,
 		vaultConfigureCmd(),
 		vaultLockCmd(),
 		vaultLinksCmd(),
+		vaultGroupsCmd(),
 	)
 	return cmd
 }
