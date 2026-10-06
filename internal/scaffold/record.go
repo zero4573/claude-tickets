@@ -21,7 +21,7 @@ const RecordName = ".scaffold.json"
 // newer ct: ignored and never rewritten.
 const RecordFormat = 1
 
-const recordComment = "What ct has shipped into this vault (ct vault init / ct vault update): for each file, the sha256 of the shipped content (LF line endings, one trailing newline) and the ct version that wrote or confirmed it. A file whose content still has this hash counts as unedited and is updated by ct vault update. Don't edit it by hand."
+const recordComment = "What ct has shipped into this vault (ct vault init / ct vault update): for each file, the sha256 of the shipped content (LF line endings, one trailing newline) and the ct version that wrote or confirmed it. A file whose content still has this hash counts as unedited: ct vault update updates it, unless the hash is from a newer ct, which it keeps. Don't edit it by hand."
 
 // Shipped is a record's entry for one file.
 type Shipped struct {
