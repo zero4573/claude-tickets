@@ -136,6 +136,35 @@ exec ct vault update old
 stderr '.scaffold.json is from a newer ct; using the built-in history only'
 cmp $O/.scaffold.json newer-record.json
 
+# a folder or a symlink at a shipped path: edited, never followed, written or taken
+env N=$WORK/home/Documents/Obsidian/nr
+exec ct vault init nr
+rm $N/done.md
+mkdir $N/done.md
+cp note.md $N/done.md/inside.md
+rm $N/pending.md
+symlink $N/pending.md -> $WORK/note.md
+exec ct vault update nr
+stdout '^  ! done.md \(edited, kept; not a regular file\)$'
+stdout '^  ! pending.md \(edited, kept; not a regular file\)$'
+stdout 'edited 2 \(kept\)$'
+! exec ct vault update nr --take done.md
+stderr 'done.md: not a regular file; move it away first'
+! exec ct vault update nr --take pending.md
+stderr 'pending.md: not a regular file'
+cmp $N/done.md/inside.md note.md
+cmp $WORK/note.md note.md
+! exists $N/done.md.bak
+! exists $N/pending.md.bak
+
+# a dry run doesn't wait for (or touch) a lock someone else holds
+exec ct vault lock acquire $N PROJ-12
+exec ct vault update nr --dry-run
+stdout 'would add 0, would update 0'
+exec ct vault lock status $N
+stdout 'PROJ-12'
+exec ct vault lock release $N PROJ-12
+
 -- nl.sh --
 printf '\n\n' >> "$1"
 -- crlf.sh --
