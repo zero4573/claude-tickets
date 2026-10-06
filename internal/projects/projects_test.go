@@ -157,3 +157,79 @@ func TestTarget(t *testing.T) {
 		t.Error("path kept")
 	}
 }
+
+// A two-way interaction is a link on each side; repeated links to the same
+// project (any case, alias or heading) count once.
+func TestCyclesAndDuplicates(t *testing.T) {
+	v := t.TempDir()
+	proj(t, v, "a", "project", "depends-on: [\"[[b]]\", \"[[B]]\", \"[[b|the b]]\", \"[[b#API]]\"]\n")
+	proj(t, v, "b", "project", "depends-on:\n  - \"[[a]]\"\n")
+	g, ps := Load(v)
+	eq(t, "problems", len(ps), 0)
+	eq(t, "DependsOn(a)", g.DependsOn("a"), []string{"b"})
+	eq(t, "UsedBy(b)", g.UsedBy("b"), []string{"a"})
+	eq(t, "UsedBy(a)", g.UsedBy("a"), []string{"b"})
+	eq(t, "Clusters", g.Clusters(), []Cluster{{Groups: []string{}, Projects: []string{"a", "b"}, Bridges: []string{}}})
+	eq(t, "Standalone", g.Standalone(), []string{})
+}
+
+// Two groups joined through a project in neither are one cluster (they're
+// related), but that chain isn't listed as a bridge.
+func TestGroupsJoinedThroughUngroupedProject(t *testing.T) {
+	v := t.TempDir()
+	proj(t, v, "g1", "group", "")
+	proj(t, v, "g2", "group", "")
+	proj(t, v, "p", "project", "groups: [\"[[g1]]\"]\ndepends-on: [\"[[lib]]\"]\n")
+	proj(t, v, "q", "project", "groups: [\"[[g2]]\"]\ndepends-on: [\"[[lib]]\"]\n")
+	proj(t, v, "lib", "project", "")
+	proj(t, v, "other", "project", "")
+	g, ps := Load(v)
+	eq(t, "problems", len(ps), 0)
+	eq(t, "Clusters", g.Clusters(), []Cluster{{Groups: []string{"g1", "g2"}, Projects: []string{"lib", "p", "q"}, Bridges: []string{}}})
+	i, ok := g.ClusterOf("G2")
+	if j, ok2 := g.ClusterOf("p"); !ok || !ok2 || i != j {
+		t.Errorf("g2 and p not in one cluster: %d %v, %d %v", i, ok, j, ok2)
+	}
+	eq(t, "Standalone", g.Standalone(), []string{"other"})
+}
+
+// Groups are flat and have no members list: a group note's own groups,
+// depends-on (or members) properties are ignored, so a group never nests
+// in another or joins a cluster on its own.
+func TestGroupNoteLinksIgnored(t *testing.T) {
+	v := t.TempDir()
+	proj(t, v, "outer", "group", "")
+	proj(t, v, "inner", "group", "groups: [\"[[outer]]\"]\ndepends-on: [\"[[p]]\"]\nmembers: [\"[[p]]\"]\n")
+	proj(t, v, "p", "project", "")
+	g, ps := Load(v)
+	eq(t, "errors", errorsOf(ps), []string(nil))
+	eq(t, "warnings", len(ps), 2)
+	eq(t, "Members(inner)", g.Members("inner"), []string{})
+	eq(t, "Members(outer)", g.Members("outer"), []string{})
+	eq(t, "Clusters", len(g.Clusters()), 0)
+	eq(t, "Standalone", g.Standalone(), []string{"p"})
+}
+
+// No legacy: the old projects/system/system.md (type: project, no repo)
+// of a vault set up before 0.1.0 is just a standalone project named
+// system; its old services property means nothing.
+func TestOldSystemNoteIsAStandaloneProject(t *testing.T) {
+	v := t.TempDir()
+	proj(t, v, "system", "project", "tags: [project, system, microservices]\nservices: [\"[[a]]\", \"[[b]]\"]\n")
+	proj(t, v, "a", "project", "")
+	g, ps := Load(v)
+	eq(t, "problems", len(ps), 0)
+	eq(t, "Standalone", g.Standalone(), []string{"a", "system"})
+	eq(t, "Clusters", len(g.Clusters()), 0)
+}
+
+// A projects path that isn't a folder is a vault without projects.
+func TestProjectsNotAFolder(t *testing.T) {
+	v := t.TempDir()
+	if err := os.WriteFile(filepath.Join(v, "projects"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	g, ps := Load(v)
+	eq(t, "problems", len(ps), 0)
+	eq(t, "Projects", g.Projects(), []string{})
+}

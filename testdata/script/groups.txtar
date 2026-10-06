@@ -63,6 +63,29 @@ exec ct vault groups empty
 stdout '^no projects$'
 ! exec ct vault groups nowhere
 stderr 'not an Obsidian vault'
+! exec ct vault groups v/projects
+stderr 'not an Obsidian vault'
+
+# a name among others that's unknown fails the whole call, before any output
+! exec ct vault groups v nix nope
+! stdout .
+stderr 'no project or group named nope'
+# --check with names: the whole vault's errors count, not only the names'
+! exec ct vault groups v nix --check
+stdout '^  depends-on: cli$'
+stdout '^error: groups links \[\[cli\]\]'
+
+# a vault set up before 0.1.0: its old system note is a standalone project,
+# a quoted type counts, and an old services property means nothing
+mkdir old/.obsidian old/projects/system old/projects/infra old/projects/box
+cp old-system.md old/projects/system/system.md
+cp infra.md old/projects/infra/infra.md
+cp box.md old/projects/box/box.md
+exec ct vault groups old
+stdout '^cluster 1: groups infra; projects box$'
+stdout '^standalone: system$'
+! stdout 'warning|error'
+exec ct vault groups old --check
 
 -- alpha.md --
 ---
@@ -118,4 +141,25 @@ groups: ["[[cli]]"]
 title: notes
 type: reference
 depends-on: ["[[nowhere]]"]
+---
+-- old-system.md --
+---
+title: system
+type: project
+tags: [project, system, microservices]
+services: ["[[box]]"]
+---
+# system
+See [[service-map]].
+-- infra.md --
+---
+title: infra
+type: "group"
+---
+-- box.md --
+---
+title: box
+type: project
+groups:
+- "[[infra]]"
 ---

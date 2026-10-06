@@ -38,10 +38,22 @@ grep '"blocked": "checkbox"' home/Documents/Obsidian/demo/.obsidian/types.json
 # a vault set up before 0.1.0: init adds what's new and leaves what it doesn't ship alone
 mkdir home/Documents/Obsidian/old/.obsidian home/Documents/Obsidian/old/projects/system
 cp old-system.md home/Documents/Obsidian/old/projects/system/system.md
+mkdir home/Documents/Obsidian/old/templates
+cp mine.md home/Documents/Obsidian/old/AGENTS.md
+cp old-project.md home/Documents/Obsidian/old/templates/project.md
+cp old-types.json home/Documents/Obsidian/old/.obsidian/types.json
 exec ct vault init old
 stdout '^  \+ templates/group.md$'
 ! stdout 'projects/system'
 cmp home/Documents/Obsidian/old/projects/system/system.md old-system.md
+# its old templates and AGENTS.md stay as they are; its old property types
+# are kept, and the new ones added
+cmp home/Documents/Obsidian/old/AGENTS.md mine.md
+cmp home/Documents/Obsidian/old/templates/project.md old-project.md
+grep '"services": "multitext"' home/Documents/Obsidian/old/.obsidian/types.json
+grep '"depends-on": "multitext"' home/Documents/Obsidian/old/.obsidian/types.json
+grep '"groups": "multitext"' home/Documents/Obsidian/old/.obsidian/types.json
+! exists home/Documents/Obsidian/old/projects/system/service-map.md
 
 # a second vault gets folders of its own
 exec ct vault init other
@@ -96,5 +108,12 @@ services: [a, b]
 ---
 # system
 See [[service-map]].
+-- old-project.md --
+---
+type: project
+---
+Part of [[system]], see [[service-map]].
+-- old-types.json --
+{"types": {"services": "multitext"}}
 -- note.md --
 [[nowhere]] and [[AGENTS]]
