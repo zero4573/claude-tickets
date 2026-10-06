@@ -153,12 +153,12 @@ func Run(o Options, items []Item, env Env) Result {
 			case failedSave[it.SaveIn] != "":
 				nit = skip(it, failedSave[it.SaveIn], fmt.Sprintf("[[%s]] (%s): ct clean --save couldn't save it: %s. Run /tickets:save in ct start %s, then ct clean %s",
 					it.ID, it.Status, failedSave[it.SaveIn], it.SaveIn, it.ID))
-			case !ok:
-				nit = skip(it, "no longer a candidate after its save", "")
-			case !savedSince(o.Vault, it.ID, start) && nit.Action != Skip:
+			case !savedSince(o.Vault, it.ID, start):
 				nit = skip(it, "/tickets:save ran but didn't mark it saved", fmt.Sprintf(
 					"[[%s]] (%s): ct clean --save ran /tickets:save, but it didn't set saved:. Check it in ct start %s, then ct clean %s",
 					it.ID, it.Status, it.SaveIn, it.ID))
+			case !ok:
+				nit = skip(it, "no longer a candidate after its save", "")
 			}
 			nit.Explicit = it.Explicit
 			if nit.Action == Skip {

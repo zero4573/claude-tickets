@@ -278,7 +278,8 @@ func ageDays(file, updated string, now time.Time) int {
 	y, m, d := now.Date()
 	today := time.Date(y, m, d, 0, 0, 0, 0, time.Local)
 	y, m, d = t.Date()
-	return int(today.Sub(time.Date(y, m, d, 0, 0, 0, 0, time.Local)).Hours() / 24)
+	// (a date in the future counts as today)
+	return max(0, int(today.Sub(time.Date(y, m, d, 0, 0, 0, 0, time.Local)).Hours()/24))
 }
 
 // Order is the order tickets are removed in: covered tickets first (a

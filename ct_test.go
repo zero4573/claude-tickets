@@ -37,6 +37,14 @@ if [ -f tickets/.sync-plan.json ]; then
   cat tickets/.sync-plan.json >> "$WORK/calls/sync-plans"
   echo "Check the HTML parts of the plan" > tickets/.sync-followups
 fi
+# /tickets:save (ct clean --save): marks the ticket saved when $WORK/save-ok exists
+case " $* " in
+  *" -p /tickets:save "*)
+    if [ -f "$WORK/save-ok" ]; then
+      id=$(basename "$PWD"); f="$CLAUDE_TICKETS_VAULT/tickets/$id/$id.md"
+      { head -n 1 "$f"; echo "saved: $(date +%Y-%m-%dT%H:%M:%S)"; tail -n +2 "$f"; } > "$f.tmp" && mv "$f.tmp" "$f"
+    fi ;;
+esac
 case " $* " in
   *" -p "*)
     echo '{"type":"system","subtype":"init"}'

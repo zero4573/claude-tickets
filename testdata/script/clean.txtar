@@ -1,0 +1,293 @@
+# ct clean: closed tickets go (synced ones to .trash/ with their links
+# rewritten to the source, manual ones to archive/tickets/), after their
+# workspace; open, running, dirty, unpushed and unsaved ones stay
+env GIT_AUTHOR_NAME=x GIT_AUTHOR_EMAIL=x@example.com GIT_COMMITTER_NAME=x GIT_COMMITTER_EMAIL=x@example.com GIT_CONFIG_GLOBAL=/dev/null
+env V=home/Documents/Obsidian/a
+env W=home/Projects/work-a
+mkdir $V/.obsidian $V/projects/p/logs $V/inbox $V/tickets/PROJ-12/logs $V/tickets/PROJ-13 $V/tickets/MAN-4 $V/tickets/MAN-9
+mkdir $V/tickets/PROJ-14 $V/tickets/PROJ-15/kb-drafts $V/tickets/PROJ-16 $V/tickets/PROJ-17 $V/tickets/PROJ-18 $V/tickets/PROJ-19
+mkdir $V/tickets/MAN-20 $V/tickets/MAN-21 $V/tickets/MAN-22 $V/tickets/MAN-23 $V/tickets/PROJ-21
+cp empty $V/pending.md
+cp empty $V/tickets.base
+cp n.md $V/inbox/n.md
+cp log.md $V/projects/p/logs/2026-10-01-PROJ-12-p-fix.md
+cp proj-12.md $V/tickets/PROJ-12/PROJ-12.md
+cp empty $V/tickets/PROJ-12/design.md
+cp x.md $V/tickets/PROJ-12/logs/x.md
+cp proj-13.md $V/tickets/PROJ-13/PROJ-13.md
+cp man-4.md $V/tickets/MAN-4/MAN-4.md
+cp man-9.md $V/tickets/MAN-9/MAN-9.md
+cp synced-closed.md $V/tickets/PROJ-14/PROJ-14.md
+cp empty $V/tickets/PROJ-14/design.md
+cp synced-saved.md $V/tickets/PROJ-15/PROJ-15.md
+cp draft.md $V/tickets/PROJ-15/kb-drafts/flow.md
+cp synced-saved.md $V/tickets/PROJ-16/PROJ-16.md
+cp synced-saved.md $V/tickets/PROJ-17/PROJ-17.md
+cp synced-saved.md $V/tickets/PROJ-18/PROJ-18.md
+cp synced-done.md $V/tickets/PROJ-19/PROJ-19.md
+cp lead.md $V/tickets/MAN-20/MAN-20.md
+cp covered-open.md $V/tickets/MAN-21/MAN-21.md
+cp covered-closed.md $V/tickets/MAN-22/MAN-22.md
+cp lead-open.md $V/tickets/MAN-23/MAN-23.md
+cp synced-closed.md $V/tickets/PROJ-21/PROJ-21.md
+cp empty $V/tickets/PROJ-21/design.md
+expand ws.json ws-null.json
+
+# A main clone, pushed, with worktrees: PROJ-12 clean and pushed, PROJ-16
+# dirty, PROJ-17 with a commit on no remote
+exec git init -q --bare -b main remote.git
+exec git clone -q remote.git home/Projects/repo-a/github/acme/x
+exec git -C home/Projects/repo-a/github/acme/x commit -q --allow-empty -m base
+exec git -C home/Projects/repo-a/github/acme/x push -q origin HEAD:main
+exec git -C home/Projects/repo-a/github/acme/x worktree add -q -b feature/PROJ-12 $WORK/$W/PROJ-12/x
+exec git -C $W/PROJ-12/x push -q origin HEAD:feature/PROJ-12
+exec git -C home/Projects/repo-a/github/acme/x worktree add -q -b feature/PROJ-16 $WORK/$W/PROJ-16/x
+cp empty $W/PROJ-16/x/new.txt
+exec git -C home/Projects/repo-a/github/acme/x worktree add -q -b feature/PROJ-17 $WORK/$W/PROJ-17/x
+exec git -C $W/PROJ-17/x commit -q --allow-empty -m work
+exec sh -c 'for t in PROJ-12 PROJ-16 PROJ-17; do sed "s/ID/$t/g" ws.json > $W/$t/workspace.json; done'
+mkdir $W/PROJ-18 $W/PROJ-14 $W/PROJ-21
+exec sh -c 'echo "{\"id\": \"PROJ-18\", \"repos\": []}" > $W/PROJ-18/workspace.json'
+exec sh -c 'echo "{\"id\": \"PROJ-14\", \"repos\": []}" > $W/PROJ-14/workspace.json'
+cp ws-null.json $W/PROJ-21/workspace.json
+cp windows tmux-windows
+
+# Dry run: the plan, and nothing changes
+exec sh -c 'find home -type f | sort | xargs cksum'
+cp stdout before.txt
+exec ct clean --dry-run
+stdout '^ct clean: PROJ-12 \(closed\): remove the workspace; move to .trash/PROJ-12; rewrite 8 link\(s\) in 3 note\(s\) to https://acme.atlassian.net/browse/PROJ-12; keep 1 file\(s\) in archive/tickets/PROJ-12$'
+stdout '^ct clean: MAN-4 \(closed\): archive to archive/tickets/MAN-4$'
+stdout '^ct clean: PROJ-14 \(closed\): skip: needs /tickets:save \(worked \(design.md\), not saved\)$'
+stdout '^ct clean: PROJ-15 \(closed\): skip: needs /tickets:save \(kb-drafts/flow.md isn.t promoted\)$'
+stdout '^ct clean: PROJ-16 \(closed\): skip: uncommitted changes in x$'
+stdout '^ct clean: PROJ-17 \(closed\): skip: commits on no remote in x$'
+stdout '^ct clean: PROJ-18 \(closed\): skip: session running \(PROJ-18\)$'
+stdout '^ct clean: MAN-20 \(closed\): skip: waiting on covered tickets: MAN-21$'
+stdout '^ct clean: MAN-22 \(closed\): skip: lead MAN-23 still open$'
+! stdout '^ct clean: (MAN-9|PROJ-13|PROJ-19|MAN-21|MAN-23) '
+exec sh -c 'find home -type f | sort | xargs cksum'
+cmp stdout before.txt
+
+# No terminal, no --yes: refused
+! exec ct clean
+stderr 'clean: not a terminal; review with --dry-run, then re-run with --yes'
+exists $V/tickets/PROJ-12/PROJ-12.md
+
+exec ct clean --yes
+stdout 'removed workspace .*/PROJ-12$'
+stdout '^ct clean: PROJ-12: removed its workspace; moved to .trash/PROJ-12; rewrote 8 link\(s\) in 3 note\(s\); kept 1 file\(s\) in archive/tickets/PROJ-12$'
+stdout '^ct clean: MAN-4: archived 1 file\(s\) to archive/tickets/MAN-4$'
+stdout 'follow-ups in .*/inbox/.*-ct-clean-follow-ups.md'
+! exists $V/tickets/PROJ-12
+! exists $W/PROJ-12
+exists $V/.trash/PROJ-12/PROJ-12.md
+exists $V/.trash/PROJ-12/design.md
+exists $V/archive/tickets/PROJ-12/logs/x.md
+exists $V/archive/tickets/MAN-4/MAN-4.md
+! exists $V/tickets/MAN-4
+! exists $V/.vault.lock.d
+cmp $V/inbox/n.md n-after.md
+grep '^!\[\[archive/tickets/PROJ-12/logs/x\]\]$' $V/projects/p/logs/2026-10-01-PROJ-12-p-fix.md
+cmp $V/tickets/PROJ-13/PROJ-13.md proj-13-after.md
+exists $V/tickets/PROJ-16/PROJ-16.md
+exists $W/PROJ-17/x
+exec sh -c 'cat home/Documents/Obsidian/a/inbox/*-ct-clean-follow-ups.md'
+stdout '^source-command: ct-clean$'
+stdout '^- \[ \] \[\[PROJ-14\]\] \(closed\) wasn.t saved \(worked \(design.md\), not saved\): ct start PROJ-14, run /tickets:save, then ct clean PROJ-14 \(or ct clean --save PROJ-14\) #ct-clean'
+stdout '\[\[PROJ-16\]\] \(closed\): .* has uncommitted changes'
+stdout '\[\[PROJ-17\]\] \(closed\): .* has commits that aren.t on any remote'
+! stdout 'PROJ-18|MAN-20|MAN-22'
+exec ct vault links check $V
+stdout '2 link\(s\) in sync-owned parts of synced tickets point to tickets not in the vault \(not counted\)'
+stdout 'all links resolve'
+
+# Idempotent
+exec ct clean --yes
+stdout '^ct clean: nothing to clean$'
+! stdout 'PROJ-12|MAN-4'
+
+# --save: headless /tickets:save first; a run that doesn't mark it saved
+# keeps it; a null target version is refused before claude runs
+! exec ct clean --yes --save PROJ-14
+stdout 'PROJ-14: running /tickets:save'
+stdout 'PROJ-14: skipped: /tickets:save ran but didn.t mark it saved'
+grep ' --disallowedTools AskUserQuestion -p /tickets:save --output-format stream-json --verbose$' calls/claude
+grep '/PROJ-14$' calls/claude-cwd
+exists $V/tickets/PROJ-14/PROJ-14.md
+cp empty save-ok
+exec ct clean --yes --save PROJ-14
+stdout '^ct clean: PROJ-14: removed its workspace; moved to .trash/PROJ-14'
+grep '^saved: 20' $V/.trash/PROJ-14/PROJ-14.md
+! exec ct clean --yes --save PROJ-21
+stdout 'PROJ-21 \(closed\): skip: needs /tickets:save, and x has no target version'
+! grep '/PROJ-21$' calls/claude-cwd
+
+# --purge, --keep-manual, --days, a name already in .trash/
+mkdir $V/tickets/PROJ-30 $V/tickets/PROJ-31 $V/tickets/MAN-31 $V/tickets/PROJ-32
+cp synced-saved.md $V/tickets/PROJ-30/PROJ-30.md
+cp synced-saved.md $V/tickets/PROJ-31/PROJ-31.md
+cp man-4.md $V/tickets/MAN-31/MAN-31.md
+cp synced-recent.md $V/tickets/PROJ-32/PROJ-32.md
+mkdir $V/.trash/PROJ-30
+exec ct clean --yes --purge PROJ-31
+stdout 'PROJ-31: deleted; rewrote 0 link'
+! exists $V/tickets/PROJ-31
+! exists $V/.trash/PROJ-31
+exec ct clean --yes PROJ-30
+stdout 'PROJ-30: moved to .trash/PROJ-30-[0-9]{14};'
+exec ct clean --yes --keep-manual MAN-31
+stdout '^ct clean: MAN-31 \(closed\): keep \(manual\)$'
+exists $V/tickets/MAN-31/MAN-31.md
+! exec ct clean --yes --days 30 PROJ-32
+stdout 'PROJ-32 \(closed\): skip: updated 0 day\(s\) ago \(--days 30\)'
+exists $V/tickets/PROJ-32/PROJ-32.md
+
+# Named tickets that don't qualify: reported, exit 1, untouched
+! exec ct clean --yes MAN-9
+stdout '^ct clean: MAN-9 \(in-progress\): skip: not finished \(status in-progress\)$'
+exists $V/tickets/MAN-9/MAN-9.md
+! exec ct clean --yes --include-done PROJ-19
+stdout 'PROJ-19 \(done\): skip: done synced ticket \(ct sync would re-create it\)'
+! exec ct clean --dry-run NOPE-1
+stdout 'NOPE-1: skip: not a ticket in the vault'
+
+-- empty --
+-- windows --
+PROJ-18
+-- ws.json --
+{"id": "ID", "vault": "$WORK/home/Documents/Obsidian/a", "repos": [
+  {"provider": "github", "owner": "acme", "repo": "x", "slug": "x", "path": "$WORK/home/Projects/work-a/ID/x", "base": "main", "branch": "feature/ID", "mode": "worktree", "targetVersion": "1.0"}
+]}
+-- ws-null.json --
+{"id": "PROJ-21", "repos": [
+  {"provider": "github", "owner": "acme", "repo": "x", "slug": "x", "path": "$WORK/home/Projects/work-a/PROJ-21/x", "base": "main", "branch": "feature/PROJ-21", "mode": "worktree", "targetVersion": null}
+]}
+-- n.md --
+---
+related: ["[[PROJ-12]]"]
+---
+See [[PROJ-12]], [[PROJ-12|the bug]], [[proj-12#Review|review]], ![[PROJ-12]],
+[[tickets/PROJ-12/PROJ-12]], and `[[PROJ-12]]` (code), and [[MAN-4]].
+-- n-after.md --
+---
+related: ["[PROJ-12](https://acme.atlassian.net/browse/PROJ-12)"]
+---
+See [PROJ-12](https://acme.atlassian.net/browse/PROJ-12), [the bug](https://acme.atlassian.net/browse/PROJ-12), [review](https://acme.atlassian.net/browse/PROJ-12), [PROJ-12](https://acme.atlassian.net/browse/PROJ-12),
+[PROJ-12](https://acme.atlassian.net/browse/PROJ-12), and `[[PROJ-12]]` (code), and [[MAN-4]].
+-- log.md --
+---
+title: log
+---
+Fixed [[PROJ-12]] in p.
+![[tickets/PROJ-12/logs/x]]
+-- x.md --
+# x
+-- proj-12.md --
+---
+title: PROJ-12
+status: closed
+saved: 2026-10-01T10:00:00
+source: jira
+source-id: PROJ-12
+source-url: https://acme.atlassian.net/browse/PROJ-12
+---
+# PROJ-12
+-- proj-13.md --
+---
+title: PROJ-13
+status: in-progress
+source: jira
+source-url: https://acme.atlassian.net/browse/PROJ-13
+related: ["[[PROJ-12]]"]
+---
+# PROJ-13
+
+<!-- source:start -->
+Related: [[PROJ-12]]
+<!-- source:end -->
+
+Builds on [[PROJ-12]].
+-- proj-13-after.md --
+---
+title: PROJ-13
+status: in-progress
+source: jira
+source-url: https://acme.atlassian.net/browse/PROJ-13
+related: ["[[PROJ-12]]"]
+---
+# PROJ-13
+
+<!-- source:start -->
+Related: [[PROJ-12]]
+<!-- source:end -->
+
+Builds on [PROJ-12](https://acme.atlassian.net/browse/PROJ-12).
+-- man-4.md --
+---
+status: closed
+source: manual
+---
+# MAN-4
+-- man-9.md --
+---
+status: in-progress
+source: manual
+---
+-- synced-closed.md --
+---
+status: closed
+source: jira
+source-url: https://acme.atlassian.net/browse/X
+---
+-- synced-saved.md --
+---
+status: closed
+saved: 2026-10-01T10:00:00
+source: jira
+source-url: https://acme.atlassian.net/browse/X
+---
+-- synced-recent.md --
+---
+status: closed
+updated: 2099-01-01
+saved: 2026-10-01T10:00:00
+source: jira
+source-url: https://acme.atlassian.net/browse/X
+---
+-- synced-done.md --
+---
+status: done
+source: jira
+source-url: https://acme.atlassian.net/browse/X
+---
+-- draft.md --
+---
+status: draft
+---
+-- lead.md --
+---
+status: closed
+source: manual
+ticket-type: epic
+covers: ["[[MAN-21]]"]
+---
+-- covered-open.md --
+---
+status: review
+source: manual
+covered-by: "[[MAN-20]]"
+---
+-- covered-closed.md --
+---
+status: closed
+source: manual
+covered-by: "[[MAN-23]]"
+---
+-- lead-open.md --
+---
+status: in-progress
+source: manual
+ticket-type: epic
+covers: ["[[MAN-22]]"]
+---
