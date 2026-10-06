@@ -178,9 +178,11 @@ func Fields(file string) map[string]string {
 var fieldRe = regexp.MustCompile(`^([a-z][a-z-]*):(.*)$`)
 
 // ListField returns a frontmatter list's items, unquoted: flow style
-// ("key: [a, "b"]") or block style ("key:" then "  - a" lines). A missing
-// key, an empty list or a scalar value gives nil. BOM and CRLF are handled
-// like Frontmatter.
+// ("key: [a, "b"]") or block style ("key:" then "  - a" lines). Written by
+// hand, unquoted wikilinks ("key: [[a]]", "key: [[a]], [[b]]") are links,
+// not a nested list, and a scalar ("key: \"[[a]]\"") is a one-item list. A
+// missing key or an empty list gives nil. BOM and CRLF are handled like
+// Frontmatter.
 func ListField(file, key string) []string {
 	lines, _ := fileLines(file)
 	if len(lines) == 0 || lines[0] != "---" {
@@ -200,12 +202,14 @@ func ListField(file, key string) []string {
 					items = append(items, listItem(t))
 				}
 			}
+		case bareLinksRe.MatchString(v):
+			items = bareLinkRe.FindAllString(v, -1)
 		case strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]"):
 			for _, x := range splitFlow(v[1 : len(v)-1]) {
 				items = append(items, listItem(x))
 			}
 		default:
-			return nil
+			items = []string{unquote(v)}
 		}
 		var out []string
 		for _, x := range items {
@@ -217,6 +221,11 @@ func ListField(file, key string) []string {
 	}
 	return nil
 }
+
+var (
+	bareLinkRe  = regexp.MustCompile(`\[\[[^\[\]]*\]\]`)
+	bareLinksRe = regexp.MustCompile(`^\[\[[^\[\]]*\]\](\s*,\s*\[\[[^\[\]]*\]\])*$`)
+)
 
 // splitFlow splits a flow list's inside on the commas outside quotes.
 func splitFlow(s string) []string {

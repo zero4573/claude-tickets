@@ -68,7 +68,12 @@ func TestListField(t *testing.T) {
 		{"empty flow", "depends-on: []\n", nil},
 		{"empty block", "depends-on:\nstatus: x\n", nil},
 		{"missing", "status: x\n", nil},
-		{"scalar", "depends-on: a\n", nil},
+		{"scalar", "depends-on: a\n", []string{"a"}},
+		{"quoted scalar", "depends-on: \"[[a]]\"\n", []string{"[[a]]"}},
+		{"bare link", "depends-on: [[a]]\n", []string{"[[a]]"}},
+		{"bare links", "depends-on: [[a|A]], [[b#h]]\n", []string{"[[a|A]]", "[[b#h]]"}},
+		{"flow of bare links", "depends-on: [[[a]], [[b]]]\n", []string{"[[a]]", "[[b]]"}},
+		{"empty scalar", "depends-on: \"\"\n", nil},
 		{"other key prefix", "depends-on-x: [a]\n", nil},
 	}
 	for _, c := range cases {

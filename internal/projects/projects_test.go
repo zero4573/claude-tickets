@@ -233,3 +233,18 @@ func TestProjectsNotAFolder(t *testing.T) {
 	eq(t, "problems", len(ps), 0)
 	eq(t, "Projects", g.Projects(), []string{})
 }
+
+// Hand-written links: unquoted ("[[cli]]", read by YAML as a nested list)
+// and a single link as a scalar both count as links.
+func TestHandWrittenLinks(t *testing.T) {
+	v := t.TempDir()
+	proj(t, v, "g", "group", "")
+	proj(t, v, "cli", "project", "")
+	proj(t, v, "nix", "project", "depends-on: [[cli]]\ngroups: \"[[g]]\"\n")
+	proj(t, v, "web", "project", "depends-on: [[cli|CLI]], [[nix#API]]\n")
+	g, ps := Load(v)
+	eq(t, "problems", len(ps), 0)
+	eq(t, "DependsOn(nix)", g.DependsOn("nix"), []string{"cli"})
+	eq(t, "GroupsOf(nix)", g.GroupsOf("nix"), []string{"g"})
+	eq(t, "DependsOn(web)", g.DependsOn("web"), []string{"cli", "nix"})
+}
