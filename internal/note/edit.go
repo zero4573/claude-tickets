@@ -193,13 +193,17 @@ func ListField(file, key string) []string {
 		if !ok || k != key {
 			continue
 		}
-		v = strings.TrimSpace(v)
+		v = strings.TrimSpace(stripComment(v))
+		switch v {
+		case "null", "Null", "NULL", "~":
+			return nil
+		}
 		var items []string
 		switch {
 		case v == "":
 			for j := i + 1; j < len(lines) && continuation(lines[j]); j++ {
 				if t := strings.TrimSpace(lines[j]); strings.HasPrefix(t, "-") {
-					items = append(items, listItem(t))
+					items = append(items, listItem(strings.TrimSpace(stripComment(t))))
 				}
 			}
 		case bareLinksRe.MatchString(v):
@@ -226,6 +230,30 @@ var (
 	bareLinkRe  = regexp.MustCompile(`\[\[[^\[\]]*\]\]`)
 	bareLinksRe = regexp.MustCompile(`^\[\[[^\[\]]*\]\](\s*,\s*\[\[[^\[\]]*\]\])*$`)
 )
+
+// stripComment drops a YAML comment: a "#" at the start or after a space,
+// outside quotes and brackets (a wikilink's "#heading" is inside [[...]]).
+func stripComment(v string) string {
+	var quote byte
+	depth := 0
+	for i := 0; i < len(v); i++ {
+		switch c := v[i]; {
+		case quote != 0:
+			if c == quote {
+				quote = 0
+			}
+		case c == '"' || c == '\'':
+			quote = c
+		case c == '[':
+			depth++
+		case c == ']':
+			depth--
+		case c == '#' && depth <= 0 && (i == 0 || v[i-1] == ' ' || v[i-1] == '\t'):
+			return v[:i]
+		}
+	}
+	return v
+}
 
 // splitFlow splits a flow list's inside on the commas outside quotes.
 func splitFlow(s string) []string {

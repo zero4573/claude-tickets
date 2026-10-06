@@ -123,6 +123,16 @@ stdout '^  bridges:$'
 stdout '^    q is in groups ga, gb$'
 stdout '^    r \(gc\) depends-on q \(ga, gb\)$'
 
+# "null", "~" and comments mean what YAML says: no links, or the link alone
+mkdir nl/.obsidian nl/projects/solo nl/projects/tilde nl/projects/dep
+cp solo.md nl/projects/solo/solo.md
+cp tilde.md nl/projects/tilde/tilde.md
+cp dep.md nl/projects/dep/dep.md
+exec ct vault groups nl --check
+stdout '^cluster 1: projects dep, solo$'
+stdout '^standalone: tilde$'
+! stdout error
+
 -- alpha.md --
 ---
 title: alpha
@@ -217,4 +227,21 @@ groups: ["[[ga]]", "[[gb]]"]
 type: project
 groups: [[gc]]
 depends-on: "[[q]]"
+---
+-- solo.md --
+---
+type: project
+depends-on: null
+groups: [] # none yet
+---
+-- tilde.md --
+---
+type: project
+depends-on: ~
+groups: null
+---
+-- dep.md --
+---
+type: project
+depends-on: [[solo#API]] # REST
 ---
