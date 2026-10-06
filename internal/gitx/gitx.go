@@ -113,7 +113,8 @@ func Lost(dir, base string) (bool, error) {
 //   - the files HEAD changed since the merge base read the same in base
 //     (merged or squash-merged, nothing in base touching them since);
 //   - every commit's patch is in base (git cherry: rebased or
-//     cherry-picked);
+//     cherry-picked), on a branch without merge commits (cherry doesn't
+//     see a merge's own changes);
 //   - HEAD's whole change since the merge base is the patch of one commit
 //     of base (git patch-id: squash-merged, base having moved on since).
 //
@@ -141,8 +142,17 @@ func MergedInto(dir, base string) (bool, error) {
 	if Ok(dir, append([]string{"diff", "--quiet", base, "HEAD", "--"}, files...)...) {
 		return true, nil
 	}
-	if cherry, err := Out(dir, "cherry", base, "HEAD"); err == nil && !strings.Contains("\n"+cherry, "\n+") {
-		return true, nil
+	// git cherry skips merge commits, whose own content (a conflict
+	// resolution, an evil merge) would then go unseen: trust it only on a
+	// branch without merges
+	merges, err := Out(dir, "rev-list", "--count", "--merges", mb+"..HEAD")
+	if err != nil {
+		return false, err
+	}
+	if merges == "0" {
+		if cherry, err := Out(dir, "cherry", base, "HEAD"); err == nil && !strings.Contains("\n"+cherry, "\n+") {
+			return true, nil
+		}
 	}
 	mine, err := patchIDs(dir, "diff", mb, "HEAD")
 	if err != nil || len(mine) != 1 {

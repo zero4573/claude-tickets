@@ -167,3 +167,52 @@ func TestLostSharedCloneStash(t *testing.T) {
 		t.Errorf("stash: %t, %v", l, err)
 	}
 }
+
+// evilMerge gives dir's ticket branch a commit a, and a merge of a side
+// branch (b) whose merge commit adds evil.txt of its own; then base gets
+// a and b re-applied (cherry-picked), not the merge.
+func evilMerge(t *testing.T, clone, dir string) {
+	t.Helper()
+	commitFile(t, dir, "a.txt", "a\n", "a")
+	git(t, dir, "checkout", "--quiet", "-b", "side", "origin/main")
+	commitFile(t, dir, "b.txt", "b\n", "b")
+	git(t, dir, "checkout", "--quiet", "feature/PROJ-12")
+	git(t, dir, "merge", "--quiet", "--no-ff", "--no-commit", "side")
+	if err := os.WriteFile(filepath.Join(dir, "evil.txt"), []byte("only in the merge\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git(t, dir, "add", "evil.txt")
+	git(t, dir, "commit", "--quiet", "-m", "merge side")
+	git(t, dir, "branch", "--quiet", "-D", "side")
+	o := otherCheckout(t, clone)
+	commitFile(t, o, "a.txt", "a\n", "a")
+	commitFile(t, o, "b.txt", "b\n", "b")
+	git(t, o, "push", "--quiet", "origin", "HEAD:main")
+	git(t, dir, "fetch", "--quiet", "--prune", "origin")
+}
+
+// Regression (QA D4): git cherry ignores merge commits, so a merge's own
+// content (an evil merge, a conflict resolution) read as merged once the
+// ordinary commits were on base.
+func TestLostEvilMerge(t *testing.T) {
+	clone, wt := repo(t)
+	evilMerge(t, clone, wt)
+	if !lost(t, wt) {
+		t.Error("worktree: a merge commit's own content counted as merged")
+	}
+}
+
+func TestQAExploreSharedEvil(t *testing.T) {
+	clone, _ := repo(t)
+	root := filepath.Dir(clone)
+	sc := filepath.Join(root, "shared")
+	git(t, root, "clone", "--quiet", "--shared", clone, sc)
+	git(t, sc, "remote", "set-url", "origin", filepath.Join(root, "remote.git"))
+	git(t, sc, "fetch", "--quiet", "origin")
+	git(t, sc, "checkout", "--quiet", "-b", "feature/PROJ-12", "origin/main")
+	git(t, sc, "branch", "--quiet", "-D", "main")
+	evilMerge(t, clone, sc)
+	if !lost(t, sc) {
+		t.Error("shared clone: a merge commit's own content counted as merged; ct clean would delete it")
+	}
+}
