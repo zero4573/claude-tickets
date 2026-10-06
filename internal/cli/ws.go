@@ -502,27 +502,13 @@ func wsRm(ctx vault.Context, key string, force bool) error {
 		"CLAUDE.md", ".agent-state", key + ".code-workspace"} {
 		_ = os.RemoveAll(filepath.Join(dir, f))
 	}
-	removeEmptyDirs(dir)
+	fsx.RemoveEmptyDirs(dir)
 	if _, err := os.Stat(dir); err == nil {
 		warnf("left %s in place: it still has other files", dir)
 	} else {
 		fmt.Printf("ct ws: removed workspace %s\n", dir)
 	}
 	return nil
-}
-
-// removeEmptyDirs is find <dir> -depth -type d -empty -delete.
-func removeEmptyDirs(dir string) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return
-	}
-	for _, e := range entries {
-		if e.IsDir() {
-			removeEmptyDirs(filepath.Join(dir, e.Name()))
-		}
-	}
-	_ = os.Remove(dir) // only succeeds when empty
 }
 
 func wsSignCmd() *cobra.Command {

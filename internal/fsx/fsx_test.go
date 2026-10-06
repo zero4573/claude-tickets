@@ -51,3 +51,39 @@ func TestCopyTree(t *testing.T) {
 		t.Error("not removed", err)
 	}
 }
+
+func TestRemoveEmptyDirs(t *testing.T) {
+	d := t.TempDir()
+	os.MkdirAll(filepath.Join(d, "a", "b"), 0o755)
+	os.MkdirAll(filepath.Join(d, "c"), 0o755)
+	os.WriteFile(filepath.Join(d, "c", "f"), []byte("x"), 0o644)
+	RemoveEmptyDirs(d)
+	if IsDir(filepath.Join(d, "a")) || !IsDir(filepath.Join(d, "c")) {
+		t.Error("empty dirs not removed, or a non-empty one was")
+	}
+}
+
+func TestWriteFileAtomic(t *testing.T) {
+	d := t.TempDir()
+	p := filepath.Join(d, "n.md")
+	os.WriteFile(p, []byte("old"), 0o600)
+	if err := WriteFileAtomic(p, []byte("new"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(p); string(data) != "new" {
+		t.Errorf("content = %q", data)
+	}
+	if st, _ := os.Stat(p); st.Mode().Perm() != 0o600 {
+		t.Errorf("mode = %v, want the old file's", st.Mode().Perm())
+	}
+	if entries, _ := os.ReadDir(d); len(entries) != 1 {
+		t.Errorf("temporary file left behind: %v", entries)
+	}
+	q := filepath.Join(d, "new.md")
+	if err := WriteFileAtomic(q, []byte("x"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := os.Stat(q); st.Mode().Perm() != 0o640 {
+		t.Errorf("new file mode = %v", st.Mode().Perm())
+	}
+}

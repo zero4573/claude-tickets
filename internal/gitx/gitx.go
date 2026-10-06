@@ -48,8 +48,9 @@ func BaseRef(dir, base string) string {
 
 func Dirty(dir string, extra ...string) bool {
 	// A git that fails counts as dirty: callers use this to decide whether
-	// work would be lost
-	out, err := Out(dir, append([]string{"status", "--porcelain"}, extra...)...)
+	// work would be lost. No optional locks: a status shouldn't write the
+	// index (ct clean --dry-run changes nothing)
+	out, err := Out(dir, append([]string{"--no-optional-locks", "status", "--porcelain"}, extra...)...)
 	return err != nil || out != ""
 }
 
@@ -65,6 +66,17 @@ func Unpushed(dir string) (bool, error) {
 		return false, err
 	}
 	return n != "0" || stash != "", nil
+}
+
+// UnpushedHead reports whether HEAD has commits no remote has: what a
+// worktree's ticket branch would lose if it were deleted (its stash lives
+// in the main clone). An error means "can't tell".
+func UnpushedHead(dir string) (bool, error) {
+	n, err := Out(dir, "rev-list", "--count", "HEAD", "--not", "--remotes")
+	if err != nil {
+		return false, err
+	}
+	return n != "0", nil
 }
 
 // SharedClone makes dest a clone of main that borrows its objects

@@ -111,3 +111,44 @@ func RemoveAll(path string) error {
 	})
 	return os.RemoveAll(path)
 }
+
+// RemoveEmptyDirs is find <dir> -depth -type d -empty -delete.
+func RemoveEmptyDirs(dir string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			RemoveEmptyDirs(filepath.Join(dir, e.Name()))
+		}
+	}
+	_ = os.Remove(dir) // only succeeds when empty
+}
+
+// WriteFileAtomic replaces path with data through a temporary file in the
+// same folder, so a reader (or a crash) never sees half a file. An
+// existing file keeps its mode; a new one gets perm.
+func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
+	if st, err := os.Stat(path); err == nil {
+		perm = st.Mode().Perm()
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	_, err = tmp.Write(data)
+	if cerr := tmp.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Chmod(tmp.Name(), perm)
+	}
+	if err == nil {
+		err = os.Rename(tmp.Name(), path)
+	}
+	if err != nil {
+		_ = os.Remove(tmp.Name())
+	}
+	return err
+}
