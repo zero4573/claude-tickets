@@ -158,3 +158,33 @@ func sameSnap(a, b snap) bool {
 	}
 	return true
 }
+
+// TestApplyNewerThenEdited: a file a newer ct wrote and the user then
+// edited is edited (kept), its record entry (the newer ct's version) is
+// kept; reverting the edit makes it newer again, still never downgraded.
+func TestApplyNewerThenEdited(t *testing.T) {
+	src := source(t, map[string]string{"a.md": "new\n"}, map[string][]string{"a.md": {"old\n"}})
+	v := newVault(t, map[string]string{"a.md": "newer\nmine\n"})
+	prev := map[string]Shipped{"a.md": {Hash([]byte("newer\n")), "9.0"}}
+	if err := saveRecord(v, prev); err != nil {
+		t.Fatal(err)
+	}
+	res, err := Apply(v, src, Options{Version: "1.0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := states(res.Entries)["a.md"]; s != Edited || read(t, v, "a.md") != "newer\nmine\n" {
+		t.Errorf("edited newer file: state %v, content %q", s, read(t, v, "a.md"))
+	}
+	if loadRec(t, v).Files["a.md"] != prev["a.md"] {
+		t.Error("the newer ct's record entry was dropped or changed")
+	}
+	write(t, v, "a.md", "newer\r\n")
+	res, err = Apply(v, src, Options{Version: "1.0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := states(res.Entries)["a.md"]; s != Newer || read(t, v, "a.md") != "newer\r\n" {
+		t.Errorf("reverted newer file: state %v, content %q", s, read(t, v, "a.md"))
+	}
+}
