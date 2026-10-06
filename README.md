@@ -78,7 +78,7 @@ zsh` for completion). What you need:
 | Go 1.26+ | building `ct` |
 | Claude Code (`claude`) | the sessions |
 | git | worktrees |
-| tmux (optional) | background windows, and several sessions at once; without it `ct start` runs one ticket in the current terminal |
+| tmux (optional) | background windows, and several sessions at once; without it `ct start` runs one ticket in the current terminal (the Nix package brings tmux along: set the launcher to `none` for that) |
 | podman or docker | the code graph (graphify runs in an image; on Linux also tar, to unpack it for sandboxes) |
 | fzf (optional) | picking a vault interactively (else a numbered list) |
 
@@ -120,7 +120,7 @@ Without the module, export them.
 | `CLAUDE_TICKETS_MCP_CONFIG` | a standard MCP config (`{"mcpServers": {"<name>": {"type": "http", "url": …, "headers": {…}}}}`) naming each server the ticket sources use; `ct sync` talks to them directly |
 | `CLAUDE_TICKETS_MCP_PREPARE` | a command run before `ct sync` talks to them (e.g. starting a local proxy) |
 | `CLAUDE_TICKETS_CONTAINER` | `podman` or `docker` for the code graph (default: `ct vault configure --section runtime`, else detected; podman's docker alias counts as podman) |
-| `CLAUDE_TICKETS_LAUNCHER` | the terminal multiplexer ticket sessions run in: `tmux` or `none`, case-insensitive (default: `config.json`'s `launcher`, else tmux when it's installed, else none). With `none`, `ct start` runs one ticket in the current terminal. An explicit `tmux` that isn't installed is an error |
+| `CLAUDE_TICKETS_LAUNCHER` | the terminal multiplexer ticket sessions run in: `tmux` or `none`, case-insensitive (default: `config.json`'s `launcher`, else tmux when it's installed, else none). With `none`, `ct start` runs one ticket in the current terminal. An explicit `tmux` that isn't installed is an error. The Nix package puts tmux on `ct`'s PATH, so it always detects tmux: set `programs.claude-tickets.launcher = "none"` (or `CLAUDE_TICKETS_LAUNCHER=none`) for foreground sessions |
 | `CLAUDE_TICKETS_SYSTEMD_SLICE` | systemd user slice the graph containers run in (Linux) |
 | `CLAUDE_TICKETS_EDITOR` | editor of `ct open` (default `code`) |
 | `CLAUDE_TICKETS_CONFIG_DIR` | settings dir (default: per OS, see Install) |

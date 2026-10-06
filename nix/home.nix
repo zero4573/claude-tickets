@@ -74,7 +74,7 @@ in
     launcher = lib.mkOption {
       type = lib.types.nullOr (lib.types.enum [ "tmux" "none" ]);
       default = null;
-      description = "Terminal multiplexer for ticket sessions (CLAUDE_TICKETS_LAUNCHER); tmux when installed, else none, when null. With none, ct start runs one ticket in the current terminal.";
+      description = "Terminal multiplexer for ticket sessions (CLAUDE_TICKETS_LAUNCHER); tmux when installed, else none, when null. With none, ct start runs one ticket in the current terminal. This package puts tmux on ct's PATH, so it's always detected: set \"none\" for foreground sessions.";
     };
 
     systemdSlice = lib.mkOption {
