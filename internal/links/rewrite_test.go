@@ -222,3 +222,30 @@ func TestCheckWithExempt(t *testing.T) {
 		t.Errorf("only exempt problems (and an escaped table pipe): %d\n%s", n, out.String())
 	}
 }
+
+// Regression: code spans are delimited by equal backtick runs, and a fence
+// closes only on a run of its character at least as long (CommonMark).
+func TestRewriteToURLCommonMarkCode(t *testing.T) {
+	md := "[PROJ-12](" + url + ")"
+	in := "double ``code [[PROJ-12]] span`` and ``a`b [[PROJ-12]]`` and `x` [[PROJ-12]]\n" +
+		"lone ` tick [[PROJ-12]]\n" +
+		"````md\n```\ninner [[PROJ-12]]\n```\nafter-inner [[PROJ-12]]\n````\n" +
+		"~~~\n```\n[[PROJ-12]]\n~~~~\n" +
+		"``` a`b [[PROJ-12]]\n"
+	want := "double ``code [[PROJ-12]] span`` and ``a`b [[PROJ-12]]`` and `x` " + md + "\n" +
+		"lone ` tick " + md + "\n" +
+		"````md\n```\ninner [[PROJ-12]]\n```\nafter-inner [[PROJ-12]]\n````\n" +
+		"~~~\n```\n[[PROJ-12]]\n~~~~\n" +
+		"``` a`b " + md + "\n"
+	v := ticketVault(t, in)
+	rewrite(t, v, RewriteOpts{})
+	if got := read(t, v, "inbox/n.md"); got != want {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+	// Check reads code the same way
+	write(t, v, "inbox/n.md", "``[[gone]]``\n````\n```\n[[gone]]\n```\n[[gone]]\n````\n")
+	var out strings.Builder
+	if n := Check(v, []string{filepath.Join(v, "inbox/n.md")}, &out); n != 0 {
+		t.Errorf("Check = %d:\n%s", n, out.String())
+	}
+}

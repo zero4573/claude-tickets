@@ -23,9 +23,10 @@ import (
 )
 
 var (
-	linkRe       = regexp.MustCompile(`(!?)\[\[([^\[\]|#^]*)([#^][^\[\]|]*)?(\|[^\[\]]*)?\]\]`)
-	fenceRe      = regexp.MustCompile("^\\s*(```|~~~)")
-	inlineCodeRe = regexp.MustCompile("`[^`\n]*`")
+	linkRe = regexp.MustCompile(`(!?)\[\[([^\[\]|#^]*)([#^][^\[\]|]*)?(\|[^\[\]]*)?\]\]`)
+	// A fence: a run of 3 or more backticks or tildes (CommonMark allows 3
+	// spaces of indent; any is accepted here, for fences in list items)
+	fenceRe = regexp.MustCompile("^\\s*(`{3,}|~{3,})(.*)$")
 )
 
 // Files is every file in the vault outside dot-folders (and not dot-files).
@@ -137,7 +138,8 @@ var fieldRe = regexp.MustCompile(`^([A-Za-z0-9_][A-Za-z0-9_-]*):`)
 // eachLine calls fn for every line of text (with its line ending), saying
 // whether it's code (a fence, or inside a fenced block) and where it is.
 func eachLine(file, text string, fn func(l string, code bool, p Place)) {
-	fence, front, source := false, false, false
+	front, source := false, false
+	fence := "" // the open fence's run ("" outside one)
 	field := ""
 	for i, l := range lines(text) {
 		bare := strings.TrimRight(l, "\r\n")
@@ -155,11 +157,15 @@ func eachLine(file, text string, fn func(l string, code bool, p Place)) {
 				field = m[1]
 			}
 			p.Frontmatter, p.Field = true, field
-		case fenceRe.MatchString(bare):
-			fence = !fence
+		case fence != "":
+			// Closed by a run of the same character, at least as long, alone
+			if m := fenceRe.FindStringSubmatch(bare); m != nil && m[1][0] == fence[0] && len(m[1]) >= len(fence) && strings.TrimSpace(m[2]) == "" {
+				fence = ""
+			}
 			fn(l, true, p)
 			continue
-		case fence:
+		case opens(bare) != "":
+			fence = opens(bare)
 			fn(l, true, p)
 			continue
 		default:
@@ -173,6 +179,57 @@ func eachLine(file, text string, fn func(l string, code bool, p Place)) {
 		}
 		fn(l, false, p)
 	}
+}
+
+// opens is the run of a line that opens a fenced block ("" if it doesn't): a
+// backtick fence's info string can't hold a backtick (that's inline code).
+func opens(l string) string {
+	m := fenceRe.FindStringSubmatch(l)
+	if m == nil || m[1][0] == '`' && strings.Contains(m[2], "`") {
+		return ""
+	}
+	return m[1]
+}
+
+// codeSpans is where a line's inline code spans are: a run of backticks up
+// to the next run of the same length (CommonMark; spans across lines aren't
+// followed). A run without a match is literal text.
+func codeSpans(l string) [][2]int {
+	var out [][2]int
+	run := func(i int) int {
+		j := i
+		for j < len(l) && l[j] == '`' {
+			j++
+		}
+		return j - i
+	}
+	for i := 0; i < len(l); {
+		if l[i] != '`' {
+			i++
+			continue
+		}
+		n := run(i)
+		end := -1
+		for j := i + n; j < len(l); {
+			if l[j] != '`' {
+				j++
+				continue
+			}
+			m := run(j)
+			if m == n {
+				end = j + m
+				break
+			}
+			j += m
+		}
+		if end < 0 {
+			i += n
+			continue
+		}
+		out = append(out, [2]int{i, end})
+		i = end
+	}
+	return out
 }
 
 // link is one wikilink: where it is, and the regexp's submatches.
@@ -195,8 +252,13 @@ func linksIn(file, text string) []link {
 			return
 		}
 		l = strings.TrimRight(l, "\r\n")
-		scrubbed := inlineCodeRe.ReplaceAllStringFunc(l, func(s string) string { return strings.Repeat(" ", len(s)) })
-		for _, m := range linkRe.FindAllStringSubmatch(scrubbed, -1) {
+		scrubbed := []byte(l)
+		for _, loc := range codeSpans(l) {
+			for i := loc[0]; i < loc[1]; i++ {
+				scrubbed[i] = ' '
+			}
+		}
+		for _, m := range linkRe.FindAllStringSubmatch(string(scrubbed), -1) {
 			out = append(out, link{p, m})
 		}
 	})
@@ -239,7 +301,7 @@ func rewriteLinks(file, text string, repl func(m []string, a at) string) string 
 		}
 		// Inline code spans stay as they are
 		last := 0
-		for _, loc := range inlineCodeRe.FindAllStringIndex(l, -1) {
+		for _, loc := range codeSpans(l) {
 			sub(last, loc[0])
 			b.WriteString(l[loc[0]:loc[1]])
 			last = loc[1]
