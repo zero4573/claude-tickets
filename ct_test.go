@@ -3,18 +3,22 @@ package main_test
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/rogpeppe/go-internal/testscript"
 
 	"github.com/zero4573/claude-tickets/internal/cli"
 	"github.com/zero4573/claude-tickets/internal/gitx"
+	"github.com/zero4573/claude-tickets/internal/tasksplugin"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
 
@@ -113,6 +117,33 @@ esac
 `,
 }
 
+// faketasks 404|bad: serves the Tasks plugin release for the rest of the
+// script (CLAUDE_TICKETS_TASKS_URL): every file is a 404, or bytes that
+// don't match the pinned sha256s. Each request's path is appended to
+// $WORK/calls/tasks.
+func faketasks(ts *testscript.TestScript, neg bool, args []string) {
+	if len(args) != 1 || (args[0] != "404" && args[0] != "bad") {
+		ts.Fatalf("usage: faketasks 404|bad")
+	}
+	mode, calls := args[0], filepath.Join(ts.Getenv("WORK"), "calls", "tasks")
+	var mu sync.Mutex
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		if f, err := os.OpenFile(calls, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); err == nil {
+			fmt.Fprintln(f, r.URL.Path)
+			f.Close()
+		}
+		mu.Unlock()
+		if mode == "404" {
+			http.NotFound(w, r)
+			return
+		}
+		fmt.Fprintln(w, "not the release")
+	}))
+	ts.Defer(s.Close)
+	ts.Setenv("CLAUDE_TICKETS_TASKS_URL", s.URL)
+}
+
 func TestScripts(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the CLI tests use sh stubs; the unit tests cover Windows")
@@ -126,8 +157,9 @@ func TestScripts(t *testing.T) {
 					ts.Check(os.WriteFile(ts.MkAbs(f), []byte(os.Expand(ts.ReadFile(f), ts.Getenv)), 0o644))
 				}
 			},
-			"fakejira": fakejira,
-			"cmpvault": cmpvault,
+			"fakejira":  fakejira,
+			"faketasks": faketasks,
+			"cmpvault":  cmpvault,
 			// live-session <dir>: records this (running) test process as the
 			// session of workspace dir, as ct start does without a multiplexer
 			"live-session": func(ts *testscript.TestScript, neg bool, args []string) {
@@ -224,6 +256,20 @@ func TestScripts(t *testing.T) {
 			}
 			env.Setenv("CLAUDE_TICKETS_CONTAINER", "podman")
 			env.Setenv("CLAUDE_TICKETS_GRAPH_DIR", graphDir)
+			// ct vault init never reaches the real Tasks releases: this
+			// refuses at once (faketasks serves a fake one)
+			env.Setenv("CLAUDE_TICKETS_TASKS_URL", "http://127.0.0.1:1/tasks")
+			// The pinned version and the settings ct writes, for fixtures
+			pin, err := tasksplugin.Embedded()
+			if err != nil {
+				return err
+			}
+			env.Setenv("TASKS_VERSION", pin.Version)
+			settings, err := filepath.Abs(filepath.Join("assets", "obsidian", "tasks-settings.json"))
+			if err != nil {
+				return err
+			}
+			env.Setenv("TASKS_SETTINGS", settings)
 			return nil
 		},
 	})

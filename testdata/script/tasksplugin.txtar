@@ -1,0 +1,132 @@
+# ct vault init and the Tasks community plugin. Never the network: the
+# release URL refuses connections, or faketasks serves a fake release.
+# $TASKS_VERSION is the pinned version, $TASKS_SETTINGS the settings ct writes.
+
+# A fresh vault, download fails: the rest of init still happens, Tasks is
+# enabled, nothing is installed, no settings are written, exit 0
+exec ct vault init demo
+stderr 'the Tasks plugin wasn.t installed: main.js: .*; re-run ct vault init, or install Tasks from Obsidian'
+stdout 'enabled the Tasks plugin \(.obsidian/community-plugins.json\)'
+stdout 'Obsidian does: Settings → Community plugins → Check for updates'
+! stdout 'Tasks settings'
+! stdout 'installed the Tasks plugin'
+! exists home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin
+cmp home/Documents/Obsidian/demo/.obsidian/community-plugins.json enabled.json
+exists home/Documents/Obsidian/demo/tickets.base
+grep '"bases": true' home/Documents/Obsidian/demo/.obsidian/core-plugins.json
+exists home/Documents/Obsidian/demo/.workflow.json
+stdout 'ct vault init: done'
+
+# A release whose files don't match the pin: nothing written; already enabled
+faketasks bad
+exec ct vault init demo
+stderr 'the Tasks plugin wasn.t installed: main.js: sha256 mismatch \(got [0-9a-f]{64}, want [0-9a-f]{64}\)'
+! stdout 'enabled the Tasks plugin'
+! exists home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin
+grep '^/'$TASKS_VERSION'/main.js$' calls/tasks
+rm calls/tasks
+
+# The pinned version already installed (as the Nix module seeds it, without
+# data.json): nothing downloaded or rewritten, the settings written
+faketasks 404
+mkdir home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin
+cp main.js home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/main.js
+expand current.json
+cp current.json home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json
+exec ct vault init demo
+stdout '^ct vault init: Tasks plugin '$TASKS_VERSION' already installed$'
+stdout 'wrote the workflow.s Tasks settings \(data.json\)'
+! stderr 'Tasks'
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/data.json $TASKS_SETTINGS
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/main.js main.js
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json current.json
+cmp home/Documents/Obsidian/demo/.obsidian/community-plugins.json enabled.json
+
+# Re-run: the settings it wrote are kept
+exec ct vault init demo
+stdout 'kept the Tasks settings \(data.json\)'
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/data.json $TASKS_SETTINGS
+
+# The user's own settings are kept
+cp mydata.json home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/data.json
+exec ct vault init demo
+stdout 'kept the Tasks settings \(data.json\)'
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/data.json mydata.json
+
+# A newer version is kept
+cp newer.json home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json
+exec ct vault init demo
+stdout 'Tasks plugin 999.0.0 already installed \(newer than '$TASKS_VERSION', the version ct installs\); kept$'
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/main.js main.js
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json newer.json
+
+# An older version is kept too: Obsidian updates it
+cp older.json home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json
+exec ct vault init demo
+stdout 'Tasks plugin 0.0.1 already installed, older than '$TASKS_VERSION' \(the version ct installs\); kept: Obsidian updates it'
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/main.js main.js
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json older.json
+
+# A version that can't be read: a warning, the plugin left as it is
+cp unknown.json home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json
+exec ct vault init demo
+stderr '^ct: .obsidian/plugins/obsidian-tasks-plugin/manifest.json: has no version; the Tasks plugin was left as it is$'
+! stdout 'Tasks settings'
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/main.js main.js
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json unknown.json
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/data.json mydata.json
+
+# Nothing was downloaded for an installed plugin
+! exists calls/tasks
+
+# Other community plugins are kept, in order
+cp calendar.json home/Documents/Obsidian/demo/.obsidian/community-plugins.json
+exec ct vault init demo
+stdout 'enabled the Tasks plugin \(.obsidian/community-plugins.json\)'
+cmp home/Documents/Obsidian/demo/.obsidian/community-plugins.json calendar-tasks.json
+
+# A community-plugins.json that isn't a list is left alone
+cp object.json home/Documents/Obsidian/demo/.obsidian/community-plugins.json
+exec ct vault init demo
+stderr 'ct: .obsidian/community-plugins.json isn.t a JSON array; Tasks wasn.t enabled \(left as it is\)'
+cmp home/Documents/Obsidian/demo/.obsidian/community-plugins.json object.json
+
+# --skip-plugins: no download, nothing enabled or written, no hint
+exec ct vault init skipped --skip-plugins
+stdout 'skipped the Tasks plugin \(--skip-plugins\)'
+! stdout 'Check for updates'
+! stderr 'Tasks'
+! exists home/Documents/Obsidian/skipped/.obsidian/community-plugins.json
+! exists home/Documents/Obsidian/skipped/.obsidian/plugins
+! exists calls/tasks
+
+# The help says what it does
+exec ct vault init --help
+stdout 'the Tasks community plugin, when it isn.t installed yet'
+stdout '--skip-plugins'
+
+-- enabled.json --
+[
+  "obsidian-tasks-plugin"
+]
+-- calendar.json --
+["calendar"]
+-- calendar-tasks.json --
+[
+  "calendar",
+  "obsidian-tasks-plugin"
+]
+-- object.json --
+{}
+-- main.js --
+// a Tasks plugin
+-- current.json --
+{"id": "obsidian-tasks-plugin", "version": "$TASKS_VERSION"}
+-- newer.json --
+{"id": "obsidian-tasks-plugin", "version": "999.0.0"}
+-- older.json --
+{"id": "obsidian-tasks-plugin", "version": "0.0.1"}
+-- unknown.json --
+{"id": "obsidian-tasks-plugin"}
+-- mydata.json --
+{"taskFormat": "dataview"}

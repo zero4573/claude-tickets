@@ -20,6 +20,7 @@ import (
 	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/prompt"
 	"github.com/zero4573/claude-tickets/internal/scaffold"
+	"github.com/zero4573/claude-tickets/internal/tasksplugin"
 	"github.com/zero4573/claude-tickets/internal/textdiff"
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/vaultlock"
@@ -28,14 +29,22 @@ import (
 )
 
 type setupOpts struct {
-	defaults, allowOverlap, missing bool
-	sections                        []string
+	defaults, allowOverlap, missing, skipPlugins bool
+	sections                                     []string
+}
+
+// tasksVersion is the Tasks plugin version ct installs, for help texts.
+func tasksVersion() string {
+	if pin, err := tasksplugin.Embedded(); err == nil {
+		return pin.Version
+	}
+	return "pinned"
 }
 
 func vaultInitCmd() *cobra.Command {
 	var o setupOpts
 	cmd := &cobra.Command{
-		Use:   "init [<vault>] [--defaults] [--allow-overlap]",
+		Use:   "init [<vault>] [--defaults] [--allow-overlap] [--skip-plugins]",
 		Short: "Set a vault up for the ticket workflow",
 		Long: `Sets an Obsidian vault up for the ticket workflow. <vault> is a name under
 ~/Documents/Obsidian (created if it doesn't exist) or a path; without it
@@ -49,6 +58,14 @@ you pick one of the existing vaults.
     (pending.md, done.md, follow-ups.md), the Atlassian setup reference
   * Obsidian settings: the templates folder, the Bases / Templates /
     Properties core plugins, and the workflow's property types
+  * the Tasks community plugin, when it isn't installed yet: the pinned
+    release (` + tasksVersion() + `), downloaded from GitHub
+    (CLAUDE_TICKETS_TASKS_URL for a mirror) and checksum-verified; enabled
+    in community-plugins.json, and given the workflow's settings when it
+    has none (data.json). An installed Tasks plugin is never replaced,
+    whatever its version: Obsidian updates it. A failed download is a
+    warning; re-run to try again. --skip-plugins leaves it all out (no
+    network).
   * its settings, through ct vault configure: where its workspaces and main
     clones live (.workflow.json, checked for overlaps with other vaults)
     and which ticket sources it uses (tickets/.sources.json). Settings
@@ -74,6 +91,7 @@ Without a terminal it runs as with --defaults.`,
 	}
 	cmd.Flags().BoolVar(&o.defaults, "defaults", false, "don't prompt: default locations, manual tickets on, Jira configured but disabled")
 	cmd.Flags().BoolVar(&o.allowOverlap, "allow-overlap", false, "with --defaults: accept default folders that overlap another vault's")
+	cmd.Flags().BoolVar(&o.skipPlugins, "skip-plugins", false, "don't download, enable or configure the Tasks community plugin")
 	return cmd
 }
 
@@ -168,8 +186,8 @@ func vaultInit(target string, o setupOpts) error {
 		return err
 	}
 
-	if !fsx.IsDir(filepath.Join(v, ".obsidian", "plugins", "obsidian-tasks-plugin")) {
-		warnf("the Tasks community plugin isn't installed here: add \"%s\" to programs.claude-tickets.obsidian.vaults (home-manager), or install it from Obsidian", filepath.Base(v))
+	if err := tasksPlugin(v, o); err != nil {
+		return err
 	}
 	fmt.Println("ct vault init: done. Next (on the default vault; ct vault default to switch): ct sync, ct new, ct start <ID>")
 	return nil
@@ -322,6 +340,75 @@ func vaultUpdate(v string, o updateOpts) error {
 	if newer > 0 {
 		fmt.Println("ct vault update: files newer than this ct were shipped by a newer ct and are never downgraded; update ct, or replace one with --take <file>")
 	}
+	return nil
+}
+
+// tasksPlugin installs the Tasks community plugin when the vault doesn't
+// have it, enables it, and gives it the workflow's settings when it has
+// none. Download and file-format problems are warnings (a re-run tries
+// again); it fails only on unexpected local I/O.
+func tasksPlugin(v string, o setupOpts) error {
+	if o.skipPlugins {
+		fmt.Println("ct vault init: skipped the Tasks plugin (--skip-plugins)")
+		return nil
+	}
+	pin, err := tasksplugin.Embedded()
+	if err != nil {
+		return err
+	}
+	obs := filepath.Join(v, ".obsidian")
+	pluginDir := filepath.Join(obs, "plugins", pin.ID)
+	rel := func(p string) string {
+		r, err := filepath.Rel(v, p)
+		if err != nil {
+			return p
+		}
+		return filepath.ToSlash(r)
+	}
+	in := tasksplugin.Installer{Pin: pin, BaseURL: os.Getenv("CLAUDE_TICKETS_TASKS_URL")}
+	outcome, ver, err := in.Ensure(obs)
+	switch outcome {
+	case tasksplugin.Fresh:
+		fmt.Printf("ct vault init: installed the Tasks plugin %s (%s); if Obsidian is open, reload it. Obsidian loads community plugins once you trust the vault\n", ver, rel(pluginDir))
+	case tasksplugin.Current:
+		fmt.Printf("ct vault init: Tasks plugin %s already installed\n", ver)
+	case tasksplugin.KeptNewer:
+		fmt.Printf("ct vault init: Tasks plugin %s already installed (newer than %s, the version ct installs); kept\n", ver, pin.Version)
+	case tasksplugin.KeptOlder:
+		fmt.Printf("ct vault init: Tasks plugin %s already installed, older than %s (the version ct installs); kept: Obsidian updates it\n", ver, pin.Version)
+	case tasksplugin.KeptUnknown:
+		warnf("%s: %v; the Tasks plugin was left as it is", rel(filepath.Join(pluginDir, "manifest.json")), err)
+	default:
+		warnf("the Tasks plugin wasn't installed: %v; re-run ct vault init, or install Tasks from Obsidian (Settings → Community plugins → Browse)", err)
+	}
+
+	// Enabled on every run, even when the download failed
+	added, err := tasksplugin.Enable(obs, pin.ID)
+	switch {
+	case errors.Is(err, tasksplugin.ErrNotArray):
+		warnf("%s isn't a JSON array; Tasks wasn't enabled (left as it is)", rel(filepath.Join(obs, "community-plugins.json")))
+	case err != nil:
+		return err
+	case added:
+		fmt.Printf("ct vault init: enabled the Tasks plugin (%s)\n", rel(filepath.Join(obs, "community-plugins.json")))
+	}
+
+	// Settings, only into an installed plugin (never a folder holding just
+	// data.json) whose files ct may touch
+	switch outcome {
+	case tasksplugin.Fresh, tasksplugin.Current, tasksplugin.KeptNewer, tasksplugin.KeptOlder:
+		wrote, err := tasksplugin.EnsureSettings(pluginDir, tasksplugin.Settings())
+		if err != nil {
+			return err
+		}
+		if wrote {
+			fmt.Println("ct vault init: wrote the workflow's Tasks settings (data.json)")
+		} else {
+			fmt.Println("ct vault init: kept the Tasks settings (data.json)")
+		}
+	}
+
+	fmt.Println("ct vault init: ct installs Tasks once and never updates it; Obsidian does: Settings → Community plugins → Check for updates")
 	return nil
 }
 

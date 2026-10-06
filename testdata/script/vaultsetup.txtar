@@ -5,7 +5,8 @@ stdout '^  \+ AGENTS.md$'
 stdout '^  \+ templates/ticket-manual.md$'
 exists home/Documents/Obsidian/demo/.scaffold.json
 ! stdout obsidian-types.json
-stderr 'Tasks community plugin isn.t installed'
+stderr 'the Tasks plugin wasn.t installed'
+! stderr 'programs.claude-tickets.obsidian.vaults'
 stdout '^  \+ templates/group.md$'
 stdout '^  \+ projects.base$'
 ! stdout 'projects/system'
