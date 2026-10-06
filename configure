@@ -1,7 +1,8 @@
 #!/bin/sh
 # Configures the build: ./configure [--prefix=DIR] [--bindir=DIR]
 # [--datadir=DIR] [GO=go], then make && make install. Checks what ct needs
-# (Go to build it; git, tmux, podman or docker and Claude Code to run it)
+# (Go to build it; git, podman or docker and Claude Code to run it; tmux,
+# optional, for background windows)
 # and writes config.mk.
 #   --prefix=DIR   install under DIR (default /usr/local; ~/.local for a
 #                  user install)
@@ -37,10 +38,12 @@ else
   echo "no: install Go 1.26+ (https://go.dev/dl)"; status=1
 fi
 # Needed at run time, not to build: warnings only
-for t in git tmux claude; do
+for t in git claude; do
   printf 'checking for %s... ' "$t"
   if have "$t"; then echo yes; else echo "no (ct needs it at run time)"; fi
 done
+printf 'checking for tmux... '
+if have tmux; then echo yes; else echo "no (optional: ticket sessions then run one at a time in your terminal)"; fi
 printf 'checking for podman or docker... '
 if have podman; then echo podman; elif have docker; then echo docker; else echo "no (the code graph needs one)"; fi
 printf 'checking for fzf... '

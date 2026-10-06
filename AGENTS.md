@@ -56,8 +56,10 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
   - directories and desktop tools (notify, open, shell): `internal/platform`.
     A pure function of GOOS (`DirsFor`) for anything testable, build tags
     otherwise.
-  - ticket windows: `internal/launcher` (tmux today; a new backend
-    implements `Launcher`).
+  - ticket windows: `internal/launcher` (tmux, and none = foreground
+    in this terminal; a new backend implements `Launcher`, declares its
+    `Caps` and gets one entry in `registry.go`).
+  - process liveness (PID + start time): `internal/proc`.
   - containers: `internal/container` (`Runtime`, `RunArgs`, `Mount`/`Path`).
   - locks, exec and writability: build-tagged files (`internal/lock`,
     `internal/gitx`, `exec_*.go`).

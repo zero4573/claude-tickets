@@ -8,7 +8,7 @@ other source) worked by parallel, sandboxed agents (see **Ticket workflow**).
 ## Vault Structure
 ```
 ROOT
-├── .workflow.json         # where this vault's tools work: workspaces, main clones, tmux session
+├── .workflow.json         # where this vault's tools work: workspaces, main clones, tmux session (with tmux)
 ├── raw/                   # unorganized manually created docs/ideas (agents: ignore)
 ├── pending.md             # task views (Tasks plugin): open tasks across the vault (agents: ignore)
 ├── done.md                #   finished tasks (agents: ignore)
@@ -141,7 +141,7 @@ and the hooks. Sessions run your `claude` command (which may be sandboxed).
 | `ct vault configure [<vault>] [--section locations\|sources\|runtime]` | The vault's settings, each prompt showing its current value: locations (`.workflow.json`, see below), ticket sources (`tickets/.sources.json`), and the container runtime of the code graph (host-wide). |
 | `ct sync [--source jira] [--full]` | Pull your open tickets from every syncable source into `tickets/` and reconcile the notes with the source (read-only, through each source's MCP server; for Jira see [[atlassian-rovo-mcp-setup]]). For Jira the command syncs by itself, without a model: Jira's changelog says what changed in each ticket, and only that part of the note is rewritten (frontmatter and table, description, comments, an epic's children); time tracking and other changes the note doesn't show only move the timestamp. Claude (the source's `model`, default sonnet) runs only for a description or comments Jira can give only as HTML. Problems land in an `inbox/` follow-up note. |
 | `ct new [--type bug] "<summary>"` | Create a manual ticket `MAN-<n>` from `templates/ticket-manual.md`. |
-| `ct start [--no-attach] <ID>...` | One tmux window per named ticket (with one ID it switches to it), in the tmux session `tickets-<vault>` (several at once are fine; Tab completes the open ones, `--list` prints them), each a Claude session running `/tickets:work-ticket <ID>` in its workspace `<workRoot>/<ID>`. |
+| `ct start [--no-attach] <ID>...` | One tmux window per named ticket (with one ID it switches to it), in the tmux session `tickets-<vault>` (several at once are fine; Tab completes the open ones, `--list` prints them), each a Claude session running `/tickets:work-ticket <ID>` in its workspace `<workRoot>/<ID>`. Without a multiplexer (`CLAUDE_TICKETS_LAUNCHER=none`, or no tmux installed): one ticket, run in the current terminal. |
 | `ct feedback <ID>...` | Same, but runs `/tickets:pr-feedback <ID>`: applies the review feedback on your open Bitbucket PRs for the ticket in its worktrees (committed, not pushed) and drafts a reply per thread in `tickets/<ID>/pr-feedback.md`. In an already-open ticket session, just type `/tickets:pr-feedback`. |
 | `ct status` | Every ticket session: waiting on you (`needs-input`), `idle`, `working`, `exited`; source; vault status; dirty repos. |
 | `ct attach <ID>` | Jump to a ticket's window. |
@@ -159,13 +159,13 @@ and the hooks. Sessions run your `claude` command (which may be sandboxed).
 
 ### Per-vault locations: `.workflow.json`
 Each vault's tools work in their own places, so two vaults never share
-workspaces (each has its own `MAN-1`) or a tmux session:
+workspaces (each has its own `MAN-1`) or (with tmux) a tmux session:
 - `workRoot`: the ticket workspaces (`<workRoot>/<ID>`) and `kb` workspaces
   (`<workRoot>/.kb-<vault>`). Default `~/Projects/work-<vault>`.
 - `projectsRoot`: the main clones. Default `~/Projects/repo-<vault>`;
   vaults can share one.
 
-The ticket windows run in the tmux session `tickets-<vault>`.
+With tmux, the ticket windows run in the tmux session `tickets-<vault>`.
 
 `ct vault configure` writes the file (`ct vault init` runs it), and `~` is
 expanded. Folders that overlap another vault's (or each other) are kept
