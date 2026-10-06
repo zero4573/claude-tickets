@@ -76,8 +76,10 @@ func Describe(o Options, items []Item, it Item) string {
 	if it.Save {
 		what = "run /tickets:save (in " + it.SaveIn + "), then " + what
 	}
-	if hasWorkspace(o.wsDir(it.ID)) {
+	if ws := o.wsDir(it.ID); hasWorkspace(ws) {
 		what = "remove the workspace; " + what
+	} else if fsx.IsDir(ws) {
+		what = "leave " + ws + " (no workspace.json); " + what
 	}
 	return head + ": " + what
 }
@@ -270,11 +272,19 @@ func one(o Options, env Env, items []Item, it Item, changed *[]string) (msg stri
 	}
 
 	var parts []string
-	if fsx.IsDir(o.wsDir(it.ID)) {
+	switch ws := o.wsDir(it.ID); {
+	case hasWorkspace(ws):
 		if err := env.RemoveWorkspace(it.ID); err != nil {
 			return "", nil, fmt.Errorf("workspace not removed (%v); nothing else changed", err)
 		}
-		parts = append(parts, "removed its workspace")
+		if fsx.IsDir(ws) {
+			parts = append(parts, "removed its workspace, but left "+ws+" in place: it still has other files")
+		} else {
+			parts = append(parts, "removed its workspace")
+		}
+	case fsx.IsDir(ws):
+		// Not a workspace (no workspace.json): not ct's to remove
+		parts = append(parts, "left "+ws+" in place (no workspace.json)")
 	}
 
 	dir := note.TicketDir(o.Vault, it.ID)

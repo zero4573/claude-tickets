@@ -108,7 +108,12 @@ stdout '^ct clean: nothing to clean$'
 ! stdout 'PROJ-12|MAN-4'
 
 # --save: headless /tickets:save first; a run that doesn't mark it saved
-# keeps it; a null target version is refused before claude runs
+# keeps it; a null target version is refused before claude runs. A save
+# is an action: shown in the plan, and not run without a terminal or --yes
+! exec ct clean --save PROJ-14
+stdout 'PROJ-14 \(closed\): remove the workspace; run /tickets:save \(in PROJ-14\), then move to .trash/PROJ-14'
+stderr 'not a terminal'
+! exists calls/claude-cwd
 ! exec ct clean --yes --save PROJ-14
 stdout 'PROJ-14: running /tickets:save'
 stdout 'PROJ-14: skipped: /tickets:save ran but didn.t mark it saved'
@@ -139,6 +144,22 @@ stdout 'PROJ-30: moved to .trash/PROJ-30-[0-9]{14};'
 exec ct clean --yes --keep-manual MAN-31
 stdout '^ct clean: MAN-31 \(closed\): keep \(manual\)$'
 exists $V/tickets/MAN-31/MAN-31.md
+# Kept tickets are never saved, even with --save (no terminal, no --yes needed:
+# nothing happens)
+cp empty $V/tickets/MAN-31/design.md
+mkdir $W/MAN-31
+exec sh -c 'echo "{\"id\": \"MAN-31\", \"repos\": []}" > $W/MAN-31/workspace.json'
+exec ct clean --save --keep-manual MAN-31
+stdout '^ct clean: MAN-31 \(closed\): keep \(manual\)$'
+stdout '^ct clean: nothing to clean$'
+! grep '/MAN-31$' calls/claude-cwd
+# A folder that isn't a workspace (no workspace.json) is left, and the plan says so
+rm $V/tickets/MAN-31/design.md
+cp man-4.md $V/tickets/MAN-31/MAN-31.md
+rm $W/MAN-31/workspace.json
+cp empty $W/MAN-31/precious.txt
+exec ct clean --dry-run MAN-31
+stdout '^ct clean: MAN-31 \(closed\): leave .*/MAN-31 \(no workspace.json\); archive to archive/tickets/MAN-31$'
 ! exec ct clean --yes --days 30 PROJ-32
 stdout 'PROJ-32 \(closed\): skip: updated 0 day\(s\) ago \(--days 30\)'
 exists $V/tickets/PROJ-32/PROJ-32.md

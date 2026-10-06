@@ -295,6 +295,7 @@ func TestRunSave(t *testing.T) {
 	put(t, o.Vault, "tickets/MAN-2/design.md", "x")
 	put(t, o.WorkRoot, "MAN-1/workspace.json", `{"id": "MAN-1", "repos": []}`)
 	put(t, o.WorkRoot, "MAN-2/workspace.json", `{"id": "MAN-2", "repos": []}`)
+	put(t, o.WorkRoot, "MAN-2/notes.txt", "x")
 	items := Plan(o)
 	var out bytes.Buffer
 	res := Run(o, items, Env{Out: &out,
@@ -314,5 +315,55 @@ func TestRunSave(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(o.Vault, "archive/tickets/MAN-1/MAN-1.md")); err != nil {
 		t.Error("saved ticket not archived")
+	}
+}
+
+// Regression: --keep-manual leaves a ticket as it is, so --save never saves
+// it; and any planned save counts as an action (shown, confirmed).
+func TestPlanKeepIsNotSaved(t *testing.T) {
+	o := setup(t)
+	o.Save, o.KeepManual = true, true
+	ticket(t, o.Vault, "MAN-1", "status: closed", "source: manual")
+	put(t, o.Vault, "tickets/MAN-1/design.md", "x")
+	put(t, o.WorkRoot, "MAN-1/workspace.json", `{"id": "MAN-1", "repos": []}`)
+	it := plan(o)["MAN-1"]
+	if it.Action != Keep || it.Save || it.Acts() {
+		t.Errorf("kept ticket: %+v", it)
+	}
+	if !(Item{Action: Skip, Save: true}).Acts() || !(Item{Action: Keep, Save: true}).Acts() {
+		t.Error("a save doesn't count as an action")
+	}
+}
+
+// Regression: a folder at <workRoot>/<ID> without workspace.json isn't a
+// workspace: the plan says it stays, and the run leaves it.
+func TestRunLeavesNonWorkspaceFolder(t *testing.T) {
+	o := setup(t)
+	ticket(t, o.Vault, "MAN-1", "status: closed", "source: manual")
+	put(t, o.WorkRoot, "MAN-1/precious.txt", "x")
+	items := Plan(o)
+	ws := filepath.Join(o.WorkRoot, "MAN-1")
+	if d := Describe(o, items, items[0]); d != "MAN-1 (closed): leave "+ws+" (no workspace.json); archive to archive/tickets/MAN-1" {
+		t.Errorf("plan: %s", d)
+	}
+	var out bytes.Buffer
+	called := false
+	Run(o, items, Env{Out: &out, RemoveWorkspace: func(string) error { called = true; return nil }})
+	if called || !strings.Contains(out.String(), "MAN-1: left "+ws+" in place (no workspace.json); archived 1 file(s)") {
+		t.Errorf("run (wsRm called: %t):\n%s", called, out.String())
+	}
+	if _, err := os.Stat(filepath.Join(ws, "precious.txt")); err != nil {
+		t.Error("the folder's file is gone")
+	}
+
+	// A workspace whose removal leaves other files says so
+	ticket(t, o.Vault, "MAN-2", "status: closed", "source: manual")
+	put(t, o.WorkRoot, "MAN-2/workspace.json", `{"id": "MAN-2", "repos": []}`)
+	out.Reset()
+	Run(o, Plan(o), Env{Out: &out, RemoveWorkspace: func(id string) error {
+		return os.Remove(filepath.Join(o.WorkRoot, id, "workspace.json"))
+	}})
+	if !strings.Contains(out.String(), "MAN-2: removed its workspace, but left "+filepath.Join(o.WorkRoot, "MAN-2")+" in place: it still has other files") {
+		t.Errorf("run:\n%s", out.String())
 	}
 }

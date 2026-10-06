@@ -61,8 +61,8 @@ type Item struct {
 	Covers []string // a lead's covered tickets
 }
 
-// Acts reports whether the item changes anything.
-func (it Item) Acts() bool { return it.Action != Skip && it.Action != Keep }
+// Acts reports whether the item changes anything (a save counts).
+func (it Item) Acts() bool { return it.Save || it.Action != Skip && it.Action != Keep }
 
 func (o Options) running(dir string) bool {
 	if o.Running != nil {
@@ -196,6 +196,13 @@ func planOne(o Options, id string, explicit bool) (Item, bool) {
 			return skip(it, fmt.Sprintf("updated %d day(s) ago (--days %d)", age, o.Days), ""), true
 		}
 	}
+	it.URL = fm["source-url"]
+	remote := synced && usableURL(it.URL)
+	// --keep-manual leaves it as it is: nothing to check, nothing to save
+	if !remote && o.KeepManual {
+		it.Action, it.Covers = Keep, coversOf(file)
+		return it, true
+	}
 	dirs := []string{o.wsDir(id)}
 	if lead := linkTarget(fm["covered-by"]); lead != "" {
 		it.Lead = lead
@@ -231,14 +238,11 @@ func planOne(o Options, id string, explicit bool) (Item, bool) {
 		it.Save, it.SaveIn = true, filepath.Base(saveIn)
 	}
 
-	it.URL = fm["source-url"]
 	switch {
-	case synced && usableURL(it.URL) && o.Purge:
+	case remote && o.Purge:
 		it.Action = Purge
-	case synced && usableURL(it.URL):
+	case remote:
 		it.Action = Trash
-	case o.KeepManual:
-		it.Action = Keep
 	default:
 		it.Action = Archive
 	}
