@@ -4,6 +4,7 @@ summary: Platform
 created: TODAY
 updated: TODAY
 status: new
+saved:
 type: ticket
 ticket-type: epic
 source: jira

@@ -4,6 +4,7 @@ summary:
 created: {{date}}
 updated: {{date}}
 status: new
+saved:
 type: ticket
 ticket-type: dev
 priority:

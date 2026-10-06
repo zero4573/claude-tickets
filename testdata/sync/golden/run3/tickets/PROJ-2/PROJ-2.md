@@ -4,6 +4,7 @@ summary: "Totals wrong: rounding"
 created: TODAY
 updated: TODAY
 status: new
+saved:
 type: ticket
 ticket-type: bug
 source: jira

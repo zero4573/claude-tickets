@@ -73,7 +73,9 @@ Follow the vault's `AGENTS.md`:
   what actually changed. Prefer it over the hand-off files when they
   disagree: the code is what ships.
 - Any repo whose `targetVersion` is null: ask the user for it with
-  AskUserQuestion.
+  AskUserQuestion. When AskUserQuestion isn't available (`ct clean --save`
+  runs this skill headless), stop without saving anything and say which
+  repo has no target version: the user saves this ticket by hand.
 
 ### 2. Take the vault lock
 
@@ -193,11 +195,18 @@ assigned to someone else) can stay unresolved.
 
 ### 7. Release the lock and finish
 
-Run `ct vault lock release <vault> <ID>`. Then set the ticket's
-`status: done` (for a lead, each covered ticket's too): `/tickets:save` ends the
-agents' work, and signing and pushing are the user's steps. Tell them:
+Run `ct vault lock release <vault> <ID>`. Then, in the ticket's frontmatter
+(for a lead, in each covered ticket's too):
+- set `saved: <date +%FT%T>`, adding the field after `status` if it's
+  missing. `ct clean` reads it to know the ticket's work is in the vault;
+- set `status: done`, **unless it's `closed`** (the source, or the user,
+  closed it), which stays: `/tickets:save` ends the agents' work, and
+  signing and pushing are the user's steps.
+
+Tell them:
 - what was written, as wikilinks
 - that the code is committed, unsigned, on `feature/<ID>…` in each
   worktree (plus anything `ct ws diff <ID>` still shows uncommitted):
   `ct ws sign <ID>` on the host, then push
-- that `ct ws rm <ID>` cleans up the worktrees after merge
+- that `ct ws rm <ID>` cleans up the worktrees after merge, and `ct clean`
+  the ticket once it is closed
