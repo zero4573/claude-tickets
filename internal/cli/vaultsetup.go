@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,8 +19,11 @@ import (
 	"github.com/zero4573/claude-tickets/internal/links"
 	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/prompt"
+	"github.com/zero4573/claude-tickets/internal/scaffold"
+	"github.com/zero4573/claude-tickets/internal/textdiff"
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/vaultlock"
+	"github.com/zero4573/claude-tickets/internal/version"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
 
@@ -51,8 +53,10 @@ you pick one of the existing vaults.
     and which ticket sources it uses (tickets/.sources.json). Settings
     already made are kept; change them with ct vault configure.
 
-Existing files are never overwritten (they're listed as kept), so it's
-safe to re-run, e.g. to add files a newer version of the workflow ships.
+Files that already exist are kept, even when a newer ct ships a newer
+version: ct vault update brings the ones you haven't edited up to date. So
+it's safe to re-run, e.g. to add files a newer version of the workflow
+ships. It records what it shipped in .scaffold.json.
 Without a terminal it runs as with --defaults.`,
 		Args:              cobra.MaximumNArgs(1),
 		ValidArgsFunction: completeVaults,
@@ -125,37 +129,30 @@ func vaultInit(target string, o setupOpts) error {
 		}
 	}
 
-	// Files, never overwritten
-	var added, kept []string
-	err := fs.WalkDir(assets.Scaffold, "vault-scaffold", func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		rel := strings.TrimPrefix(p, "vault-scaffold/")
-		if rel == "obsidian-types.json" {
-			return nil
-		}
-		dest := filepath.Join(v, filepath.FromSlash(rel))
-		if _, err := os.Lstat(dest); err == nil {
-			kept = append(kept, rel)
-			return nil
-		}
-		data, err := assets.Scaffold.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-			return err
-		}
-		added = append(added, rel)
-		return os.WriteFile(dest, data, 0o644)
-	})
+	// Files: missing ones added, existing ones kept (ct vault update updates them)
+	src, err := scaffold.Embedded()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("ct vault init: added %d file(s), kept %d existing\n", len(added), len(kept))
-	for _, a := range added {
-		fmt.Printf("  + %s\n", a)
+	res, err := scaffold.Apply(v, src, scaffold.Options{AddOnly: true, Version: version.Version, Owner: "ct-vault-init"})
+	if err != nil {
+		return err
+	}
+	for _, w := range res.Warnings {
+		warnf("%s", w)
+	}
+	kept := res.Count(scaffold.UpToDate) + res.Count(scaffold.Stale) + res.Count(scaffold.Edited)
+	fmt.Printf("ct vault init: added %d file(s), kept %d existing\n", len(res.Done), kept)
+	for _, e := range res.Entries {
+		if res.Done[e.Rel] == scaffold.Added {
+			fmt.Printf("  + %s\n", e.Rel)
+		}
+	}
+	if n := res.Count(scaffold.Stale); n > 0 {
+		fmt.Printf("ct vault init: %d shipped file(s) are out of date; ct vault update brings them up to date (--dry-run to preview)\n", n)
+	}
+	if n := res.Count(scaffold.Edited); n > 0 {
+		fmt.Printf("ct vault init: %d shipped file(s) edited in the vault are kept; ct vault update --diff shows how they differ\n", n)
 	}
 
 	if err := obsidianSettings(filepath.Join(v, ".obsidian")); err != nil {
@@ -171,6 +168,144 @@ func vaultInit(target string, o setupOpts) error {
 		warnf("the Tasks community plugin isn't installed here: add \"%s\" to programs.claude-tickets.obsidian.vaults (home-manager), or install it from Obsidian", filepath.Base(v))
 	}
 	fmt.Println("ct vault init: done. Next (on the default vault; ct vault default to switch): ct sync, ct new, ct start <ID>")
+	return nil
+}
+
+type updateOpts struct {
+	dryRun, diff bool
+	take         []string
+}
+
+func vaultUpdateCmd() *cobra.Command {
+	var o updateOpts
+	cmd := &cobra.Command{
+		Use:   "update [<vault>] [--dry-run] [--diff] [--take <file>]...",
+		Short: "Bring the files ct ships into a vault (AGENTS.md, templates, ...) up to date",
+		Long: `Brings the files ct ships into a vault up to date: AGENTS.md, templates/,
+tickets.base, the task views and the other files ct vault init copies.
+<vault> is a name under ~/Documents/Obsidian or a path; default: the
+current vault. For each file:
+
+  + added        it was missing
+  ~ updated      unedited since an earlier ct shipped it: replaced in place
+  ! edited       changed in the vault: kept as it is (--diff shows how it
+                 differs, --take <file> takes the shipped version)
+  - not shipped  an earlier ct shipped it, this one doesn't: kept, never
+                 deleted
+  (files already up to date are only counted)
+
+A file counts as unedited when its content is a version some ct has shipped
+(recorded in .scaffold.json, or known to ct), ignoring line endings and
+trailing newlines. Obsidian rewrites tickets.base when you change a view in
+it, so it then counts as edited. Settings (.obsidian/, .workflow.json,
+tickets/.sources.json) and your own notes are never touched. Writes happen
+under the vault lock (ct vault lock), and .scaffold.json records what was
+shipped.`,
+		Args:              cobra.MaximumNArgs(1),
+		ValidArgsFunction: completeVaults,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if o.diff && len(o.take) > 0 {
+				return exitWith(2, errors.New("--diff only reports; run --take without it"))
+			}
+			var v string
+			var err error
+			if len(args) == 1 {
+				v, err = namedVault(args[0])
+			} else {
+				v, err = vault.Current()
+			}
+			if err != nil {
+				return err
+			}
+			return vaultUpdate(v, o)
+		},
+	}
+	f := cmd.Flags()
+	f.BoolVar(&o.dryRun, "dry-run", false, "only report what would change; write nothing")
+	f.BoolVar(&o.diff, "diff", false, "as --dry-run, plus a diff (vault copy to shipped version) of each file that would be updated or is edited")
+	f.StringArrayVar(&o.take, "take", nil, "replace this edited file with the shipped version, keeping the old one as <file>.bak (repeatable)")
+	return cmd
+}
+
+func vaultUpdate(v string, o updateOpts) error {
+	dry := o.dryRun || o.diff
+	src, err := scaffold.Embedded()
+	if err != nil {
+		return err
+	}
+	res, err := scaffold.Apply(v, src, scaffold.Options{DryRun: dry, Take: o.take, Version: version.Version, Owner: "ct-vault-update"})
+	if err != nil {
+		return err
+	}
+	for _, w := range res.Warnings {
+		warnf("%s", w)
+	}
+	if dry {
+		fmt.Printf("ct vault update: %s (dry run: nothing is written)\n", config.TildePath(v))
+	} else {
+		fmt.Printf("ct vault update: %s\n", config.TildePath(v))
+	}
+	verb := func(done, would string) string {
+		if dry {
+			return would
+		}
+		return done
+	}
+	count := map[string]int{}
+	edited := 0
+	for _, e := range res.Entries {
+		showDiff := false
+		switch {
+		case res.Done[e.Rel] == scaffold.Added:
+			fmt.Printf("  + %s (%s)\n", e.Rel, verb("added", "would add"))
+		case res.Done[e.Rel] == scaffold.Updated:
+			fmt.Printf("  ~ %s (%s)\n", e.Rel, verb("updated", "would update"))
+			showDiff = true
+		case res.Done[e.Rel] == scaffold.Taken:
+			fmt.Printf("  ~ %s (%s)\n", e.Rel, verb("taken; the old one is kept as "+e.Rel+".bak",
+				"would take; the old one would be kept as "+e.Rel+".bak"))
+		case e.State == scaffold.Edited:
+			edited++
+			why := ""
+			switch {
+			case e.Reason != "":
+				why = "; " + e.Reason
+			case filepath.Ext(e.Rel) == ".base":
+				why = "; Obsidian rewrites .base files when a view changes"
+			}
+			fmt.Printf("  ! %s (edited, kept%s)\n", e.Rel, why)
+			showDiff = e.Reason == ""
+		case e.State == scaffold.RetiredClean:
+			fmt.Printf("  - %s (not shipped any more, unedited; kept)\n", e.Rel)
+		case e.State == scaffold.RetiredEdited:
+			fmt.Printf("  - %s (not shipped any more, edited; kept)\n", e.Rel)
+		}
+		count[res.Done[e.Rel]]++
+		if o.diff && showDiff {
+			have, err := os.ReadFile(filepath.Join(v, filepath.FromSlash(e.Rel)))
+			if err != nil {
+				return err
+			}
+			fmt.Print(textdiff.Unified(e.Rel+" (vault)", e.Rel+" (ct "+version.Version+")",
+				scaffold.Norm(have), scaffold.Norm(e.Ship.Data), 3))
+		}
+	}
+	parts := []string{
+		fmt.Sprintf("%s %d", verb("added", "would add"), count[scaffold.Added]),
+		fmt.Sprintf("%s %d", verb("updated", "would update"), count[scaffold.Updated]),
+	}
+	if n := count[scaffold.Taken]; n > 0 {
+		parts = append(parts, fmt.Sprintf("%s %d", verb("taken", "would take"), n))
+	}
+	parts = append(parts, fmt.Sprintf("up to date %d", res.Count(scaffold.UpToDate)),
+		fmt.Sprintf("edited %d (kept)", edited))
+	if n := res.Count(scaffold.RetiredClean) + res.Count(scaffold.RetiredEdited); n > 0 {
+		parts = append(parts, fmt.Sprintf("not shipped any more %d", n))
+	}
+	fmt.Printf("ct vault update: %s\n", strings.Join(parts, ", "))
+	if edited > 0 {
+		fmt.Println("ct vault update: see the differences with ct vault update --diff; take the shipped version of a file with ct vault update --take <file> (the old one is kept as <file>.bak)")
+	}
 	return nil
 }
 

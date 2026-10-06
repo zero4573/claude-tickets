@@ -3,6 +3,7 @@ exec ct vault init demo
 stdout 'created vault .*/Obsidian/demo'
 stdout '^  \+ AGENTS.md$'
 stdout '^  \+ templates/ticket-manual.md$'
+exists home/Documents/Obsidian/demo/.scaffold.json
 ! stdout obsidian-types.json
 stderr 'Tasks community plugin isn.t installed'
 exists home/Documents/Obsidian/demo/projects/system/sequences

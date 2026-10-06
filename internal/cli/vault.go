@@ -51,6 +51,7 @@ choice comes from; and where ct keeps its own settings, cache and logs.`,
 	cmd.AddCommand(
 		vaultDefaultCmd(),
 		vaultInitCmd(),
+		vaultUpdateCmd(),
 		vaultConfigureCmd(),
 		vaultLockCmd(),
 		vaultLinksCmd(),

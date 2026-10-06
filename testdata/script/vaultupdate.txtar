@@ -1,0 +1,222 @@
+# ct vault update: brings the files ct ships into a vault up to date
+env V=$WORK/home/Documents/Obsidian/demo
+
+# init records what it shipped
+exec ct vault init demo
+exists $V/.scaffold.json
+grep '"AGENTS.md"' $V/.scaffold.json
+grep '"format": 1' $V/.scaffold.json
+! stdout 'out of date'
+
+# nothing to do: nothing written, the lock released
+cp $V/.scaffold.json rec1
+exec ct vault update demo
+stdout '^ct vault update: .*/demo$'
+stdout 'added 0, updated 0, up to date [0-9]+, edited 0 \(kept\)$'
+! stdout '^  [-+~!] '
+cmp $V/.scaffold.json rec1
+! exists $V/.vault.lock.d
+
+# a vault set up before the record: an old template, an edited AGENTS.md,
+# a missing template, and line-ending / trailing-newline differences
+rm $V/.scaffold.json
+cp old-ticket-manual.md $V/templates/ticket-manual.md
+cp mine.md $V/AGENTS.md
+rm $V/templates/base.md
+exec sh nl.sh $V/done.md
+exec sh crlf.sh $V/pending.md
+cp note.md $V/inbox/note.md
+cp $V/.workflow.json workflow.json
+cp $V/tickets/.sources.json sources.json
+cp $V/.obsidian/types.json types.json
+
+exec ct vault update demo --dry-run
+stdout '^ct vault update: .*/demo \(dry run: nothing is written\)$'
+stdout '^  ~ templates/ticket-manual.md \(would update\)$'
+stdout '^  \+ templates/base.md \(would add\)$'
+stdout '^  ! AGENTS.md \(edited, kept\)$'
+stdout 'would add 1, would update 1, up to date [0-9]+, edited 1 \(kept\)$'
+! stdout 'done.md|pending.md'
+cmp $V/templates/ticket-manual.md old-ticket-manual.md
+! exists $V/templates/base.md
+! exists $V/.scaffold.json
+! exists $V/.vault.lock.d
+
+# --diff: a dry run with the differences (vault copy -> shipped)
+exec ct vault update demo --diff
+stdout '^--- AGENTS.md \(vault\)$'
+stdout '^\+\+\+ AGENTS.md \(ct dev\)$'
+stdout '^-mine$'
+stdout '^--- templates/ticket-manual.md \(vault\)$'
+stdout '^-<!-- A manual ticket: you write and manage it here, ticket-sync never$'
+stdout '^\+<!-- A manual ticket: you write and manage it here, ct sync never$'
+cmp $V/templates/ticket-manual.md old-ticket-manual.md
+! exists $V/templates/base.md
+! exists $V/.scaffold.json
+
+exec ct vault update demo
+stdout '^  ~ templates/ticket-manual.md \(updated\)$'
+stdout '^  \+ templates/base.md \(added\)$'
+stdout '^  ! AGENTS.md \(edited, kept\)$'
+stdout 'added 1, updated 1, up to date [0-9]+, edited 1 \(kept\)$'
+stdout 'take the shipped version of a file with ct vault update --take <file>'
+grep 'ct sync never' $V/templates/ticket-manual.md
+exists $V/templates/base.md
+grep '^mine$' $V/AGENTS.md
+exists $V/.scaffold.json
+grep '"templates/ticket-manual.md"' $V/.scaffold.json
+! exists $V/.vault.lock.d
+# settings and notes are never touched
+cmp $V/.workflow.json workflow.json
+cmp $V/tickets/.sources.json sources.json
+cmp $V/.obsidian/types.json types.json
+cmp $V/inbox/note.md note.md
+
+# again: nothing to do
+cp $V/.scaffold.json rec2
+exec ct vault update demo
+stdout 'added 0, updated 0, up to date [0-9]+, edited 1 \(kept\)$'
+cmp $V/.scaffold.json rec2
+
+# init only adds, and says what's out of date
+cp old-ticket-manual.md $V/templates/ticket-manual.md
+rm $V/.scaffold.json
+exec ct vault init demo
+stdout 'added 0 file\(s\), kept [0-9]+ existing'
+stdout '^ct vault init: 1 shipped file\(s\) are out of date; ct vault update brings them up to date \(--dry-run to preview\)$'
+stdout '^ct vault init: 1 shipped file\(s\) edited in the vault are kept; ct vault update --diff'
+cmp $V/templates/ticket-manual.md old-ticket-manual.md
+
+# --take: the shipped version, the old one kept as .bak
+exec ct vault update demo --take AGENTS.md
+stdout '^  ~ AGENTS.md \(taken; the old one is kept as AGENTS.md.bak\)$'
+stdout '^  ~ templates/ticket-manual.md \(updated\)$'
+stdout 'added 0, updated 1, taken 1, up to date [0-9]+, edited 0 \(kept\)$'
+! stdout 'ct vault update --take <file>'
+grep '^mine$' $V/AGENTS.md.bak
+! grep '^mine$' $V/AGENTS.md
+# never over an earlier .bak
+cp mine.md $V/AGENTS.md
+! exec ct vault update demo --take AGENTS.md
+stderr 'AGENTS.md.bak exists; move it away first'
+grep '^mine$' $V/AGENTS.md
+! exec ct vault update demo --dry-run --take AGENTS.md
+stderr 'AGENTS.md.bak exists'
+rm $V/AGENTS.md.bak
+exec ct vault update demo --dry-run --take AGENTS.md
+stdout '^  ~ AGENTS.md \(would take; the old one would be kept as AGENTS.md.bak\)$'
+grep '^mine$' $V/AGENTS.md
+! exists $V/AGENTS.md.bak
+
+! exec ct vault update demo --take nope.md
+stderr 'not a file ct ships: nope.md'
+! exec ct vault update demo --diff --take AGENTS.md
+stderr '--diff only reports'
+! exec ct vault update nope
+stderr 'no vault named .nope.'
+
+# a file an earlier ct shipped and this one doesn't: kept, never deleted
+env O=$WORK/home/Documents/Obsidian/old
+exec ct vault init old
+cp retired.md $O/templates/retired.md
+cp retired-record.json $O/.scaffold.json
+exec ct vault update old
+stdout '^  - templates/retired.md \(not shipped any more, unedited; kept\)$'
+stdout 'not shipped any more 1$'
+exists $O/templates/retired.md
+grep '"templates/retired.md"' $O/.scaffold.json
+exec sh -c 'echo x >> $O/templates/retired.md'
+exec ct vault update old
+stdout '^  - templates/retired.md \(not shipped any more, edited; kept\)$'
+exists $O/templates/retired.md
+
+# a record from a newer ct: ignored, never rewritten
+cp newer-record.json $O/.scaffold.json
+exec ct vault update old
+stderr '.scaffold.json is from a newer ct; using the built-in history only'
+cmp $O/.scaffold.json newer-record.json
+
+-- nl.sh --
+printf '\n\n' >> "$1"
+-- crlf.sh --
+awk '{ printf "%s\r\n", $0 }' "$1" > "$1.tmp" && mv "$1.tmp" "$1"
+-- mine.md --
+mine
+-- note.md --
+my own note
+-- retired.md --
+retired
+-- retired-record.json --
+{"format": 1, "files": {"templates/retired.md": {"sha256": "8b86d3b824a855c1b156ba78756ca36a80a6f1b1290204878987a662e0951324", "version": "0.1"}}}
+-- newer-record.json --
+{"format": 2, "files": {}}
+-- old-ticket-manual.md --
+---
+title: {{title}}
+summary:
+created: {{date}}
+updated: {{date}}
+status: new
+type: ticket
+ticket-type: dev
+priority:
+source: manual
+source-id: {{title}}
+ignore: false
+ignore-until:
+ignore-reason:
+parent:
+children: []
+covers: []
+covered-by:
+blocked-by: []
+blocks: []
+related: []
+blocked: false
+projects: []
+versions: []
+tags: [ticket, manual]
+---
+# {{title}}
+
+<!-- A manual ticket: you write and manage it here, ticket-sync never
+touches it. Name the note after its ID (MAN-<n>, the next free number;
+`ticket-new "<summary>"` does it for you), set `summary` and `ticket-type`
+(dev | bug | investigation | chore | epic), fill in the three sections
+below, then run `ticket-start <ID>`. Agents read these sections but never
+edit them. Set `status: closed` yourself when it's finished.
+Dependencies: list tickets as "[[ID]]" in parent, blocked-by, blocks and
+related, and set blocked: true while a blocker is open. To work several
+tickets as one, make this a lead: ticket-type: epic, the tickets in covers,
+and covered-by: "[[<this ID>]]" on each of them. -->
+
+## Description
+What needs doing and why. For a bug: what happens, what should happen, how
+to reproduce it.
+
+## Acceptance criteria
+- [ ] 
+
+## Context / links
+Related tickets ([[TICKET-ID]]), projects ([[provider-owner-repo]]), docs,
+target versions if known.
+
+## Workspace
+<!-- Filled in at kickoff by work-ticket: one row per repo (by slug) -->
+| Repo (slug) | Base | Target version | Branch | Path |
+|---|---|---|---|---|
+
+## Tasks
+<!-- Kept current by the ticket's agents (Tasks plugin format, #role/<role> tags) -->
+
+## Questions
+<!-- Questions the agents asked, with your answers -->
+
+## Follow-ups
+<!-- People to chase about tickets this one depends on (#follow-up tasks) -->
+
+## Review
+<!-- Written when the ticket reaches status: review -->
+
+## Knowledge
+<!-- Notes created or updated by /tickets:save -->
