@@ -1,6 +1,6 @@
 ---
 name: recall
-description: Recall where a project or ticket stands from the Obsidian vault (latest session logs, decision index, ticket task list) and summarize what's done and what's left. Use when the user runs /tickets:recall [project|ticket], or asks to pick up where things left off. (Named recall so it doesn't shadow Claude Code's built-in /resume, which reopens conversations.)
+description: Recall where a project or ticket stands from the Obsidian vault (latest session logs, decision index, groups and dependencies, ticket task list) and summarize what's done and what's left. Use when the user runs /tickets:recall [project|ticket], or asks to pick up where things left off. (Named recall so it doesn't shadow Claude Code's built-in /resume, which reopens conversations.)
 ---
 
 # /tickets:recall [project | ticket-key]
@@ -36,6 +36,10 @@ Read-only. Never write to the vault.
 3. The project's index note `projects/<project>/<project>.md`, if it
    exists, and open tickets that list the project in `projects:`
    (`tickets/*/*.md` with `status` other than `closed` or `done`).
+   Then `ct vault groups <vault> <project>` (read-only) for its groups,
+   `depends-on` and used-by.
+4. For each group it belongs to, the latest lines of
+   `projects/<group>/architecture/<group>-decisions.md`.
 
 ## Ticket
 
@@ -53,7 +57,7 @@ Read-only. Never write to the vault.
    - A covered ticket (`covered-by: "[[<LEAD>]]"`): it's worked in the
      lead's workspace, so recall the lead too, and say that
      `ct start <LEAD>` is where to pick it up.
-4. For each repo in `## Workspace`, steps 1 and 2 of **Project**.
+4. For each repo in `## Workspace`, steps 1, 2 and 4 of **Project**.
 5. In a workspace, `ct ws ls <ID>` for each worktree's branch and
    uncommitted changes.
 
@@ -63,6 +67,8 @@ Keep it short and concrete:
 - **State:** where things stand (ticket status, last session's outcome).
 - **Done:** recent work, with wikilinks.
 - **Decisions in force:** the ones that constrain what comes next.
+- **Works with:** the projects it depends on, those that depend on it,
+  and its groups (omit for a standalone project).
 - **Open:** unanswered questions, unfinished tasks (`[ ]` / `[/]`),
   open follow-ups (who to chase), PR threads waiting on the user, pending
   items from the logs.

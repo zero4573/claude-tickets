@@ -60,8 +60,12 @@ everything at the end, then signs and pushes.
    `blocks` and, for a lead, every ticket in `covers` and `children`.
 2. For each repo in the workspace, or clearly named by the ticket, read
    `projects/<slug>/architecture/<slug>-decisions.md` and the 3 latest
-   `projects/<slug>/logs/` notes if they exist, plus related
-   `projects/system/` notes (service map, compatibility matrix, sequences).
+   `projects/<slug>/logs/` notes if they exist. Then run
+   `ct vault groups <vault> <slug>...` for those repos (read-only): read
+   the index notes of their direct neighbours (`depends-on`, used-by), and
+   for each group they belong to its index (interactions),
+   `<group>-decisions`, and the relevant `sequences/` and
+   `<group>-compatibility` rows. A standalone repo has none of these.
    This is the `/tickets:recall` step.
 3. If the ticket note's `status` is `new`, set it to `triage`.
 4. A manual ticket whose `## Description` is empty or too thin to act on:
@@ -130,8 +134,10 @@ like one bigger ticket:
        interface.
      Record the decision under `## Questions`.
 1. Work out which **local** repos are involved: query the graph with the
-   ticket's key terms (endpoints, entities, error messages, service names)
-   and use `shortest_path` between services. Read `projects/system/` notes.
+   ticket's key terms (endpoints, entities, error messages, repo names)
+   and use `shortest_path` between repos. Add the neighbours
+   `ct vault groups <vault> <slug>` shows for each candidate (its
+   `depends-on`, used-by and fellow group members) as candidates too.
    List the repos and their slugs with `ct ws repos`.
 2. Look for related repos on **Bitbucket** that aren't cloned yet. The graph
    only knows about local repos. Use the `atlassian` MCP server (`discover`,
@@ -144,8 +150,8 @@ like one bigger ticket:
      the repo from `links.html.href` and the branches from
      `getBitbucketRepoPullRequest`.
    - `listBitbucketRepositories` with a BBQL `q` per key term, e.g.
-     `name ~ "orders"`. Use the service names, components and labels the
-     ticket mentions, and the names of services the graph shows talking to
+     `name ~ "orders"`. Use the repo names, components and labels the
+     ticket mentions, and the names of repos the graph shows talking to
      the candidates (a client, consumer or shared library).
 
    A remote repo's slug is `bitbucket-<workspace>-<repo>` and its clone path
@@ -221,6 +227,8 @@ doesn't see this conversation:
 - which hand-off files to read
 - the user's answers so far
 - for the developer: which repos or steps are in scope
+- the relationship summary from `ct vault groups <vault> <slug>...`: each
+  repo's `depends-on`, used-by and groups (or that it stands alone)
 
 Developers on independent repos can run in parallel (several Agent calls in
 one message).
@@ -257,10 +265,13 @@ and re-run QA. Do this at most twice, then ask the user how to proceed.
 
 When the last phase is done:
 1. Make sure the `kb-drafts/` notes are complete:
-   - feature notes with the services touched and target versions
+   - feature notes with the projects touched and target versions
    - sequence notes with a mermaid `sequenceDiagram` for each data flow
      the ticket adds or changes
    - decisions for each major choice
+   - relationship changes (`depends-on`, group membership, any proposed
+     group) as listed in `design.md`'s Relationships item, so
+     `/tickets:save` can apply them
    - a `target:` frontmatter field on each
 2. Add a `## Review` section to the ticket note:
    - what changed per repo (`ct ws diff <ID> --stat`)

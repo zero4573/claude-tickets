@@ -1,6 +1,6 @@
 ---
 name: kb
-description: Answer questions about the system the Obsidian knowledge-base vault describes (repos, services, architecture, data flows, versions, past tickets) from the vault first, then the code graph and code; investigate unknowns (exploring branches and building in its own clones); file manual tickets for issues worth following up; and record what was learned as drafts in the vault's inbox/ for /tickets:save to promote. Use for /tickets:kb <question>, in kb sessions, and in any session started with ct claude, whenever the user asks how something works, where something lives, why it was built that way, or what depends on what.
+description: Answer questions about the projects the Obsidian knowledge-base vault describes (repos, how they work together, architecture, data flows, versions, past tickets) from the vault first, then the code graph and code; investigate unknowns (exploring branches and building in its own clones); file manual tickets for issues worth following up; and record what was learned as drafts in the vault's inbox/ for /tickets:save to promote. Use for /tickets:kb <question>, in kb sessions, and in any session started with ct claude, whenever the user asks how something works, where something lives, why it was built that way, or what depends on what.
 ---
 
 # /tickets:kb [question]
@@ -16,15 +16,20 @@ to know.
 1. **The vault:**
    - **One repo:** its project notes `projects/<slug>/` (index, features,
      sequences, data, `<slug>-decisions.md`, recent logs).
-   - **Across services:** `projects/system/` (service map, compatibility
-     matrix, flows), plus `knowledge-base/` and `references/`.
+   - **Across projects:** `ct vault groups <vault> <slug>` gives the
+     repo's `depends-on`, used-by and groups. Read its neighbours' index
+     notes, and for each group it belongs to the group's notes
+     (`projects/<group>/<group>.md` with its interactions,
+     `<group>-compatibility`, `<group>-decisions`, `sequences/`). Only
+     read a group's notes when the repos in question belong to it. Plus
+     `knowledge-base/` and `references/`.
    - **History:** `tickets/` (search by repo slug, feature or keyword, and
      read the summaries at the end of the ticket notes).
 
    Repos are named by slug, `<provider>-<owner>-<repo>`. A bare repo name
    matches a project note's `aliases`.
 2. **The code graph** (`graphify` MCP server): find where something lives,
-   who calls it, and the path between services (`query_graph`,
+   who calls it, and the path between repos (`query_graph`,
    `shortest_path`, `get_neighbors`). Node ids are prefixed with the repo's
    slug.
 3. **The code**, read to confirm details. Main clones under `~/Projects` are
@@ -97,8 +102,10 @@ lock. Instead, for each durable fact that the vault lacked or had wrong:
   as-is.
 - **Frontmatter:**
   - `target:` where it belongs (`projects/<slug>/sequences`,
-    `projects/system/architecture`, `knowledge-base/<topic>`,
-    `references`, ...)
+    `projects/<group>/sequences` for a flow across a group's members,
+    `knowledge-base/<topic>`, `references`, ...). A new dependency between
+    projects is an `update-of` the dependent's index note (`depends-on`
+    and its `## Depends on` row)
   - `update-of: <note>` when it corrects or extends an existing note
   - `session: <yyyy-MM-dd>-<topic>`, so `/tickets:save` knows which drafts are this
     session's
@@ -107,5 +114,5 @@ lock. Instead, for each durable fact that the vault lacked or had wrong:
 - Tell the user what you drafted, and remind them that `/tickets:save` promotes it.
 
 Keep the drafts to facts worth keeping: how things work, why they're built
-that way, which versions and services are involved, and gotchas. Leave out
+that way, which versions and projects are involved, and gotchas. Leave out
 the conversation itself.

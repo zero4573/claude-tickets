@@ -1,6 +1,6 @@
 ---
 name: save
-description: End-of-session save to the Obsidian vault. In a ticket workspace (~/work/<ID>), writes session logs, promotes the ticket's kb-drafts into projects/, projects/system, knowledge-base/ and references/ without breaking links, tags the ticket with <project>-<target-version>, and appends the ticket summary (this replaces the old /summarize). In a repo session started with ct claude, or a kb session, writes a session log and promotes the session's inbox/ drafts. Use when the user runs /tickets:save or asks to save, document or summarize the session.
+description: End-of-session save to the Obsidian vault. In a ticket workspace (~/work/<ID>), writes session logs, promotes the ticket's kb-drafts into projects/ (repos and groups), knowledge-base/ and references/ without breaking links, records dependencies between projects, tags the ticket with <project>-<target-version>, and appends the ticket summary (this replaces the old /summarize). In a repo session started with ct claude, or a kb session, writes a session log and promotes the session's inbox/ drafts. Use when the user runs /tickets:save or asks to save, document or summarize the session.
 ---
 
 # /tickets:save
@@ -33,7 +33,8 @@ Follow the vault's `AGENTS.md`:
   - write a session log in the vault's `logs/`, as
     `yyyy-MM-dd-kb-<topic>.md`: the questions asked, the answers in short,
     and what's still unknown;
-  - promote this session's `inbox/` drafts (step 4);
+  - promote this session's `inbox/` drafts (step 4, with its dependency
+    and group rules);
   - release the lock (step 7).
 - **Project mode:** anything else, e.g. `ct claude` in a repo. The vault
   is the knowledge base named in the system prompt. If there's none, the
@@ -48,6 +49,7 @@ Follow the vault's `AGENTS.md`:
     from `templates/project.md` if the project is new;
   - step 4 for this session's `inbox/` drafts and anything else worth
     keeping from the session (changes made, how things work, decisions);
+    the dependency and group rules of step 4 apply to them too;
   - release the lock (step 7).
 
   **Inbox drafts** are the notes the `kb` skill wrote in `inbox/` with
@@ -72,6 +74,9 @@ Follow the vault's `AGENTS.md`:
 - `ct ws diff <ID> --stat`, plus the full diff where needed, to see
   what actually changed. Prefer it over the hand-off files when they
   disagree: the code is what ships.
+- `ct vault groups <vault> <slug>...` for the ticket's repos: their
+  `depends-on`, used-by and groups, and so which group notes step 4 may
+  touch.
 - Any repo whose `targetVersion` is null: ask the user for it with
   AskUserQuestion. When AskUserQuestion isn't available (`ct clean --save`
   runs this skill headless), stop without saving anything and say which
@@ -115,9 +120,10 @@ from its type):
 
 Where things go:
 - `projects/<slug>/`:
-  - `features/`: what the feature does, services touched, version
-    introduced per service, tickets
-  - `sequences/`: flows within one service
+  - `features/`: what the feature does, projects touched, version
+    introduced per project, tickets
+  - `sequences/`: flows within the project, or between it and one other
+    project without a shared group
   - `architecture/`: conventions, structure
   - `data/`: schemas, data models
   - Create the project's folders and its index note
@@ -130,14 +136,50 @@ Where things go:
   index. Add one line per new decision note:
   `- yyyy-MM-dd [[decision-note]] (<ID>): one-line summary`. Create it if
   missing; `/tickets:recall` reads it.
-- `projects/system/`, for anything that crosses services:
-  - `sequences/<flow>.md`: the mermaid `sequenceDiagram` between services
-  - `architecture/service-map.md`: add new service-to-service edges to
-    its mermaid graph
-  - `architecture/compatibility-matrix.md`: one row per (feature, service)
-    with the minimum version and notes on what older peers see
-  - `architecture/system-decisions.md`: index of decisions that affect
-    several services, in the same line format
+- **Dependencies between projects** (the vault's `AGENTS.md`, "Projects
+  and groups"), from `design.md`'s Relationships item and the diff:
+  - A project that starts needing another (calls its API, consumes its
+    events, reads its database, packages or imports it): add
+    `"[[<other-slug>]]"` to the dependent's `depends-on` and a row to its
+    `## Depends on` table (project, how: interface or contract, since
+    version, flow note). Only projects of this vault go in `depends-on`;
+    outside dependencies go in the table as text.
+  - A changed interface on an existing dependency: update the
+    `## Depends on` row, and the label in the shared group's
+    `## Interactions`.
+  - Remove a dependency only when the ticket removed it.
+  - "Used by" is never written: backlinks and `ct vault groups` show it.
+- **Groups** (`projects/<group>/`, `type: group`): where knowledge shared
+  by several projects goes. Find the repos' groups with
+  `ct vault groups <vault> <slug>...`.
+  - A flow, feature or decision involving two or more projects that share
+    a group: the group's `sequences/`, `features/`, and
+    `architecture/<group>-decisions.md` (same line format as the project
+    index).
+  - The same with exactly two projects and no shared group: the dependent
+    project's folder, linking the other. A pair never needs a group.
+  - The same with three or more projects and no shared group (or projects
+    in different groups): **ask the user** with AskUserQuestion. Offer:
+    create a group (propose a name and the members), add the projects to
+    an existing group, or file it under the main dependent project.
+  - Create a group only with the user's answer, or an architect draft
+    (`target: projects/<group>`) the user approved. Its name is kebab-case,
+    unique in the vault, says what the projects do together, and is never
+    a repo slug. Creating it means:
+    1. `projects/<group>/<group>.md` from `templates/group.md`;
+    2. `projects/<group>/architecture/<group>-decisions.md` and
+       `<group>-compatibility.md` (from `templates/base.md`, each linking
+       `[[<group>]]` and `[[AGENTS]]`);
+    3. `"[[<group>]]"` added to each member's `groups`;
+    4. its `## Interactions` mermaid graph filled in.
+  - Keep a group current: `## Interactions` shows every member's
+    `depends-on` edge, labelled with the interface (the members'
+    frontmatter is the source of truth). `<group>-compatibility` gets one
+    row per (feature, project): `| Feature | Project | Min version | Ticket | With older peers |`.
+    Without a shared group, a feature's compatibility goes in the feature
+    note's `## Compatibility`.
+  - Never remove a project from a group, or delete a group, without
+    asking the user.
 - `knowledge-base/<topic>/`: general findings that aren't specific to one
   project, e.g. how a library behaves or a debugging technique (template
   `templates/knowledge.md`). Pick or create a fitting topic subfolder.
@@ -146,7 +188,8 @@ Where things go:
   (template `templates/reference.md`).
 
 Every filename must be unique across the whole vault, because links use
-bare names: hence slugs for projects, `<slug>-decisions.md`, and log names
+bare names: hence slugs for projects, group names that are never a slug,
+`<slug>-decisions.md` and `<group>-decisions.md`, and log names
 that include the ticket ID and slug. `ct vault links move` refuses a clashing name.
 
 Each promoted note links back to the ticket (`[[<ID>]]`) and to its
@@ -160,6 +203,17 @@ ct vault links check <vault> <every note created, moved or edited> tickets/<ID>/
 
 Fix every unresolved or ambiguous link (rename a clashing new note,
 qualify nothing by path), then check again until it's clean.
+
+Then check the links between projects and groups:
+
+```sh
+ct vault groups <vault> --check
+```
+
+Fix every error it reports (a `groups` link that isn't a group, a
+`depends-on` link that isn't a project, a project depending on itself) in
+the notes you wrote, and run it again until it exits 0. An empty group is
+only a warning; mention it to the user.
 Links to source tickets that aren't in the vault yet (e.g. a linked issue
 assigned to someone else) can stay unresolved.
 

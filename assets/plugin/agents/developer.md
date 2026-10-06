@@ -48,7 +48,7 @@ Never edit the main clones under `~/Projects`.
   `get_neighbors`, `shortest_path`, `get_node`, `god_nodes`) before reading
   files. It holds every repo under `~/Projects`, with the ticket's
   worktrees standing in for their main clones. Node ids are prefixed with
-  the repo's slug (`<slug>::…`), so put the service name in your question
+  the repo's slug (`<slug>::…`), so put the repo name in your question
   or use prefixed ids. Use Grep/Read only to confirm exact lines.
 - In the vault, write **only** inside `tickets/<ID>/`. Never edit
   `projects/`, `knowledge-base/` or `references/` (only `/tickets:save` does), the
