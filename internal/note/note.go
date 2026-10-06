@@ -24,6 +24,62 @@ func TicketPath(vault, id string) string {
 	return filepath.Join(vault, "tickets", id, id+".md")
 }
 
+// TicketDir is a ticket's folder: its note, hand-off files, kb-drafts/ and
+// logs/.
+func TicketDir(vault, id string) string { return filepath.Dir(TicketPath(vault, id)) }
+
+// ArchiveDir is where ct clean puts a ticket's folder it archives (manual
+// tickets), or the files other notes still link from a ticket it removes.
+func ArchiveDir(vault, id string) string { return filepath.Join(vault, "archive", "tickets", id) }
+
+// ArchivedIDs is the IDs of the tickets with a folder in the archive.
+func ArchivedIDs(vault string) []string {
+	dirs, _ := os.ReadDir(filepath.Dir(ArchiveDir(vault, "X")))
+	var out []string
+	for _, d := range dirs {
+		if d.IsDir() && ValidKey(d.Name()) {
+			out = append(out, d.Name())
+		}
+	}
+	return out
+}
+
+// IsTicketNote reports whether file is a ticket's note (<ID>/<ID>.md).
+func IsTicketNote(file string) bool {
+	id := strings.TrimSuffix(filepath.Base(file), ".md")
+	return ValidKey(id) && filepath.Base(file) == id+".md" && filepath.Base(filepath.Dir(file)) == id
+}
+
+// Synced reports whether a ticket note's frontmatter is a synced ticket's
+// (ct sync or the ticket-sync skill writes it), not a manual one's.
+func Synced(fm map[string]string) bool {
+	s := fm["source"]
+	return s != "" && s != "manual"
+}
+
+// SyncOwnedFields are the frontmatter fields ct sync rewrites on a synced
+// ticket's refresh (besides source-*): links in them come back as sync
+// writes them, whatever else edits them.
+var SyncOwnedFields = []string{"parent", "children", "blocked-by", "blocks", "related", "blocked", "covers", "covered-by"}
+
+// SyncOwned reports whether a place in a ticket note with frontmatter fm
+// is sync's own: on a synced ticket, a sync-owned frontmatter field
+// (field, "" outside the frontmatter) or the source block.
+func SyncOwned(fm map[string]string, field string, sourceBlock bool) bool {
+	if !Synced(fm) {
+		return false
+	}
+	if sourceBlock || strings.HasPrefix(field, "source-") {
+		return true
+	}
+	for _, f := range SyncOwnedFields {
+		if f == field {
+			return true
+		}
+	}
+	return false
+}
+
 // Frontmatter returns a note's top-level scalar fields (the text after
 // "key:", surrounding quotes stripped), as the YAML block at the top of
 // the note has them. A missing note or one without frontmatter gives an
