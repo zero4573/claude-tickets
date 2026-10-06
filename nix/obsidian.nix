@@ -36,11 +36,14 @@
   #  * Tasks community plugin: seeded once. Installs the plugin files only if
   #    missing, and only creates community-plugins.json if it doesn't exist
   #    yet.  After that, Obsidian's own in-app plugin updater/toggle owns it.
-  #  * Tasks plugin settings: enforced. obsidian/tasks-settings.json is the source of
-  #    truth, written to every vault's data.json on every switch -- changes
-  #    made in Obsidian's settings UI are reset unless copied back here:
+  #    The release is pinned in assets/obsidian/tasks-plugin.json, which ct
+  #    vault init seeds from too (one pin for both).
+  #  * Tasks plugin settings: enforced. assets/obsidian/tasks-settings.json is
+  #    the source of truth (ct vault init writes it to a vault without any),
+  #    written to every vault's data.json on every switch -- changes made in
+  #    Obsidian's settings UI are reset unless copied back here:
   #      cp <vault root>/<vault>/.obsidian/plugins/obsidian-tasks-plugin/data.json \
-  #        obsidian/tasks-settings.json
+  #        assets/obsidian/tasks-settings.json
   #  * Minimal theme (kepano): seeded once, and selected only if the vault
   #    hasn't picked a theme, so in-app theme changes/updates stick.
   #  * Readable line length: turned off once (Obsidian and Minimal otherwise
@@ -56,18 +59,16 @@
       cfg = config.programs.claude-tickets.obsidian;
       inherit (cfg) vaults;
       root = cfg.vaultRoot;
-      pluginId = "obsidian-tasks-plugin";
 
-      # obsidian-tasks-group/obsidian-tasks release 8.4.0. Bump the version +
-      # the three sha256s together when updating (nix-prefetch-url <url>).
-      tasksVersion = "8.4.0";
-      tasksAsset = name: sha256: pkgs.fetchurl {
-        url = "https://github.com/obsidian-tasks-group/obsidian-tasks/releases/download/${tasksVersion}/${name}";
-        inherit sha256;
+      # The Tasks plugin release (obsidian-tasks-group/obsidian-tasks): one
+      # pin, shared with ct vault init, holding the version and the hex
+      # sha256 of each release asset. Bump it there (see UPDATES.md).
+      tasksPin = builtins.fromJSON (builtins.readFile ../assets/obsidian/tasks-plugin.json);
+      pluginId = tasksPin.id;
+      tasksAsset = name: pkgs.fetchurl {
+        url = "https://github.com/${tasksPin.repo}/releases/download/${tasksPin.version}/${name}";
+        sha256 = tasksPin.sha256.${name};
       };
-      tasksMainJs = tasksAsset "main.js" "1yj83saffq2sxm9mqy9hricicznjkjca4zir0qd7rvizrqxk7qy1";
-      tasksManifest = tasksAsset "manifest.json" "0gy3czl5jqik5ddk654d2m1l5yybnsv1d7gwriqdvjx9dcagm729";
-      tasksStyles = tasksAsset "styles.css" "0pck54nfgyxyaiiyvfhy3132alszd65x2ldjk5c2n5kl7cysab1v";
 
       # kepano/obsidian-minimal release 9.0.2 -- the newest whose
       # minAppVersion (1.13.0) the Flathub Obsidian (1.13.7) satisfies; 9.1.x
@@ -130,12 +131,10 @@
         plugin_dir="$vault_dir/.obsidian/plugins/${pluginId}"
         if [ ! -e "$plugin_dir/main.js" ]; then
           run mkdir -p "$plugin_dir"
-          run install -m 0644 ${tasksMainJs} "$plugin_dir/main.js"
-          run install -m 0644 ${tasksManifest} "$plugin_dir/manifest.json"
-          run install -m 0644 ${tasksStyles} "$plugin_dir/styles.css"
+          ${lib.concatMapStringsSep "\n          " (n: ''run install -m 0644 ${tasksAsset n} "$plugin_dir/${n}"'') (lib.attrNames tasksPin.sha256)}
         fi
 
-        run install -m 0644 ${../obsidian/tasks-settings.json} "$plugin_dir/data.json"
+        run install -m 0644 ${../assets/obsidian/tasks-settings.json} "$plugin_dir/data.json"
 
         community_plugins="$vault_dir/.obsidian/community-plugins.json"
         if [ ! -e "$community_plugins" ]; then
