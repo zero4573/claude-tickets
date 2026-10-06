@@ -11,6 +11,7 @@ import (
 
 	"github.com/zero4573/claude-tickets/internal/fsx"
 	"github.com/zero4573/claude-tickets/internal/gitx"
+	"github.com/zero4573/claude-tickets/internal/projects"
 	"github.com/zero4573/claude-tickets/internal/repo"
 	"github.com/zero4573/claude-tickets/internal/session"
 	"github.com/zero4573/claude-tickets/internal/vault"
@@ -80,13 +81,42 @@ func vaultPrompt(ctx vault.Context, slug string) string {
 	if slug != "" {
 		if _, err := os.Stat(filepath.Join(ctx.Vault, "projects", slug, slug+".md")); err == nil {
 			fmt.Fprintf(&b, "- This repo is `%[1]s`. Its notes are in `projects/%[1]s/`: the index `%[1]s.md`, `architecture/%[1]s-decisions.md`, `features/`, `sequences/`, `logs/`.\n", slug)
+			relationsPrompt(&b, ctx.Vault, slug)
 		} else {
 			fmt.Fprintf(&b, "- This repo is `%[1]s`. It has no notes yet; `/tickets:save` creates `projects/%[1]s/`.\n", slug)
 		}
 	}
-	b.WriteString("- System-wide notes are in `projects/system/` (service map, compatibility matrix, flows across services), alongside `knowledge-base/` and `references/`. `tickets/` holds the history of past work.\n" +
-		"- For questions about this repo or the wider system, and before non-trivial changes, use the `kb` skill. Check the vault first, then the code graph, then the code.\n" +
+	b.WriteString("- `knowledge-base/` and `references/` hold findings outside any project; `tickets/` holds the history of past work.\n" +
+		"- For questions about this repo or the projects it works with, and before non-trivial changes, use the `kb` skill. Check the vault first, then the code graph, then the code.\n" +
 		"- Don't edit `projects/`, `knowledge-base/` or `references/` directly. Record what you learn as drafts in `inbox/` (see the `kb` skill); `/tickets:save` promotes them at the end of the session.\n" +
 		"- `/tickets:recall` loads this repo's recent history and decisions. Run `/tickets:save` before ending the session.")
 	return b.String()
+}
+
+// relationsPrompt names the projects the repo works with, as its note and
+// the other project notes say (projects.Load); nothing for a standalone repo.
+func relationsPrompt(b *strings.Builder, v, slug string) {
+	g, _ := projects.Load(v)
+	if g.Kind(slug) != projects.KindProject {
+		return
+	}
+	deps, users, groups := g.DependsOn(slug), g.UsedBy(slug), g.GroupsOf(slug)
+	if len(deps)+len(users)+len(groups) == 0 {
+		return
+	}
+	quote := func(l []string) string { return "`" + strings.Join(l, "`, `") + "`" }
+	if len(deps) > 0 {
+		fmt.Fprintf(b, "- It depends on %s.\n", quote(deps))
+	}
+	if len(users) > 0 {
+		verb := "depend"
+		if len(users) == 1 {
+			verb = "depends"
+		}
+		fmt.Fprintf(b, "- %s %s on it.\n", quote(users), verb)
+	}
+	for _, grp := range groups {
+		fmt.Fprintf(b, "- It's in the group `%[1]s` (`projects/%[1]s/`: interactions, compatibility, decisions, flows across its members).\n", grp)
+	}
+	fmt.Fprintf(b, "- Run `ct vault groups %s %s` for the projects it works with.\n", v, slug)
 }

@@ -8,6 +8,10 @@ grep '"command": "kb"' home/Projects/work-a/.kb-a/.sessions.json
 grep '"Bash\(git commit:\*\)"' home/Projects/work-a/.kb-a/.claude/settings.json
 grep '^- Session id .*\n  `kb-a-[0-9]{8}-[0-9]{4}`' home/Projects/work-a/.kb-a/CLAUDE.md
 grep '"hasTrustDialogAccepted": true' home/.claude.json
+grep 'ct vault groups .*/Obsidian/a` shows which projects work together' home/Projects/work-a/.kb-a/CLAUDE.md
+exec ct kb --help
+stdout 'projects the vault describes'
+! stdout 'system'
 exec ct status
 ! stdout KB
 

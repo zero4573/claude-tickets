@@ -26,9 +26,10 @@ func kbCmd() *cobra.Command {
 	var cont, print, noFetch bool
 	cmd := &cobra.Command{
 		Use:   `kb [--continue] [--print] [--no-fetch] ["<question>"]`,
-		Short: "Ask about the system the vault describes, without a ticket",
-		Long: `Ask about the system the current vault (ct vault default) describes (repos,
-services, architecture, data flows, past tickets) without creating a ticket.
+		Short: "Ask about the projects the vault describes, without a ticket",
+		Long: `Ask about the projects the vault describes (the current vault, ct vault
+default): repos, how they work together, architecture, data flows, past
+tickets, without creating a ticket.
 It runs a Claude session (the kb skill) with:
   * the vault, read-write, as the knowledge base
   * every repo in its projectsRoot, read-only, freshly fetched on the host; the
@@ -164,6 +165,8 @@ func kbClaudeMD(ctx vault.Context, dir, sessionID string) string {
 		"  investigated or fixed, create a manual ticket with\n"+
 		"  `ct new \"<summary>\"` and fill it in (see the `kb`\n"+
 		"  skill), so the work goes through the ticket workflow.\n"+
+		"- `ct vault groups %[1]s` shows which projects work together (groups,\n"+
+		"  `depends-on`) and which are unrelated.\n"+
 		"- Code graph: the `graphify` MCP server holds every repo, with node ids\n"+
 		"  prefixed by the repo's slug (`bitbucket-acme-billing-service::…`).\n"+
 		"- Follow the `kb` skill: answer from the vault, then the graph, then the\n"+

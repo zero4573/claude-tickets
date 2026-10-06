@@ -10,13 +10,48 @@ exec ct claude --resume abc
 grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --append-system-prompt # Knowledge base' $WORK/calls/claude
 grep 'This repo is `github-acme-billing`. Its notes are in `projects/github-acme-billing/`' $WORK/calls/claude
 grep ' --resume abc$' $WORK/calls/claude
+! grep 'projects/system|service map|compatibility matrix' $WORK/calls/claude
+! grep 'depends on|in the group|ct vault groups' $WORK/calls/claude
 # outside the projects root: the slug comes from the origin; no notes yet
 exec git init -q $WORK/elsewhere
 exec git -C $WORK/elsewhere remote add origin git@github.com:acme/web.git
 cd $WORK/elsewhere
 exec ct claude
 grep 'This repo is `github-acme-web`. It has no notes yet' $WORK/calls/claude
+# a repo that works with others: both directions, its group and ct vault groups
+cp $WORK/billing.md $WORK/home/Documents/Obsidian/a/projects/github-acme-billing/github-acme-billing.md
+mkdir $WORK/home/Documents/Obsidian/a/projects/github-acme-orders $WORK/home/Documents/Obsidian/a/projects/github-acme-ledger $WORK/home/Documents/Obsidian/a/projects/payments
+cp $WORK/orders.md $WORK/home/Documents/Obsidian/a/projects/github-acme-orders/github-acme-orders.md
+cp $WORK/ledger.md $WORK/home/Documents/Obsidian/a/projects/github-acme-ledger/github-acme-ledger.md
+cp $WORK/payments.md $WORK/home/Documents/Obsidian/a/projects/payments/payments.md
+cd $WORK/home/Projects/repo-a/github/acme/billing
+exec ct claude
+grep 'It depends on `github-acme-ledger`' $WORK/calls/claude
+grep '`github-acme-orders` depends on it' $WORK/calls/claude
+grep 'in the group `payments` \(`projects/payments/`' $WORK/calls/claude
+grep 'Run `ct vault groups .*/Obsidian/a github-acme-billing`' $WORK/calls/claude
+! grep 'projects/system' $WORK/calls/claude
 exec ct claude --help
 stdout 'Runs claude in the current repo'
 
 -- empty --
+-- billing.md --
+---
+type: project
+groups: ["[[payments]]"]
+depends-on:
+  - "[[github-acme-ledger]]"
+---
+-- orders.md --
+---
+type: project
+depends-on: ["[[github-acme-billing]]"]
+---
+-- ledger.md --
+---
+type: project
+---
+-- payments.md --
+---
+type: group
+---
