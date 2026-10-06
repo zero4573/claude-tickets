@@ -29,7 +29,7 @@ exec ct claude
 grep 'It depends on `github-acme-ledger`' $WORK/calls/claude
 grep '`github-acme-orders` depends on it' $WORK/calls/claude
 grep 'in the group `payments` \(`projects/payments/`' $WORK/calls/claude
-grep 'Run `ct vault groups .*/Obsidian/a github-acme-billing`' $WORK/calls/claude
+grep 'Run `ct vault groups ".*/Obsidian/a" github-acme-billing`' $WORK/calls/claude
 ! grep 'projects/system' $WORK/calls/claude
 exec ct claude --help
 stdout 'Runs claude in the current repo'

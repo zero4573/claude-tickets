@@ -118,5 +118,6 @@ func relationsPrompt(b *strings.Builder, v, slug string) {
 	for _, grp := range groups {
 		fmt.Fprintf(b, "- It's in the group `%[1]s` (`projects/%[1]s/`: interactions, compatibility, decisions, flows across its members).\n", grp)
 	}
-	fmt.Fprintf(b, "- Run `ct vault groups %s %s` for the projects it works with.\n", v, slug)
+	// Quoted: the vault path may have spaces
+	fmt.Fprintf(b, "- Run `ct vault groups \"%s\" %s` for the projects it works with.\n", v, slug)
 }
