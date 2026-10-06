@@ -84,6 +84,19 @@ stdout '^  depends-on: cli$'
 stdout '^error: groups links \[\[cli\]\]'
 exec ct vault groups v nix --json
 stdout '"problems": \[\]'
+# a problem is the linking note's: web's bad groups link to cli doesn't
+# fail a check of cli, and only names without a note pass
+exec ct vault groups v cli --check
+! stdout '^error'
+exec ct vault groups v ghost --check
+stdout '^ghost: no note \(standalone\)$'
+# an empty group named: a warning, exit 0; names keep the note's spelling
+exec ct vault groups v BETA --check
+stdout '^beta \(group\)$'
+stdout '^warning: group beta has no members'
+exec ct vault groups v WEB --json
+stdout '"web": \{'
+stdout '"noNote": \[\]'
 
 # a vault set up before 0.1.0: its old system note is a standalone project,
 # a quoted type counts, and an old services property means nothing
