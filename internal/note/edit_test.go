@@ -56,3 +56,41 @@ func TestCRLFAndBOM(t *testing.T) {
 		t.Errorf("Set: got %q\nwant %q", got, want)
 	}
 }
+
+func TestListField(t *testing.T) {
+	cases := []struct {
+		name, fm string
+		want     []string
+	}{
+		{"flow", "depends-on: [a, b]\n", []string{"a", "b"}},
+		{"flow quoted", "depends-on: [\"[[a]]\", '[[b]]', \"[[c, d]]\"]\n", []string{"[[a]]", "[[b]]", "[[c, d]]"}},
+		{"block", "depends-on:\n  - \"[[a]]\"\n  - '[[b]]'\n- c\nstatus: x\n", []string{"[[a]]", "[[b]]", "c"}},
+		{"empty flow", "depends-on: []\n", nil},
+		{"empty block", "depends-on:\nstatus: x\n", nil},
+		{"missing", "status: x\n", nil},
+		{"scalar", "depends-on: a\n", nil},
+		{"other key prefix", "depends-on-x: [a]\n", nil},
+	}
+	for _, c := range cases {
+		f := filepath.Join(t.TempDir(), "n.md")
+		os.WriteFile(f, []byte("---\ntitle: n\n"+c.fm+"---\n- body: [z]\n"), 0o644)
+		got := ListField(f, "depends-on")
+		if len(got) != len(c.want) {
+			t.Errorf("%s: got %q, want %q", c.name, got, c.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != c.want[i] {
+				t.Errorf("%s: got %q, want %q", c.name, got, c.want)
+			}
+		}
+	}
+	f := filepath.Join(t.TempDir(), "n.md")
+	os.WriteFile(f, []byte("\ufeff---\r\ngroups:\r\n  - \"[[g]]\"\r\ndepends-on: [\"[[a]]\"]\r\n---\r\n"), 0o644)
+	if g, d := ListField(f, "groups"), ListField(f, "depends-on"); len(g) != 1 || g[0] != "[[g]]" || len(d) != 1 || d[0] != "[[a]]" {
+		t.Errorf("CRLF/BOM: groups %q, depends-on %q", g, d)
+	}
+	if got := ListField(filepath.Join(t.TempDir(), "missing.md"), "groups"); got != nil {
+		t.Errorf("missing file: %q", got)
+	}
+}

@@ -176,3 +176,65 @@ func Fields(file string) map[string]string {
 }
 
 var fieldRe = regexp.MustCompile(`^([a-z][a-z-]*):(.*)$`)
+
+// ListField returns a frontmatter list's items, unquoted: flow style
+// ("key: [a, "b"]") or block style ("key:" then "  - a" lines). A missing
+// key, an empty list or a scalar value gives nil. BOM and CRLF are handled
+// like Frontmatter.
+func ListField(file, key string) []string {
+	lines, _ := fileLines(file)
+	if len(lines) == 0 || lines[0] != "---" {
+		return nil
+	}
+	for i := 1; i < len(lines) && lines[i] != "---"; i++ {
+		k, v, ok := strings.Cut(lines[i], ":")
+		if !ok || k != key {
+			continue
+		}
+		v = strings.TrimSpace(v)
+		var items []string
+		switch {
+		case v == "":
+			for j := i + 1; j < len(lines) && continuation(lines[j]); j++ {
+				if t := strings.TrimSpace(lines[j]); strings.HasPrefix(t, "-") {
+					items = append(items, listItem(t))
+				}
+			}
+		case strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]"):
+			for _, x := range splitFlow(v[1 : len(v)-1]) {
+				items = append(items, listItem(x))
+			}
+		default:
+			return nil
+		}
+		var out []string
+		for _, x := range items {
+			if x != "" {
+				out = append(out, x)
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+// splitFlow splits a flow list's inside on the commas outside quotes.
+func splitFlow(s string) []string {
+	var out []string
+	var quote byte
+	start := 0
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; {
+		case quote != 0:
+			if c == quote {
+				quote = 0
+			}
+		case c == '"' || c == '\'':
+			quote = c
+		case c == ',':
+			out = append(out, s[start:i])
+			start = i + 1
+		}
+	}
+	return append(out, s[start:])
+}
