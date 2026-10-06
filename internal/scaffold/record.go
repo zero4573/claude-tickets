@@ -1,6 +1,8 @@
 package scaffold
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -73,19 +75,52 @@ func saveRecord(vault string, files map[string]Shipped) error {
 }
 
 // writeAtomic writes a file through a dot-file next to it (never indexed
-// by Obsidian) and a rename, so a reader never sees half of it.
-func writeAtomic(dest string, data []byte) error {
+// by Obsidian; its name unique to this write, so concurrent runs never
+// share one) and a rename, so a reader never sees half of it. A new file
+// gets 0644 (less the umask); with keep, the file gets mode as it is (the
+// mode of the copy it replaces).
+func writeAtomic(dest string, data []byte, mode fs.FileMode, keep bool) error {
 	dir := filepath.Dir(dest)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	tmp := filepath.Join(dir, "."+filepath.Base(dest)+".ct-tmp")
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return err
+	perm := fs.FileMode(0o644)
+	if keep {
+		perm = mode.Perm()
 	}
-	if err := os.Rename(tmp, dest); err != nil {
+	var tmp string
+	var f *os.File
+	for {
+		tmp = filepath.Join(dir, "."+filepath.Base(dest)+"."+randomID()+".ct-tmp")
+		var err error
+		f, err = os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, fs.ErrExist) {
+			return err
+		}
+	}
+	_, err := f.Write(data)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil && keep {
+		// the umask applied at creation; the replaced copy's mode wins
+		err = os.Chmod(tmp, perm)
+	}
+	if err == nil {
+		err = os.Rename(tmp, dest)
+	}
+	if err != nil {
 		_ = os.Remove(tmp)
-		return err
 	}
-	return nil
+	return err
+}
+
+// randomID is 8 random hex characters.
+func randomID() string {
+	var b [4]byte
+	_, _ = rand.Read(b[:])
+	return hex.EncodeToString(b[:])
 }

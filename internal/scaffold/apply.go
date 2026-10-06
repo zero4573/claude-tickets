@@ -15,7 +15,7 @@ type Options struct {
 	DryRun  bool     // report only: nothing is created, written, renamed or locked
 	Take    []string // edited files to replace with the shipped version (the old one kept as <file>.bak)
 	Version string   // the ct version recorded with what it writes
-	Owner   string   // the vault lock's owner (default ct-vault-update)
+	Owner   string   // the vault lock's owner, made unique per run (default ct-vault-update)
 	AddOnly bool     // ct vault init: only missing files are written; stale ones are counted
 }
 
@@ -68,10 +68,13 @@ func Apply(vault string, src Source, o Options) (Result, error) {
 	}
 
 	if !o.DryRun {
+		// One owner per run: Acquire lets its holder straight back in, so a
+		// shared name would let two runs write at once
 		owner := o.Owner
 		if owner == "" {
 			owner = "ct-vault-update"
 		}
+		owner = fmt.Sprintf("%s-%d-%s", owner, os.Getpid(), randomID())
 		if err := vaultlock.Acquire(vault, owner); err != nil {
 			return Result{}, err
 		}
@@ -120,12 +123,18 @@ func Apply(vault string, src Source, o Options) (Result, error) {
 			continue
 		}
 		dest := filepath.Join(vault, filepath.FromSlash(e.Rel))
+		// a replaced file keeps its mode
+		var mode fs.FileMode
+		keep := false
+		if st, err := os.Lstat(dest); err == nil {
+			mode, keep = st.Mode(), true
+		}
 		if res.Done[e.Rel] == Taken {
 			if err := os.Rename(dest, dest+".bak"); err != nil {
 				return res, err
 			}
 		}
-		if err := writeAtomic(dest, e.Ship.Data); err != nil {
+		if err := writeAtomic(dest, e.Ship.Data, mode, keep); err != nil {
 			return res, err
 		}
 	}
