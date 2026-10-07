@@ -34,11 +34,12 @@ func (s *syncBuf) String() string {
 	return s.b.String()
 }
 
-// lastFrame is the text of the last frame drawn (from its cursor-home on).
+// lastFrame is the text of the last frame drawn (from its cursor-home on),
+// without the erases at the start of its rows.
 func (s *syncBuf) lastFrame() string {
 	out := s.String()
 	if i := strings.LastIndex(out, "\x1b[H"); i >= 0 {
-		return out[i:]
+		return strings.NewReplacer("\x1b[K", "", "\x1b[J", "").Replace(out[i:])
 	}
 	return ""
 }
