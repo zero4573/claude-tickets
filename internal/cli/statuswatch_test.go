@@ -38,6 +38,36 @@ func TestIntervalFlag(t *testing.T) {
 	}
 }
 
+// QA defect D2: a duration past time.Duration's maximum says so, instead
+// of asking for at least 1s.
+func TestIntervalFlagTooLong(t *testing.T) {
+	for _, in := range []string{"9999999h", "+9999999h", "2562048h", "1h9999999999999999999ns", "99999999999999999999s"} {
+		f := intervalFlag(2 * time.Second)
+		err := f.Set(in)
+		if err == nil {
+			t.Errorf("Set(%q) accepted", in)
+			continue
+		}
+		if msg := err.Error(); !strings.Contains(msg, "too long") || !strings.Contains(msg, "at most 2562047h47m16.854775807s") || strings.Contains(msg, "at least") {
+			t.Errorf("Set(%q): %q", in, msg)
+		}
+		if time.Duration(f) != 2*time.Second {
+			t.Errorf("Set(%q) changed the value to %v", in, time.Duration(f))
+		}
+	}
+	// the longest duration is still accepted; a huge negative one is too
+	// short, and a typo isn't a duration at all
+	f := intervalFlag(2 * time.Second)
+	if err := f.Set("2562047h"); err != nil {
+		t.Errorf("Set(2562047h): %v", err)
+	}
+	for _, in := range []string{"-9999999h", "9999999x", "h", "1.2.3s"} {
+		if err := f.Set(in); err == nil || !strings.Contains(err.Error(), "at least 1s") {
+			t.Errorf("Set(%q): %v, want the at-least-1s message", in, err)
+		}
+	}
+}
+
 // writeStatus renders what ct status always printed: the header, then a
 // table padded by two spaces, or the empty line.
 func TestWriteStatus(t *testing.T) {

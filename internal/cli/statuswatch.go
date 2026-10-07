@@ -5,8 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -24,6 +26,11 @@ import (
 // git status per worktree, tmux): .agent-state changes still show sooner.
 const minInterval = time.Second
 
+// durationSyntax is time.ParseDuration's syntax. A value it matches that
+// doesn't parse is past the longest time.Duration, which ParseDuration
+// reports with the same "invalid duration" error as a typo.
+var durationSyntax = regexp.MustCompile(`^[-+]?(0|((\d+\.?\d*|\.\d+)(ns|us|µs|μs|ms|s|m|h))+)$`)
+
 // intervalFlag is --interval: a Go duration of at least minInterval.
 type intervalFlag time.Duration
 
@@ -31,6 +38,9 @@ func (f *intervalFlag) String() string { return time.Duration(*f).String() }
 func (f *intervalFlag) Type() string   { return "duration" }
 func (f *intervalFlag) Set(s string) error {
 	d, err := time.ParseDuration(s)
+	if err != nil && !strings.HasPrefix(s, "-") && durationSyntax.MatchString(s) {
+		return fmt.Errorf("too long: want a duration of at most %s", time.Duration(math.MaxInt64))
+	}
 	if err != nil || d < minInterval {
 		return fmt.Errorf("want a duration of at least %s, like 2s or 1m", minInterval)
 	}
