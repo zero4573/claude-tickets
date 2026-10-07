@@ -399,7 +399,7 @@ func Enable(obsDir, id string) (bool, error) {
 		var v any
 		dec := json.NewDecoder(bytes.NewReader(data))
 		dec.UseNumber()
-		if dec.Decode(&v) != nil {
+		if dec.Decode(&v) != nil || dec.More() {
 			return false, ErrNotArray
 		}
 		var ok bool

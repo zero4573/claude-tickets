@@ -43,6 +43,10 @@ cp null.json home/Documents/Obsidian/demo/.obsidian/community-plugins.json
 exec ct vault init demo
 stderr 'community-plugins.json isn.t a JSON array'
 cmp home/Documents/Obsidian/demo/.obsidian/community-plugins.json null.json
+cp trailing.json home/Documents/Obsidian/demo/.obsidian/community-plugins.json
+exec ct vault init demo
+stderr 'community-plugins.json isn.t a JSON array'
+cmp home/Documents/Obsidian/demo/.obsidian/community-plugins.json trailing.json
 
 # Already listed: the file isn't rewritten (formatting kept)
 cp listed.json home/Documents/Obsidian/demo/.obsidian/community-plugins.json
@@ -72,6 +76,8 @@ stdout -count=2 '^/'
 
 -- invalid.json --
 ["calendar",
+-- trailing.json --
+["calendar"] trailing
 -- null.json --
 null
 -- listed.json --
