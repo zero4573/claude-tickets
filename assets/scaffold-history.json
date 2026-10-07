@@ -3,7 +3,9 @@
   "files": {
     "AGENTS.md": [
       "17aa00b8a59ccd7db2f845a97d74a5981afd08d5ade799fc025ee7e1ef52d18f",
+      "2cc3bbf3fddc527b8e280409d7cc0dc4268a6e2f0a63a5bffbda55784a8584cc",
       "398b19f2b82f73d11a2d74a2103c96f374bd1188cbe909119c3a990781d09b97",
+      "411c918422ee088dc13c59daf8913543545d500365ca1d55f394aa013ea066d0",
       "4ba30db741dbdb5e491378c2f547d1cf976f2353dfc50b645007e1372235b23b",
       "4c4012f14e24fb7195c261d5a4ea417f63faff178db7476383847d9e528ea598",
       "51ad63a852a1536623143418aa1ef3a915928f4691d7d21b7a375d3c3a0162cb",
@@ -22,6 +24,9 @@
     ],
     "pending.md": [
       "7113440c92850bac05b67936019951110a0518d81c6c3d9e7a369c6d4c5c8aea"
+    ],
+    "projects.base": [
+      "3843a983b49349895712f5e09bd3f062801bf3687673f79c7fef506b48df41fe"
     ],
     "projects/system/architecture/compatibility-matrix.md": [
       "f2797337120f12002fb47e72179b7fa29435a4c8713983316b48532d3a6849de"
@@ -43,12 +48,18 @@
       "3ee09488b669f8e84914f52c23469ed404e9eabf766a3f37c3d0bfbe81894897"
     ],
     "templates/decision.md": [
+      "372627303d16443775cf066f6a1d4a84dbd70d6e63a0846901ad71f4d2e58051",
       "70a63c1a3543dd6248949107114a54b800249060065927e72baf0355ca455369"
     ],
     "templates/feature.md": [
+      "73e2a1af1723fb57387b2757a99a68b2574b5d53287f9e930ac8e4eec6fbf9b5",
       "cda343673cd81d12793e39cdb0666f7cf33ee73f8682eae3027ba9e4bf4c3061"
     ],
+    "templates/group.md": [
+      "34169ea994736d030fadd11b3c02fc6ae5bcded88fabeba5370e3e8ed87f9e04"
+    ],
     "templates/investigation.md": [
+      "219c1071b0dc3738e63df3cfabc9864cbea03bb43ba54dd0f80f12128f2de112",
       "51b6629d44596dee987e8f88b6e9d05849d034a71907ffa19fa0ea4c4a9f9b47"
     ],
     "templates/knowledge.md": [
@@ -58,15 +69,19 @@
       "7fc6e3c519054d9417d3e16fffe9ded91188cf659b4e42e5ed7de27d31ab432a"
     ],
     "templates/project.md": [
-      "519a3409b82c96e467dcdc3572426b97916c1cc47bd3628a3f2a3992a0961a92"
+      "519a3409b82c96e467dcdc3572426b97916c1cc47bd3628a3f2a3992a0961a92",
+      "75642bcac05391f8ab1ffb8b05157a74182e62bfb0fa3cfa497fd545775815c7"
     ],
     "templates/reference.md": [
+      "3cbac9c14583fdc1f89598cd08bbeb2dd40a9ce4b403d2cb073e0b614141e36e",
       "493620a4eadd27f6c8b2367fc3c9ae093aff54059ae683e102731fa43e36c2a7"
     ],
     "templates/sequence.md": [
-      "15a149477987f463a29b3a34714f9553cea15a6eb5a272d4c91d4aa75c77d062"
+      "15a149477987f463a29b3a34714f9553cea15a6eb5a272d4c91d4aa75c77d062",
+      "cca24bbb979e9d3c0958a9176744d0f1f7ad00fde519f2d8f2cb90e63ba81dc0"
     ],
     "templates/session-log.md": [
+      "d06d520cab6deec99c2f66d6db3335323f0fb3c65c48bcc6f864852c66af7efb",
       "e166a2dd3dcf40bf8175a4121b921d2c7b83babc38735844bdf90bd54e9bc93d"
     ],
     "templates/ticket-manual.md": [
