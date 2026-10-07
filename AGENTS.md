@@ -63,6 +63,8 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
   - containers: `internal/container` (`Runtime`, `RunArgs`, `Mount`/`Path`).
   - locks, exec and writability: build-tagged files (`internal/lock`,
     `internal/gitx`, `exec_*.go`).
+  - terminal control for `ct status --watch` (VT mode on Windows consoles,
+    resize signals): `internal/watch/term_unix.go` and `term_windows.go`.
 
   Never compare or split filesystem paths with `"/"`: use `filepath` and
   `internal/fsx` (`Within`, `Inside`, `Depth`); `<provider>/<owner>/<repo>`
