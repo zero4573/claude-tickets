@@ -1,0 +1,58 @@
+# QA (MAN-15): more ct status --watch cases without a terminal: flag
+# combinations, the help text, and workspace warnings in piped mode
+
+mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/tickets/MAN-1
+
+# --help documents both flags, the default, the minimum, Ctrl-C, the
+# .agent-state trigger and the piped fallback (criterion 19)
+exec ct status --help
+stdout '^Usage:\n  ct status \[-w\] \[--interval <duration>\] \[flags\]$'
+stdout '^  -w, --watch +keep the table on screen and refresh it until Ctrl-C$'
+stdout '^      --interval duration +how often --watch refreshes \(at least 1s\) \(default 2s\)$'
+stdout 'redraws the table until\nCtrl-C'
+stdout '\.agent-state changing'
+stdout 'When stdout isn''t a terminal it\nprints the table once'
+
+# flag order and forms: -w after --interval, --watch=true, the 1s boundary
+exec ct status --interval 1s -w
+stdout '^No ticket workspaces under '
+stderr '^ct status: --watch needs a terminal; printed once\n$'
+exec ct status --watch=true --interval=1m30s
+stderr '^ct status: --watch needs a terminal; printed once\n$'
+exec ct status -w --interval 1000ms
+stderr 'printed once'
+
+# -w=false is no watch: --interval still needs it
+! exec ct status -w=false --interval 2s
+stderr '^ct: --interval needs --watch$'
+! stdout .
+
+# arguments are refused as before, watching or not
+! exec ct status -w MAN-1
+stderr 'unknown command "MAN-1" for "ct status"'
+! stdout .
+
+# a repo recorded outside its workspace: piped -w warns on stderr as plain
+# ct status does, plus the one watch line, and stdout stays identical
+mkdir home/Projects/work-a/MAN-1
+expand ws1.json
+cp ws1.json home/Projects/work-a/MAN-1/workspace.json
+cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+exec ct status
+cp stdout plain.txt
+cp stderr plain-err.txt
+stderr 'ignoring github-me-foo at "/elsewhere/foo": not inside the workspace'
+exec ct status -w
+cmp stdout plain.txt
+stderr 'ignoring github-me-foo at "/elsewhere/foo": not inside the workspace\nct status: --watch needs a terminal; printed once\n$'
+
+-- man-1.md --
+---
+summary: First
+status: new
+source: manual
+---
+-- ws1.json --
+{"id": "MAN-1", "vault": "$WORK/home/Documents/Obsidian/a", "repos": [
+  {"provider": "github", "owner": "me", "repo": "foo", "slug": "github-me-foo", "path": "/elsewhere/foo", "base": "main", "branch": "feature/MAN-1", "mode": "worktree"}
+]}
