@@ -188,7 +188,7 @@ and the hooks. Sessions run your `claude` command (which may be sandboxed).
 | `ct new [--type bug] "<summary>"` | Create a manual ticket `MAN-<n>` from `templates/ticket-manual.md`. |
 | `ct start [--no-attach] <ID>...` | One tmux window per named ticket (with one ID it switches to it), in the tmux session `tickets-<vault>` (several at once are fine; Tab completes the open ones, `--list` prints them), each a Claude session running `/tickets:work-ticket <ID>` in its workspace `<workRoot>/<ID>`. Without a multiplexer (`CLAUDE_TICKETS_LAUNCHER=none`, or no tmux installed): one ticket, run in the current terminal. |
 | `ct feedback <ID>...` | Same, but runs `/tickets:pr-feedback <ID>`: applies the review feedback on your open Bitbucket PRs for the ticket in its worktrees (committed, not pushed) and drafts a reply per thread in `tickets/<ID>/pr-feedback.md`. In an already-open ticket session, just type `/tickets:pr-feedback`. |
-| `ct status` | Every ticket session: waiting on you (`needs-input`), `idle`, `working`, `exited`; source; vault status; dirty repos. |
+| `ct status [-w]` | Every ticket session: waiting on you (`needs-input`), `idle`, `working`, `exited`; source; vault status; dirty repos. `-w` keeps it on screen, refreshing until Ctrl-C. |
 | `ct attach <ID>` | Jump to a ticket's window. |
 | `ct open <ID>` | Open the ticket's workspace in `$CLAUDE_TICKETS_EDITOR` (default `code`; VS Code gets a multi-root workspace of its worktrees and these notes). |
 | `ct ws repos\|clone\|add\|ls\|diff\|rm\|fetch` | Git worktrees per ticket: `<workRoot>/<ID>/<slug>` on `feature/<ID>[-<description>]`. `clone` (run on the host) fetches a repo the kickoff found on Bitbucket; a running session can then add it straight away. |
