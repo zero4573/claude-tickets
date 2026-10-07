@@ -1,0 +1,80 @@
+# ct vault init and the Tasks plugin: edge cases (QA). Never the network.
+
+# A partial install holding only the user's data.json, and the download
+# fails partway (404): the folder is exactly as it was, no ct temporary
+# folders are left in .obsidian, exit 0
+faketasks 404
+mkdir home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin
+cp mydata.json home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/data.json
+exec ct vault init demo
+stderr 'the Tasks plugin wasn.t installed: main.js: HTTP 404'
+! stdout 'Tasks settings'
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/data.json mydata.json
+! exists home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/main.js
+! exists home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json
+exec ls -A home/Documents/Obsidian/demo/.obsidian
+! stdout '\.ct-tasks-'
+
+# Leftovers of an interrupted run are removed
+mkdir home/Documents/Obsidian/demo/.obsidian/.ct-tasks-staging-1/x
+mkdir home/Documents/Obsidian/demo/.obsidian/.ct-tasks-old-1
+exec ct vault init demo
+! exists home/Documents/Obsidian/demo/.obsidian/.ct-tasks-staging-1
+! exists home/Documents/Obsidian/demo/.obsidian/.ct-tasks-old-1
+
+# The pinned version installed with a blank data.json: blank counts as
+# missing, the settings are written
+cp main.js home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/main.js
+expand current.json
+cp current.json home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json
+cp blank.json home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/data.json
+exec ct vault init demo
+stdout 'wrote the workflow.s Tasks settings \(data.json\)'
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/data.json $TASKS_SETTINGS
+
+# Invalid JSON and null in community-plugins.json are left alone, with a
+# warning; the update hint is still printed
+cp invalid.json home/Documents/Obsidian/demo/.obsidian/community-plugins.json
+exec ct vault init demo
+stderr 'community-plugins.json isn.t a JSON array; Tasks wasn.t enabled'
+stdout 'Check for updates'
+cmp home/Documents/Obsidian/demo/.obsidian/community-plugins.json invalid.json
+cp null.json home/Documents/Obsidian/demo/.obsidian/community-plugins.json
+exec ct vault init demo
+stderr 'community-plugins.json isn.t a JSON array'
+cmp home/Documents/Obsidian/demo/.obsidian/community-plugins.json null.json
+
+# Already listed: the file isn't rewritten (formatting kept)
+cp listed.json home/Documents/Obsidian/demo/.obsidian/community-plugins.json
+exec ct vault init demo
+! stdout 'enabled the Tasks plugin'
+cmp home/Documents/Obsidian/demo/.obsidian/community-plugins.json listed.json
+
+# A manifest that can't be read: warned, nothing written, the hint printed
+cp unknown.json home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json
+exec ct vault init demo
+stderr 'manifest.json: isn.t valid JSON'
+stdout 'Check for updates'
+cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json unknown.json
+
+# Nothing was requested for an installed plugin (only the two partial runs, one 404 each)
+exec cat calls/tasks
+stdout -count=2 '^/'
+
+-- mydata.json --
+{"taskFormat": "dataview"}
+-- main.js --
+// a Tasks plugin
+-- current.json --
+{"id": "obsidian-tasks-plugin", "version": "$TASKS_VERSION"}
+-- blank.json --
+
+
+-- invalid.json --
+["calendar",
+-- null.json --
+null
+-- listed.json --
+["calendar",   "obsidian-tasks-plugin"]
+-- unknown.json --
+not json
