@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"os/exec"
@@ -261,24 +262,48 @@ and not exited.`,
 			if err != nil {
 				return err
 			}
-			if l.Caps().Background {
-				fmt.Printf("Vault %s, %s session %s\n", filepath.Base(ctx.Vault), l.Name(), ctx.TmuxSession)
-			} else {
-				fmt.Printf("Vault %s, no terminal multiplexer (sessions run in their own terminal)\n", filepath.Base(ctx.Vault))
-			}
-			rows := statusRows(ctx, l)
-			if len(rows) == 0 {
-				fmt.Printf("No ticket workspaces under %s (start one with ct start <ID>).\n", ctx.WorkRoot)
-				return nil
-			}
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "TICKET\tSOURCE\tAGENT\tWINDOW\tSTATUS\tREPOS\tSINCE\tWAITING ON")
-			for _, r := range rows {
-				fmt.Fprintln(w, strings.Join(r.cols, "\t"))
-			}
-			return w.Flush()
+			return writeStatus(os.Stdout, buildStatus(ctx, l))
 		},
 	}
+}
+
+// statusView is what ct status shows: the header line, then the rows or,
+// without any, the empty line. Plain and watch mode both render it.
+type statusView struct {
+	header string
+	rows   []statusRow
+	empty  string
+}
+
+func buildStatus(ctx vault.Context, l launcher.Launcher) statusView {
+	v := statusView{
+		header: fmt.Sprintf("Vault %s, no terminal multiplexer (sessions run in their own terminal)", filepath.Base(ctx.Vault)),
+		rows:   statusRows(ctx, l),
+	}
+	if l.Caps().Background {
+		v.header = fmt.Sprintf("Vault %s, %s session %s", filepath.Base(ctx.Vault), l.Name(), ctx.TmuxSession)
+	}
+	if len(v.rows) == 0 {
+		v.empty = fmt.Sprintf("No ticket workspaces under %s (start one with ct start <ID>).", ctx.WorkRoot)
+	}
+	return v
+}
+
+// writeStatus writes the header, then the table (or the empty line).
+func writeStatus(out io.Writer, v statusView) error {
+	if _, err := fmt.Fprintln(out, v.header); err != nil {
+		return err
+	}
+	if len(v.rows) == 0 {
+		_, err := fmt.Fprintln(out, v.empty)
+		return err
+	}
+	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "TICKET\tSOURCE\tAGENT\tWINDOW\tSTATUS\tREPOS\tSINCE\tWAITING ON")
+	for _, r := range v.rows {
+		fmt.Fprintln(w, strings.Join(r.cols, "\t"))
+	}
+	return w.Flush()
 }
 
 type statusRow struct {

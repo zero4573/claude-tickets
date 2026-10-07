@@ -5,6 +5,7 @@ package workspace
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -28,6 +29,10 @@ type Repo struct {
 
 // Clone is the repo's main clone under the projects root.
 func (r Repo) Clone() string { return r.Provider + "/" + r.Owner + "/" + r.Repo }
+
+// Warnings is where Read reports the repos it leaves out (ct status --watch
+// shows them in its frame instead of letting them land on the screen).
+var Warnings io.Writer = os.Stderr
 
 func File(dir string) string { return filepath.Join(dir, "workspace.json") }
 
@@ -102,7 +107,7 @@ func Read(dir string) (Info, error) {
 		if r.Path != "" && filepath.IsAbs(r.Path) && fsx.Inside(resolved(r.Path), root) {
 			kept = append(kept, r)
 		} else {
-			fmt.Fprintf(os.Stderr, "ct: %s: ignoring %s at %q: not inside the workspace\n", File(dir), r.Slug, r.Path)
+			fmt.Fprintf(Warnings, "ct: %s: ignoring %s at %q: not inside the workspace\n", File(dir), r.Slug, r.Path)
 		}
 	}
 	info.Repos = kept
