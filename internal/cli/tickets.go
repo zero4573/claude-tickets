@@ -231,8 +231,10 @@ func newTicket(vaultDir, summary, typ, priority string) (string, error) {
 }
 
 func statusCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "status",
+	var watchMode bool
+	interval := intervalFlag(2 * time.Second)
+	cmd := &cobra.Command{
+		Use:   "status [-w] [--interval <duration>]",
 		Short: "Every ticket session of the vault, waiting on you first",
 		Long: `One row per ticket workspace of the current vault, tickets waiting on you
 first:
@@ -251,9 +253,20 @@ first:
 A session counts as running when its window is open, else when its process
 (recorded by ct start without a multiplexer) is alive on this host, else,
 when that can't be checked, when its .agent-state is less than a day old
-and not exited.`,
+and not exited.
+
+With --watch (-w), ct status stays on screen and redraws the table until
+Ctrl-C: every --interval (a duration such as 2s or 1m; default 2s, at least
+1s) and within a second of any session's .agent-state changing. The first
+line says when the table was last refreshed; rows that don't fit the
+terminal are summed up as "... N more". When stdout isn't a terminal it
+prints the table once, as without -w, with a warning on stderr.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("interval") && !watchMode {
+				return errIntervalNeedsWatch
+			}
+			// Resolved once: watch mode keeps this vault for its whole run
 			ctx, err := vault.Require()
 			if err != nil {
 				return err
@@ -262,9 +275,18 @@ and not exited.`,
 			if err != nil {
 				return err
 			}
-			return writeStatus(os.Stdout, buildStatus(ctx, l))
+			switch {
+			case !watchMode:
+				return writeStatus(os.Stdout, buildStatus(ctx, l))
+			case !stdoutIsTerminal():
+				return printStatusOnce(ctx, l, "a terminal")
+			}
+			return runStatusWatch(cmd.Context(), ctx, l, time.Duration(interval))
 		},
 	}
+	cmd.Flags().BoolVarP(&watchMode, "watch", "w", false, "keep the table on screen and refresh it until Ctrl-C")
+	cmd.Flags().Var(&interval, "interval", "how often --watch refreshes (at least 1s)")
+	return cmd
 }
 
 // statusView is what ct status shows: the header line, then the rows or,
