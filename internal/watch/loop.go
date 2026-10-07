@@ -97,7 +97,7 @@ func Run(ctx context.Context, c Config) error {
 	}
 	draw := func() error {
 		drawnW, drawnH = size()
-		return DrawFrame(c.Out, Fit(frame, drawnW, drawnH), drawnW)
+		return DrawFrame(c.Out, Fit(frame, drawnW, drawnH))
 	}
 	resized := func() error {
 		if frame == nil {

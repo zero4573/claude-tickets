@@ -25,7 +25,7 @@ func (f *frames) Write(p []byte) (int, error) {
 	if f.err != nil {
 		return 0, f.err
 	}
-	s := strings.TrimSuffix(strings.TrimPrefix(string(p), home), eraseBelow)
+	s := strings.ReplaceAll(strings.TrimPrefix(string(p), home), eraseBelow, "")
 	s = strings.ReplaceAll(s, eraseLine, "")
 	f.list = append(f.list, strings.Split(s, "\r\n"))
 	return len(p), nil

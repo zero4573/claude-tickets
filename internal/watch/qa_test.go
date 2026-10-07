@@ -158,15 +158,13 @@ func TestRunSlowRefreshNoOverlap(t *testing.T) {
 
 // QA (MAN-15), defect D1 in tickets/MAN-15/qa-report.md: after a line that
 // fills the width the cursor sits on its last column with a pending wrap,
-// and an erase there (ESC[K, which DrawFrame avoids for that reason, or
-// the final ESC[J) takes that line's last character on xterm-like
-// terminals. Today the frame always ends with ESC[J, so when its last line
-// is cut to the width (a wide table in a narrow pane that fits in height)
-// its last character is erased. Unskip once fixed.
+// and an erase there (ESC[K or ESC[J) takes that line's last character on
+// xterm-like terminals. DrawFrame used to end every frame with ESC[J, so a
+// last line cut to the width lost its last character. Fixed: every erase
+// now comes before a row's text.
 func TestDrawFrameNoEraseAfterFullWidthLastLine(t *testing.T) {
-	t.Skip("defect D1 (MAN-15 QA): ESC[J follows a full-width last line")
 	var w countingWriter
-	if err := DrawFrame(&w, []string{"short", "exactly10!"}, 10); err != nil {
+	if err := DrawFrame(&w, []string{"short", "exactly10!"}); err != nil {
 		t.Fatal(err)
 	}
 	if s := w.String(); strings.Contains(s, "exactly10!\x1b[J") || strings.Contains(s, "exactly10!\x1b[K") {
