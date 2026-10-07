@@ -1,0 +1,114 @@
+# ct status --watch without a terminal (testscript gives ct pipes): the
+# table once, as plain ct status prints it, and a warning on stderr; flag
+# validation fails before anything is printed
+
+# no vault: the same error as plain ct status, no escape sequences
+! exec ct status
+cp stderr plain-err.txt
+! exec ct status -w
+cmp stderr plain-err.txt
+! stdout .
+! stderr '\x1b'
+
+mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/tickets/MAN-1 home/Documents/Obsidian/a/tickets/MAN-2
+
+# no workspaces yet
+exec ct status -w
+stdout '^Vault a, tmux session tickets-a$'
+stdout '^No ticket workspaces under .*/work-a \(start one with ct start <ID>\)\.$'
+stderr '^ct status: --watch needs a terminal; printed once$'
+
+# MAN-1 waiting on you with its window open, MAN-2 working
+mkdir home/Projects/work-a/MAN-1 home/Projects/work-a/MAN-2
+expand ws1.json ws2.json
+cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+cp man-2.md home/Documents/Obsidian/a/tickets/MAN-2/MAN-2.md
+cp ws1.json home/Projects/work-a/MAN-1/workspace.json
+cp state-needs.json home/Projects/work-a/MAN-1/.agent-state
+cp ws2.json home/Projects/work-a/MAN-2/workspace.json
+cp state-working.json home/Projects/work-a/MAN-2/.agent-state
+mkdir home/Projects/work-a/MAN-1/repo-a/.git
+cp windows tmux-windows
+
+exec ct status
+cp stdout plain.txt
+! stderr .
+
+# piped: stdout byte-identical to plain ct status, one warning line
+exec ct status -w
+cmp stdout plain.txt
+stderr '^ct status: --watch needs a terminal; printed once\n$'
+! stdout '\x1b'
+stdout '(?s)^Vault a, tmux session tickets-a\n.*MAN-1 .*needs-input.*\nMAN-2 '
+
+exec ct status --watch --interval 5s
+cmp stdout plain.txt
+stderr '^ct status: --watch needs a terminal; printed once$'
+
+# watch mode only needs stdout to be a terminal: ct-tty (stdin and stdout
+# taken for one) doesn't fake that, so it prints once too
+exec ct-tty status -w --interval 1m
+cmp stdout plain.txt
+stderr 'printed once'
+
+# --interval needs --watch, even with the default value
+! exec ct status --interval 2s
+stderr '^ct: --interval needs --watch$'
+! stdout .
+
+# --interval: a duration of at least 1s
+! exec ct status -w --interval 500ms
+stderr 'invalid argument "500ms" for "--interval" flag: want a duration of at least 1s'
+! stdout .
+! exec ct status -w --interval 0s
+stderr 'at least 1s'
+! stdout .
+! exec ct status -w --interval=-1s
+stderr 'at least 1s'
+! stdout .
+! exec ct status -w --interval abc
+stderr 'at least 1s'
+! stdout .
+! exec ct status -w --interval 2
+stderr 'at least 1s'
+! stdout .
+
+# none mode: the same header and WINDOW wording as plain ct status
+env CLAUDE_TICKETS_LAUNCHER=none
+exec ct status
+cp stdout plain-none.txt
+exec ct status -w
+cmp stdout plain-none.txt
+stdout '^Vault a, no terminal multiplexer \(sessions run in their own terminal\)$'
+stdout '^MAN-1 +manual +needs-input +- '
+
+# a bad launcher fails as plain ct status does, before printing anything
+env CLAUDE_TICKETS_LAUNCHER=tmx
+! exec ct status -w
+stderr 'unknown launcher .tmx.'
+! stdout .
+
+-- man-1.md --
+---
+summary: First
+status: new
+source: manual
+---
+-- man-2.md --
+---
+summary: Second
+status: in-progress
+source: jira
+---
+-- ws1.json --
+{"id": "MAN-1", "vault": "$WORK/home/Documents/Obsidian/a", "repos": [
+  {"provider": "github", "owner": "me", "repo": "foo", "slug": "github-me-foo", "path": "$WORK/home/Projects/work-a/MAN-1/repo-a", "base": "main", "branch": "feature/MAN-1", "mode": "worktree"}
+]}
+-- ws2.json --
+{"id": "MAN-2", "vault": "$WORK/home/Documents/Obsidian/a", "repos": []}
+-- state-needs.json --
+{"state": "needs-input", "reason": "Which base branch?", "ts": "2026-10-03T10:00:00-04:00"}
+-- state-working.json --
+{"state": "working", "reason": "", "ts": "2026-10-03T09:00:00-04:00"}
+-- windows --
+MAN-1
