@@ -232,10 +232,12 @@ func trusted(file, dir string) bool {
 
 // WriteGraphMCP writes <dir>/.claude/graph-mcp.json, the MCP config of the
 // workspace's code graph (ct graph mcp <dir>, as the graphify server), and
-// returns its path.
+// returns its path. A ct on PATH is named bare, not by the path LookPath
+// found: the session may run where that path doesn't exist (a container
+// with its own PATH), and resolves ct on its own PATH instead.
 func WriteGraphMCP(dir, vault string) (string, error) {
-	ct, err := exec.LookPath("ct")
-	if err != nil {
+	ct := "ct"
+	if _, err := exec.LookPath(ct); err != nil {
 		if ct, err = os.Executable(); err != nil {
 			return "", err
 		}
