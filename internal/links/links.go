@@ -559,7 +559,7 @@ func Move(vault, src, dst string) (res MoveResult, err error) {
 			return m[0]
 		})
 		if out != text {
-			if err := fsx.WriteFileAtomic(f, []byte(out), 0o644); err != nil {
+			if err := writeNote(f, []byte(out)); err != nil {
 				return res, err
 			}
 			rf, _ := filepath.Rel(vault, f)
@@ -613,4 +613,28 @@ func moveFile(src, dst string) error {
 		return err
 	}
 	return os.Remove(src)
+}
+
+// writeNote rewrites a linking note in place: through a symlink (the target
+// is rewritten, the link stays) and keeping the file's mode. It is a var as
+// a test seam.
+var writeNote = func(f string, data []byte) error {
+	target, err := filepath.EvalSymlinks(f)
+	if err != nil {
+		return err
+	}
+	mode := os.FileMode(0o644)
+	if st, err := os.Stat(target); err == nil {
+		mode = st.Mode().Perm()
+	}
+	return fsx.WriteFileAtomic(target, data, mode)
+}
+
+// WrapWriteNoteForTest wraps the note writer (wrap gets the current one) and
+// returns the restore func. For tests in other packages that need a write to
+// fail where chmod can't (root).
+func WrapWriteNoteForTest(wrap func(next func(f string, data []byte) error) func(f string, data []byte) error) (restore func()) {
+	old := writeNote
+	writeNote = wrap(old)
+	return func() { writeNote = old }
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -30,11 +31,19 @@ func TestSnapshotDiff(t *testing.T) {
 	write(t, filepath.Join(tk, "B/B.md"), "bbb")
 	write(t, filepath.Join(tk, "C/C.md"), "ccc")
 	write(t, filepath.Join(tk, "D/D.md"), "ddd")
+	write(t, filepath.Join(tk, ".sync-state.json"), "{}")
+	write(t, filepath.Join(tk, ".sync-state.json.lock"), "")
+	write(t, filepath.Join(tk, ".hidden/H.md"), "h")
 	old := time.Now().Add(-time.Hour)
 	os.Chtimes(filepath.Join(tk, "D/D.md"), old, old)
 	before, err := snapshotTickets(v)
 	if err != nil || before["tickets/A/A.md"].size != 3 {
 		t.Fatalf("%v %v", before, err)
+	}
+	for p := range before {
+		if strings.Contains(p, "/.") {
+			t.Fatalf("dot-file in snapshot: %s", p)
+		}
 	}
 	if got := changedPaths(before, before); len(got) != 0 {
 		t.Fatalf("unchanged: %v", got)

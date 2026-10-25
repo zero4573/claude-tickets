@@ -84,7 +84,7 @@ func TestTicketSyncRefreshesWrittenNotes(t *testing.T) {
 	if !found {
 		t.Fatalf("PROJ-1 note missing from %v", got)
 	}
-	if want := "tickets/.sync-state.json tickets/.sync-state.json.lock tickets/PROJ-1/PROJ-1.md"; strings.Join(got, " ") != want {
+	if want := "tickets/PROJ-1/PROJ-1.md"; strings.Join(got, " ") != want {
 		t.Fatalf("want exactly %q, got %v", want, got)
 	}
 }

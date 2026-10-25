@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 // stamp is what a snapshot records per file: enough to tell an edit.
@@ -35,6 +36,12 @@ func snapshotTickets(vault string) (map[string]stamp, error) {
 	err = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+		if p != root && strings.HasPrefix(d.Name(), ".") {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 		if !d.Type().IsRegular() {
 			return nil

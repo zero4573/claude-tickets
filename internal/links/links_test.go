@@ -1,6 +1,7 @@
 package links
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -122,26 +123,56 @@ func TestMoveSelfLink(t *testing.T) {
 	}
 }
 
-// skipIfCanWriteReadOnly skips when chmod can't stop writes (root, Windows).
-func skipIfCanWriteReadOnly(t *testing.T) {
+// failWriteOn makes writeNote fail for the note at vault-relative rel only.
+func failWriteOn(t *testing.T, v, rel string) {
 	t.Helper()
-	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
-		t.Skip("permissions not enforced")
+	orig := writeNote
+	t.Cleanup(func() { writeNote = orig })
+	bad := filepath.Join(v, rel)
+	writeNote = func(f string, data []byte) error {
+		if f == bad {
+			return errors.New("injected write error")
+		}
+		return orig(f, data)
+	}
+}
+
+func TestMoveKeepsSymlinkAndMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks")
+	}
+	v := t.TempDir()
+	write(t, v, ".obsidian/app.json", "{}")
+	write(t, v, "inbox/x.md", "# x\n")
+	write(t, v, "real/target.md", "[[inbox/x]]\n")
+	write(t, v, "a/private.md", "[[inbox/x]]\n")
+	if err := os.Symlink(filepath.Join(v, "real/target.md"), filepath.Join(v, "a/link.md")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Join(v, "a/private.md"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Move(v, "inbox/x.md", "notes/x.md"); err != nil {
+		t.Fatal(err)
+	}
+	if st, err := os.Lstat(filepath.Join(v, "a/link.md")); err != nil || st.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("symlink replaced: %v %v", st, err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(v, "real/target.md")); !strings.Contains(string(b), "notes/x") {
+		t.Errorf("target not rewritten: %q", b)
+	}
+	if st, _ := os.Stat(filepath.Join(v, "a/private.md")); st.Mode().Perm() != 0o600 {
+		t.Errorf("mode = %v, want 0600", st.Mode().Perm())
 	}
 }
 
 func TestMovePartialResultAfterWriteError(t *testing.T) {
-	skipIfCanWriteReadOnly(t)
 	v := t.TempDir()
 	write(t, v, ".obsidian/app.json", "{}")
 	write(t, v, "inbox/x.md", "# x\n")
 	write(t, v, "a/ok.md", "[[inbox/x]]\n")
 	write(t, v, "b/ro/stuck.md", "[[inbox/x]]\n")
-	ro := filepath.Join(v, "b/ro")
-	if err := os.Chmod(ro, 0o555); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Chmod(ro, 0o755)
+	failWriteOn(t, v, "b/ro/stuck.md")
 	res, err := Move(v, "inbox/x.md", "notes/x.md")
 	if err == nil {
 		t.Fatal("expected a write error")
