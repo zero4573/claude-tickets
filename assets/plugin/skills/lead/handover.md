@@ -24,22 +24,25 @@ faster or safer: navigation pointers, missing or unwired automated checks, revie
 (mechanical violations get a check instead), `AGENTS.md` no-ops and bloat, tool economy,
 information access. Add **at most 8**, most severe first, to `backlog.md ## Open` as
 `B-nn · retro · <repo|plugin|vault> · <change> (<evidence: task NN, finding id>)`. They go
-into the follow-up-ticket question (3) with the rest of the backlog.
+into the per-item follow-up question (3) with the rest of the backlog.
 
 ## 3. Backlog → follow-up tickets
-1. Group the backlog's `## Open` items by theme into at most 5 candidate tickets (backlog
-   items only, never review findings).
-2. Ask through the gate (`SKILL.md`): one `relay.md` question, and `Ask user:` with one option
-   per candidate (multi-select), its summary, type and the `B-nn` IDs it covers, recommended
-   ones first. "None" is a valid answer. End the run with `Next: wait-user`.
-3. When the PO messages you the answer, for each chosen one: `ct new --type <dev|bug|chore|investigation> "<summary>"`. It prints
-   the new note's path. Write its initial content yourself, in that note only:
+1. Never run `ct new` unasked. Ask through the gate (`SKILL.md`): one `relay.md` question per
+   open item of the backlog's `## Open` (backlog items only, never review findings), batched
+   in one `Ask user:`. Options per item: A, this ticket; B, a new ticket (proposed summary and
+   type; suggest which items share one); C, an existing ticket (name it); D, leave it in the
+   backlog. Recommended first. End the run with `Next: wait-user`.
+2. When the PO messages you the answers: items answered A become a fix wave (`SKILL.md` 4-7)
+   merged before the hand-over ends. For each new ticket (answer B):
+   `ct new --type <dev|bug|chore|investigation> "<summary>"`. It prints
+   the new note's path. Write each new note's initial content yourself, in that note only:
    `## Description` (the items and why they matter), `## Acceptance criteria`,
    `## Context / links` (`[[<ID>]]` and the `B-nn`/finding IDs), plus `projects:` and the tag
    `from-ticket`. From then on the ticket is the user's. List it in `## Review`.
-4. Check that each `deferred` disposition line's ticket exists and lists the item (the lead
-   filed it during triage, `SKILL.md` 7); fix any that doesn't.
-5. Move the converted IDs to `## Closed` with the new ticket IDs; what's left stays open.
+   For answer C, add the item to that ticket's note.
+3. Check that each `deferred` disposition line's ticket exists and lists the item (the lead
+   filed it during triage after the user's answer, `SKILL.md` 7); fix any that doesn't.
+4. Move the items sent to tickets to `## Closed` with the ticket IDs; the rest stays open.
 
 ## 4. kb-drafts
 Make sure `tickets/<ID>/kb-drafts/` is complete, each note with a `target:` field:

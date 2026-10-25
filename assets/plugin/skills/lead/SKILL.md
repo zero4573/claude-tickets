@@ -144,10 +144,13 @@ Every finding ends `resolved` or `deferred` in the file's `## Dispositions` (con
   `<ID> · resolved · task NN (<merge sha>)` (or a commit sha) once a fix is merged;
   `<ID> · resolved · kept: <reason ≤150 chars> (<sha if a comment or doc was added>)` for
   dropped, intended or not-applicable items (the reason is mandatory);
-  `<ID> · deferred · [[<ticket>]] · <why>` when it goes to a follow-up ticket (filed with
-  `ct new`, or an existing one; add the item to that ticket's note). Writing a `deferred` line
-  means filing that ticket now (or naming the existing one and adding the item to its note),
-  so the gate can pass before hand-over.
+  `<ID> · deferred · [[<ticket>]] · <why>` when it goes to a follow-up ticket.
+  **Never file a ticket on your own.** First ask the user, one `relay.md` question per item,
+  batched in one `Ask user:` through the gate. Options per item: A, this ticket (a fix task in
+  the next wave); B, a new ticket (propose summary and type; items may share one); C, an
+  existing ticket (name it); for backlog items only, D, leave it in the backlog. Only for an
+  answer B (`ct new`) or C do you file or name the ticket, add the item to its note and write
+  `deferred`, so the gate can pass before hand-over.
   A backlog item is not an end state: it stays `open` (here and in `backlog.md`) until fixed
   or deferred. Keep planning
   fix waves until the gate prints nothing. The gate runs at hand-over (8); between waves only

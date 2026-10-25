@@ -299,3 +299,22 @@ func TestWaveBatchedWakeups(t *testing.T) {
 	has("board template", string(tplData), "\n  agents: []\n  finished: []\n")
 	has("AGENTS.md", string(agentsData), "wakes the lead once per wave")
 }
+
+// R-08: no agent files a follow-up ticket without a per-item answer from the user.
+func TestFollowUpsAskedPerItem(t *testing.T) {
+	texts := pluginTexts(t)
+	for p, want := range map[string]string{
+		"plugin/skills/lead/SKILL.md":        "Never file a ticket on your own",
+		"plugin/skills/lead/handover.md":     "Never run `ct new` unasked",
+		"plugin/skills/kb/SKILL.md":          "Never run `ct new` without that answer",
+		"plugin/skills/retro/SKILL.md":       "never file unasked",
+		"plugin/skills/work-ticket/SKILL.md": "nothing is filed with `ct new` before the answer",
+	} {
+		if !strings.Contains(texts[p], want) {
+			t.Errorf("%s: missing %q", p, want)
+		}
+	}
+	if strings.Contains(texts["plugin/skills/lead/handover.md"], "at most 5 candidate") {
+		t.Error("handover.md: still groups into candidates")
+	}
+}
