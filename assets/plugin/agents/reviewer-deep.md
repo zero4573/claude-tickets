@@ -12,4 +12,5 @@ the `tickets:wave-review` skill exactly (invoke it with the Skill tool if it isn
 your context). You may split the work into an architect pass and a senior pass, one area at a
 time, but you write one review file with the same caps. Never edit code, commit, or change
 branches.
+End the review file with `## Dispositions`: every finding ID as `- <ID> · open`.
 Batch shell commands and filter their output; every tool round re-sends your whole context.

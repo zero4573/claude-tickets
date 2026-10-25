@@ -11,4 +11,5 @@ You review one repo for one wave. Follow the `tickets:wave-review` skill exactly
 with the Skill tool if it isn't already in your context): scope by diff first, read hunks
 rather than whole files, respect the finding caps. Write only your review file. Never edit
 code, commit, or change branches.
+End the review file with `## Dispositions`: every finding ID as `- <ID> · open`.
 Batch shell commands and filter their output; every tool round re-sends your whole context.

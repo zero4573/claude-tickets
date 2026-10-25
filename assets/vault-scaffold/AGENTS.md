@@ -24,11 +24,11 @@ ROOT
 │       ├── plan.md        #     the lead's plan: scope, criteria, decisions, waves, relationships
 │       ├── board.md       #     task and review tables, one row each; the PO's lead: and po: (see "Workflow")
 │       ├── relay.md       #     you ↔ PO ↔ lead: requests, questions, answers, decisions (capped)
-│       ├── backlog.md     #     leftovers and review findings not fixed yet (≤40 open)
+│       ├── backlog.md     #     leftovers and review findings not fixed yet (≤40 open; an item stays open until fixed or deferred to a ticket)
 │       ├── PROJ-12-questionnaire-<slug>.md # questions for someone else (tickets:questionnaire)
 │       ├── tasks/         #     PROJ-12-NN-<slug>.md: one task each, with the agent's ## Report
 │       ├── contracts/     #     <name>-v<N>.md: exact shapes that tasks share
-│       ├── reviews/       #     wave-N-<slug>.md: one capped review per wave and repo
+│       ├── reviews/       #     wave-N-<slug>.md: one capped review per wave and repo, ending in `## Dispositions` (every finding `resolved` or `deferred`)
 │       ├── investigation.md #   investigation tickets only
 │       ├── pr-feedback.md #     PR review threads: outcome + draft reply each (/tickets:pr-feedback)
 │       ├── kb-drafts/     #     knowledge notes drafted during the ticket; promoted by /tickets:save
@@ -453,7 +453,9 @@ in a few calls; `ct start --continue <ID>` reopens the last one.
    sharing `owns`. The lead merges each `--no-ff` and runs the repo's checks.
 5. **Review:** one reviewer per repo and wave (≤3 must-fix, ≤6 should-fix,
    ≤5 consider). Must-fixes become fix tasks before the next wave; the rest
-   go to fix tasks or `backlog.md` (≤40 open, triaged each wave).
+   go to fix tasks or `backlog.md` (≤40 open, triaged each wave). No finding stays open: each
+   gets a line in the review's `## Dispositions` (`resolved` with a fix or `kept: <reason>`,
+   or `deferred` to a ticket), and hand-over waits until none is `open`.
 6. **Hand-over:** a short retro (fixes to the agents' environment become
    backlog items; `/tickets:retro` runs one any time), backlog items you
    pick become follow-up tickets (≤5); then `## Review` and status

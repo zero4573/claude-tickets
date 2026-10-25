@@ -33,4 +33,8 @@ Plain bullets only, no checkboxes.
 <!-- ≤5 bullets -->
 
 ## Previous findings
-<!-- One line: resolved and still-open IDs, checked against the fix tasks -->
+<!-- One line: resolved and still-open IDs, checked against the previous review's Dispositions (any not resolved/deferred is still open) -->
+
+## Dispositions
+<!-- The lead's: one line per finding, `<ID> · resolved · <how>` or `<ID> · deferred · [[<ticket>]] · <why>` -->
+<!-- The reviewer lists every finding ID of Must-fix, Should-fix and Consider as `- <ID> · open`. -->
