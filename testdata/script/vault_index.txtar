@@ -61,9 +61,28 @@ stdout '2 chunks embedded'
 ! exec ct vault index --no-such-flag
 stderr 'unknown flag'
 
-# No model: keyword-only index, the hint once.
+# An unknown model is a usage error.
+env CLAUDE_TICKETS_EMBEDDER=
+! exec ct vault index --model no-such-model
+stderr 'unknown model'
+env CLAUDE_TICKETS_EMBEDDER=stub
+
+# No model on an index with vectors: they are kept, new chunks get zero rows.
 env CLAUDE_TICKETS_EMBEDDER=none
+cp acme3.md home/Documents/Obsidian/v/projects/acme/acme.md
 exec ct vault index
+stderr '^ct: no embedding model, keyword search only'
+grep '"model":"stub"' home/Documents/Obsidian/v/.ct/index/meta.json
+exists home/Documents/Obsidian/v/.ct/index/vectors.f32
+env CLAUDE_TICKETS_EMBEDDER=stub
+exec ct vault index
+stdout ' 0 changed'
+stdout '1 chunks embedded'
+env CLAUDE_TICKETS_EMBEDDER=none
+
+# No model, explicit rebuild: keyword-only index, the hint once.
+rm home/Documents/Obsidian/v/.ct/index/model-hint
+exec ct vault index --full
 stdout 'keyword only'
 stderr '^ct: no embedding model, keyword search only; on the host run: ct vault model fetch$'
 grep '"model":"","model_sha256":"","dims":0' home/Documents/Obsidian/v/.ct/index/meta.json
@@ -109,6 +128,18 @@ See [[other]] for more.
 ## Details
 
 The edited details.
+-- acme3.md --
+---
+type: project
+tags: [a]
+---
+# Acme
+
+See [[other]] for more.
+
+## Details
+
+The third details.
 -- other.md --
 # Other
 

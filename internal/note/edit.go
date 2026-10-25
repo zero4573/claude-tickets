@@ -185,6 +185,21 @@ var fieldRe = regexp.MustCompile(`^([a-z][a-z-]*):(.*)$`)
 // Frontmatter.
 func ListField(file, key string) []string {
 	lines, _ := fileLines(file)
+	return ListFieldLines(lines, key)
+}
+
+// Lines splits note text the way ListField reads a file (BOM and CRLF
+// handled, a missing final newline ignored).
+func Lines(src []byte) []string {
+	s := Normalize(string(src))
+	if s == "" {
+		return nil
+	}
+	return strings.Split(strings.TrimSuffix(s, "\n"), "\n")
+}
+
+// ListFieldLines is ListField on lines from Lines.
+func ListFieldLines(lines []string, key string) []string {
 	if len(lines) == 0 || lines[0] != "---" {
 		return nil
 	}

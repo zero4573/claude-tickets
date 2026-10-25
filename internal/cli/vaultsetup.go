@@ -25,6 +25,7 @@ import (
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/vaultlock"
 	"github.com/zero4573/claude-tickets/internal/version"
+	"github.com/zero4573/claude-tickets/internal/vindex"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
 
@@ -1027,6 +1028,7 @@ links ([[old/path/note]]) across the vault to the new path. Bare-name links
 			if err != nil {
 				return exitWith(2, err)
 			}
+			vindex.Refresh(v) // the moved note and every rewritten one
 			fmt.Println(rel)
 			if n > 0 {
 				fmt.Fprintf(os.Stderr, "ct vault links: rewrote %d path-qualified link(s)\n", n)

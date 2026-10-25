@@ -14,6 +14,8 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+
+	"github.com/zero4573/claude-tickets/internal/lock"
 )
 
 // Format is meta.json's "format".
@@ -81,9 +83,29 @@ func (ix *Index) Vector(i int) []float32 {
 	return ix.vecs[i*d : (i+1)*d]
 }
 
-// Load reads the index. A missing, damaged or inconsistent index gives an
-// error wrapping ErrNoIndex.
+// Load reads the index under index.lock, so it never sees a set a writer is
+// half through. A missing, damaged or inconsistent index gives an error
+// wrapping ErrNoIndex. Where the lock file can't be opened (a read-only
+// vault) it reads without it.
 func Load(vault string) (*Index, error) {
+	if _, err := os.Stat(filepath.Join(Dir(vault), "meta.json")); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrNoIndex, err)
+	}
+	var ix *Index
+	var lerr error
+	ran := false
+	if err := lock.With(filepath.Join(vault, ".ct", "index.lock"), func() error {
+		ran = true
+		ix, lerr = load(vault)
+		return nil
+	}); err != nil && !ran {
+		return load(vault)
+	}
+	return ix, lerr
+}
+
+// load is Load for a caller holding the lock.
+func load(vault string) (*Index, error) {
 	dir := Dir(vault)
 	data, err := os.ReadFile(filepath.Join(dir, "meta.json"))
 	if err != nil {
@@ -119,10 +141,21 @@ func Load(vault string) (*Index, error) {
 	if len(ix.Notes) != ix.Meta.Notes || len(ix.Chunks) != ix.Meta.Chunks {
 		return nil, fmt.Errorf("%w: files don't match meta.json", ErrNoIndex)
 	}
-	for _, c := range ix.Chunks {
-		if c.Note < 0 || c.Note >= len(ix.Notes) {
-			return nil, fmt.Errorf("%w: chunk of unknown note", ErrNoIndex)
+	// Notes tile the chunk rows: note i owns rows [First, First+Count), in order.
+	next := 0
+	for i, n := range ix.Notes {
+		if n.First != next || n.Count < 0 || n.First+n.Count > len(ix.Chunks) {
+			return nil, fmt.Errorf("%w: note %q doesn't tile the chunks", ErrNoIndex, n.Path)
 		}
+		for r := n.First; r < n.First+n.Count; r++ {
+			if ix.Chunks[r].Note != i {
+				return nil, fmt.Errorf("%w: chunk %d is not note %d's", ErrNoIndex, r, i)
+			}
+		}
+		next += n.Count
+	}
+	if next != len(ix.Chunks) {
+		return nil, fmt.Errorf("%w: chunks without a note", ErrNoIndex)
 	}
 	if ix.Meta.Dims > 0 {
 		raw, err := os.ReadFile(filepath.Join(dir, "vectors.f32"))

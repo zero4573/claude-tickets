@@ -4,6 +4,7 @@ package note
 
 import (
 	"bufio"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -85,13 +86,18 @@ func SyncOwned(fm map[string]string, field string, sourceBlock bool) bool {
 // the note has them. A missing note or one without frontmatter gives an
 // empty map. Lists and nested values come back as their raw first line.
 func Frontmatter(file string) map[string]string {
-	out := map[string]string{}
 	f, err := os.Open(file)
 	if err != nil {
-		return out
+		return map[string]string{}
 	}
 	defer f.Close()
-	sc := bufio.NewScanner(f)
+	return FrontmatterFrom(f)
+}
+
+// FrontmatterFrom is Frontmatter for text already read.
+func FrontmatterFrom(r io.Reader) map[string]string {
+	out := map[string]string{}
+	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 1024*1024), 1024*1024)
 	first := true
 	for sc.Scan() {

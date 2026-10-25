@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zero4573/claude-tickets/internal/modelcache"
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/vindex"
 )
@@ -40,6 +41,9 @@ the index is keyword-only (ct vault model fetch, on the host, adds it).
 			}
 			if err != nil {
 				return err
+			}
+			if _, ok := modelcache.Lookup(model); model != "" && !ok && os.Getenv("CLAUDE_TICKETS_EMBEDDER") == "" {
+				return exitWith(2, fmt.Errorf("unknown model %q (ct vault model lists the pinned ones)", model))
 			}
 			st, err := vindex.Update(v, vindex.UpdateOptions{
 				Full: full, Model: model, ChunkTokens: chunkTokens, Log: os.Stderr,
