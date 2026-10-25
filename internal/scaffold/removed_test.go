@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/zero4573/claude-tickets/internal/vaultlock"
@@ -127,5 +128,65 @@ func TestApplyLocked(t *testing.T) {
 	}
 	if read(t, v, "inbox.md") != "inbox\n" {
 		t.Error("not written")
+	}
+}
+
+// W6-claude-tickets-S02: a retired view edited after Classify is kept, with
+// a warning and its record entry.
+func TestApplyKeepsRetiredViewEditedBeforeRemove(t *testing.T) {
+	src, v := removedSetup(t)
+	h := Hash([]byte("view\n"))
+	if err := saveRecord(v, map[string]Shipped{"pending.md": {h, "0.1"}, "done.md": {h, "0.1"}}); err != nil {
+		t.Fatal(err)
+	}
+	beforeRemove = func(abs string) {
+		if filepath.Base(abs) == "pending.md" {
+			write(t, v, "pending.md", "edited meanwhile\n")
+		}
+	}
+	t.Cleanup(func() { beforeRemove = nil })
+	res, err := Apply(v, src, Options{Version: "1.0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if read(t, v, "pending.md") != "edited meanwhile\n" {
+		t.Error("an edited view was deleted")
+	}
+	if _, err := os.Lstat(filepath.Join(v, "done.md")); err == nil {
+		t.Error("the unedited view was kept")
+	}
+	if _, ok := res.Done["pending.md"]; ok {
+		t.Errorf("reported as done: %v", res.Done)
+	}
+	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0], "pending.md") {
+		t.Errorf("warnings %v", res.Warnings)
+	}
+	if _, ok := loadRec(t, v).Files["pending.md"]; !ok {
+		t.Error("kept view lost its record entry")
+	}
+}
+
+// W6-claude-tickets-C04: DryRun ignores Locked: no lock, nothing written.
+func TestApplyDryRunWithLockedWritesNothing(t *testing.T) {
+	src, v := removedSetup(t)
+	dir, err := vaultlock.Dir(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := Apply(v, src, Options{DryRun: true, Locked: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h := vaultlock.Holder(dir); h != "" {
+		t.Errorf("lock holder %q", h)
+	}
+	if _, err := os.Lstat(filepath.Join(v, "inbox.md")); err == nil {
+		t.Error("a file was written")
+	}
+	if _, err := os.Lstat(filepath.Join(v, ".scaffold.json")); err == nil {
+		t.Error("the record was written")
+	}
+	if res.Done["inbox.md"] != Added {
+		t.Errorf("done %v", res.Done)
 	}
 }

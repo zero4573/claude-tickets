@@ -10,6 +10,10 @@ import (
 	"github.com/zero4573/claude-tickets/internal/vaultlock"
 )
 
+// beforeRemove is a test seam: called just before a retired view is
+// re-checked and deleted.
+var beforeRemove func(abs string)
+
 // Options for Apply.
 type Options struct {
 	DryRun  bool     // report only: nothing is created, written, renamed or locked
@@ -17,7 +21,7 @@ type Options struct {
 	Version string   // the ct version recorded with what it writes
 	Owner   string   // the vault lock's owner, made unique per run (default ct-vault-update)
 	AddOnly bool     // ct vault init: only missing files are written; stale ones are counted
-	Locked  bool     // the caller holds the vault lock: Apply doesn't take it (never with DryRun)
+	Locked  bool     // the caller holds the vault lock: Apply doesn't take it (ignored with DryRun, which never locks)
 }
 
 // What Apply did (or, in a dry run, would do) to a file.
@@ -131,6 +135,15 @@ func Apply(vault string, src Source, o Options) (Result, error) {
 		}
 		dest := filepath.Join(vault, filepath.FromSlash(e.Rel))
 		if res.Done[e.Rel] == Deleted {
+			// Obsidian doesn't honour the lock: re-check just before the delete
+			if beforeRemove != nil {
+				beforeRemove(dest)
+			}
+			if _, now, reason, err := look(dest); err == nil && (reason != "" || now != e.Have) {
+				delete(res.Done, e.Rel)
+				res.Warnings = append(res.Warnings, fmt.Sprintf("%s: changed during the update; kept", e.Rel))
+				continue
+			}
 			if err := os.Remove(dest); err != nil && !errors.Is(err, fs.ErrNotExist) {
 				return res, err
 			}

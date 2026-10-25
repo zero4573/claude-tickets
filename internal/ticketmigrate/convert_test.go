@@ -1,8 +1,11 @@
 package ticketmigrate
 
 import (
+	"io/fs"
 	"strings"
 	"testing"
+
+	"github.com/zero4573/claude-tickets/assets"
 )
 
 const v1Board = `---
@@ -233,5 +236,58 @@ func TestConvertBacklog(t *testing.T) {
 	crlf := ConvertBacklog([]byte(strings.ReplaceAll(in, "\n", "\r\n")))
 	if strings.ReplaceAll(string(crlf.Data), "\r\n", "\n") != want {
 		t.Error("CRLF")
+	}
+}
+
+// W6-claude-tickets-M01: the comments equal the shipped templates' text byte
+// for byte, so a template edit breaks the build until they follow.
+func TestCommentsMatchShippedTemplates(t *testing.T) {
+	read := func(name string) string {
+		b, err := fs.ReadFile(assets.Scaffold, "vault-scaffold/templates/"+name+".md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.ReplaceAll(string(b), "\r\n", "\n")
+	}
+	board, review := read("board"), read("review")
+	for name, c := range map[string]struct{ tpl, comment string }{
+		"TasksComment":        {board, TasksComment},
+		"ReviewsComment":      {board, ReviewsComment},
+		"DispositionsComment": {review, DispositionsComment},
+	} {
+		if !strings.Contains(c.tpl, "\n"+c.comment+"\n") {
+			t.Errorf("%s is not the shipped template's comment", name)
+		}
+	}
+}
+
+// W6-claude-tickets-C01: any v1 Dispositions comment is replaced.
+func TestConvertReviewReplacesComment_v1Variants(t *testing.T) {
+	in := "## Dispositions\n" +
+		"<!-- The lead's: one line per finding, `<ID> · resolved · <how>`, or `<ID> · deferred · [[<ticket>]] · <why> ([[review-disposition-v1]])` -->\n" +
+		"- W1-acme-api-M01 · open\n"
+	c := ConvertReview([]byte(in))
+	if !c.Changed || strings.Contains(string(c.Data), "The lead's") || !strings.Contains(string(c.Data), DispositionsComment+"\n- [ ] W1-acme-api-M01") {
+		t.Errorf("not replaced:\n%s", c.Data)
+	}
+}
+
+// W6-claude-tickets-C02: a v1 table quoted in a code fence or an HTML
+// comment is left alone.
+func TestConvertBoardSkipsFencesAndComments(t *testing.T) {
+	table := "| ID | Task | Repo | Wave | Deps | Status | Note |\n|---|---|---|---|---|---|---|\n| 01 | [[X-01-a]] | r | 1 | - | planned | n |\n"
+	for name, in := range map[string]string{
+		"fence":   "# Board\n\n```\n" + table + "```\n",
+		"comment": "# Board\n\n<!--\n" + table + "-->\n",
+	} {
+		c := ConvertBoard([]byte(in))
+		if c.Changed || string(c.Data) != in || len(c.Problems) != 0 {
+			t.Errorf("%s: changed:\n%s", name, c.Data)
+		}
+	}
+	// a real table after a fence is still converted
+	c := ConvertBoard([]byte("```\nx\n```\n" + table))
+	if !c.Changed || !strings.Contains(string(c.Data), "- [ ] 01") {
+		t.Errorf("table after a fence not converted:\n%s", c.Data)
 	}
 }

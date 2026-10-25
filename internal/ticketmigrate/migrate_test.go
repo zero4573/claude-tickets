@@ -216,3 +216,41 @@ func TestMigrateNoTicketsFolder(t *testing.T) {
 		t.Fatalf("%+v %v", res, err)
 	}
 }
+
+// W6-claude-tickets-S01: a failed status-file write is a warning; the other
+// files and tickets still migrate.
+func TestMigrateStatusWriteFailureIsAWarning(t *testing.T) {
+	v := vault(t)
+	orig := writeStatus
+	t.Cleanup(func() { writeStatus = orig })
+	writeStatus = func(p string, data []byte, perm os.FileMode) error {
+		if strings.Contains(p, "A-1") {
+			return os.ErrPermission
+		}
+		return orig(p, data, perm)
+	}
+	res, err := Migrate(v, []byte(statusTpl), "2026-10-25", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	warned := false
+	for _, w := range res.Warnings {
+		if strings.Contains(w, "A-1-status.md") && strings.Contains(w, "not written") {
+			warned = true
+		}
+	}
+	if !warned {
+		t.Errorf("no warning: %v", res.Warnings)
+	}
+	if _, err := os.Stat(filepath.Join(v, "tickets/A-1/A-1-status.md")); err == nil {
+		t.Error("status file written")
+	}
+	if !strings.Contains(get(t, v, "tickets/A-1/board.md"), "- [x] 01") {
+		t.Error("A-1's board was not converted")
+	}
+	for _, tc := range res.Tickets {
+		if tc.ID == "A-1" && tc.StatusAdded {
+			t.Error("StatusAdded set for a failed write")
+		}
+	}
+}

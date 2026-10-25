@@ -615,22 +615,8 @@ func moveFile(src, dst string) error {
 	return os.Remove(src)
 }
 
-// writeNote rewrites a linking note in place: through a symlink (the target
-// is rewritten, the link stays, as os.WriteFile did, also when it points
-// outside the vault) and keeping the file's mode. Callers only pass notes
-// they just read, so a dangling link never gets here. The atomic rename
-// replaces the inode: hard links and ownership are not kept. A var: test seam.
-var writeNote = func(f string, data []byte) error {
-	target, err := filepath.EvalSymlinks(f)
-	if err != nil {
-		return err
-	}
-	mode := os.FileMode(0o644)
-	if st, err := os.Stat(target); err == nil {
-		mode = st.Mode().Perm()
-	}
-	return fsx.WriteFileAtomic(target, data, mode)
-}
+// writeNote rewrites a linking note in place (see fsx.WriteNote). A var: test seam.
+var writeNote = fsx.WriteNote
 
 // WrapWriteNoteForTest wraps the note writer (wrap gets the current one) and
 // returns the restore func. For tests in other packages that need a write to
@@ -640,8 +626,3 @@ func WrapWriteNoteForTest(wrap func(next func(f string, data []byte) error) func
 	writeNote = wrap(old)
 	return func() { writeNote = old }
 }
-
-// WriteNote rewrites an existing note in place the way ct vault links does:
-// through a symlink (the target is rewritten, the link stays), keeping the
-// file's mode, by an atomic rename. For other commands that rewrite notes.
-func WriteNote(f string, data []byte) error { return writeNote(f, data) }

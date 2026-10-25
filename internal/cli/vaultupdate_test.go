@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -121,5 +122,49 @@ func TestVaultUpdateRefreshesWrittenPaths(t *testing.T) {
 	}
 	if len(calls) != 0 {
 		t.Errorf("a no-op run refreshed: %v", calls)
+	}
+}
+
+// W6-claude-tickets-S01: a failed migration still reports the tickets it
+// migrated and refreshes what was written, then returns the error.
+func TestVaultUpdateMigrateErrorStillReportsAndRefreshes(t *testing.T) {
+	v := updateVault(t)
+	var calls [][]string
+	orig := refreshIndex
+	t.Cleanup(func() { refreshIndex = orig })
+	refreshIndex = func(_ string, files ...string) { calls = append(calls, files) }
+	stubMigrate(t, func(string, []byte, string, bool) (ticketmigrate.Result, error) {
+		return ticketmigrate.Result{Migrated: 1, Tickets: []ticketmigrate.TicketChange{{
+			ID: "A-1", StatusAdded: true, StatusRel: "tickets/A-1/A-1-status.md",
+			Files: []ticketmigrate.FileChange{{Rel: "tickets/A-1/board.md"}},
+		}}}, errors.New("boom")
+	})
+	stdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+	err = vaultUpdate(v, updateOpts{})
+	os.Stdout = stdout
+	w.Close()
+	out, _ := io.ReadAll(r)
+	if err == nil || err.Error() != "boom" {
+		t.Fatalf("err %v", err)
+	}
+	if !strings.Contains(string(out), "* tickets/A-1/") {
+		t.Errorf("ticket line not printed:\n%s", out)
+	}
+	if len(calls) != 1 {
+		t.Fatalf("calls %v", calls)
+	}
+	have := map[string]bool{}
+	for _, p := range calls[0] {
+		have[p] = true
+	}
+	for _, want := range []string{"inbox.md", "tickets/A-1/A-1-status.md", "tickets/A-1/board.md"} {
+		if !have[want] {
+			t.Errorf("%s not refreshed: %v", want, calls[0])
+		}
 	}
 }
