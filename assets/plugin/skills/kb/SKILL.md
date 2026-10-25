@@ -72,7 +72,8 @@ When you find something that should be investigated or fixed, file it as a
 1. **Check first** that it isn't already tracked: search `tickets/` by repo
    slug and keywords, and Jira for synced tickets. If it is, add what you
    found to your answer and an `inbox/` draft instead.
-2. Run `ct new --type <bug|investigation|dev|chore> "<summary>"`. It
+2. A kb session has no current ticket: ask the user first (AskUserQuestion, per issue): a new
+   ticket, or no ticket. Never run `ct new` without that answer. If yes, run `ct new --type <bug|investigation|dev|chore> "<summary>"`. It
    files into this session's vault and prints the new note,
    `tickets/MAN-<n>/MAN-<n>.md`.
 3. **Fill it in:**

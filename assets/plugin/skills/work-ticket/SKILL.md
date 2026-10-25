@@ -100,7 +100,7 @@ Each event gets one short action; never forward report bodies.
    `answered`, append `R-mm · <date> · user→lead · answer · R-nn: <answer> · open`, and
    SendMessage the lead "R-nn answered (R-mm)". The lead records the decision in `plan.md` and
    sets `status: in-progress`.
-Kickoff questions (`kickoff.md`) are yours and are asked directly, without relay entries.
+Kickoff questions (`kickoff.md`) are yours and are asked directly, without relay entries. Follow-up items are asked one per item (this ticket, new, existing, or leave); nothing is filed with `ct new` before the answer.
 
 ## 4. relay.md (capped)
 Frontmatter `type: relay`, `ticket: "[[<ID>]]"`; sections `## Closed`, then `## Open` (last,

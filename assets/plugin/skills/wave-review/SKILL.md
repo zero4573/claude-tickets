@@ -42,7 +42,7 @@ files. Then:
 - previous findings: one line listing resolved and still-open IDs;
 - `## Dispositions` (last section): one line `- <ID> · open` for every finding ID you wrote
   in must-fix, should-fix and consider (the ID exactly as in the finding). The lead replaces
-  `open` with `resolved · <how>` or `deferred · [[<ticket>]] · <why>`; you never do.
+  `open` with `resolved · <how>` or `deferred · [[<ticket>]] · <why>`; you never do, and you never file tickets.
 Must-fix means data loss, security, a broken contract, or a blocker for the next wave.
 Everything else is should-fix or consider. Plain bullets only, no `- [ ]` checkboxes.
 

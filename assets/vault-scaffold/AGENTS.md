@@ -386,8 +386,9 @@ exit 3; `/tickets:save` passes `--save`):
    `contracts/` and `kb-drafts/`. A task agent writes only its own task file's `## Report`
    (plus the code in its `owns`); a reviewer only its `reviews/` file; an
    analyst nothing.
-   At hand-over the lead may also create follow-up tickets for backlog items
-   you choose (`ct new`, tag `from-ticket`), writing their initial content.
+   Agents never file a follow-up ticket on their own: the lead asks you per item
+   (this ticket, a new ticket, an existing ticket, or leave it in the backlog) and only for
+   a new ticket runs `ct new` (tag `from-ticket`), writing its initial content.
    **Exception, lead tickets:** a lead's session also writes the work
    sections (`## Workspace`, `## Tasks`, `## Questions`, `## Follow-ups`,
    `## Review`) and the `status` of the tickets it `covers`, never their
@@ -397,7 +398,7 @@ exit 3; `/tickets:save` passes `--save`):
    Sessions outside tickets (a repo session, `kb`) write only new drafts in
    `inbox/`, each under its own name, until `/tickets:save`.
    A `kb` session may also create a manual ticket (`ct new`, tag `from-kb`)
-   for an issue it finds, writing its initial content. From then on such a
+   for an issue it finds, once you have said yes, writing its initial content. From then on such a
    ticket (`from-kb` or `from-ticket`) is yours, like any manual ticket.
    A **teach session** (`ct teach <topic>`) owns only `learning/<topic>/`
    and writes it directly (no `/tickets:save` promotion), one session per
@@ -457,8 +458,8 @@ in a few calls; `ct start --continue <ID>` reopens the last one.
    gets a line in the review's `## Dispositions` (`resolved` with a fix or `kept: <reason>`,
    or `deferred` to a ticket), and hand-over waits until none is `open`.
 6. **Hand-over:** a short retro (fixes to the agents' environment become
-   backlog items; `/tickets:retro` runs one any time), backlog items you
-   pick become follow-up tickets (≤5); then `## Review` and status
+   backlog items; `/tickets:retro` runs one any time), you answer per backlog
+   item (this ticket, new ticket, existing ticket, leave it) before any follow-up ticket; then `## Review` and status
    `review`.
 
 **relay.md:** `## Closed` (≤40 one-line summaries), then `## Open` (≤30

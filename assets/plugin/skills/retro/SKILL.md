@@ -40,6 +40,6 @@ Ask the user (AskUserQuestion, multi-select) which to keep. In a ticket session 
 PO; `backlog.md` is the lead's), append one `relay.md` entry per kept candidate,
 `R-nn · <date> · user→lead · request · retro: <change> (<where>) · open`, and message a running
 lead; it files them as `B-nn · retro · <repo|plugin|vault> · <change>`. Outside a ticket,
-offer `ct new --type chore "<summary>"` per candidate.
+ask per kept candidate whether to file `ct new --type chore "<summary>"`; never file unasked.
 
 Adapted from mattpocock/skills (MIT); see THIRD_PARTY_NOTICES.md.
