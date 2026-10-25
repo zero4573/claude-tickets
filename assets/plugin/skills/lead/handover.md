@@ -1,13 +1,13 @@
 # lead: hand-over
 
 Read by the lead (the `tickets:lead` agent) when the review-disposition gate (`SKILL.md` 7)
-prints nothing and the board has no `planned`, `running`, `partial` or `orphaned` row. Ends with the ticket at
-`status: review` and `Next: handover-done`. Never run `/tickets:save`, sign or push.
+prints nothing and the board has no `planned`, `running`, `partial` or `orphaned` row.
+Ends with the ticket at `status: review` and `Next: handover-done`. Never run `/tickets:save`, sign or push.
 
 ## 0. Disposition gate (precondition)
 Run the gate of `SKILL.md` section 7 from the vault root (including its `no Dispositions`
-line): its output must be empty. If it prints anything, go back to planning fix waves (or `kept:`/deferral dispositions); never hand over with
-an `open` finding.
+line): its output must be empty. If it prints anything, go back to planning fix waves
+(or `kept:`/deferral dispositions); never hand over with an `open` finding.
 
 ## 1. Workspace clean
 In one chain per repo:

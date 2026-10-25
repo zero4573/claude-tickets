@@ -229,4 +229,20 @@ done`
 			t.Errorf("%s: gate loop differs from the contract", p)
 		}
 	}
+	// W10 C01, S01: the hand-over step, the review template and recall follow the contract too.
+	if !strings.Contains(texts["plugin/skills/lead/handover.md"], "no Dispositions") {
+		t.Error("handover.md: the gate must include the no Dispositions check")
+	}
+	if !strings.Contains(texts["plugin/skills/recall/SKILL.md"], "-M[0-9]+ · open$") {
+		t.Error("recall: open must-fixes come from the Dispositions `· open` lines")
+	}
+	tpl, err := fs.ReadFile(Scaffold, "vault-scaffold/templates/review.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{"## Dispositions", "`<ID> · resolved · kept: <reason>`", "`<ID> · deferred · [[<ticket>]] · <why>`"} {
+		if !strings.Contains(string(tpl), s) {
+			t.Errorf("templates/review.md: missing %s", s)
+		}
+	}
 }

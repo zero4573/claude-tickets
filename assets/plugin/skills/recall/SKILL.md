@@ -52,7 +52,9 @@ Read-only. Never write to the vault.
    dependency fields (`blocked-by`, `blocked`, `parent`).
 2. The 3 most recent `tickets/<ID>/logs/` notes; the `board.md` rows
    (`rg -n '^\|'`), `tail -n 25 backlog.md`, and the open must-fixes
-   (`rg -- '-M[0-9]+ · ' reviews/ | rg -v ' · (open|resolved|deferred)'`, ignoring Dispositions lines; minus those the board shows fixed);
+   (`rg -- '-M[0-9]+ · open$' reviews/`, their Dispositions lines; a review
+   without `## Dispositions` predates the rule: check its must-fixes against
+   the board);
    `pr-feedback.md` if any (threads `needs you`, replies not posted yet).
    An old-format ticket has other files instead; skim their open questions.
 3. **Leads and covered tickets:**
