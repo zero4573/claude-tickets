@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -118,5 +119,37 @@ func TestMoveSelfLink(t *testing.T) {
 	}
 	if res, err := Move(v, "inbox/a.md", "references/dup.md"); err == nil || !reflect.DeepEqual(res, MoveResult{}) {
 		t.Errorf("refusal: %+v, %v", res, err)
+	}
+}
+
+// skipIfCanWriteReadOnly skips when chmod can't stop writes (root, Windows).
+func skipIfCanWriteReadOnly(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("permissions not enforced")
+	}
+}
+
+func TestMovePartialResultAfterWriteError(t *testing.T) {
+	skipIfCanWriteReadOnly(t)
+	v := t.TempDir()
+	write(t, v, ".obsidian/app.json", "{}")
+	write(t, v, "inbox/x.md", "# x\n")
+	write(t, v, "a/ok.md", "[[inbox/x]]\n")
+	write(t, v, "b/ro/stuck.md", "[[inbox/x]]\n")
+	ro := filepath.Join(v, "b/ro")
+	if err := os.Chmod(ro, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(ro, 0o755)
+	res, err := Move(v, "inbox/x.md", "notes/x.md")
+	if err == nil {
+		t.Fatal("expected a write error")
+	}
+	if want := []Moved{{"inbox/x.md", "notes/x.md"}}; !reflect.DeepEqual(res.Moves, want) {
+		t.Errorf("Moves = %v, want %v", res.Moves, want)
+	}
+	if want := []string{"a/ok.md"}; !reflect.DeepEqual(res.Changed, want) {
+		t.Errorf("Changed = %v, want %v", res.Changed, want)
 	}
 }
