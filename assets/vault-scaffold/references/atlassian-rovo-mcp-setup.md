@@ -92,5 +92,5 @@ the sessions. Used by `ct sync` to fill `tickets/`. See [[AGENTS]] and the [[tic
   settings claude-tickets merges into every ticket session
   (`CLAUDE_TICKETS_SESSION_SETTINGS`, which the headless `ct sync` run
   gets too); the claude-tickets README has the rules. The vault's [[AGENTS]] ("Cost guard") tells every
-  skill and role agent never to run them through `executeRead`, which the
+  skill and agent never to run them through `executeRead`, which the
   settings can't block by operation name.
