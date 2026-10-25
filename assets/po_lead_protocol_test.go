@@ -246,3 +246,54 @@ done`
 		}
 	}
 }
+
+// MAN-2: the PO wakes the lead once per wave, not per finished agent. Task
+// and reviewer notices are buffered by wave (po: agents carry it, po:
+// finished keeps the unsent ones across /compact); blocked or failed tasks
+// and task→lead questions still go at once; the lead merges the whole wave
+// in one run and merges the rest when one branch fails.
+func TestWaveBatchedWakeups(t *testing.T) {
+	texts := pluginTexts(t)
+	po, lead := texts["plugin/skills/work-ticket/SKILL.md"], texts["plugin/skills/lead/SKILL.md"]
+	refresh := texts["plugin/skills/po-refresh/SKILL.md"]
+	has := func(name, text string, want ...string) {
+		t.Helper()
+		for _, s := range want {
+			if !strings.Contains(text, s) {
+				t.Errorf("%s: missing %q", name, s)
+			}
+		}
+	}
+	tplData, err := fs.ReadFile(Scaffold, "vault-scaffold/templates/board.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	agentsData, err := fs.ReadFile(Scaffold, "vault-scaffold/AGENTS.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The PO batches per wave and kind, and sends blocked/failed at once.
+	has("PO", po, "batch it per wave", "wake it **once per wave**", "**no\n  entry of the same wave and kind**",
+		"\"wave 2 finished: tasks 04 done, 05 partial,", "\"wave 2 reviews\n  written: <slug>, <slug>\"",
+		"A task reporting `blocked` or failed (or dying) goes to the lead **at once**", "no early merge, no timeout",
+		"at once,\n  never batched", "with its `wave:`", "  finished:\n", "`finished: []`")
+	for _, s := range []string{"SendMessage the lead one line: \"task 03 finished", "forward it like any finished task"} {
+		if strings.Contains(po, s) {
+			t.Errorf("PO still wakes the lead per task: %q", s)
+		}
+	}
+
+	// The lead tags spawns with their wave and merges the whole wave in one run.
+	has("lead", lead, "carries `wave: <N>`", "  wave: 3\n  prompt: Task 03:", "The PO wakes you **once per wave**",
+		"Merge **all** of them in this run", "never\nexpect one message per task", "go on merging the rest of the wave",
+		"all the wave's reviews are written")
+	if strings.Contains(lead, "When the PO tells you a task finished") {
+		t.Error("lead still expects one message per finished task")
+	}
+
+	// po-refresh checkpoints both lists; the board template and AGENTS.md carry them.
+	has("po-refresh", refresh, "w<N>|- · task NN|review <repo>|analyst", "`finished:`", "the buffered notices")
+	has("board template", string(tplData), "\n  agents: []\n  finished: []\n")
+	has("AGENTS.md", string(agentsData), "wakes the lead once per wave")
+}

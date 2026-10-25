@@ -15,6 +15,7 @@ po:
   exchanges-since: 0
   analyst-since: 0
   agents: []
+  finished: []
 tags: [board]
 ---
 # Board
@@ -23,7 +24,8 @@ Tasks and wave reviews of [[TICKET-ID]] in [[provider-owner-repo]], kept by the 
 each, updated in place.
 Task files: `tasks/<ID>-NN-<slug>.md`, linked as `[[<ID>-NN-<slug>]]`. `last-reviewed` maps each
 repo slug to the last reviewed commit. `lead:`, `lead-since:` and `po:` (its session, the
-running agents, refresh counters) are the PO's, and so is marking `running` rows `orphaned`
+running agents with their wave, finished notices not yet sent to the lead, refresh counters)
+are the PO's, and so is marking `running` rows `orphaned`
 when that session has ended; the lead writes the rest.
 
 ## Tasks

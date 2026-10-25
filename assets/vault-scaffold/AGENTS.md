@@ -465,7 +465,9 @@ in a few calls; `ct start --continue <ID>` reopens the last one.
 entries, appended), trimmed by the PO; one line each, `R-nn · <date> ·
 <from>→<to> · <type> · <text> · <open|planned|answered|copied>` (`copied`:
 in `plan.md ## Decisions`). `board.md`'s `lead:` and `po:` (session id,
-running agents, refresh counters) are the PO's; when `po: session:` isn't
+running agents with their wave, finished notices not yet sent, refresh
+counters) are the PO's; the PO wakes the lead once per wave, when no agent
+of it is left (a blocked or failed task at once). When `po: session:` isn't
 the current session, its agents are gone: their `running` rows become
 `orphaned` and a fresh lead picks them up. The lead rotates after each
 reviewed wave. A heavy PO context: `/tickets:po-refresh` checkpoints

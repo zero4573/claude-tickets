@@ -91,15 +91,21 @@ never changes while an agent that uses it runs: have it stopped, update the cont
   `tickets:task` (or `tickets:mechanical` for renames, fixture sync, ≤3-file follow-ups) with
   only: `Task NN: <vault>/tickets/<ID>/tasks/<ID>-NN-<slug>.md. Worktree: <path>. Concurrent:
   <NN: owns, …|none>. New since the task file: <…|none>.` The brief comes from the
-  `tickets:task-agent` skill; don't paste rules. The PO adds `Lead: <your agentId>`.
+  `tickets:task-agent` skill; don't paste rules. The PO adds `Lead: <your agentId>`. Every
+  `Spawn:` entry (tasks and reviewers) carries `wave: <N>`: the PO batches completion notices
+  by it.
 - A task agent may message you a blocking question mid-task: answer it with SendMessage to its
   id if the files and decisions already settle it, else put it through the gate.
 - Never ask for `general-purpose` agents (every tool, the big model, no brief).
 
 ## 5. Merge (you)
-When the PO tells you a task finished, read only its `## Report`
-(`sed -n '/^## Report/,$p' <task file>`). Per finished task, in task order, one chain with
-filtered output in `<ws>/<slug>`:
+The PO wakes you **once per wave**, when none of its tasks is still running: "wave 2 finished:
+tasks 04 done, 05 partial, reports in their task files". Merge **all** of them in this run; never
+expect one message per task. Only a `blocked` or failed task reaches you at once ("task 03
+blocked; wave 2 still running: 04, 05"): set its row, ask or re-plan, and end with
+`Next: wait-tasks` for the rest (no early merge, no timeout). For each finished task read only
+its `## Report` (`sed -n '/^## Report/,$p' <task file>`). Per finished task, in task order, one
+chain with filtered output in `<ws>/<slug>`:
 `git merge --no-ff -q task/<ID>-NN-<task-slug> -m "<ID> merge task NN: <title>"`, then the repo's
 lint and tests from its `AGENTS.md` "Checking" (`<cmd> > <log> 2>&1; rc=$?;
 rg -n 'FAIL|panic|error' <log> | head -20; echo exit=$rc`). A nonzero `exit` blocks the merge,
@@ -109,8 +115,10 @@ something risky or lists "Outside owns". Then:
 - `git worktree remove <ws>/.tasks/<slug>-NN && git branch -d task/<ID>-NN-<task-slug>`.
   If removal is denied, mark the row `pending — user` and put the command in `Status:`.
 - A `repo: vault` task has nothing to merge: check its files, set the row `merged -`.
-- A failing merge check: `git merge --abort` (or `git revert -m 1 <merge-sha>` if checks failed
-  after it) and ask for a follow-up of the task with the failure, or fix it yourself.
+- A conflicting branch or a failing merge check: `git merge --abort` (or
+  `git revert -m 1 <merge-sha>` if checks failed after it), mark its row `partial` with the
+  reason, and go on merging the rest of the wave; then ask for a follow-up of the task with the
+  failure, or fix it yourself.
 - `partial` or `blocked` reports: row status `partial`/`blocked`, the reason in the note.
 - Follow-ups of ≤20 lines you do yourself in the ticket worktree and commit (`<ID> <subject>`);
   no micro-tasks. Batch bigger ones into the next task that owns those files.
@@ -121,8 +129,9 @@ One reviewer per repo the wave touched, all in one `Spawn:` block: `tickets:revi
 ticket, wave N, slug, ticket worktree, range `<last-reviewed>..<head sha>` (first wave:
 `git merge-base <base> HEAD`), the previous fix-task IDs and review file, and a ≤5-line impact
 note from graphify `get_neighbors` on the changed symbols (`git diff --stat <range>` for the
-files). It writes `reviews/wave-N-<slug>.md` and replies to the PO, who tells you it's done:
-read the file's summary and finding lines, add a `## Reviews` row, set `last-reviewed`.
+files). It writes `reviews/wave-N-<slug>.md` and replies to the PO, who tells you once, when
+all the wave's reviews are written ("wave 2 reviews written: <slug>, <slug>"): per file read the
+summary and finding lines, add a `## Reviews` row, set `last-reviewed`.
 Every finding ends `resolved` or `deferred` in the file's `## Dispositions` (contract
 `review-disposition-v1`): you fill each line as you triage (7).
 
@@ -199,6 +208,7 @@ SendMessage `to: "main"`.
 ```
 Spawn:
 - agent: tickets:task
+  wave: 3
   prompt: Task 03: <vault>/tickets/<ID>/tasks/<ID>-03-<slug>.md. Worktree: <path>. Concurrent: none. New since the task file: none.
 Ask user: none | R-07: <question> · options: A (recommended): …; B: …
 Status: <≤3 lines: what changed this run, what's running, risks>
@@ -208,4 +218,6 @@ Next: wait-tasks | wait-user | rotate | handover-done
 agents are running; `wait-user`: an `Ask user` is pending; `rotate`: a wave is merged and
 reviewed (or your context is heavy), board, backlog, plan and relay carry the state, no row is
 `running`, and `Spawn: none`; the PO then starts a fresh lead. `handover-done`: hand-over is
-finished. Between runs you're idle: the PO wakes you with one-line messages.
+finished. Between runs you're idle: the PO wakes you with one-line messages, once per wave
+when its last task or reviewer finishes, at once for a `blocked` or failed task, an answer or
+new user input. A task's blocking question comes from the task agent itself.

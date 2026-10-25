@@ -12,8 +12,11 @@ the user what to type. Paths are in the vault, `tickets/<ID>/`.
 Write what you hold only in this conversation:
 - `board.md` frontmatter, with `sed -i` on those lines only: `lead: <agentId|none>`,
   `lead-since:`, and the `po:` block: `last-refresh: <today>`, `exchanges-since: 0`,
-  `analyst-since: 0`, and `agents:` listing every agent still running
-  (`"<agentId> · <agent> · task NN|review wN-<repo>|analyst · <since>"`, `[]` when none).
+  `analyst-since: 0`, `agents:` listing every agent still running with its wave
+  (`"<agentId> · <agent> · w<N>|- · task NN|review <repo>|analyst · <since>"`), and `finished:`
+  listing every completion notice not yet sent to the lead (`"w<N> · task NN · done|partial"`,
+  `"w<N> · review <slug>"`), each `[]` when none. A wave's batch goes to the lead from these
+  once no entry of that wave and kind is left in `agents:`.
 - `relay.md ## Open`: every pending user question and every request, feature or feedback the
   user gave that has no entry yet (`R-nn · … · open`); trim to the caps (`## Open` ≤30,
   `## Closed` ≤40) by the PO playbook's rule ("4. relay.md").
@@ -21,7 +24,7 @@ Write what you hold only in this conversation:
 
 Then check that the PO playbook's resume (≤3 calls: board frontmatter and rows,
 `tail -n 32 relay.md`, the note's status) would rebuild the picture: the lead id, the running
-agents, the open questions and requests. Fix whatever is missing.
+agents and their waves, the buffered notices, the open questions and requests. Fix whatever is missing.
 
 ## 2. The command
 Print it for the user, exactly, in a code block:

@@ -45,7 +45,8 @@ spawn the lead (1). Otherwise liveness goes by **session id**, never by a ping t
 - `po: session:` differs from `$CLAUDE_CODE_SESSION_ID` (a new session): every agent of the old
   one is gone. Mark its `running` rows `orphaned` (`sed -i -E 's/^(\| [0-9]+ \|([^|]*\|){4})
   running \|/\1 orphaned |/' board.md`), set `agents: []` and `lead: none`, and spawn one fresh
-  lead (1) with `New since the last lead: orphaned tasks NN, MM` (it checks their branches).
+  lead (1) with `New since the last lead: orphaned tasks NN, MM` (it checks their branches),
+  adding `; finished, not sent: <the po: finished: entries>`, then set `finished: []`.
 - The same session (after `/compact` or a refresh): the lead is alive. SendMessage it "PO
   refreshed; send status" and wait; replace it only after its completion notice arrived.
 - `lead: none` with `status: review` or `done`: spawn no lead unless the user brings new work
@@ -62,8 +63,8 @@ Agents you spawn later for its `Spawn:` entries get the prompt verbatim plus `Le
 Each event gets one short action; never forward report bodies.
 - **Lead's final block** (`Spawn:`, `Ask user:`, `Status:`, `Next:`): spawn each `Spawn:` entry
   in one message (agent type, `model` if given, the prompt verbatim plus `Lead: <id>`) and add
-  it to `po:`; turn `Ask user:` into the gate (3); give the user `Status:` (5). `Next:`
-  `wait-tasks` → wait for notices; `wait-user` → the gate; `rotate` → the lead has finished:
+  it to `po: agents:` with its `wave:`; turn `Ask user:` into the gate (3); give the user
+  `Status:` (5). `Next:` `wait-tasks` → wait for notices; `wait-user` → the gate; `rotate` → the lead has finished:
   spawn a fresh one (1), never two at once; `handover-done` → first `cd <vault>` (your cwd is the workspace) and run the review-disposition gate for <ID>:
   ```sh
   for f in tickets/<ID>/reviews/*.md; do
@@ -77,9 +78,15 @@ Each event gets one short action; never forward report bodies.
   the ticket is ready for review (`ct ws diff <ID>`, changes can be asked for here, then
   `/tickets:save`, `ct ws sign <ID>` on the host, push), and suggest a refresh (6).
 - **Lead messages `main` mid-run:** act on it like a block item.
-- **Completion notice of a task or reviewer:** take only its first line, remove it from `po:`,
-  and SendMessage the lead one line: "task 03 finished: done, report in its task file" or
-  "review wave 2 <slug> written". A finished analyst: give the user its answer.
+- **Completion notice of a task or reviewer: batch it per wave.** Each lead resume re-reads its
+  whole transcript, so wake it **once per wave**. Take the notice's first line and move the agent
+  from `po: agents:` to `po: finished:` (`"w<N> · task NN · done|partial"`, `"w<N> · review <slug>"`).
+  A task reporting `blocked` or failed (or dying) goes to the lead **at once** instead ("task 03
+  blocked, report in its task file; wave 2 still running: 04"), not into `finished:`. When **no
+  entry of the same wave and kind** (tasks, or reviews) is left in `agents:`, SendMessage one line,
+  "wave 2 finished: tasks 04 done, 05 partial, reports in their task files" or "wave 2 reviews
+  written: <slug>, <slug>", and drop them from `finished:`. Until then send nothing: the lead
+  waits for stragglers (no early merge, no timeout). A finished analyst: its answer to the user.
 - **User input:**
   - new requirement, feature or feedback: append a `relay.md` entry (`request`, `feature` or
     `feedback`, `user→lead`, `open`) and SendMessage the lead "new request R-09". No lead
@@ -89,8 +96,8 @@ Each event gets one short action; never forward report bodies.
     spawn `tickets:analyst` with `Ticket <ID>. Workspace: <ws>. Vault: <vault>. Question: <…>`
     (read-only, ≤20 lines with file:line). Work it needs becomes a `request` for the lead.
   - "status": answer from the board rows and `relay.md ## Open` (5).
-- **A blocking question from a task** goes to the lead directly (the `Lead:` line). A task
-  that reports `blocked` reaches you as a notice: forward it like any finished task.
+- **A blocking question from a task** goes to the lead directly (the `Lead:` line), at once,
+  never batched.
 
 ## 3. The gate (questions for the user)
 1. The lead has written `R-nn · … · lead→user · question · … · open` to `relay.md`, set
@@ -145,6 +152,9 @@ po:
   exchanges-since: <n>
   analyst-since: <n>
   agents:
-    - "<agentId> · <agent> · task NN|review wN-<repo>|analyst · <since>"
+    - "<agentId> · <agent> · w<N>|- · task NN|review <repo>|analyst · <since>"
+  finished:
+    - "w<N> · task NN · done|partial"
 ```
-Keep `agents` to the ones running; `[]` when none.
+`agents`: the running ones (`w<N>` from the `Spawn:` entry's `wave:`, `-` for an analyst);
+`finished`: notices not yet sent to the lead (they survive `/compact`); `[]` when none.

@@ -409,7 +409,7 @@ flowchart TB
   resume -- yes --> lead["Lead (tickets:lead, one at a time):<br/>plan.md, contracts/, tasks/, board.md"]
   po <-->|"relay.md, messages;<br/>Spawn / Ask user / Status / Next"| lead
   po -->|"spawns, for the lead"| wave["Wave: up to 4 task / mechanical agents,<br/>each in .tasks/slug-NN on task/ID-NN-..."]
-  wave -->|"done (the PO tells the lead)"| merge["Merge (lead): merge --no-ff into feature/ID,<br/>lint + tests, remove the task worktree"]
+  wave -->|"wave done (the PO wakes the lead once)"| merge["Merge (lead): every finished branch of the wave,<br/>merge --no-ff into feature/ID, lint + tests"]
   merge --> rev["Review (spawned by the PO): reviewer or<br/>reviewer-deep per repo, reviews/wave-N-slug.md"]
   rev --> fix{"must-fix items,<br/>or waves left?"}
   fix -- "yes: fix tasks / next wave" --> wave
@@ -435,7 +435,9 @@ flowchart TB
   with no Agent tool) writes `plan.md`, fixes interfaces in `contracts/`
   before anything uses them, and writes one file per task in `tasks/`
   (goal, steps, checks, and the exact files it `owns`). Tasks whose files
-  overlap never run in the same wave. It merges each task branch into the
+  overlap never run in the same wave. The PO wakes it once per wave, when
+  the last task or reviewer of that wave finishes (a blocked or failed
+  task at once), and it merges every finished task branch into the
   ticket branch, runs the repo's lint and tests, and does follow-ups of up
   to 20 lines itself. It ends each run with a block the PO acts on
   (`Spawn:`, `Ask user:`, `Status:`, `Next:`), and is replaced by a fresh
