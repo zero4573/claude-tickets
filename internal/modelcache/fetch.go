@@ -10,17 +10,58 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+// Timeouts of the default client: the server must answer within
+// headerTimeout, and a body that delivers nothing for idleTimeout is cut.
+var (
+	headerTimeout = 30 * time.Second
+	idleTimeout   = 60 * time.Second
+)
+
+func newClient() *http.Client {
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.ResponseHeaderTimeout = headerTimeout
+	return &http.Client{Transport: tr}
+}
+
+// idleReader resets timer on every read that makes progress.
+type idleReader struct {
+	r io.Reader
+	t *time.Timer
+}
+
+func (i idleReader) Read(p []byte) (int, error) {
+	n, err := i.r.Read(p)
+	if n > 0 {
+		i.t.Reset(idleTimeout)
+	}
+	return n, err
+}
+
+// removeStale deletes what an interrupted fetch left in dir.
+func removeStale(dir string) {
+	for _, pat := range []string{".download-*", ".stage-*"} {
+		old, _ := filepath.Glob(filepath.Join(dir, pat))
+		for _, p := range old {
+			os.RemoveAll(p)
+		}
+	}
+}
 
 // Fetch downloads the model and this platform's llama.cpp libraries into
 // Dir(), verifying their sha256 and installing them atomically (a temp file
 // or directory renamed into place). Nothing already present is downloaded
 // again. Progress goes to w.
 func Fetch(ctx context.Context, id string, w io.Writer) error {
-	return fetch(ctx, pins(), http.DefaultClient, id, w)
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
+	defer stop()
+	return fetch(ctx, pins(), newClient(), id, w)
 }
 
 func fetch(ctx context.Context, p *pinFile, c *http.Client, id string, w io.Writer) error {
@@ -36,6 +77,8 @@ func fetch(ctx context.Context, p *pinFile, c *http.Client, id string, w io.Writ
 	if err != nil {
 		return err
 	}
+	removeStale(filepath.Dir(libDir))
+	removeStale(filepath.Dir(ModelPath(m)))
 	if st.LibOK {
 		fmt.Fprintf(w, "llama.cpp %s: present\n", p.Llama.Version)
 	} else {
@@ -72,6 +115,10 @@ func fetch(ctx context.Context, p *pinFile, c *http.Client, id string, w io.Writ
 
 // download copies url into f and checks its sha256.
 func download(ctx context.Context, c *http.Client, url, want string, f *os.File) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	idle := time.AfterFunc(idleTimeout, cancel)
+	defer idle.Stop()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -85,7 +132,7 @@ func download(ctx context.Context, c *http.Client, url, want string, f *os.File)
 		return fmt.Errorf("GET %s: %s", url, resp.Status)
 	}
 	h := sha256.New()
-	if _, err := io.Copy(io.MultiWriter(f, h), resp.Body); err != nil {
+	if _, err := io.Copy(io.MultiWriter(f, h), idleReader{resp.Body, idle}); err != nil {
 		return fmt.Errorf("GET %s: %w", url, err)
 	}
 	if got := hex.EncodeToString(h.Sum(nil)); !strings.EqualFold(got, want) {
@@ -123,6 +170,11 @@ func fetchLib(ctx context.Context, c *http.Client, a asset, libDir string) error
 	}
 	// A previous partial install (some files, no complete set) is replaced.
 	if err := os.RemoveAll(libDir); err != nil {
+		return err
+	}
+	// MkdirTemp makes the stage 0700; the library must stay readable when a
+	// sandbox maps another uid.
+	if err := os.Chmod(stage, 0o755); err != nil {
 		return err
 	}
 	return os.Rename(stage, libDir)

@@ -1,19 +1,36 @@
 package embed
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
-// libSearchDirs lists the directories to look for native dependencies in.
+var relWarn sync.Once
+
+// warnRelOnce reports the first relative lib-path entry: dlopen from the
+// working directory (a vault or worktree) would run code from there.
+func warnRelOnce(d string) {
+	relWarn.Do(func() {
+		fmt.Fprintf(os.Stderr, "ct: ignoring relative entry %q of CLAUDE_TICKETS_LIB_PATH (use absolute paths)\n", d)
+	})
+}
+
+// libSearchDirs lists the absolute directories to look for native dependencies in.
 func libSearchDirs() []string {
 	var dirs []string
 	for _, list := range []string{os.Getenv("CLAUDE_TICKETS_LIB_PATH"), DefaultLibPath} {
 		for _, d := range strings.Split(list, string(os.PathListSeparator)) {
-			if d != "" {
-				dirs = append(dirs, d)
+			if d == "" {
+				continue
 			}
+			if !filepath.IsAbs(d) {
+				warnRelOnce(d)
+				continue
+			}
+			dirs = append(dirs, d)
 		}
 	}
 	return dirs
