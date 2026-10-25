@@ -74,7 +74,8 @@ func fetch(ctx context.Context, p *pinFile, c *http.Client, id string, w io.Writ
 	if !ok {
 		return fmt.Errorf("unknown model %q (ct vault model list)", id)
 	}
-	if _, err := libDirFor(p); err != nil {
+	libDir, err := libDirFor(p)
+	if err != nil {
 		return err
 	}
 	// One fetch at a time: a second one waits instead of deleting the first
@@ -82,13 +83,14 @@ func fetch(ctx context.Context, p *pinFile, c *http.Client, id string, w io.Writ
 	if err := os.MkdirAll(Dir(), 0o755); err != nil {
 		return err
 	}
-	return lock.With(filepath.Join(Dir(), ".fetch.lock"), func() error { return fetchLocked(ctx, p, c, m, w) })
+	return lock.WithContext(ctx, filepath.Join(Dir(), ".fetch.lock"),
+		func() { fmt.Fprintln(w, "waiting for another model fetch…") },
+		func() error { return fetchLocked(ctx, p, c, m, w, libDir) })
 }
 
-func fetchLocked(ctx context.Context, p *pinFile, c *http.Client, m Model, w io.Writer) error {
+func fetchLocked(ctx context.Context, p *pinFile, c *http.Client, m Model, w io.Writer, libDir string) error {
 	id := m.ID
 	st := statusOf(p, id)
-	libDir, _ := libDirFor(p)
 	removeStale(filepath.Dir(libDir))
 	removeStale(filepath.Dir(ModelPath(m)))
 	if st.LibOK {

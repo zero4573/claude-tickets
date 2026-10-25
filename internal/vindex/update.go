@@ -233,10 +233,14 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 		}
 	}
 
-	// A torn index still holds vectors; they are reused only when the model
-	// and dims match and the chunk hash does, so a stale one can't leak.
+	// A torn index still holds vectors; they are reused only when they belong
+	// to the meta checked here (its recorded vectors hash, when it has one),
+	// that meta's model, sha and dims match, and the chunk hash does. A
+	// commit torn after vectors.f32 was renamed leaves the old meta next to
+	// new vectors; the hash check refuses that pair.
 	if old == nil && salvage != nil && hasVecs && !o.Full && salvage.Meta.Model == meta.Model &&
-		salvage.Meta.ModelSHA256 == meta.ModelSHA256 && salvage.Meta.Dims == meta.Dims {
+		salvage.Meta.ModelSHA256 == meta.ModelSHA256 && salvage.Meta.Dims == meta.Dims &&
+		vectorsMatchMeta(vault, salvage.Meta) {
 		for i, c := range salvage.Chunks {
 			if v := salvage.Vector(i); !isZero(v) {
 				reuse[c.Hash] = v
@@ -550,6 +554,17 @@ var openEmbedder = modelcache.Open
 // beforeNotesWrite is a test hook: it runs after chunks.jsonl and vectors.f32
 // are written and before notes.jsonl and meta.json (the reader's torn window).
 var beforeNotesWrite func()
+
+// vectorsMatchMeta reports whether vectors.f32 is the file m describes: when
+// m carries file hashes, its "vectors" hash must match; a meta without them
+// (pre-v1.2) has nothing to check.
+func vectorsMatchMeta(vault string, m Meta) bool {
+	if m.Files == nil {
+		return true
+	}
+	h, err := hashFile(filepath.Join(Dir(vault), "vectors.f32"))
+	return err == nil && h == m.Files["vectors"]
+}
 
 // lenientLoad reads meta.json, chunks.jsonl and vectors.f32 of an index load
 // refused, without hash or tiling checks, for its vectors only. Nil when any

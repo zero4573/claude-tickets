@@ -379,3 +379,38 @@ func TestMeanSemanticClampsNegatives(t *testing.T) {
 		t.Fatalf("a negative-cosine candidate must count: n=%d", n)
 	}
 }
+
+// Contract v1.5: a mean cosine below 1e-6 (every embedded cosine negative but
+// one tiny positive) counts as nothing similar, so zero rows keep their BM25
+// instead of being scaled down to nothing (W7 C01).
+func TestRelatedTinyMeanKeepsKeywordScale(t *testing.T) {
+	ix := fixture(t)
+	acme := NoteIndex(ix, "projects/acme/acme.md")
+	set := func(note string, v0, v1 float32) {
+		n := ix.Notes[NoteIndex(ix, note)]
+		for r := n.First; r < n.First+n.Count; r++ {
+			v := ix.Vector(r)
+			for d := range v {
+				v[d] = 0
+			}
+			v[0], v[1] = v0, v1
+		}
+	}
+	set("projects/acme/acme.md", 1, 0)
+	set("projects/acme/crossing.md", 1e-9, -1) // the one tiny positive cosine
+	set("other/far.md", -1, 0)
+	set("projects/acme/linked.md", 0, 0) // not embedded: ranked by BM25
+	r, err := Related(ix, embed.Stub(64), acme, RelatedOptions{IncludeLinked: true})
+	if err != nil || r.KeywordOnly {
+		t.Fatalf("%v %+v", err, r)
+	}
+	for _, x := range r.Results {
+		if x.Note == "linked" {
+			if x.Score < 1e-3 {
+				t.Fatalf("zero row scaled down to %g: %+v", x.Score, r.Results)
+			}
+			return
+		}
+	}
+	t.Fatalf("linked missing: %+v", r.Results)
+}
