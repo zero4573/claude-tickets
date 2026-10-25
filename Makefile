@@ -36,7 +36,9 @@ ct: go.mod go.sum $(shell find cmd internal assets -type f)
 test:
 	$(GO) test ./...
 
-# Token/latency benchmark on a generated 2,000-note vault (stub embedder; CT_EMBED_REAL=1 for the model)
+# Token/latency benchmark on a generated 2,000-note vault. The default stub embedder makes the
+# numbers a regression guard (budget, latency, keyword-only quality floor), not real-model numbers:
+# for those run `ct vault model fetch` on the host first, then `CT_EMBED_REAL=1 make bench`.
 bench:
 	CT_BENCH=1 $(GO) test ./internal/vbench -run TestReport -v -timeout 30m
 

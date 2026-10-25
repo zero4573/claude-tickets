@@ -250,11 +250,16 @@ func TestZeroRowsScoredByKeyword(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", mode, err)
 		}
-		if len(r.Results) == 0 || r.Results[0].Path != "z.md" {
-			t.Fatalf("%s: zero row not ranked by keyword: %v", mode, paths(r))
+		// On one scale (W4 S03) an embedded note with the same words may rank
+		// above it, but the zero row is still found, by keyword.
+		found := false
+		for _, x := range r.Results {
+			if x.Path == "z.md" {
+				found = x.Score > 0
+			}
 		}
-		if r.Results[0].Score < 0.5 {
-			t.Fatalf("%s: score %v is capped by the semantic weight", mode, r.Results[0].Score)
+		if !found {
+			t.Fatalf("%s: zero row not found by keyword: %v", mode, paths(r))
 		}
 	}
 	// Related on the unembedded note and towards it.
@@ -273,5 +278,47 @@ func TestZeroRowsScoredByKeyword(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("note without centroid missing from related: %+v", r.Results)
+	}
+}
+
+func TestZeroScoreScale(t *testing.T) {
+	// W4 S03: an embedded chunk with sem 0.8 and no keyword score beats a zero
+	// row with keyword score 0.5 (the semantic mean of a typical index is low).
+	embedded := WeightSemantic*0.8 + WeightKeyword*0
+	zero := zeroScore(WeightSemantic, WeightKeyword, 0.1, 0.5)
+	if !(embedded > zero) {
+		t.Fatalf("embedded %v <= zero row %v", embedded, zero)
+	}
+	if zeroScore(WeightSemantic, WeightKeyword, 0.3, 0) != 0 {
+		t.Fatal("zero row without keyword match scored")
+	}
+	if zero >= 0.5 {
+		t.Fatalf("zero row not scaled: %v", zero)
+	}
+}
+
+// End to end: with the query equal to an embedded chunk's text, that chunk
+// outranks a zero row that matches one query word.
+func TestStrongSemanticBeatsMediocreZeroRow(t *testing.T) {
+	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "stub")
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	v := t.TempDir()
+	put(t, v, "a.md", "# Armor\n\nPangolin scales armor plates.\n")
+	put(t, v, "b.md", "# B\n\nQuartz basalt granite.\n")
+	if _, err := vindex.Update(v, vindex.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	put(t, v, "z.md", "# Z\n\nPangolin.\n")
+	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
+	if _, err := vindex.Update(v, vindex.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	ix, err := vindex.Load(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := Search(ix, embed.Stub(64), "Armor\n\nPangolin scales armor plates.", Options{})
+	if err != nil || len(r.Results) == 0 || r.Results[0].Path != "a.md" {
+		t.Fatalf("%v %v", err, paths(r))
 	}
 }

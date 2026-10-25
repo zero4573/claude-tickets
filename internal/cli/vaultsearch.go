@@ -39,7 +39,7 @@ func loadForSearch(v string, noUpdate bool) (*vindex.Index, embed.Embedder, erro
 			if _, serr := os.Stat(filepath.Join(vindex.Dir(v), "meta.json")); serr != nil {
 				return nil, nil, err
 			}
-			fmt.Fprintf(os.Stderr, "ct: vault index not updated: %v\n", err)
+			fmt.Fprintf(os.Stderr, "ct: vault index not updated, results may be stale: %v\n", err)
 		}
 	}
 	ix, err := vindex.Load(v)

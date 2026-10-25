@@ -10,14 +10,15 @@ import (
 	"time"
 
 	"github.com/zero4573/claude-tickets/internal/chunk"
+	"github.com/zero4573/claude-tickets/internal/notesec"
 	"github.com/zero4573/claude-tickets/internal/vsearch"
 )
 
 // Budget is the `--budget` the NEW strategy searches with.
 const Budget = 2000
 
-// ReadN is how many whole matching notes the OLD strategy reads.
-const ReadN = 5
+// ReadN is how many whole notes the OLD kb strategy reads: the best-matching ones.
+const ReadN = 3
 
 // Outcome is one strategy's result for one question.
 type Outcome struct {
@@ -63,53 +64,94 @@ func read(vault, rel string) string {
 	return string(b)
 }
 
-// Old is the grep-and-read strategy: kb = ls of the skill's folders, a
-// case-insensitive grep -l for any keyword, then ReadN whole notes in path
-// order; recall = the project's folder, its note, all decisions, the two
-// latest logs and (for a ticket) the ticket's notes.
+var stopWords = map[string]bool{
+	"a": true, "an": true, "the": true, "of": true, "to": true, "for": true, "on": true, "in": true, "is": true, "are": true,
+	"was": true, "what": true, "which": true, "who": true, "how": true, "does": true, "do": true, "did": true, "and": true,
+	"or": true, "by": true, "at": true, "before": true, "right": true, "now": true, "last": true, "still": true,
+}
+
+// Distinctive is what an agent greps for: the fact's keywords without project
+// names and stop words.
+func Distinctive(f Fact) []string {
+	proj := map[string]bool{}
+	for _, p := range projectSlugs {
+		proj[p] = true
+	}
+	var out []string
+	for _, k := range f.Keywords {
+		k = strings.ToLower(k)
+		if !proj[k] && !stopWords[k] {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// Old is the strategy before vault search (W4 S01). kb: ls of the skill's
+// folders, then a case-insensitive grep -l of the distinctive keywords; the hits
+// are ranked by how many distinct keywords they contain and the top ReadN are
+// read whole (an agent would read the best matches, not the first alphabetically).
+// recall: the old recall skill's steps as written before task 08
+// (1cf4eb1:assets/plugin/skills/recall/SKILL.md): the 3 latest project logs,
+// the decision notes (the generated vaults have no decisions index, so all of
+// them stand in for it and the linked notes), the project note and the ticket
+// notes that list the project; for a ticket question its note and board.
 func Old(vault string, files []string, f Fact) Outcome {
 	var ctx strings.Builder
 	if f.Scenario == "kb" {
 		ctx.WriteString(listing(vault, "projects", "knowledge-base", "references"))
-		var hits []string
+		type hit struct {
+			rel string
+			n   int
+		}
+		var hits []hit
+		keys := Distinctive(f)
 		for _, rel := range files {
 			low := strings.ToLower(read(vault, rel))
-			for _, k := range f.Keywords {
+			n := 0
+			for _, k := range keys {
 				if strings.Contains(low, k) {
-					hits = append(hits, rel)
-					break
+					n++
 				}
 			}
+			if n > 0 {
+				hits = append(hits, hit{rel, n})
+			}
 		}
-		ctx.WriteString(strings.Join(hits, "\n") + "\n")
+		sort.SliceStable(hits, func(i, j int) bool { return hits[i].n > hits[j].n })
+		for _, h := range hits {
+			ctx.WriteString(h.rel + "\n")
+		}
 		for i := 0; i < len(hits) && i < ReadN; i++ {
-			ctx.WriteString(read(vault, hits[i]))
+			ctx.WriteString(read(vault, hits[i].rel))
 		}
 	} else {
 		pre := "projects/" + f.Project + "/"
 		ctx.WriteString(listing(vault, "projects", "projects/"+f.Project))
 		var logs []string
 		for _, rel := range files {
-			if !strings.HasPrefix(rel, pre) {
-				continue
-			}
 			switch {
-			case strings.Contains(rel, "-log-"):
-				logs = append(logs, rel)
-			case strings.Contains(rel, "-decision-") || rel == pre+f.Project+".md":
-				ctx.WriteString(read(vault, rel))
+			case strings.HasPrefix(rel, pre):
+				switch {
+				case strings.Contains(rel, "-log-"):
+					logs = append(logs, rel)
+				case strings.Contains(rel, "-decision-") || rel == pre+f.Project+".md":
+					ctx.WriteString(read(vault, rel))
+				}
+			case strings.HasPrefix(rel, "tickets/") && strings.Count(rel, "/") == 2 && !strings.Contains(rel, "-board.md") && !strings.Contains(rel, "-plan.md"):
+				// a ticket's own note: open tickets that list the project
+				if b := read(vault, rel); strings.Contains(b, "projects: ["+f.Project+"]") {
+					ctx.WriteString(b)
+				}
 			}
 		}
-		for i := max(0, len(logs)-2); i < len(logs); i++ {
+		for i := max(0, len(logs)-3); i < len(logs); i++ {
 			ctx.WriteString(read(vault, logs[i]))
 		}
 		if f.Ticket != "" {
-			ctx.WriteString(listing(vault, "tickets/"+f.Ticket, "tickets/"+f.Ticket+"/tasks"))
-			for _, rel := range files {
-				if strings.HasPrefix(rel, "tickets/"+f.Ticket+"/") {
-					ctx.WriteString(read(vault, rel))
-				}
-			}
+			ctx.WriteString(listing(vault, "tickets/"+f.Ticket))
+			ctx.WriteString(read(vault, "tickets/"+f.Ticket+"/"+f.Ticket+".md"))
+			ctx.WriteString(read(vault, "tickets/"+f.Ticket+"/"+f.Ticket+"-board.md"))
 		}
 	}
 	s := ctx.String()
@@ -125,11 +167,32 @@ func Render(r *vsearch.Response) string {
 	return b.String()
 }
 
-// New is one `search --k 30 --budget 2000` call; recall questions filter by project
-// (the ticket's folder for a ticket question).
-func New(r *vsearch.Response, f Fact) Outcome {
+// New is what the new skills do (W4 S02): one `search --k 30 --budget 2000`
+// call (recall questions filter by project, the ticket's folder for a ticket
+// question), then, when the search text doesn't contain the answer, a
+// `note get <top note> "<top section>"`, whose tokens count too. FollowUp
+// reports whether that second call was needed.
+func New(vault string, r *vsearch.Response, f Fact) (o Outcome, followUp bool) {
 	s := Render(r)
-	return Outcome{Tokens: chunk.Tokens(s), Found: strings.Contains(s, f.Sentence)}
+	o = Outcome{Tokens: chunk.Tokens(s), Found: strings.Contains(s, f.Sentence)}
+	if o.Found || len(r.Results) == 0 {
+		return o, false
+	}
+	top := r.Results[0]
+	if len(top.Heading) == 0 {
+		return o, true
+	}
+	sec := top.Heading[len(top.Heading)-1:]
+	got, err := notesec.Get([]byte(read(vault, top.Path)), strings.Join(sec, ""), false)
+	if err != nil && len(top.Heading) > 1 {
+		got, err = notesec.Get([]byte(read(vault, top.Path)), strings.Join(top.Heading, " > "), false)
+	}
+	if err != nil {
+		return o, true // the call is made, but gives nothing to read
+	}
+	o.Tokens += chunk.Tokens(string(got))
+	o.Found = strings.Contains(string(got), f.Sentence)
+	return o, true
 }
 
 // SearchOptions are the vsearch options for a fact's question.
