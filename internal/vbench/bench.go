@@ -73,6 +73,14 @@ var stopWords = map[string]bool{
 // Distinctive is what an agent greps for: the fact's keywords without project
 // names and stop words.
 func Distinctive(f Fact) []string {
+	keys, _ := DistinctiveKeys(f)
+	return keys
+}
+
+// DistinctiveKeys is Distinctive plus whether it fell back to all the keywords
+// because none was distinctive (the OLD strategy then greps for common words,
+// which inflates its cost; W6 C01).
+func DistinctiveKeys(f Fact) (keys []string, fallback bool) {
 	proj := map[string]bool{}
 	for _, p := range projectSlugs {
 		proj[p] = true
@@ -85,11 +93,27 @@ func Distinctive(f Fact) []string {
 		}
 	}
 	if len(out) == 0 {
+		fallback = true
 		for _, k := range f.Keywords {
 			out = append(out, strings.ToLower(k))
 		}
 	}
-	return out
+	return out, fallback
+}
+
+// FallbackNote is the report line naming the facts whose OLD grep used all
+// keywords for want of a distinctive one; "" when there are none.
+func FallbackNote(facts []Fact) string {
+	var qs []string
+	for _, f := range facts {
+		if _, fb := DistinctiveKeys(f); fb {
+			qs = append(qs, f.Question)
+		}
+	}
+	if len(qs) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("old: %d fact(s) had no distinctive keyword, so the grep used all keywords (marked \"*\"): %s", len(qs), strings.Join(qs, "; "))
 }
 
 // Old is the strategy before vault search (W4 S01). kb: ls of the skill's

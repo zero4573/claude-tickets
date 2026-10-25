@@ -6,6 +6,7 @@ package vsearch
 
 import (
 	"errors"
+	"math"
 	"sort"
 	"strings"
 
@@ -158,16 +159,7 @@ func Search(ix *vindex.Index, emb embed.Embedder, query string, o Options) (*Res
 	// mediocre keyword-only row.
 	var meanSem float64
 	if len(zeroRow) > 0 {
-		var n int
-		for _, i := range cand {
-			if !zeroRow[i] && ix.Vector(i) != nil {
-				meanSem += sem[i]
-				n++
-			}
-		}
-		if n > 0 {
-			meanSem /= float64(n)
-		}
+		meanSem = meanSemantic(cand, sem, func(i int) bool { return zeroRow[i] || ix.Vector(i) == nil })
 	}
 	base := make([]float64, len(ix.Chunks))
 	for _, i := range cand {
@@ -369,4 +361,30 @@ func dot(a, b []float32) float64 {
 // (no keyword match, no score). Semantic mode (wk 0) gives ws*meanSem*kw.
 func zeroScore(ws, wk, meanSem, kw float64) float64 {
 	return (wk + ws*meanSem) * kw
+}
+
+// meanSemantic is the mean of max(0, cosine) over the embedded candidates (those
+// for which noVec is false); 0 when there are none. Search and Related both
+// impute a zero row's semantic part from it, so the two sit on one scale
+// (contract vault-search-core-v1 v1.4, W6 S01).
+func meanSemantic(cand []int, sem []float64, noVec func(int) bool) float64 {
+	m, _ := meanSemanticN(cand, sem, noVec)
+	return m
+}
+
+// meanSemanticN is meanSemantic plus the number of embedded candidates.
+func meanSemanticN(cand []int, sem []float64, noVec func(int) bool) (float64, int) {
+	var sum float64
+	var n int
+	for _, i := range cand {
+		if noVec(i) {
+			continue
+		}
+		sum += math.Max(0, sem[i])
+		n++
+	}
+	if n == 0 {
+		return 0, 0
+	}
+	return sum / float64(n), n
 }

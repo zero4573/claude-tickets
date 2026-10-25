@@ -93,7 +93,11 @@ func TestReport(t *testing.T) {
 		if n.Found {
 			s.newOK++
 		}
-		fmt.Printf("  %-6s old=%6d tok found=%-5v new=%5d tok found=%-5v  %s\n", f.Scenario, o.Tokens, o.Found, n.Tokens, n.Found, f.Question)
+		mark := ""
+		if _, fb := DistinctiveKeys(f); fb {
+			mark = " *"
+		}
+		fmt.Printf("  %-6s old=%6d tok found=%-5v new=%5d tok found=%-5v  %s\n", f.Scenario, o.Tokens, o.Found, n.Tokens, n.Found, f.Question+mark)
 	}
 	fmt.Printf("\nembedder: %s   notes: %d   chunks: %d\n", embedder, st.Notes, st.Chunks)
 	fmt.Printf("index build: full %s (embedded %d), no-op re-run %s\n", st.Took.Round(time.Millisecond), st.Embedded, st2.Took.Round(time.Millisecond))
@@ -111,6 +115,9 @@ func TestReport(t *testing.T) {
 	}
 	red := 100 * (1 - float64(all.new)/float64(all.old))
 	fmt.Printf("%-8s %3d %10d %10d %9.1f%% %6d/%-2d %6d/%-2d\n", "all", all.n, all.old, all.new, red, all.oldOK, all.n, all.newOK, all.n)
+	if n := FallbackNote(v.Facts); n != "" {
+		fmt.Println(n)
+	}
 	fmt.Printf("new counts %d follow-up `note get` call(s) of the top section (made when the search text lacked the answer)\n", followUps)
 	note := ""
 	if embedder == "stub" {
@@ -185,5 +192,25 @@ func TestListsProjectAmongSeveral(t *testing.T) {
 		if got := listsProject(note, "acme"); got != want {
 			t.Errorf("%q: got %v", note, got)
 		}
+	}
+}
+
+// W6 C01: a fact with no distinctive keyword makes OLD grep for all keywords;
+// the report flags it.
+func TestFallbackFlagged(t *testing.T) {
+	ok := Fact{Question: "q-ok", Keywords: []string{"acme", "zebra"}}
+	bad := Fact{Question: "q-bad", Keywords: []string{"the", "of"}}
+	if _, fb := DistinctiveKeys(ok); fb {
+		t.Fatal("distinctive fact flagged")
+	}
+	if _, fb := DistinctiveKeys(bad); !fb {
+		t.Fatal("fallback not recorded")
+	}
+	if n := FallbackNote([]Fact{ok}); n != "" {
+		t.Fatalf("note without fallback: %q", n)
+	}
+	n := FallbackNote([]Fact{ok, bad})
+	if !strings.Contains(n, "q-bad") || strings.Contains(n, "q-ok") || !strings.Contains(n, "1 fact") {
+		t.Fatalf("note %q", n)
 	}
 }
