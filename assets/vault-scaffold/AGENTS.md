@@ -108,8 +108,9 @@ and the hooks. A ticket runs as a **PO** session (`/tickets:work-ticket <ID>`, t
 to) with one **lead** agent that plans and merges in waves of task agents, each wave reviewed;
 state lives in `tickets/<ID>/`. How it works (kickoff, plan, contracts, waves, review,
 hand-over, `relay.md`, the agents), the dependency fields, lead tickets and the status
-lifecycle: `work-ticket/workflow.md`, "Workflow" X `work-ticket`, `lead`, `task-agent` and `wave-review`. The skills ship with the
-plugin, not in the vault; in a session they run as `/tickets:<skill>` (e.g. `/tickets:work-ticket`). Session commands: `/tickets:save` (session log, promotes drafts,
+lifecycle: `work-ticket/workflow.md`, "Workflow", and the skills `work-ticket`, `lead`,
+`task-agent` and `wave-review`. The skills ship with the plugin, not in the vault; in a session
+they run as `/tickets:<skill>` (e.g. `/tickets:work-ticket`). Session commands: `/tickets:save` (session log, promotes drafts,
 appends the summary), `/tickets:recall` (read-only recap), `/tickets:kb` (answers from the vault,
 drafts into `inbox/`) and `/tickets:teach` (learning topics).
 Paths: `workRoot` (in `.workflow.json`) holds the ticket workspaces `<workRoot>/<ID>`, `projectsRoot` the
