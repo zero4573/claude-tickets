@@ -16,6 +16,7 @@ import (
 	"github.com/zero4573/claude-tickets/internal/fsx"
 	"github.com/zero4573/claude-tickets/internal/gitx"
 	"github.com/zero4573/claude-tickets/internal/graph"
+	"github.com/zero4573/claude-tickets/internal/modelcache"
 	"github.com/zero4573/claude-tickets/internal/repo"
 	"github.com/zero4573/claude-tickets/internal/session"
 	"github.com/zero4573/claude-tickets/internal/vault"
@@ -96,7 +97,7 @@ func kb(ctx vault.Context, question string, cont, print, fetch bool) error {
 		return err
 	}
 
-	argv, err := session.Command(ctx.Vault, ctx.ProjectsRoot, filepath.Join(config.CacheDir(), "graphify"))
+	argv, err := session.Command(ctx.Vault, ctx.ProjectsRoot, filepath.Join(config.CacheDir(), "graphify"), modelcache.Dir())
 	if err != nil {
 		return err
 	}

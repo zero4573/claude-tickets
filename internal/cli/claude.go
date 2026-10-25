@@ -11,6 +11,7 @@ import (
 
 	"github.com/zero4573/claude-tickets/internal/fsx"
 	"github.com/zero4573/claude-tickets/internal/gitx"
+	"github.com/zero4573/claude-tickets/internal/modelcache"
 	"github.com/zero4573/claude-tickets/internal/projects"
 	"github.com/zero4573/claude-tickets/internal/repo"
 	"github.com/zero4573/claude-tickets/internal/session"
@@ -39,7 +40,7 @@ are claude's own. Without ct claude a session knows nothing of the vault.`,
 				return fmt.Errorf("%s has no AGENTS.md (set it up with ct vault init)", ctx.Vault)
 			}
 			wd, _ := os.Getwd()
-			argv, err := session.Command(ctx.Vault)
+			argv, err := session.Command(ctx.Vault, modelcache.Dir())
 			if err != nil {
 				return err
 			}
