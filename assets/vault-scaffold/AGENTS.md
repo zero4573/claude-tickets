@@ -386,8 +386,8 @@ exit 3; `/tickets:save` passes `--save`):
    `contracts/` and `kb-drafts/`. A task agent writes only its own task file's `## Report`
    (plus the code in its `owns`); a reviewer only its `reviews/` file; an
    analyst nothing.
-   Agents never file a follow-up ticket on their own: the lead asks you per item
-   (this ticket, a new ticket, an existing ticket, or leave it in the backlog) and only for
+   Agents never file a follow-up ticket on their own: the lead asks you, for items it would not fix in this ticket
+   (options: A, this ticket; B, a new ticket; C, an existing ticket (name it); D, leave it in the backlog (backlog items only)), and only for
    a new ticket runs `ct new` (tag `from-ticket`), writing its initial content.
    **Exception, lead tickets:** a lead's session also writes the work
    sections (`## Workspace`, `## Tasks`, `## Questions`, `## Follow-ups`,
@@ -458,8 +458,8 @@ in a few calls; `ct start --continue <ID>` reopens the last one.
    gets a line in the review's `## Dispositions` (`resolved` with a fix or `kept: <reason>`,
    or `deferred` to a ticket), and hand-over waits until none is `open`.
 6. **Hand-over:** a short retro (fixes to the agents' environment become
-   backlog items; `/tickets:retro` runs one any time), you answer per backlog
-   item (this ticket, new ticket, existing ticket, leave it) before any follow-up ticket; then `## Review` and status
+   backlog items; `/tickets:retro` runs one any time), you answer for the open backlog
+   items (A, this ticket; B, a new ticket; C, an existing ticket (name it); D, leave it in the backlog (backlog items only)) before any follow-up ticket; then `## Review` and status
    `review`.
 
 **relay.md:** `## Closed` (≤40 one-line summaries), then `## Open` (≤30

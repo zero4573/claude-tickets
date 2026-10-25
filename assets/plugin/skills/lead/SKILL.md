@@ -145,12 +145,13 @@ Every finding ends `resolved` or `deferred` in the file's `## Dispositions` (con
   `<ID> · resolved · kept: <reason ≤150 chars> (<sha if a comment or doc was added>)` for
   dropped, intended or not-applicable items (the reason is mandatory);
   `<ID> · deferred · [[<ticket>]] · <why>` when it goes to a follow-up ticket.
-  **Never file a ticket on your own.** First ask the user, one `relay.md` question per item,
-  batched in one `Ask user:` through the gate. Options per item: A, this ticket (a fix task in
-  the next wave); B, a new ticket (propose summary and type; items may share one); C, an
-  existing ticket (name it); for backlog items only, D, leave it in the backlog. Only for an
-  answer B (`ct new`) or C do you file or name the ticket, add the item to its note and write
-  `deferred`, so the gate can pass before hand-over.
+  **Never file a ticket on your own.** The ask covers only items you would not fix in this
+  ticket: deferral candidates at triage, and the open backlog at hand-over. Fix tasks and
+  `kept:` stay your call, with no question. Ask through the gate in one `Ask user:`.
+  Options: A, this ticket; B, a new ticket; C, an existing ticket (name it); D, leave it in the backlog (backlog items only).
+  Up to 4 items: one `relay.md` question each. More than 4: one question per repo or theme, listing each item with your proposed option (A-D); the user accepts it or overrides it per item. The PO asks at most 4 questions per call and uses more calls when needed.
+  Only for an answer B (`ct new`) or C do you file or name the ticket, add the item to its
+  note and write `deferred`, so the gate can pass before hand-over. Writing a `deferred` line follows the answer; it is never the filing itself.
   A backlog item is not an end state: it stays `open` (here and in `backlog.md`) until fixed
   or deferred. Keep planning
   fix waves until the gate prints nothing. The gate runs at hand-over (8); between waves only

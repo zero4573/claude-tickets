@@ -27,11 +27,11 @@ information access. Add **at most 8**, most severe first, to `backlog.md ## Open
 into the per-item follow-up question (3) with the rest of the backlog.
 
 ## 3. Backlog → follow-up tickets
-1. Never run `ct new` unasked. Ask through the gate (`SKILL.md`): one `relay.md` question per
-   open item of the backlog's `## Open` (backlog items only, never review findings), batched
-   in one `Ask user:`. Options per item: A, this ticket; B, a new ticket (proposed summary and
-   type; suggest which items share one); C, an existing ticket (name it); D, leave it in the
-   backlog. Recommended first. End the run with `Next: wait-user`.
+1. Never run `ct new` unasked. Ask through the gate (`SKILL.md`): the open items of the
+   backlog's `## Open` (backlog items only, never review findings), in one `Ask user:`.
+   Options: A, this ticket; B, a new ticket; C, an existing ticket (name it); D, leave it in the backlog (backlog items only).
+   Up to 4 items: one `relay.md` question each. More than 4: one question per repo or theme, listing each item with your proposed option (A-D); the user accepts it or overrides it per item. The PO asks at most 4 questions per call and uses more calls when needed.
+   Recommended first; for B propose a summary and type, and which items share one. End the run with `Next: wait-user`.
 2. When the PO messages you the answers: items answered A become a fix wave (`SKILL.md` 4-7)
    merged before the hand-over ends. For each new ticket (answer B):
    `ct new --type <dev|bug|chore|investigation> "<summary>"`. It prints
@@ -59,7 +59,7 @@ Make sure `tickets/<ID>/kb-drafts/` is complete, each note with a `target:` fiel
 - for a lead, one line per covered ticket: what was done for it, and anything left;
 - the waves and their reviews: counts, and any must-fix left open with its reason;
 - tests added and run, with results;
-- open `## Follow-ups` (blockers still waiting on someone) and the follow-up tickets created;
+- open `## Follow-ups` (blockers still waiting on someone) and the new tickets filed after the user's answers (B);
 - remaining risks, and the board's `pending — user` rows: what the user checks by hand.
 
 ## 6. Finish
