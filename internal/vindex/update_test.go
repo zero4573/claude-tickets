@@ -1,6 +1,7 @@
 package vindex
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -150,12 +151,6 @@ func TestKeywordOnlyThenModel(t *testing.T) {
 	if st.Embedded != 3 || st.KeywordOnly {
 		t.Fatalf("%+v", st)
 	}
-	// And a model change (stub -> none) goes back to keyword-only.
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
-	st, _ = Update(v, UpdateOptions{})
-	if !st.KeywordOnly || st.Chunks != 3 {
-		t.Fatalf("%+v", st)
-	}
 }
 
 func TestCorruptIndexRebuilt(t *testing.T) {
@@ -215,5 +210,130 @@ func TestCleanLinks(t *testing.T) {
 		if got := cleanLinks(in); got != want {
 			t.Errorf("%q: got %q want %q", in, got, want)
 		}
+	}
+}
+
+func zeroRows(ix *Index) (n int) {
+	for i := range ix.Chunks {
+		if isZero(ix.Vector(i)) {
+			n++
+		}
+	}
+	return n
+}
+
+// A missing model never throws vectors away: changed notes get zero rows,
+// the next Update with the model embeds exactly those.
+func TestMissingModelKeepsVectors(t *testing.T) {
+	v := setup(t, "stub")
+	if _, err := Update(v, UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
+	put(t, v, "sub/b.md", "# B\n\nBrand new words.\n")
+	put(t, v, "c.md", "# C\n\nAnother note.\n")
+	st, err := Update(v, UpdateOptions{})
+	if err != nil || st.Changed != 2 || st.Embedded != 0 {
+		t.Fatalf("%+v %v", st, err)
+	}
+	ix, err := Load(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ix.Meta.Model != "stub" || ix.Meta.Dims != 64 || len(ix.Chunks) != 4 || zeroRows(ix) != 2 {
+		t.Fatalf("meta %+v zero=%d", ix.Meta, zeroRows(ix))
+	}
+	if isZero(ix.Vector(0)) || isZero(ix.Vector(1)) {
+		t.Fatal("untouched note lost its vectors")
+	}
+	if !strings.Contains(strings.Join(ix.Notes[0].Links, ","), "b") || !strings.Contains(ix.Chunks[ix.Notes[2].First].Text, "Brand new") {
+		t.Fatal("text and metadata must update without a model")
+	}
+	// Idempotent without a model.
+	if st, _ = Update(v, UpdateOptions{}); st.Changed != 0 || st.Embedded != 0 {
+		t.Fatalf("%+v", st)
+	}
+	// The model returns: only the zero rows are embedded (notes unchanged on disk).
+	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "stub")
+	st, err = Update(v, UpdateOptions{})
+	if err != nil || st.Embedded != 2 || st.Changed != 0 {
+		t.Fatalf("%+v %v", st, err)
+	}
+	ix, _ = Load(v)
+	if zeroRows(ix) != 0 || ix.Meta.Model != "stub" {
+		t.Fatalf("zero rows left: %d", zeroRows(ix))
+	}
+	if st, _ = Update(v, UpdateOptions{}); st.Embedded != 0 {
+		t.Fatalf("%+v", st)
+	}
+	// An explicit --full without a model is the keyword-only rebuild.
+	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
+	st, _ = Update(v, UpdateOptions{Full: true})
+	ix, _ = Load(v)
+	if !st.KeywordOnly || ix.Meta.Dims != 0 {
+		t.Fatalf("%+v %+v", st, ix.Meta)
+	}
+}
+
+func TestLoadRequiresContiguousChunks(t *testing.T) {
+	v := setup(t, "stub")
+	Update(v, UpdateOptions{})
+	ix, _ := Load(v)
+	ix.Notes[1].First++ // a gap before note 1's rows
+	if err := writeJSONL(filepath.Join(Dir(v), "notes.jsonl"), ix.Notes); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(v); !errors.Is(err, ErrNoIndex) {
+		t.Fatalf("got %v", err)
+	}
+	// Update rebuilds it.
+	if st, err := Update(v, UpdateOptions{}); err != nil || st.Embedded != 3 {
+		t.Fatalf("%+v %v", st, err)
+	}
+}
+
+// Load takes index.lock: a reader started in a writer's torn window waits
+// for the writer instead of reporting a half-written index.
+func TestLoadWaitsForWriter(t *testing.T) {
+	v := setup(t, "stub")
+	Update(v, UpdateOptions{})
+	put(t, v, "sub/b.md", "# B\n\nNew text so a chunk is added.\n\n## More\n\nand more\n")
+	type res struct {
+		ix  *Index
+		err error
+	}
+	got := make(chan res, 1)
+	var early bool
+	beforeNotesWrite = func() {
+		go func() { ix, err := Load(v); got <- res{ix, err} }()
+		select {
+		case <-got:
+			early = true
+		case <-time.After(300 * time.Millisecond):
+		}
+	}
+	defer func() { beforeNotesWrite = nil }()
+	if _, err := Update(v, UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if early {
+		t.Fatal("Load returned while the writer held the lock")
+	}
+	r := <-got
+	if r.err != nil || len(r.ix.Chunks) != 4 {
+		t.Fatalf("%v", r.err)
+	}
+}
+
+func TestFilesSkipsSymlinks(t *testing.T) {
+	v := setup(t, "stub")
+	Update(v, UpdateOptions{})
+	if err := os.Symlink(filepath.Join(v, "sub", "b.md"), filepath.Join(v, "link.md")); err != nil {
+		t.Skip("no symlinks")
+	}
+	Refresh(v, "link.md")
+	ix, _ := Load(v)
+	if len(ix.Notes) != 2 {
+		t.Fatalf("symlinked note indexed: %d notes", len(ix.Notes))
 	}
 }

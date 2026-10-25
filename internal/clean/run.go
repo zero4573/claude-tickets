@@ -16,6 +16,7 @@ import (
 	"github.com/zero4573/claude-tickets/internal/links"
 	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/vaultlock"
+	"github.com/zero4573/claude-tickets/internal/vindex"
 )
 
 const lockOwner = "ct-clean"
@@ -101,6 +102,8 @@ func gone(o Options, items []Item, except string) []string {
 // checks the links of the notes it changed and leaves follow-up tasks for
 // what it skipped.
 func Run(o Options, items []Item, env Env) Result {
+	// Archived, moved and rewritten notes: the search index (if any) catches up.
+	defer vindex.Refresh(o.Vault)
 	out := env.Out
 	var res Result
 	var tasks []string

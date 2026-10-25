@@ -1,6 +1,7 @@
 package vindex
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -127,7 +128,7 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 			fmt.Fprintf(o.Log, f+"\n", a...)
 		}
 	}
-	old, oerr := Load(vault)
+	old, oerr := load(vault)
 	if oerr != nil {
 		old = nil
 		if !errors.Is(oerr, ErrNoIndex) {
@@ -166,8 +167,13 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 		if m, ok := modelcache.Lookup(want); ok && emb.ID() == m.ID {
 			meta.ModelSHA256 = m.SHA256
 		}
+	} else if old != nil && old.Meta.Dims > 0 && !o.Full && (o.Model == "" || o.Model == old.Meta.Model) && old.Meta.ChunkTokens == chunkTokens {
+		// No model, but the index has vectors: keep them and the model they
+		// belong to; new chunks get zero vectors until a model embeds them.
+		meta.Model, meta.ModelSHA256, meta.Dims = old.Meta.Model, old.Meta.ModelSHA256, old.Meta.Dims
 	}
 	st.Model, st.KeywordOnly = meta.Model, emb == nil
+	hasVecs := meta.Dims > 0
 
 	full := o.Full || old == nil || old.Meta.Model != meta.Model || old.Meta.ModelSHA256 != meta.ModelSHA256 ||
 		old.Meta.Dims != meta.Dims || old.Meta.ChunkTokens != chunkTokens
@@ -211,37 +217,50 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 	reuse := map[string][]float32{}
 	if old != nil && old.Meta.Dims > 0 {
 		for i, c := range old.Chunks {
-			reuse[c.Hash] = old.Vector(i)
+			if v := old.Vector(i); !isZero(v) {
+				reuse[c.Hash] = v
+			}
 		}
 	}
 
 	var notes []*built
 	rewriteNotes := false // some mtime/size changed
-	oldChunksOf := func(i int) *built {
-		n := old.Notes[i]
-		b := &built{meta: n}
-		for r := n.First; r < n.First+n.Count; r++ {
-			b.chunks = append(b.chunks, old.Chunks[r])
-			if old.Meta.Dims > 0 {
-				b.vecs = append(b.vecs, old.Vector(r))
-			}
-		}
-		return b
-	}
-	for p, i := range keep {
-		_ = p
-		notes = append(notes, oldChunksOf(i))
-	}
 	type pending struct {
 		b      *built
 		inputs []string
 		idx    []int // rows (in b.chunks) needing a vector
 	}
 	var todo []pending
+	// A carried-over note keeps its chunks and vectors; with a model, rows
+	// left without a vector (zero) by an earlier run without one get embedded.
+	oldChunksOf := func(i int) *built {
+		n := old.Notes[i]
+		b := &built{meta: n}
+		p := pending{b: b}
+		for r := n.First; r < n.First+n.Count; r++ {
+			b.chunks = append(b.chunks, old.Chunks[r])
+			if old.Meta.Dims > 0 {
+				v := old.Vector(r)
+				b.vecs = append(b.vecs, v)
+				if emb != nil && isZero(v) {
+					c := old.Chunks[r]
+					p.inputs = append(p.inputs, n.Name+" > "+strings.Join(c.Heading, " > ")+"\n\n"+c.Text)
+					p.idx = append(p.idx, len(b.vecs)-1)
+				}
+			}
+		}
+		if len(p.idx) > 0 {
+			todo = append(todo, p)
+		}
+		return b
+	}
+	for _, i := range keep {
+		notes = append(notes, oldChunksOf(i))
+	}
 	exists := map[string]bool{}
 	for _, rel := range paths {
 		abs := filepath.Join(vault, filepath.FromSlash(rel))
-		fi, err := os.Stat(abs)
+		fi, err := os.Lstat(abs)
 		if err != nil || !fi.Mode().IsRegular() {
 			continue
 		}
@@ -265,11 +284,13 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 		}
 		st.Changed++
 		name := strings.TrimSuffix(filepath.Base(rel), ".md")
+		fmLines := note.Lines(src)
+		fm := note.FrontmatterFrom(bytes.NewReader(src))
 		nm := NoteMeta{
 			Path: rel, Name: name, MTime: fi.ModTime().UnixNano(), Size: fi.Size(), SHA256: h,
-			Type:     note.Frontmatter(abs)["type"],
-			Tags:     orEmpty(note.ListField(abs, "tags")),
-			Projects: orEmpty(note.ListField(abs, "projects")),
+			Type:     fm["type"],
+			Tags:     orEmpty(note.ListFieldLines(fmLines, "tags")),
+			Projects: orEmpty(note.ListFieldLines(fmLines, "projects")),
 		}
 		seen := map[string]bool{}
 		add := func(t string) {
@@ -282,7 +303,7 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 			add(t)
 		}
 		for _, f := range []string{"depends-on", "groups"} {
-			for _, t := range note.ListField(abs, f) {
+			for _, t := range note.ListFieldLines(fmLines, f) {
 				add(unwrap(t))
 			}
 		}
@@ -296,10 +317,13 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 				Tokens: c.Tokens, Hash: sum([]byte(in))[:16], Text: cleanLinks(c.Text),
 			}
 			b.chunks = append(b.chunks, cm)
-			if emb != nil {
-				if v, ok := reuse[cm.Hash]; ok && v != nil {
+			if hasVecs {
+				switch v, ok := reuse[cm.Hash]; {
+				case ok:
 					b.vecs = append(b.vecs, v)
-				} else {
+				case emb == nil:
+					b.vecs = append(b.vecs, make([]float32, meta.Dims))
+				default:
 					b.vecs = append(b.vecs, nil)
 					p.inputs = append(p.inputs, in)
 					p.idx = append(p.idx, len(b.vecs)-1)
@@ -355,7 +379,7 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 		for ci, c := range b.chunks {
 			c.Note = ni
 			chunkRows = append(chunkRows, c)
-			if emb != nil {
+			if hasVecs {
 				vecRows = append(vecRows, b.vecs[ci])
 			}
 		}
@@ -365,20 +389,23 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 	meta.Notes, meta.Chunks = st.Notes, st.Chunks
 
 	dir := Dir(vault)
-	unchanged := old != nil && st.Changed == 0 && st.Removed == 0 && !rewriteNotes
+	unchanged := old != nil && st.Changed == 0 && st.Removed == 0 && st.Embedded == 0 && !rewriteNotes
 	if !unchanged {
-		structural := full || old == nil || st.Changed > 0 || st.Removed > 0
+		structural := full || old == nil || st.Changed > 0 || st.Removed > 0 || st.Embedded > 0
 		if structural {
 			if err := writeJSONL(filepath.Join(dir, "chunks.jsonl"), chunkRows); err != nil {
 				return err
 			}
-			if emb != nil {
+			if hasVecs {
 				if err := writeVectors(filepath.Join(dir, "vectors.f32"), vecRows); err != nil {
 					return err
 				}
 			} else if err := os.Remove(filepath.Join(dir, "vectors.f32")); err != nil && !os.IsNotExist(err) {
 				return err
 			}
+		}
+		if beforeNotesWrite != nil {
+			beforeNotesWrite()
 		}
 		if err := writeJSONL(filepath.Join(dir, "notes.jsonl"), noteRows); err != nil {
 			return err
@@ -435,10 +462,24 @@ func Refresh(vault string, files ...string) {
 	if _, err := os.Stat(filepath.Join(Dir(vault), "meta.json")); err != nil {
 		return
 	}
-	if len(files) == 0 {
-		return
+	var only []string // nil: check the whole vault
+	if len(files) > 0 {
+		only = files
 	}
-	if _, err := Update(vault, UpdateOptions{Files: files}); err != nil {
+	if _, err := Update(vault, UpdateOptions{Files: only}); err != nil {
 		fmt.Fprintf(os.Stderr, "ct: vault index not updated: %v\n", err)
 	}
 }
+
+func isZero(v []float32) bool {
+	for _, f := range v {
+		if f != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// beforeNotesWrite is a test hook: it runs after chunks.jsonl and vectors.f32
+// are written and before notes.jsonl and meta.json (the reader's torn window).
+var beforeNotesWrite func()

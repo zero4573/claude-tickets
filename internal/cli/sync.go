@@ -21,6 +21,7 @@ import (
 	"github.com/zero4573/claude-tickets/internal/repo"
 	"github.com/zero4573/claude-tickets/internal/session"
 	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/claude-tickets/internal/vindex"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
 
@@ -130,6 +131,8 @@ func staleGraphs(ctx vault.Context) {
 }
 
 func ticketSync(ctx vault.Context, only string, full bool) error {
+	// Changed ticket notes are not listed by the skill: whole-vault stale check.
+	defer vindex.Refresh(ctx.Vault)
 	cfgFile := filepath.Join(ctx.Vault, "tickets", ".sources.json")
 	stateFile := filepath.Join(ctx.Vault, "tickets", ".sync-state.json")
 	data, err := os.ReadFile(cfgFile)
