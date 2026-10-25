@@ -124,3 +124,10 @@ func randomID() string {
 	_, _ = rand.Read(b[:])
 	return hex.EncodeToString(b[:])
 }
+
+// UniqueOwner is a vault lock owner name made unique to this run:
+// Acquire lets its holder straight back in, so a shared name would let two
+// runs write at once.
+func UniqueOwner(base string) string {
+	return fmt.Sprintf("%s-%d-%s", base, os.Getpid(), randomID())
+}

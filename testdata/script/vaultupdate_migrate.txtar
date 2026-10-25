@@ -1,0 +1,162 @@
+# ct vault update migrates the tickets to the checklist formats
+env V=$WORK/home/Documents/Obsidian/mig
+exec ct vault init mig
+# a vault of an earlier ct: the old task views, v1 tickets
+cp old-pending.md $V/pending.md
+mkdir $V/tickets/PROJ-1/reviews
+cp ticket-active.md $V/tickets/PROJ-1/PROJ-1.md
+cp v1-board.md $V/tickets/PROJ-1/board.md
+cp v1-backlog.md $V/tickets/PROJ-1/backlog.md
+cp v1-review.md $V/tickets/PROJ-1/reviews/wave-1-acme-api.md
+mkdir $V/tickets/PROJ-2
+cp ticket-closed.md $V/tickets/PROJ-2/PROJ-2.md
+cp v1-board.md $V/tickets/PROJ-2/board.md
+mkdir $V/tickets/PROJ-3
+cp ticket-done.md $V/tickets/PROJ-3/PROJ-3.md
+cp v1-board.md $V/tickets/PROJ-3/board.md
+cp $V/.scaffold.json rec0
+
+# dry run: reports, writes nothing, takes no lock
+exec ct vault update mig --dry-run
+stdout '^  x pending.md \(not shipped any more, unedited; would remove\)$'
+stdout '^  \* tickets/PROJ-1/ \(PROJ-1-status.md would add; board.md, backlog.md, reviews/wave-1-acme-api.md would convert\)$'
+stdout '^  \* tickets/PROJ-3/ \(PROJ-3-status.md would add; board.md would convert\)$'
+! stdout 'PROJ-2'
+stdout '^ct vault update: tickets that would be migrated 2, already current 0, closed \(skipped\) 1$'
+exists $V/pending.md
+! exists $V/tickets/PROJ-1/PROJ-1-status.md
+cmp $V/tickets/PROJ-1/board.md v1-board.md
+cmp $V/.scaffold.json rec0
+! exists $V/.vault.lock.d
+
+# --diff shows the converted files
+exec ct vault update mig --diff
+stdout '^--- tickets/PROJ-1/board.md \(vault\)$'
+stdout '^-\| 01 \| \[\[PROJ-1-01-api\]\] \| acme-api \| 1 \| - \| merged abc1234 \| R-03 \|$'
+stdout '^\+- \[x\] 01 · merged abc1234 · \[\[PROJ-1-01-api\]\] · acme-api · w1 · deps - · R-03$'
+stdout '^\+- \[ \] W1-acme-api-M01 · open$'
+cmp $V/tickets/PROJ-1/board.md v1-board.md
+
+# the real run
+exec ct vault update mig
+stdout '^  x pending.md \(not shipped any more, unedited; removed\)$'
+stdout '^  \* tickets/PROJ-1/ \(PROJ-1-status.md added; board.md, backlog.md, reviews/wave-1-acme-api.md converted\)$'
+stdout '^  \* tickets/PROJ-3/ \(PROJ-3-status.md added; board.md converted\)$'
+stdout '^ct vault update: tickets migrated 2, already current 0, closed \(skipped\) 1$'
+! exists $V/pending.md
+! exists $V/.vault.lock.d
+grep '^title: PROJ-1 status$' $V/tickets/PROJ-1/PROJ-1-status.md
+grep '^created: 20' $V/tickets/PROJ-1/PROJ-1-status.md
+! grep 'TICKET-ID|\{\{date\}\}' $V/tickets/PROJ-1/PROJ-1-status.md
+grep '^- \[x\] 01 · merged abc1234 · \[\[PROJ-1-01-api\]\] · acme-api · w1 · deps - · R-03$' $V/tickets/PROJ-1/board.md
+grep '^- \[/\] 02 · running · \[\[PROJ-1-02-ui\]\] · acme-ui · w1 · deps 01 · -$' $V/tickets/PROJ-1/board.md
+grep '^- w1 · acme-api · a1b2c3d..e4f5a6b · M/S/C 1/0/0 · \[\[wave-1-acme-api\]\] · fix tasks 02$' $V/tickets/PROJ-1/board.md
+! grep '^\|' $V/tickets/PROJ-1/board.md
+grep '^- \[ \] B-01 · w1 · acme-api · retry · W1-acme-api-S01$' $V/tickets/PROJ-1/backlog.md
+grep '^- \[ \] W1-acme-api-M01 · open$' $V/tickets/PROJ-1/reviews/wave-1-acme-api.md
+grep '^- W1-acme-api-M01 · a.go:1' $V/tickets/PROJ-1/reviews/wave-1-acme-api.md
+grep '^- \[x\] 01 · merged' $V/tickets/PROJ-3/board.md
+cmp $V/tickets/PROJ-2/board.md v1-board.md
+! exists $V/tickets/PROJ-2/PROJ-2-status.md
+! exists $V/tickets/PROJ-1/.board.md.ct-tmp
+
+# a second run changes nothing
+exec sh -c 'cat $V/tickets/PROJ-1/board.md $V/tickets/PROJ-1/backlog.md $V/tickets/PROJ-1/reviews/wave-1-acme-api.md > $WORK/after1'
+cp $V/.scaffold.json rec1
+exec ct vault update mig
+! stdout '^  [-+~!x*] '
+stdout '^ct vault update: tickets migrated 0, already current 2, closed \(skipped\) 1$'
+exec sh -c 'cat $V/tickets/PROJ-1/board.md $V/tickets/PROJ-1/backlog.md $V/tickets/PROJ-1/reviews/wave-1-acme-api.md > $WORK/after2'
+cmp $WORK/after1 $WORK/after2
+cmp $V/.scaffold.json rec1
+
+# a ticket that can't be converted is left as it is, with a warning
+mkdir $V/tickets/PROJ-4
+cp ticket-active.md $V/tickets/PROJ-4/PROJ-4.md
+cp v1-board-bad.md $V/tickets/PROJ-4/board.md
+exec ct vault update mig
+stderr 'tickets/PROJ-4/board.md:11: not converted \(a row of 2 columns, want 7\); convert it by hand'
+cmp $V/tickets/PROJ-4/board.md v1-board-bad.md
+exists $V/tickets/PROJ-4/PROJ-4-status.md
+stdout '^  \* tickets/PROJ-4/ \(PROJ-4-status.md added\)$'
+
+-- old-pending.md --
+```tasks
+not done
+path does not include templates/
+sort by created reverse
+```
+-- ticket-active.md --
+---
+title: PROJ
+status: active
+type: ticket
+---
+# PROJ
+-- ticket-closed.md --
+---
+title: PROJ
+status: closed
+type: ticket
+---
+# PROJ
+-- ticket-done.md --
+---
+title: PROJ
+status: done
+type: ticket
+---
+# PROJ
+-- v1-board.md --
+---
+type: board
+---
+# Board
+
+Tasks and wave reviews; one row each, updated in place.
+
+## Tasks
+<!-- Status: planned · running · merged <sha>. -->
+| ID | Task | Repo | Wave | Deps | Status | Note |
+|---|---|---|---|---|---|---|
+| 01 | [[PROJ-1-01-api]] | acme-api | 1 | - | merged abc1234 | R-03 |
+| 02 | [[PROJ-1-02-ui]] | acme-ui | 1 | 01 | running | |
+
+## Reviews
+<!-- M/S/C: counts. -->
+| Wave | Repo | Range | M/S/C | File | Fix tasks |
+|---|---|---|---|---|---|
+| 1 | acme-api | a1b2c3d..e4f5a6b | 1/0/0 | [[wave-1-acme-api]] | 02 |
+-- v1-board-bad.md --
+---
+type: board
+---
+# Board
+
+## Tasks
+<!-- Status: planned -->
+| ID | Task | Repo | Wave | Deps | Status | Note |
+|---|---|---|---|---|---|---|
+| 01 | [[PROJ-4-01-x]] | acme-api | 1 | - | planned | |
+| 02 | broken |
+-- v1-backlog.md --
+# Backlog
+
+## Open
+<!-- ≤40 -->
+- B-01 · w1 · acme-api · retry · W1-acme-api-S01
+
+## Closed
+-- v1-review.md --
+---
+type: review
+---
+# Review
+
+## Must-fix
+- W1-acme-api-M01 · a.go:1 · problem · fix · test
+
+## Dispositions
+<!-- The lead's: one line per finding, `<ID> · resolved · <how>`, `<ID> · resolved · kept: <reason>` or `<ID> · deferred · [[<ticket>]] · <why>` -->
+<!-- The reviewer lists every finding ID of Must-fix, Should-fix and Consider as `- <ID> · open`. -->
+- W1-acme-api-M01 · open

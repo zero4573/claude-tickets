@@ -23,6 +23,9 @@ rm $V/.scaffold.json
 cp old-ticket-manual.md $V/templates/ticket-manual.md
 cp mine.md $V/AGENTS.md
 rm $V/templates/base.md
+# the old task views: unedited (line endings and trailing newlines only)
+cp old-done.md $V/done.md
+cp old-pending.md $V/pending.md
 exec sh nl.sh $V/done.md
 exec sh crlf.sh $V/pending.md
 cp note.md $V/inbox/note.md
@@ -35,8 +38,11 @@ stdout '^ct vault update: .*/demo \(dry run: nothing is written\)$'
 stdout '^  ~ templates/ticket-manual.md \(would update\)$'
 stdout '^  \+ templates/base.md \(would add\)$'
 stdout '^  ! AGENTS.md \(edited, kept\)$'
-stdout 'would add 1, would update 1, up to date [0-9]+, edited 1 \(kept\)$'
-! stdout 'done.md|pending.md'
+stdout 'would add 1, would update 1, would remove 2, up to date [0-9]+, edited 1 \(kept\)$'
+stdout '^  x done.md \(not shipped any more, unedited; would remove\)$'
+stdout '^  x pending.md \(not shipped any more, unedited; would remove\)$'
+exists $V/done.md
+exists $V/pending.md
 cmp $V/templates/ticket-manual.md old-ticket-manual.md
 ! exists $V/templates/base.md
 ! exists $V/.scaffold.json
@@ -58,7 +64,11 @@ exec ct vault update demo
 stdout '^  ~ templates/ticket-manual.md \(updated\)$'
 stdout '^  \+ templates/base.md \(added\)$'
 stdout '^  ! AGENTS.md \(edited, kept\)$'
-stdout 'added 1, updated 1, up to date [0-9]+, edited 1 \(kept\)$'
+stdout '^  x done.md \(not shipped any more, unedited; removed\)$'
+stdout '^  x pending.md \(not shipped any more, unedited; removed\)$'
+! exists $V/done.md
+! exists $V/pending.md
+stdout 'added 1, updated 1, removed 2, up to date [0-9]+, edited 1 \(kept\)$'
 stdout 'take the shipped version of a file with ct vault update --take <file>'
 grep 'ct sync never' $V/templates/ticket-manual.md
 exists $V/templates/base.md
@@ -167,19 +177,22 @@ cmp $O/.scaffold.json newer-record.json
 # a folder or a symlink at a shipped path: edited, never followed, written or taken
 env N=$WORK/home/Documents/Obsidian/nr
 exec ct vault init nr
-rm $N/done.md
 mkdir $N/done.md
 cp note.md $N/done.md/inside.md
-rm $N/pending.md
 symlink $N/pending.md -> $WORK/note.md
+cp mine.md $N/follow-ups.md
 exec ct vault update nr
-stdout '^  ! done.md \(edited, kept; not a regular file\)$'
-stdout '^  ! pending.md \(edited, kept; not a regular file\)$'
-stdout 'edited 2 \(kept\)$'
+stdout '^  - done.md \(not shipped any more, edited; kept: delete it by hand once you no longer need it\)$'
+stdout '^  - pending.md \(not shipped any more, edited; kept: delete it by hand once you no longer need it\)$'
+stdout '^  - follow-ups.md \(not shipped any more, edited; kept: delete it by hand once you no longer need it\)$'
+stdout 'edited 0 \(kept\), not shipped any more 3$'
+stderr 'follow-ups.md: no longer shipped and edited, kept'
+! stdout 'removed'
 ! exec ct vault update nr --take done.md
-stderr 'done.md: not a regular file; move it away first'
+stderr 'done.md isn.t shipped any more'
 ! exec ct vault update nr --take pending.md
-stderr 'pending.md: not a regular file'
+stderr 'pending.md isn.t shipped any more'
+cmp $N/follow-ups.md mine.md
 cmp $N/done.md/inside.md note.md
 cmp $WORK/note.md note.md
 ! exists $N/done.md.bak
@@ -193,6 +206,18 @@ exec ct vault lock status $N
 stdout 'PROJ-12'
 exec ct vault lock release $N PROJ-12
 
+-- old-done.md --
+```tasks
+done
+path does not include templates/
+sort by done reverse
+```
+-- old-pending.md --
+```tasks
+not done
+path does not include templates/
+sort by created reverse
+```
 -- nl.sh --
 printf '\n\n' >> "$1"
 -- crlf.sh --
