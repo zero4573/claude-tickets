@@ -21,7 +21,7 @@ import (
 	"github.com/zero4573/claude-tickets/internal/lock"
 )
 
-// PluginDir is the Claude Code plugin shipped with ct (skills, role
+// PluginDir is the Claude Code plugin shipped with ct (skills, wave
 // agents, hooks): $CLAUDE_TICKETS_PLUGIN (the Nix package sets it), else
 // config.json's pluginDir, else the copy embedded in ct, unpacked to the
 // cache.
