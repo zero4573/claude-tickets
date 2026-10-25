@@ -18,12 +18,13 @@ in full. State lives in `tickets/<ID>/` (layout and caps: the vault's `AGENTS.md
   write the note's `## Questions` and `status` (the gate's; the lead sets it as it plans),
   `relay.md`, `board.md`'s frontmatter `lead:`, `lead-since:` and `po:` (with `sed -i` on those
   lines only) and its `orphaned` marks (0); the kickoff also writes `## Workspace`, `projects:`,
-  `ticket-type`, the kickoff line and the first `relay.md`/`board.md`. The lead writes the rest.
+  `ticket-type`, the kickoff line and the first `relay.md`/`board.md` and `<ID>-status.md`. The lead writes the rest.
 - In the ticket note, never touch the identity and source fields (`source`, `source-*`), the
   `ignore*` fields, or the ticket's content (the `<!-- source:start -->` block of a synced
   ticket; `## Description`, `## Acceptance criteria`, `## Context / links` of a manual one).
-- Follow the vault's `AGENTS.md`: frontmatter, kebab-case, wikilinks by bare note name. No
-  `- [ ]` checkboxes in `relay.md`, plan, board, task, review or backlog files.
+- Follow the vault's `AGENTS.md`: frontmatter, kebab-case, wikilinks by bare note name.
+  Checkboxes only where `vault-checklists-v1` puts them (`board.md ## Tasks`, `## Dispositions`,
+  `backlog.md`, the note's `## Tasks`/`## Follow-ups`); relay, plan, task files and `## Reviews`: plain bullets.
 - Commits are unsigned (the user runs `ct ws sign <ID>`). Never push, rewrite pushed commits,
   `reset --hard`, or remove the ticket worktrees.
 - **Find vault context with `ct vault search "<topic>" --project <slug> --budget 2000`** (kickoff
@@ -33,8 +34,8 @@ in full. State lives in `tickets/<ID>/` (layout and caps: the vault's `AGENTS.md
 
 ## 0. Resume (always first; ≤3 calls)
 `<vault>` is the absolute vault path from `CLAUDE.md`; your cwd is `~/work/<ID>`.
-1. `sed -n '2,/^---$/p' <vault>/tickets/<ID>/board.md; rg -n '^\|' <vault>/tickets/<ID>/board.md`
-   (frontmatter `lead:`, `lead-since:`, `po:` and the rows)
+1. `sed -n '2,/^---$/p' <vault>/tickets/<ID>/board.md; rg -n '^- \[.\] [0-9]+ · ' <vault>/tickets/<ID>/board.md`
+   (frontmatter `lead:`, `lead-since:`, `po:` and the task lines)
 2. `tail -n 32 <vault>/tickets/<ID>/relay.md; echo "$CLAUDE_CODE_SESSION_ID"` (`## Open` is last)
 3. `rg -n '^(status|ticket-type):|^## Workspace' -A3 <vault>/tickets/<ID>/<ID>.md`
 
@@ -43,8 +44,7 @@ to this file) and do it (it creates `relay.md` and `board.md` and ends with a gr
 spawn the lead (1). Otherwise liveness goes by **session id**, never by a ping timeout
 (subagents die with their session):
 - `po: session:` differs from `$CLAUDE_CODE_SESSION_ID` (a new session): every agent of the old
-  one is gone. Mark its `running` rows `orphaned` (`sed -i -E 's/^(\| [0-9]+ \|([^|]*\|){4})
-  running \|/\1 orphaned |/' board.md`), set `agents: []` and `lead: none`, and spawn one fresh
+  one is gone. Mark its `running` lines `orphaned` (the box stays `[/]`: `sed -i -E 's/^(- \[\/\] [0-9]+ · )running · /\1orphaned · /' board.md`), set `agents: []` and `lead: none`, and spawn one fresh
   lead (1) with `New since the last lead: orphaned tasks NN, MM` (it checks their branches),
   adding `; finished, not sent: <the po: finished: entries>`, then set `finished: []`.
 - The same session (after `/compact` or a refresh): the lead is alive. SendMessage it "PO
@@ -85,7 +85,7 @@ Each event gets one short action; never forward report bodies.
   - a question: answer it from `board.md`, `relay.md` and `plan.md` when they cover it, else
     spawn `tickets:analyst` with `Ticket <ID>. Workspace: <ws>. Vault: <vault>. Question: <…>`
     (read-only, ≤20 lines with file:line). Work it needs becomes a `request` for the lead.
-  - "status": answer from the board rows and `relay.md ## Open` (5).
+  - "status": answer from the board lines (`- [<s>] NN · <status> · …`) and `relay.md ## Open` (5); `<ID>-status.md` has the live views.
 - **A blocking question from a task** goes to the lead directly (the `Lead:` line), at once,
   never batched.
 
@@ -110,8 +110,8 @@ Next free id: `rg -o 'R-[0-9]+' relay.md | sort -V | tail -1`. `## Open` holds *
 `## Closed` **≤40** one-line summaries (`R-nn → T-NN merged`, `→ decision in plan.md`,
 `→ [[MAN-x]]`); the file stays about 100 lines. The lead marks `decision` and `answer` entries
 `copied` once they're in `plan.md ## Decisions`. Whenever you write it and a cap is exceeded,
-trim: move `copied`, `answered` and `planned` entries whose board row (Note `R-nn`) is merged,
-or that have no row, to `## Closed`, oldest first, until `## Open` is ≤30; drop the oldest
+trim: move `copied`, `answered` and `planned` entries whose board line (note `R-nn`) is merged,
+or that have no line, to `## Closed`, oldest first, until `## Open` is ≤30; drop the oldest
 Closed lines. If more than 30 are still truly open, batch new user input into one entry per
 theme instead of one per message. The durable record is `plan.md ## Decisions`, `## Questions`
 and `board.md`. No checkboxes; read it by `tail` or `rg`.
@@ -119,7 +119,7 @@ and `board.md`. No checkboxes; read it by `tail` or `rg`.
 ## 5. Talking to the user
 - Status updates: ≤8 lines, decisions and risks first, no per-file lists, no restating agent
   reports. Checks only the user can do (visual, browser, host-side) are the board's
-  `pending — user` rows.
+  `pending — user` lines.
 - Keep `po:` `exchanges-since` (exchanges with the user) and `analyst-since` (analyst
   answers) current at each status update; a refresh resets both and sets `last-refresh`.
 

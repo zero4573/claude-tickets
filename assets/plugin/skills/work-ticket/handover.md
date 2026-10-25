@@ -8,14 +8,16 @@ review, or with the lead woken again because a review finding is still open.
 First `cd <vault>` (your cwd is the workspace) and run the review-disposition gate for <ID>:
 ```sh
 for f in tickets/<ID>/reviews/*.md; do
+  [ -e "$f" ] || continue
   rg -q '^## Dispositions' "$f" || echo "$f: no Dispositions"
   for id in $(rg -o '^- (W[0-9]+-[a-z0-9-]+-[MSC][0-9]+) · ' -r '$1' "$f" | sort -u); do
-    rg -q "^- $id · (resolved|deferred) · " "$f" || echo "$f: $id"
+    rg -q "^- \[x\] $id · (resolved · |deferred → \[\[.*#deferred)|^- \[-\] $id · kept: " "$f" || echo "$f: $id"
+    rg -q "^- \[.\] $id · (open|fixing)" "$f" && echo "$f: $id open line"
   done
 done
 ```
 If it prints anything, wake the lead with it (fix tasks, `kept:` reasons or deferrals) instead
-of accepting.
+of accepting. Each printed `<file>: <ID>` needs a fix task, a `kept:` reason or a deferral; `open line` is a leftover `open` or `fixing` line.
 
 ## 2. Accept
 If it prints nothing, set `lead: none`, tell the user the ticket is ready for review

@@ -39,7 +39,7 @@ At most **8** candidates, most severe first, one line each:
 Ask the user (AskUserQuestion, multi-select) which to keep. In a ticket session (you are the
 PO; `backlog.md` is the lead's), append one `relay.md` entry per kept candidate,
 `R-nn · <date> · user→lead · request · retro: <change> (<where>) · open`, and message a running
-lead; it files them as `B-nn · retro · <repo|plugin|vault> · <change>` (a retro item only becomes
+lead; it files them as `- [ ] B-nn · w<N> · <repo|plugin|vault> · retro: <change> ➕ <date>` (a retro item only becomes
 a backlog item; the hand-over answer decides where it goes). Outside a ticket, ask per kept candidate whether to file `ct new --type chore "<summary>"`; never file unasked.
 
 Adapted from mattpocock/skills (MIT); see THIRD_PARTY_NOTICES.md.

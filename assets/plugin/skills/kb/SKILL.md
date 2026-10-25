@@ -84,8 +84,8 @@ When you find something that should be investigated or fixed, file it as a
    - Frontmatter: `projects: [<slug>, ...]`, `priority` if clear, the
      dependency fields if it blocks or relates to other tickets, and the
      tag `from-kb`.
-   - A review task for the user under `## Follow-ups`, so it shows up in
-     `follow-ups.md`:
+   - A review task for the user under `## Follow-ups`, so it shows up in the Tasks
+     views (`inbox.md`, the ticket's status file once started):
      `- [ ] Review this ticket filed by kb: check the findings, scope, type
      and priority, then ct start it, ignore it, or close it #follow-up
      ➕ <today>` (date from `date +%F`).

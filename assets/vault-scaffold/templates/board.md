@@ -20,20 +20,18 @@ tags: [board]
 ---
 # Board
 
-Tasks and wave reviews of [[TICKET-ID]] in [[provider-owner-repo]], kept by the lead; one row
+Tasks and wave reviews of [[TICKET-ID]] in [[provider-owner-repo]], kept by the lead; one line
 each, updated in place.
 Task files: `tasks/<ID>-NN-<slug>.md`, linked as `[[<ID>-NN-<slug>]]`. `last-reviewed` maps each
 repo slug to the last reviewed commit. `lead:`, `lead-since:` and `po:` (its session, the
 running agents with their wave, finished notices not yet sent to the lead, refresh counters)
-are the PO's, and so is marking `running` rows `orphaned`
+are the PO's, and so is marking `running` lines `orphaned`
 when that session has ended; the lead writes the rest.
 
 ## Tasks
-<!-- Status: planned · running · orphaned · merged <sha> · partial · blocked · dropped · pending — user. Note: ≤1 line. -->
-| ID | Task | Repo | Wave | Deps | Status | Note |
-|---|---|---|---|---|---|---|
+<!-- One line per task: `- [<s>] NN · <status> · [[<ID>-NN-<slug>]] · <repo> · w<N> · deps <NN, …|-> · <note ≤1 line> ➕ <date>`
+     `[ ]` planned · `[/]` running, orphaned, partial, blocked, pending — user · `[x]` merged <sha> ✅ <date> · `[-]` dropped ❌ <date> -->
 
 ## Reviews
-<!-- M/S/C: must-fix / should-fix / consider counts. File: reviews/wave-N-<slug>.md -->
-| Wave | Repo | Range | M/S/C | File | Fix tasks |
-|---|---|---|---|---|---|
+<!-- Plain bullets (a review is not a task): `- w<N> · <repo> · <from>..<to> · M/S/C <m>/<s>/<c> · [[wave-N-<slug>]] · fix tasks <NN, …|lead <sha>|->`
+     a pass with no review file: `- w<N> fix · <repo> · <from>..<to> · - · <what the lead checked> · -` -->
