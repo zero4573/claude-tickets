@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/zero4573/claude-tickets/internal/scaffold"
 	"github.com/zero4573/claude-tickets/internal/tasksplugin"
 	"github.com/zero4573/claude-tickets/internal/textdiff"
+	"github.com/zero4573/claude-tickets/internal/ticketmigrate"
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/vaultlock"
 	"github.com/zero4573/claude-tickets/internal/version"
@@ -55,8 +57,9 @@ you pick one of the existing vaults.
     projects that work together, written by /tickets:save), learning
     (one folder per topic, written by ct teach sessions)
   * files: AGENTS.md, templates/ (group.md included), tickets.base
-    (dashboard), projects.base (projects and groups), the task views
-    (pending.md, done.md, follow-ups.md), the Atlassian setup reference
+    (dashboard), projects.base (projects and groups), inbox.md
+    (the inbox's open tasks), templates/status.md (the per-ticket status
+    file), the Atlassian setup reference
   * Obsidian settings: the templates folder, the Bases / Templates /
     Properties core plugins, and the workflow's property types
   * the Tasks community plugin, when it isn't installed yet: the pinned
@@ -205,7 +208,7 @@ func vaultUpdateCmd() *cobra.Command {
 		Use:   "update [<vault>] [--dry-run] [--diff] [--take <file>]...",
 		Short: "Bring the files ct ships into a vault (AGENTS.md, templates, ...) up to date",
 		Long: `Brings the files ct ships into a vault up to date: AGENTS.md, templates/,
-tickets.base, the task views and the other files ct vault init copies.
+tickets.base, inbox.md and the other files ct vault init copies.
 <vault> is a name under ~/Documents/Obsidian or a path; default: the
 current vault. For each file:
 
@@ -213,8 +216,10 @@ current vault. For each file:
   ~ updated      unedited since an earlier ct shipped it: replaced in place
   ! edited       changed in the vault: kept as it is (--diff shows how it
                  differs, --take <file> takes the shipped version)
-  - not shipped  an earlier ct shipped it, this one doesn't: kept, never
-                 deleted
+  x removed      an earlier ct shipped it, this one doesn't, unedited: deleted
+                 (only the old task views)
+  - not shipped  an earlier ct shipped it, this one doesn't: kept (an edited
+                 old task view too: delete it by hand once you no longer need it)
   > newer        a newer ct shipped it (.scaffold.json says so, this ct
                  doesn't know that version): kept, never downgraded
                  (--take <file> still replaces it)
@@ -225,7 +230,15 @@ shipped, ignoring line endings and trailing newlines. Obsidian rewrites
 tickets.base when you change a view in it, so it then counts as edited.
 Settings (.obsidian/, .workflow.json, tickets/.sources.json) and your own
 notes are never touched. Writes happen under the vault lock (ct vault
-lock), and .scaffold.json records what was shipped.`,
+lock), and .scaffold.json records what was shipped.
+
+The old task views (pending.md, done.md, follow-ups.md) are removed when
+unedited; a ticket's tasks are now in its <ID>-status.md and the inbox's in
+inbox.md. Then every ticket that isn't closed is migrated: its
+<ID>-status.md is added when missing, and its board.md, reviews/*.md
+(Dispositions) and backlog.md are converted to checklists (a file that
+can't be converted safely is left as it is, with a warning). --diff shows
+the converted files too. Run it with no ticket session working.`,
 		Args:              cobra.MaximumNArgs(1),
 		ValidArgsFunction: completeVaults,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -252,13 +265,30 @@ lock), and .scaffold.json records what was shipped.`,
 	return cmd
 }
 
+// migrateTickets is the ticket migration of ct vault update: a test seam.
+var migrateTickets = ticketmigrate.Migrate
+
 func vaultUpdate(v string, o updateOpts) error {
 	dry := o.dryRun || o.diff
 	src, err := scaffold.Embedded()
 	if err != nil {
 		return err
 	}
-	res, err := scaffold.Apply(v, src, scaffold.Options{DryRun: dry, Take: o.take, Version: version.Version, Owner: "ct-vault-update"})
+	var statusTpl []byte
+	for _, f := range src.Files {
+		if f.Rel == "templates/status.md" {
+			statusTpl = f.Data
+		}
+	}
+	// One lock around the scaffold step and the migration
+	if !dry {
+		owner := scaffold.UniqueOwner("ct-vault-update")
+		if err := vaultlock.Acquire(v, owner); err != nil {
+			return err
+		}
+		defer func() { _ = vaultlock.Release(v, owner) }()
+	}
+	res, err := scaffold.Apply(v, src, scaffold.Options{DryRun: dry, Locked: !dry, Take: o.take, Version: version.Version, Owner: "ct-vault-update"})
 	if err != nil {
 		return err
 	}
@@ -277,7 +307,7 @@ func vaultUpdate(v string, o updateOpts) error {
 		return done
 	}
 	count := map[string]int{}
-	edited, newer := 0, 0
+	edited, newer, retired := 0, 0, 0
 	for _, e := range res.Entries {
 		showDiff := false
 		switch {
@@ -289,6 +319,8 @@ func vaultUpdate(v string, o updateOpts) error {
 		case res.Done[e.Rel] == scaffold.Taken:
 			fmt.Printf("  ~ %s (%s)\n", e.Rel, verb("taken; the old one is kept as "+e.Rel+".bak",
 				"would take; the old one would be kept as "+e.Rel+".bak"))
+		case res.Done[e.Rel] == scaffold.Deleted:
+			fmt.Printf("  x %s (not shipped any more, unedited; %s)\n", e.Rel, verb("removed", "would remove"))
 		case e.State == scaffold.Edited:
 			edited++
 			why := ""
@@ -305,8 +337,14 @@ func vaultUpdate(v string, o updateOpts) error {
 			fmt.Printf("  > %s (newer than this ct; kept)\n", e.Rel)
 			showDiff = e.Ship != nil
 		case e.State == scaffold.RetiredClean:
+			retired++
 			fmt.Printf("  - %s (not shipped any more, unedited; kept)\n", e.Rel)
+		case e.State == scaffold.RetiredEdited && scaffold.IsRemoved(e.Rel):
+			retired++
+			fmt.Printf("  - %s (not shipped any more, edited; kept: delete it by hand once you no longer need it)\n", e.Rel)
+			warnf("%s: no longer shipped and edited, kept", e.Rel)
 		case e.State == scaffold.RetiredEdited:
+			retired++
 			fmt.Printf("  - %s (not shipped any more, edited; kept)\n", e.Rel)
 		}
 		count[res.Done[e.Rel]]++
@@ -326,10 +364,13 @@ func vaultUpdate(v string, o updateOpts) error {
 	if n := count[scaffold.Taken]; n > 0 {
 		parts = append(parts, fmt.Sprintf("%s %d", verb("taken", "would take"), n))
 	}
+	if n := count[scaffold.Deleted]; n > 0 {
+		parts = append(parts, fmt.Sprintf("%s %d", verb("removed", "would remove"), n))
+	}
 	parts = append(parts, fmt.Sprintf("up to date %d", res.Count(scaffold.UpToDate)),
 		fmt.Sprintf("edited %d (kept)", edited))
-	if n := res.Count(scaffold.RetiredClean) + res.Count(scaffold.RetiredEdited); n > 0 {
-		parts = append(parts, fmt.Sprintf("not shipped any more %d", n))
+	if retired > 0 {
+		parts = append(parts, fmt.Sprintf("not shipped any more %d", retired))
 	}
 	if newer > 0 {
 		parts = append(parts, fmt.Sprintf("newer than this ct %d (kept)", newer))
@@ -340,6 +381,51 @@ func vaultUpdate(v string, o updateOpts) error {
 	}
 	if newer > 0 {
 		fmt.Println("ct vault update: files newer than this ct were shipped by a newer ct and are never downgraded; update ct, or replace one with --take <file>")
+	}
+
+	// The tickets: their status file, board, reviews and backlog
+	mig, err := migrateTickets(v, statusTpl, time.Now().Format("2006-01-02"), dry)
+	for _, w := range mig.Warnings {
+		warnf("%s", w)
+	}
+	if err != nil {
+		return err
+	}
+	for _, t := range mig.Tickets {
+		var what []string
+		if t.StatusAdded {
+			what = append(what, t.ID+"-status.md "+verb("added", "would add"))
+		}
+		if len(t.Files) > 0 {
+			var names []string
+			for _, f := range t.Files {
+				names = append(names, strings.TrimPrefix(f.Rel, "tickets/"+t.ID+"/"))
+			}
+			what = append(what, strings.Join(names, ", ")+" "+verb("converted", "would convert"))
+		}
+		fmt.Printf("  * tickets/%s/ (%s)\n", t.ID, strings.Join(what, "; "))
+		if o.diff {
+			for _, f := range t.Files {
+				fmt.Print(textdiff.Unified(f.Rel+" (vault)", f.Rel+" (ct "+version.Version+")",
+					scaffold.Norm(f.Old), scaffold.Norm(f.New), 3))
+			}
+		}
+	}
+	fmt.Printf("ct vault update: %s %d, already current %d, closed (skipped) %d\n",
+		verb("tickets migrated", "tickets that would be migrated"), mig.Migrated, mig.Current, mig.Closed)
+
+	if !dry {
+		var written []string
+		for rel := range res.Done {
+			written = append(written, rel)
+		}
+		sort.Strings(written)
+		for _, t := range mig.Tickets {
+			written = append(written, t.Rels()...)
+		}
+		if len(written) > 0 {
+			refreshIndex(v, written...)
+		}
 	}
 	return nil
 }

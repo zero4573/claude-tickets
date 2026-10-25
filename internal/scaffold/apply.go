@@ -17,6 +17,7 @@ type Options struct {
 	Version string   // the ct version recorded with what it writes
 	Owner   string   // the vault lock's owner, made unique per run (default ct-vault-update)
 	AddOnly bool     // ct vault init: only missing files are written; stale ones are counted
+	Locked  bool     // the caller holds the vault lock: Apply doesn't take it (never with DryRun)
 }
 
 // What Apply did (or, in a dry run, would do) to a file.
@@ -24,6 +25,7 @@ const (
 	Added   = "added"
 	Updated = "updated"
 	Taken   = "taken"
+	Deleted = "removed" // a retired view (see Removed) deleted
 )
 
 // Result is a vault's files and what was done to them.
@@ -70,14 +72,14 @@ func Apply(vault string, src Source, o Options) (Result, error) {
 		}
 	}
 
-	if !o.DryRun {
+	if !o.DryRun && !o.Locked {
 		// One owner per run: Acquire lets its holder straight back in, so a
 		// shared name would let two runs write at once
 		owner := o.Owner
 		if owner == "" {
 			owner = "ct-vault-update"
 		}
-		owner = fmt.Sprintf("%s-%d-%s", owner, os.Getpid(), randomID())
+		owner = UniqueOwner(owner)
 		if err := vaultlock.Acquire(vault, owner); err != nil {
 			return Result{}, err
 		}
@@ -119,6 +121,8 @@ func Apply(vault string, src Source, o Options) (Result, error) {
 			res.Done[e.Rel] = Updated
 		case (e.State == Edited || e.State == Newer) && take[e.Rel]:
 			res.Done[e.Rel] = Taken
+		case e.State == RetiredClean && IsRemoved(e.Rel) && !o.AddOnly:
+			res.Done[e.Rel] = Deleted
 		default:
 			continue
 		}
@@ -126,6 +130,12 @@ func Apply(vault string, src Source, o Options) (Result, error) {
 			continue
 		}
 		dest := filepath.Join(vault, filepath.FromSlash(e.Rel))
+		if res.Done[e.Rel] == Deleted {
+			if err := os.Remove(dest); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return res, err
+			}
+			continue
+		}
 		// a replaced file keeps its mode
 		var mode fs.FileMode
 		keep := false
@@ -157,6 +167,7 @@ func Apply(vault string, src Source, o Options) (Result, error) {
 	}
 	for _, e := range entries {
 		switch {
+		case res.Done[e.Rel] == Deleted: // gone: no entry
 		case res.Done[e.Rel] != "":
 			set(e.Rel, e.Ship.Hash)
 		case e.State == UpToDate, e.State == Stale:

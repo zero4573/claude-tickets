@@ -35,6 +35,9 @@
     "follow-ups.md": [
       "340ff8336907361c42d50942e44edc70005aac44a3d8420d43860b64221bb3ae"
     ],
+    "inbox.md": [
+      "40af7771eb713e8e7fe50861324f24be5a4b4ca4482830a277c449f26040e08a"
+    ],
     "pending.md": [
       "7113440c92850bac05b67936019951110a0518d81c6c3d9e7a369c6d4c5c8aea"
     ],
@@ -135,6 +138,9 @@
     "templates/session-log.md": [
       "d06d520cab6deec99c2f66d6db3335323f0fb3c65c48bcc6f864852c66af7efb",
       "e166a2dd3dcf40bf8175a4121b921d2c7b83babc38735844bdf90bd54e9bc93d"
+    ],
+    "templates/status.md": [
+      "5ffb60201cd3b621e8615716acbec46d5b4416a5688fb369e327f673737a26bb"
     ],
     "templates/task.md": [
       "8098d3d9f1f6e76a8a854f2928f4cabe06f6d8c68730f603d135e7be8db8791a",

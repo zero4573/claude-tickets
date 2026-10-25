@@ -211,3 +211,11 @@ func Classify(vault string, src Source, rec Record) ([]Entry, error) {
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Rel < entries[j].Rel })
 	return entries, nil
 }
+
+// Removed are the retired files ct vault update deletes when unedited
+// (the old task views, replaced by inbox.md and the per-ticket status
+// file). Other retired files are only ever kept.
+var Removed = []string{"done.md", "follow-ups.md", "pending.md"}
+
+// IsRemoved says whether rel is one of Removed.
+func IsRemoved(rel string) bool { return contains(Removed, rel) }

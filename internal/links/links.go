@@ -640,3 +640,8 @@ func WrapWriteNoteForTest(wrap func(next func(f string, data []byte) error) func
 	writeNote = wrap(old)
 	return func() { writeNote = old }
 }
+
+// WriteNote rewrites an existing note in place the way ct vault links does:
+// through a symlink (the target is rewritten, the link stays), keeping the
+// file's mode, by an atomic rename. For other commands that rewrite notes.
+func WriteNote(f string, data []byte) error { return writeNote(f, data) }
