@@ -32,7 +32,7 @@ let
         ../go.mod ../go.sum ../cmd ../internal ../assets ../ct_test.go ../ct_sync_test.go ../testdata
       ];
     };
-    # TODO(host): purego was added to go.mod; run `nix build .#default` and paste the hash it reports
+    # Refresh whenever go.mod/go.sum change: set lib.fakeHash, run `nix build .#default` on the host, paste the hash it reports
     vendorHash = "sha256-mTX4/p9otTdny5gQRO/jmlv0TS9w4BhWv49YXVCEohA=";
     subPackages = [ "cmd/ct" ];
     ldflags = [ "-s" "-w" "-X github.com/zero4573/claude-tickets/internal/version.Version=${version}" ]
