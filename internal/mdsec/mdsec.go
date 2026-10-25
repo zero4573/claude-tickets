@@ -68,7 +68,7 @@ func splitLines(src []byte) []line {
 
 func trimCR(b []byte) []byte { return bytes.TrimSuffix(b, []byte("\r")) }
 
-// FenceOpen reports the fence char and length when s opens a fenced code block.
+// fenceOpen reports the fence char and length when s opens a fenced code block.
 func fenceOpen(s string) (byte, int, bool) {
 	t := strings.TrimLeft(s, " \t")
 	if len(t) < 3 || (t[0] != '`' && t[0] != '~') {
@@ -151,8 +151,25 @@ func Parse(src []byte) *Doc {
 	var heads []head
 	var fch byte
 	fn := 0
+	inComment := false
 	for i := first; i < len(lines); i++ {
 		s := string(trimCR(src[lines[i].start:lines[i].end]))
+		if inComment {
+			if strings.Contains(s, "-->") {
+				inComment = false
+			}
+			continue
+		}
+		if fn == 0 {
+			if k := strings.Index(s, "<!--"); k >= 0 && !strings.Contains(s[k+4:], "-->") {
+				// a comment left open on this line: headings up to the
+				// closing --> are not sections
+				if _, _, isHead := heading(s); !isHead {
+					inComment = true
+					continue
+				}
+			}
+		}
 		if fn > 0 {
 			if fenceClose(s, fch, fn) {
 				fn = 0
@@ -186,7 +203,7 @@ func Parse(src []byte) *Doc {
 	if len(heads) > 0 {
 		preEnd = lines[heads[0].line].start
 	}
-	if preEnd > bodyStart {
+	if preEnd > bodyStart && len(bytes.TrimSpace(src[bodyStart:preEnd])) > 0 {
 		sp := Span{bodyStart, preEnd}
 		d.Sections = append(d.Sections, Section{
 			Heading: Span{bodyStart, bodyStart}, Body: sp, Whole: sp,
@@ -234,10 +251,22 @@ func (d *Doc) Find(spec string) (*Section, error) {
 		level = n
 		s = strings.TrimSpace(s[n:])
 	}
+	if strings.Contains(s, ">") {
+		// a title may itself contain ">": an exact whole-title match wins
+		// over reading the spec as a path
+		if hits := d.match(level, []string{s}); len(hits) > 0 {
+			return d.pick(spec, hits)
+		}
+	}
 	var want []string
 	for _, p := range strings.Split(s, ">") {
 		want = append(want, strings.TrimSpace(p))
 	}
+	return d.pick(spec, d.match(level, want))
+}
+
+// match is the indexes of the sections whose path ends with want.
+func (d *Doc) match(level int, want []string) []int {
 	var hits []int
 	for i, sec := range d.Sections {
 		if sec.Level == 0 || (level != 0 && sec.Level != level) || len(sec.Path) < len(want) {
@@ -255,6 +284,10 @@ func (d *Doc) Find(spec string) (*Section, error) {
 			hits = append(hits, i)
 		}
 	}
+	return hits
+}
+
+func (d *Doc) pick(spec string, hits []int) (*Section, error) {
 	switch len(hits) {
 	case 0:
 		return nil, ErrNotFound

@@ -178,3 +178,32 @@ func TestCoverage(t *testing.T) {
 		}
 	}
 }
+
+func TestHTMLCommentHeadings(t *testing.T) {
+	d := Parse([]byte("# A\n<!--\n## hidden\n-->\n## B\n<!-- one --> x\n## C\n<!-- open\n# no\n"))
+	eq(t, titles(d), []string{"A", "A>B", "A>C"})
+	if _, err := d.Find("hidden"); !errors.Is(err, ErrNotFound) {
+		t.Fatal(err)
+	}
+}
+
+func TestWholeTitleBeforeSplit(t *testing.T) {
+	d := Parse([]byte("# X > Y\n## Z\n# X\n## Y\n"))
+	s, err := d.Find("X > Y")
+	if err != nil || s.Level != 1 || s.Title != "X > Y" {
+		t.Fatal(s, err)
+	}
+	s, err = d.Find("## Y")
+	if err != nil || s.Level != 2 || s.Path[0] != "X" {
+		t.Fatal(s, err)
+	}
+}
+
+func TestWhitespacePreamble(t *testing.T) {
+	d := Parse([]byte("---\na: 1\n---\n\n\n# A\nx\n"))
+	eq(t, titles(d), []string{"A"})
+	d = Parse([]byte("\n  \n"))
+	if len(d.Sections) != 0 {
+		t.Fatal(titles(d))
+	}
+}
