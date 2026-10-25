@@ -167,3 +167,23 @@ func TestOldReadsAtMostReadN(t *testing.T) {
 		t.Fatalf("read more than %d notes: %d tokens", ReadN, o.Tokens)
 	}
 }
+
+func TestDistinctiveFallsBackToAllKeywords(t *testing.T) {
+	f := Fact{Keywords: []string{"The", "of"}}
+	if d := Distinctive(f); len(d) != 2 || d[0] != "the" {
+		t.Fatalf("no fallback: %v", d)
+	}
+}
+
+func TestListsProjectAmongSeveral(t *testing.T) {
+	for note, want := range map[string]bool{
+		"---\nprojects: [acme]\n---\n":              true,
+		"---\nprojects: [beta, acme, gamma]\n---\n": true,
+		"---\nprojects: [acme-two, beta]\n---\n":    false,
+		"---\ntags: [acme]\n---\n":                  false,
+	} {
+		if got := listsProject(note, "acme"); got != want {
+			t.Errorf("%q: got %v", note, got)
+		}
+	}
+}

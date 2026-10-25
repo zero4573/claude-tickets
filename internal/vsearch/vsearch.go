@@ -173,6 +173,8 @@ func Search(ix *vindex.Index, emb embed.Embedder, query string, o Options) (*Res
 	for _, i := range cand {
 		if zeroRow[i] {
 			base[i] = zeroScore(ws, wk, meanSem, kw[i])
+			// Report the imputed semantic part: score == ws*semantic + wk*keyword + link.
+			sem[i] = meanSem * kw[i]
 			continue
 		}
 		base[i] = ws*sem[i] + wk*kw[i]
