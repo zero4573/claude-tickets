@@ -1023,14 +1023,21 @@ links ([[old/path/note]]) across the vault to the new path. Bare-name links
 			if err != nil {
 				return err
 			}
-			rel, n, err := links.Move(v, args[1], args[2])
+			res, err := links.Move(v, args[1], args[2])
+			// The moved note and every rewritten one (also what an error left behind)
+			var paths []string
+			for _, m := range res.Moves {
+				paths = append(paths, m.From, m.To)
+			}
+			if paths = append(paths, res.Changed...); len(res.Moves)+len(res.Changed) > 0 {
+				refreshIndex(v, paths...)
+			}
 			if err != nil {
 				return exitWith(2, err)
 			}
-			refreshIndex(v) // the moved note and every rewritten one
-			fmt.Println(rel)
-			if n > 0 {
-				fmt.Fprintf(os.Stderr, "ct vault links: rewrote %d path-qualified link(s)\n", n)
+			fmt.Println(res.Moves[0].To)
+			if res.Rewritten > 0 {
+				fmt.Fprintf(os.Stderr, "ct vault links: rewrote %d path-qualified link(s)\n", res.Rewritten)
 			}
 			return nil
 		},

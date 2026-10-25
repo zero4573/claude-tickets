@@ -3,6 +3,7 @@ package links
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -26,12 +27,18 @@ func treeVault(t *testing.T) string {
 
 func TestMoveTreeAll(t *testing.T) {
 	v := treeVault(t)
-	moved, n, err := MoveTree(v, filepath.Join(v, "tickets/MAN-4"), filepath.Join(v, "archive/tickets/MAN-4"), nil, "MAN-4.md")
+	res, err := MoveTree(v, filepath.Join(v, "tickets/MAN-4"), filepath.Join(v, "archive/tickets/MAN-4"), nil, "MAN-4.md")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if moved != 4 || n != 3 {
-		t.Errorf("moved %d, rewrote %d", moved, n)
+	if len(res.Moves) != 4 || res.Rewritten != 3 {
+		t.Errorf("moved %d, rewrote %d", len(res.Moves), res.Rewritten)
+	}
+	if last := res.Moves[3]; last.From != "tickets/MAN-4/MAN-4.md" || last.To != "archive/tickets/MAN-4/MAN-4.md" {
+		t.Errorf("the note should move last: %+v", res.Moves)
+	}
+	if want := []string{"projects/p/p.md", "tickets/MAN-4/MAN-4.md"}; !reflect.DeepEqual(res.Changed, want) {
+		t.Errorf("Changed = %v, want %v", res.Changed, want)
 	}
 	if exists(v, "tickets/MAN-4") || !exists(v, "archive/tickets/MAN-4/MAN-4.md") || !exists(v, "archive/tickets/MAN-4/logs/x.md") {
 		t.Error("folder not moved, or not removed")
@@ -44,17 +51,17 @@ func TestMoveTreeAll(t *testing.T) {
 		t.Errorf("MAN-4.md: %q", got)
 	}
 	// Again: nothing left to move
-	if moved, _, err := MoveTree(v, filepath.Join(v, "tickets/MAN-4"), filepath.Join(v, "archive/tickets/MAN-4"), nil, "MAN-4.md"); err != nil || moved != 0 {
-		t.Errorf("re-run: %d, %v", moved, err)
+	if res, err := MoveTree(v, filepath.Join(v, "tickets/MAN-4"), filepath.Join(v, "archive/tickets/MAN-4"), nil, "MAN-4.md"); err != nil || len(res.Moves) != 0 || res.Changed != nil {
+		t.Errorf("re-run: %+v, %v", res, err)
 	}
 }
 
 func TestMoveTreeSome(t *testing.T) {
 	v := treeVault(t)
 	src, dst := filepath.Join(v, "tickets/MAN-4"), filepath.Join(v, "archive/tickets/MAN-4")
-	moved, _, err := MoveTree(v, src, dst, []string{filepath.Join(src, "logs/x.md"), filepath.Join(src, "shot.png")}, "")
-	if err != nil || moved != 2 {
-		t.Fatal(moved, err)
+	res, err := MoveTree(v, src, dst, []string{filepath.Join(src, "logs/x.md"), filepath.Join(src, "shot.png")}, "")
+	if err != nil || len(res.Moves) != 2 {
+		t.Fatal(res, err)
 	}
 	if !exists(v, "tickets/MAN-4/MAN-4.md") || exists(v, "tickets/MAN-4/logs") || !exists(v, "archive/tickets/MAN-4/shot.png") {
 		t.Error("wrong files moved, or empty logs/ left")
@@ -65,14 +72,14 @@ func TestMoveTreeDestinationExists(t *testing.T) {
 	v := treeVault(t)
 	write(t, v, "archive/tickets/MAN-4/requirements.md", "")
 	before := read(t, v, "projects/p/p.md")
-	if _, _, err := MoveTree(v, filepath.Join(v, "tickets/MAN-4"), filepath.Join(v, "archive/tickets/MAN-4"), nil, ""); err == nil ||
+	if _, err := MoveTree(v, filepath.Join(v, "tickets/MAN-4"), filepath.Join(v, "archive/tickets/MAN-4"), nil, ""); err == nil ||
 		!strings.Contains(err.Error(), "destination exists: archive/tickets/MAN-4/requirements.md") {
 		t.Errorf("err = %v", err)
 	}
 	if !exists(v, "tickets/MAN-4/logs/x.md") || read(t, v, "projects/p/p.md") != before {
 		t.Error("changed something before failing")
 	}
-	if _, _, err := MoveTree(v, filepath.Join(v, "tickets/MAN-4"), filepath.Join(v, "tickets/MAN-4/sub"), nil, ""); err == nil {
+	if _, err := MoveTree(v, filepath.Join(v, "tickets/MAN-4"), filepath.Join(v, "tickets/MAN-4/sub"), nil, ""); err == nil {
 		t.Error("a destination inside the source")
 	}
 }
@@ -84,7 +91,8 @@ func TestMoveTreeResumes(t *testing.T) {
 	write(t, v, "projects/p/p.md", "[[archive/tickets/MAN-4/logs/x|log]]\n")
 	os.MkdirAll(dst, 0o755)
 	os.Rename(filepath.Join(src, "shot.png"), filepath.Join(dst, "shot.png"))
-	moved, _, err := MoveTree(v, src, dst, []string{}, "")
+	res, err := MoveTree(v, src, dst, []string{}, "")
+	moved := len(res.Moves)
 	if err != nil || moved != 1 || !exists(v, "archive/tickets/MAN-4/logs/x.md") || !exists(v, "tickets/MAN-4/MAN-4.md") {
 		t.Errorf("resume: %d, %v", moved, err)
 	}
@@ -100,7 +108,7 @@ func TestMoveTreeLast(t *testing.T) {
 	if os.WriteFile(filepath.Join(src, "logs", "probe"), nil, 0o644) == nil {
 		t.Skip("running as root: permissions aren't enforced")
 	}
-	if _, _, err := MoveTree(v, src, filepath.Join(v, "archive/tickets/MAN-4"), nil, "MAN-4.md"); err == nil {
+	if _, err := MoveTree(v, src, filepath.Join(v, "archive/tickets/MAN-4"), nil, "MAN-4.md"); err == nil {
 		t.Fatal("no error")
 	}
 	if !exists(v, "tickets/MAN-4/MAN-4.md") {

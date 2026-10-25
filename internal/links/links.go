@@ -433,13 +433,35 @@ func resolvePath(p string) string {
 
 func inside(p, dir string) bool { return fsx.Within(p, dir) }
 
+// Moved is one file a move relocated (vault-relative, "/"-separated).
+type Moved struct{ From, To string }
+
+// MoveResult is what Move or MoveTree changed in the vault.
+type MoveResult struct {
+	Moves     []Moved  // files moved, in the order they were moved
+	Rewritten int      // links rewritten
+	Changed   []string // notes whose links were rewritten: vault-relative, "/"-separated, the path each had when written, sorted, unique; nil when none
+}
+
+func sortedKeys(m map[string]bool) []string {
+	if len(m) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // Move moves a note (or attachment) inside the vault, keeping every link
 // to it working: it refuses when another file already has the
 // destination's name (bare-name links would become ambiguous), then
 // rewrites path-qualified links ([[old/path/note]]) across the vault to
 // the new path (and bare-name links too on a rename). dst may be a folder.
-// It returns the new vault-relative path and how many links it rewrote.
-func Move(vault, src, dst string) (string, int, error) {
+// It returns what it changed (MoveResult).
+func Move(vault, src, dst string) (res MoveResult, err error) {
 	vault = resolvePath(vault)
 	if !filepath.IsAbs(src) {
 		src = filepath.Join(vault, src)
@@ -449,18 +471,18 @@ func Move(vault, src, dst string) (string, int, error) {
 	}
 	src = resolvePath(src)
 	if st, err := os.Stat(src); err != nil || !st.Mode().IsRegular() {
-		return "", 0, fmt.Errorf("no such file: %s", src)
+		return MoveResult{}, fmt.Errorf("no such file: %s", src)
 	}
 	if st, err := os.Stat(dst); err == nil && st.IsDir() {
 		dst = filepath.Join(dst, filepath.Base(src))
 	}
 	dst = resolvePath(dst)
 	if !inside(src, vault) || !inside(dst, vault) {
-		return "", 0, errors.New("source and destination must both be inside the vault")
+		return MoveResult{}, errors.New("source and destination must both be inside the vault")
 	}
 	if _, err := os.Lstat(dst); err == nil {
 		r, _ := filepath.Rel(vault, dst)
-		return "", 0, fmt.Errorf("destination exists: %s", r)
+		return MoveResult{}, fmt.Errorf("destination exists: %s", r)
 	}
 	ix := NewIndex(vault)
 	clash := map[string]bool{}
@@ -478,7 +500,7 @@ func Move(vault, src, dst string) (string, int, error) {
 			where = append(where, r)
 		}
 		sort.Strings(where)
-		return "", 0, fmt.Errorf("name '%s' is already used by %s; links to it would become ambiguous", filepath.Base(dst), strings.Join(where, ", "))
+		return MoveResult{}, fmt.Errorf("name '%s' is already used by %s; links to it would become ambiguous", filepath.Base(dst), strings.Join(where, ", "))
 	}
 
 	oldRel, _ := filepath.Rel(vault, src)
@@ -505,13 +527,15 @@ func Move(vault, src, dst string) (string, int, error) {
 	}
 
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return "", 0, err
+		return MoveResult{}, err
 	}
 	if err := moveFile(src, dst); err != nil {
-		return "", 0, err
+		return MoveResult{}, err
 	}
 
-	rewritten := 0
+	res = MoveResult{Moves: []Moved{{oldRel, newRel}}}
+	changed := map[string]bool{}
+	defer func() { res.Changed = sortedKeys(changed) }()
 	for _, f := range Files(vault) {
 		if !strings.HasSuffix(f, ".md") {
 			continue
@@ -525,11 +549,11 @@ func Move(vault, src, dst string) (string, int, error) {
 			t := strings.ToLower(strings.TrimLeft(strings.TrimSpace(m[2]), "/"))
 			if !strings.Contains(t, "/") {
 				if bareOld[t] {
-					rewritten++
+					res.Rewritten++
 					return m[1] + "[[" + bareNew + m[3] + m[4] + "]]"
 				}
 			} else if namesPath(t, forms) {
-				rewritten++
+				res.Rewritten++
 				return m[1] + "[[" + newTarget + m[3] + m[4] + "]]"
 			}
 			return m[0]
@@ -537,11 +561,13 @@ func Move(vault, src, dst string) (string, int, error) {
 		if out != text {
 			st, _ := os.Stat(f)
 			if err := os.WriteFile(f, []byte(out), st.Mode().Perm()); err != nil {
-				return newRel, rewritten, err
+				return res, err
 			}
+			rf, _ := filepath.Rel(vault, f)
+			changed[filepath.ToSlash(rf)] = true
 		}
 	}
-	return newRel, rewritten, nil
+	return res, nil
 }
 
 // pathForms is the lower-cased forms a path-qualified link to the file at
