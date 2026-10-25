@@ -18,6 +18,22 @@ stdout '^  \+ templates/backlog.md$'
 ! grep '#role/' home/Documents/Obsidian/demo/templates/ticket-manual.md
 grep '#ticket/<phase>' home/Documents/Obsidian/demo/templates/ticket-synced.md
 grep '^### Workflow$' home/Documents/Obsidian/demo/AGENTS.md
+# the PO's relay and board keys, the task's skills, and learning topics
+stdout '^  \+ templates/relay.md$'
+! grep '- \[ \]' home/Documents/Obsidian/demo/templates/relay.md
+grep '^## Closed$' home/Documents/Obsidian/demo/templates/relay.md
+grep '^lead: none$' home/Documents/Obsidian/demo/templates/board.md
+grep '^po:$' home/Documents/Obsidian/demo/templates/board.md
+grep '^skills: \[\]$' home/Documents/Obsidian/demo/templates/task.md
+stdout '^  \+ templates/learning-topic.md$'
+stdout '^  \+ templates/lesson.md$'
+stdout '^  \+ templates/learning-record.md$'
+stdout '^  \+ templates/learning-reference.md$'
+grep '^## Mission$' home/Documents/Obsidian/demo/templates/learning-topic.md
+grep '^superseded-by: ""$' home/Documents/Obsidian/demo/templates/learning-record.md
+grep 'ct teach' home/Documents/Obsidian/demo/AGENTS.md
+exists home/Documents/Obsidian/demo/learning
+grep '"skills": "multitext"' home/Documents/Obsidian/demo/.obsidian/types.json
 stdout '^  \+ projects.base$'
 ! stdout 'projects/system'
 exists home/Documents/Obsidian/demo/projects

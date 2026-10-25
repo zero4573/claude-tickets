@@ -52,7 +52,8 @@ you pick one of the existing vaults.
 
   * folders: raw, tickets, templates, inbox, logs, references,
     knowledge-base, projects (one folder per repo, and per group of
-    projects that work together, written by /tickets:save)
+    projects that work together, written by /tickets:save), learning
+    (one folder per topic, written by ct teach sessions)
   * files: AGENTS.md, templates/ (group.md included), tickets.base
     (dashboard), projects.base (projects and groups), the task views
     (pending.md, done.md, follow-ups.md), the Atlassian setup reference
@@ -102,7 +103,7 @@ func completeVaults(cmd *cobra.Command, args []string, _ string) ([]string, cobr
 	return vault.List(), cobra.ShellCompDirectiveNoFileComp
 }
 
-var vaultFolders = []string{"raw", "tickets", "templates", "inbox", "logs", "references", "knowledge-base", "projects"}
+var vaultFolders = []string{"raw", "tickets", "templates", "inbox", "logs", "references", "knowledge-base", "projects", "learning"}
 
 func vaultInit(target string, o setupOpts) error {
 	var v string

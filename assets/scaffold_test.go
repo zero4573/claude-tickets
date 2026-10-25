@@ -73,6 +73,10 @@ func TestTemplatesResolve(t *testing.T) {
 		"AGENTS": true, "my-note-decisions": true, "my-note-compatibility": true,
 		"provider-owner-repo": true, "TICKET-ID": true, "feature-flow-sequence": true,
 		"feature-note": true, "group-name": true, "note-a": true, "note-b": true,
+		// a learning topic's index links itself and its companions; its
+		// lessons, records and reference notes link the topic
+		"my-note": true, "my-note-resources": true, "my-note-glossary": true, "my-note-notes": true,
+		"topic-name": true,
 	}
 	n := 0
 	for p, text := range shipped(t) {

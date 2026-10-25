@@ -22,8 +22,10 @@ ROOT
 │   └── PROJ-12/          #   one ticket, named by its ID
 │       ├── PROJ-12.md    #     ticket note: content, workspace, tasks, questions, review, summaries
 │       ├── plan.md        #     the lead's plan: scope, criteria, decisions, waves, relationships
-│       ├── board.md       #     task and review tables, one row each (see "Workflow")
+│       ├── board.md       #     task and review tables, one row each; the PO's lead: and po: (see "Workflow")
+│       ├── relay.md       #     you ↔ PO ↔ lead: requests, questions, answers, decisions (capped)
 │       ├── backlog.md     #     leftovers and review findings not fixed yet (≤40 open)
+│       ├── PROJ-12-questionnaire-<slug>.md # questions for someone else (tickets:questionnaire)
 │       ├── tasks/         #     PROJ-12-NN-<slug>.md: one task each, with the agent's ## Report
 │       ├── contracts/     #     <name>-v<N>.md: exact shapes that tasks share
 │       ├── reviews/       #     wave-N-<slug>.md: one capped review per wave and repo
@@ -33,6 +35,8 @@ ROOT
 │       └── logs/          #     ticket session logs
 ├── archive/               # left by ct clean (never edit): tickets/<ID>/ of archived manual tickets,
 │                          #   and the files other notes still link from removed synced tickets
+├── learning/              # one folder per topic you learn (ct teach; see "Learning topics")
+│   └── <topic>/           #   <topic>.md, -resources, -glossary, -notes; lessons/, reference/, records/, quizzes/
 ├── inbox/                 # knowledge drafts from non-ticket sessions (kb skill); promoted by /tickets:save
 │                          #   also follow-up notes (type: follow-ups): tasks unattended commands leave for you
 ├── templates/             # templates to use for various note types
@@ -142,6 +146,8 @@ Note: `{{date}}`, should be replaced with the date in `yyyy-MM-dd` format, and `
 | `task.md` | `tickets/<ID>/tasks/<ID>-NN-<slug>.md`: one task for an agent |
 | `review.md` | `tickets/<ID>/reviews/wave-N-<slug>.md`: one wave's review of one repo |
 | `backlog.md` | `tickets/<ID>/backlog.md`: open leftovers and findings |
+| `relay.md` | `tickets/<ID>/relay.md`: messages between you, the PO and the lead |
+| `learning-topic.md`, `lesson.md`, `learning-record.md`, `learning-reference.md` | `learning/<topic>/`: see "Learning topics" |
 | `knowledge.md` | `knowledge-base/<topic>/` |
 | `reference.md` | `references/` |
 | `pr-feedback.md` | `tickets/<ID>/pr-feedback.md`, written by `/tickets:pr-feedback` |
@@ -194,6 +200,7 @@ review agents, and the hooks. Sessions run your `claude` command (which may be s
 | `ct vault default [<vault>\|--pick\|--unset]` | Show or set the default vault (`~/.config/claude-tickets/default-vault`): the one every ticket command acts on. Switch it to work on another vault; running sessions keep the vault they started with. `ct vault init` ignores it and always asks. |
 | `ct claude [claude args]` | A plain repo session with the default vault as its knowledge base (see "Sessions outside tickets"). Opt-in: a plain `claude` session doesn't see the vault. |
 | `ct kb [--print] ["<question>"]` | Ask about the projects (repos, how they work together, architecture, flows, past tickets) without a ticket: a session with this vault, every repo (fetched first) read-only, and one code graph of all of them. It can explore any branch, tag or commit in its own clones (`ct kb repo`), building and testing there, but never commits or pushes, and it files manual tickets (tag `from-kb`) for issues worth following up. It investigates unknowns and drafts what it learns into `inbox/`; `/tickets:save` promotes the drafts. |
+| `ct teach [--continue] [<topic>] \| --list` | Learn a topic over many sessions: a session running `/tickets:teach <topic>` (kebab-case; none: pick one of `learning/*/` or name a new one) in the tmux window `teach-<topic>` (without a multiplexer, this terminal), with this vault, every repo read-only and the code graph. A new conversation each time, the last one with `--continue`. See "Learning topics". |
 | `ct vault init [<vault>]` | Set a vault up for this workflow: folders, this AGENTS.md, templates, the dashboard, Obsidian settings, then `ct vault configure` for the settings not made yet, and the Tasks community plugin (downloaded when missing, never replaced). Keeps existing files, so it's safe to re-run; `ct vault update` brings unedited ones up to date. |
 | `ct vault update [<vault>] [--dry-run] [--diff] [--take <file>]` | Bring the files ct ships (this AGENTS.md, templates, the dashboard, task views) up to date: unedited ones are replaced, edited ones (and ones a newer ct wrote) kept and reported, nothing deleted or downgraded. |
 | `ct vault configure [<vault>] [--section locations\|sources\|runtime]` | The vault's settings, each prompt showing its current value: locations (`.workflow.json`, see below), ticket sources (`tickets/.sources.json`), and the container runtime of the code graph (host-wide). |
@@ -209,7 +216,7 @@ review agents, and the hooks. Sessions run your `claude` command (which may be s
 | `ct ws gc [--days N] [--dry-run]` | Free disk (on the host): workspaces of done or closed tickets idle for N days (default 14; dirty or unpushed work is kept), merged graphs of sessions that aren't running, idle kb clones, graphify snapshots older than a week. |
 | `ct clean [<ID>...] [--dry-run] [--yes] [--save] [--include-done] [--keep-manual] [--purge] [--days N]` | Clean up closed tickets (on the host): remove the workspace, then move a synced ticket's folder to `.trash/<ID>/` (links to it become `[ID](<source-url>)`; files other notes link or embed move to `archive/tickets/<ID>/` first) and a manual ticket's whole folder to `archive/tickets/<ID>/` (links keep working). Skips open tickets, running sessions, uncommitted or unpushed work (commits whose changes are already in `origin/<base>`, e.g. squash-merged, count as pushed), and unsaved sessions (`--save` runs `/tickets:save` headless first); skipped ones you can act on become follow-up tasks. `done` tickets only with `--include-done`, never synced ones. |
 | `ct kb repo checkout\|fetch\|graph\|ls\|reset` | Inside a `kb` session: exploration clones of any branch, tag or commit, swapped into the session's code graph. |
-| `ct vault lock acquire\|release\|status\|run` | The lock `/tickets:save` holds while writing shared notes (`.vault.lock.d`). A lock idle for 30 minutes is taken over. |
+| `ct vault lock acquire\|release\|status\|run` | The lock `/tickets:save` holds while writing shared notes, and a teach session around multi-file writes (`.vault.lock.d`). A lock idle for 30 minutes is taken over. |
 | `ct vault links check\|move` | Check that wikilinks resolve; move a note without breaking links to it. |
 | `ct vault groups <vault> [<slug\|group>...] [--json] [--check]` | Which projects work together (groups, `depends-on`, used-by) and which are unrelated; `--check` validates those links. Read-only. See "Projects and groups". |
 | `ct graph index` | Refresh the code graphs of the main clones (`<projectsRoot>/<provider>/<owner>/<repo>`). |
@@ -219,8 +226,9 @@ review agents, and the hooks. Sessions run your `claude` command (which may be s
 ### Per-vault locations: `.workflow.json`
 Each vault's tools work in their own places, so two vaults never share
 workspaces (each has its own `MAN-1`) or (with tmux) a tmux session:
-- `workRoot`: the ticket workspaces (`<workRoot>/<ID>`) and `kb` workspaces
-  (`<workRoot>/.kb-<vault>`). Default `~/Projects/work-<vault>`.
+- `workRoot`: the ticket workspaces (`<workRoot>/<ID>`), `kb` workspaces
+  (`<workRoot>/.kb-<vault>`) and teach sessions
+  (`<workRoot>/.teach-<vault>/<topic>`). Default `~/Projects/work-<vault>`.
 - `projectsRoot`: the main clones. Default `~/Projects/repo-<vault>`;
   vaults can share one.
 
@@ -287,10 +295,11 @@ these for synced tickets; on manual tickets you set them.
   `parent-epic`), even when the epic isn't assigned to you. To group manual
   tickets, set `ticket-type: epic` and `covers` on one, and `covered-by` on
   the others.
-- **Follow-ups:** at kickoff, the lead checks every open blocker, and every
+- **Follow-ups:** at kickoff, the PO checks every open blocker, and every
   epic child that isn't yours. It lists the ones to chase under
   `## Follow-ups` as `#follow-up` tasks (who, which ticket, what's needed;
-  all of them are collected in `follow-ups.md`),
+  all of them are collected in `follow-ups.md`), offers a questionnaire
+  for the person (`<ID>-questionnaire-<slug>.md`, linked from the task),
   and asks you whether to wait, build on the blocker's branch, or go ahead.
   `/tickets:save` writes the results into each covered ticket too.
 
@@ -320,6 +329,23 @@ It records new or corrected facts as drafts in `inbox/`, with `target:` and
 `session:` frontmatter. `/tickets:save` in that session writes the project log and
 promotes the session's drafts. `/tickets:recall` works there too.
 
+### Learning topics
+`ct teach <topic>` runs `/tickets:teach <topic>`, which teaches you a topic
+over many sessions from primary sources found on the web (never from the
+model's memory). It first agrees a mission with you, then gives short
+lessons, each with one win, citations, retrieval questions on earlier
+lessons and an HTML quiz. Its state is `learning/<topic>/` (kebab-case;
+related repos go in `projects:`):
+- `<topic>.md` (template `learning-topic`): the mission and a list of
+  everything below; `<topic>-resources.md` (`## Knowledge`, `## Wisdom`,
+  `## Gaps`), `<topic>-glossary.md` and `<topic>-notes.md` (your
+  preferences), from `base`;
+- `lessons/<topic>-NNNN-<name>.md` (`lesson`), `reference/<topic>-<name>.md`
+  (`learning-reference`: what you reread), `records/<topic>-NNNN-<name>.md`
+  (`learning-record`: what you've shown you know; superseded, never
+  deleted) and `quizzes/<topic>-NNNN-<name>.html` (self-contained, linked
+  from its lesson).
+
 ### Who writes what
 Several agents work at once, so each part of the vault has one writer:
 1. **ct sync** owns a synced ticket's `source-*` fields and source block.
@@ -334,10 +360,15 @@ Several agents work at once, so each part of the vault has one writer:
    the task views (`pending.md`, `done.md`, `follow-ups.md`), and everything
    not listed here.
 3. A **ticket's agents** write only inside `tickets/<ID>/` until
-   `/tickets:save`: the lead writes the work sections, `plan.md`,
-   `board.md`, `backlog.md`, the task files, `contracts/` and `kb-drafts/`;
-   a task agent only its own task file's `## Report` (plus the code in its
-   `owns`); a reviewer only its `reviews/` file.
+   `/tickets:save`. The **PO** writes the note's `## Questions` and kickoff
+   fields (`## Workspace`, `projects:`, `ticket-type`), `relay.md` (the
+   lead appends its own questions and updates its entries' state), the
+   questionnaires, and `board.md`'s `lead:`, `lead-since:` and `po:`. The
+   **lead** writes the rest of the folder: the other work sections,
+   `plan.md`, `board.md`, `backlog.md`, the task files, `contracts/` and
+   `kb-drafts/`. A task agent writes only its own task file's `## Report`
+   (plus the code in its `owns`); a reviewer only its `reviews/` file; an
+   analyst nothing.
    At hand-over the lead may also create follow-up tickets for backlog items
    you choose (`ct new`, tag `from-ticket`), writing their initial content.
    **Exception, lead tickets:** a lead's session also writes the work
@@ -351,6 +382,10 @@ Several agents work at once, so each part of the vault has one writer:
    A `kb` session may also create a manual ticket (`ct new`, tag `from-kb`)
    for an issue it finds, writing its initial content. From then on such a
    ticket (`from-kb` or `from-ticket`) is yours, like any manual ticket.
+   A **teach session** (`ct teach <topic>`) owns only `learning/<topic>/`
+   and writes it directly (no `/tickets:save` promotion), one session per
+   topic, holding the vault lock (`ct vault lock acquire <vault>
+   teach-<topic>`) around writes that touch more than one file.
    **Unattended commands** (`ct sync`, `ct graph index`, `ct ws gc`)
    write a new `inbox/<date>-<time>-<command>-follow-ups.md` note
    (`type: follow-ups`) when a run leaves something for you: one task per
@@ -373,15 +408,26 @@ Several agents work at once, so each part of the vault has one writer:
    `inbox/<date>-<time>-ct-clean-follow-ups.md`.
 
 ### Workflow
-`/tickets:work-ticket` runs one **lead** per ticket. Its state lives in the
-bounded files of `tickets/<ID>/`, so a fresh session (`/clear`, or
-`ct start <ID>`, which is a new conversation by default) resumes from the
-board in a few calls; `ct start --continue <ID>` reopens the last one.
+The ticket session (`/tickets:work-ticket`) is the **PO**, the one you
+talk to: it runs the kickoff, relays, and spawns every agent (subagents
+can't). One **lead** (`tickets:lead`, a background agent; never two at
+once) plans, merges and triages, and asks the PO for agents and for your
+answers. New requirements, feedback and questions go to the PO at any
+time: work becomes a `relay.md` entry the lead plans into the next wave;
+a question that needs no lead goes to `tickets:analyst` (read-only,
+≤20-line answers). State lives in the bounded files of `tickets/<ID>/`,
+so a new session (`ct start <ID>`, a new conversation by default) resumes
+in a few calls; `ct start --continue <ID>` reopens the last one.
 1. **Kickoff:** you pick the repos (from the code graph, or Bitbucket repos
-   you clone with `ct ws clone`), the base branch and target version of each.
+   you clone with `ct ws clone`), the base branch and target version of
+   each. Then the PO **grills** you (`tickets:grilling`): rounds of
+   questions with recommended answers, one round for a clear chore,
+   several for a vague feature; facts are looked up, never asked; "skip"
+   ends it. `/tickets:grill` does the same for new scope later.
 2. **Plan:** `plan.md` (≤150 lines), each wave 2–6 task files with exact
-   `owns`. `ticket-type` shapes it: a `bug` gets `## Root cause` and a
-   regression test, an `investigation` an `investigation.md` (code only if
+   `owns`. `ticket-type` shapes it: a `bug` is diagnosed first
+   (`tickets:diagnose`: a feedback loop, `## Root cause`, a regression
+   test), an `investigation` gets an `investigation.md` (code only if
    asked), a `chore` one task, an `epic` one plan over `covers`.
 3. **Contracts first:** API, schema, file-format or CLI-flag changes go into
    `contracts/<name>-v<N>.md` before a task using them starts.
@@ -391,19 +437,31 @@ board in a few calls; `ct start --continue <ID>` reopens the last one.
 5. **Review:** one reviewer per repo and wave (≤3 must-fix, ≤6 should-fix,
    ≤5 consider). Must-fixes become fix tasks before the next wave; the rest
    go to fix tasks or `backlog.md` (≤40 open, triaged each wave).
-6. **Hand-over:** backlog items you pick become follow-up tickets (≤5);
-   then `## Review` and status `review`.
+6. **Hand-over:** a short retro (fixes to the agents' environment become
+   backlog items; `/tickets:retro` runs one any time), backlog items you
+   pick become follow-up tickets (≤5); then `## Review` and status
+   `review`.
 
-Agents: `tickets:task`, `tickets:mechanical` and `tickets:reviewer` (sonnet),
-`tickets:reviewer-deep` (opus, for contract or security waves); none has
-subagent, graph or Atlassian tools. Search: graphify for structure, the fff
-tools (`mcp__fff__find_files`, `mcp__fff__grep`, `mcp__fff__multi_grep`) for
-files and content, else `rg`. Older tickets may hold other files: plain notes.
-The lead stops to ask (status `blocked`, desktop notification) on open
-questions or major tradeoffs, and at `review` with the work committed
-(unsigned) on the ticket branches, never pushed: you review, run
-`/tickets:save`, then `ct ws sign <ID>` and push. Manual and synced tickets
-work the same way.
+**relay.md:** `## Closed` (≤40 one-line summaries), then `## Open` (≤30
+entries, appended), trimmed by the PO; one line each, `R-nn · <date> ·
+<from>→<to> · <type> · <text> · <open|planned|answered>`. `board.md`'s
+`lead:` and `po:` (running agents, refresh counters) are the PO's; a lead
+id from an earlier session is stale and replaced. The lead rotates after
+each reviewed wave. A heavy PO context: `/tickets:po-refresh` checkpoints
+board and relay and prints the `/compact` to type (the lead and workers
+keep running); the PO suggests it at quiet points.
+
+Agents: `tickets:task`, `tickets:mechanical`, `tickets:reviewer`,
+`tickets:analyst` (sonnet), `tickets:reviewer-deep` (opus, for contract or
+security waves), `tickets:lead` (the session's model, no Agent tool). None
+has subagent or Atlassian tools; only the lead and analyst have the graph.
+Search: graphify for structure, the fff tools (`mcp__fff__find_files`,
+`mcp__fff__grep`, `mcp__fff__multi_grep`) for files and content, else `rg`.
+Older tickets may hold other files: plain notes. The PO asks you (status
+`blocked`, desktop notification) on open questions or major tradeoffs, and
+at `review` with the work committed (unsigned) on the ticket branches,
+never pushed: you review, run `/tickets:save`, then `ct ws sign <ID>` and
+push. Manual and synced tickets work the same way.
 
 ## Session Commands (skills of the claude-tickets plugin)
 

@@ -374,3 +374,60 @@ func TestAdaptedSkills(t *testing.T) {
 		}
 	}
 }
+
+// The scaffold carries what the PO, the lead and the teach skill rely on:
+// the relay template (Closed, then Open), the PO's board keys, the task's
+// skills list, the learning templates' fields, and AGENTS.md's account of them.
+func TestScaffoldForPOAndTeach(t *testing.T) {
+	tpl := func(name string) string {
+		data, err := fs.ReadFile(Scaffold, "vault-scaffold/templates/"+name+".md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+	relay := tpl("relay")
+	closed, open := strings.Index(relay, "\n## Closed\n"), strings.Index(relay, "\n## Open\n")
+	if closed < 0 || open < closed {
+		t.Error("relay template: ## Closed must come before ## Open (the PO tails Open)")
+	}
+	for _, s := range []string{"type: relay\n", `ticket: "[[TICKET-ID]]"`, "≤30", "≤40",
+		"<request|feature|feedback|question|answer|decision>", "<open|planned|answered>"} {
+		if !strings.Contains(relay, s) {
+			t.Errorf("relay template: missing %q", s)
+		}
+	}
+	if strings.Contains(relay, "- [ ]") {
+		t.Error("relay template has a checkbox")
+	}
+	for _, s := range []string{"\nlead: none\n", "\nlead-since: \"\"\n", "\npo:\n  last-refresh: \"\"\n  exchanges-since: 0\n  analyst-since: 0\n  agents: []\n"} {
+		if !strings.Contains(tpl("board"), s) {
+			t.Errorf("board template: missing %q", s)
+		}
+	}
+	if !strings.Contains(tpl("task"), "\nskills: []\n") {
+		t.Error("task template: no skills: []")
+	}
+	for name, want := range map[string][]string{
+		"learning-topic":     {"type: learning-topic\n", "## Mission", "## Lessons", "## Reference", "## Records"},
+		"lesson":             {"type: lesson\n", "number: ", "source:", "quiz:", "## Win", "## Lesson", "## Practice", "## Primary source"},
+		"learning-record":    {"type: learning-record\n", "number: ", "status: active\n", "superseded-by: \"\"\n", "## Evidence", "## Implications"},
+		"learning-reference": {"type: learning-reference\n", "sources: []\n"},
+	} {
+		text := tpl(name)
+		for _, s := range append(want, "projects: []\n", "topic: \"[[", "tags: [learning]") {
+			if !strings.Contains(text, s) {
+				t.Errorf("%s template: missing %q", name, s)
+			}
+		}
+	}
+	data, _ := fs.ReadFile(Scaffold, "vault-scaffold/AGENTS.md")
+	agents := string(data)
+	for _, s := range []string{"relay.md", "`tickets:lead`", "`tickets:analyst`", "`tickets:grilling`",
+		"`tickets:diagnose`", "/tickets:po-refresh", "`/tickets:retro`", "`lead:`, `lead-since:` and `po:`",
+		"### Learning topics", "ct teach", "`learning/<topic>/`", "teach-<topic>`)", "questionnaire"} {
+		if !strings.Contains(agents, s) {
+			t.Errorf("vault AGENTS.md: missing %q", s)
+		}
+	}
+}

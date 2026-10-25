@@ -24,5 +24,7 @@
   "wave": "number",
   "depends_on": "multitext",
   "owns": "multitext",
-  "contracts": "multitext"
+  "contracts": "multitext",
+  "skills": "multitext",
+  "sources": "multitext"
 }

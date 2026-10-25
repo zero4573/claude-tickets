@@ -15,6 +15,7 @@
       "61a218c78e8668668940fd0a863affa676c203a13b02475da83495915a705129",
       "733e3d786c4eab8477398af9ad977dff02128568f16b04e52a78e1a60b5dff3d",
       "7df5187660aacf04dc5d9fb7bbe8b1ea9024f652eec2b59d33b382b7cbf381f3",
+      "84cb75ea1c094df1397ad5b4228b8c101511da6112683c813a5fdc3c76e48aaf",
       "8858c5303ec828eb6ed15797f5f20944338eb0a5e2bff296263b44eaf09602e5",
       "b291373413772b2f43f74483e369577689fa5492a0e45c1b689587a59d7bb40f",
       "c5110a81941590d6151eb19133442621eb985146b7dcfc5151a88f204067fa8a",
@@ -57,7 +58,8 @@
       "3ee09488b669f8e84914f52c23469ed404e9eabf766a3f37c3d0bfbe81894897"
     ],
     "templates/board.md": [
-      "0412ac35db215f9a4708e6536c70add31b1b04925163c7bc002b2d3a93d5d00c"
+      "0412ac35db215f9a4708e6536c70add31b1b04925163c7bc002b2d3a93d5d00c",
+      "3d5af5a26fc2d9404fdcbba14af30153965e3ee1018a5323c43be53097efc78c"
     ],
     "templates/decision.md": [
       "372627303d16443775cf066f6a1d4a84dbd70d6e63a0846901ad71f4d2e58051",
@@ -77,6 +79,18 @@
     "templates/knowledge.md": [
       "3b98b0be0065b1035ac41a5721a99c7283b590a5c61629654cf2c44c57eeb1d5"
     ],
+    "templates/learning-record.md": [
+      "ed47b4c56bd0a5258e74bcbc6dfdd89d35c8cd97a0322f3de06cb95e9a7c6c89"
+    ],
+    "templates/learning-reference.md": [
+      "9b17cb8f62d05f3d567de353eeb85f891e67d470855da2eb5bf06bd0fecf5252"
+    ],
+    "templates/learning-topic.md": [
+      "f61dc6e5665c5797ef7d54466ac1f1d5a56e10a4057db2d665b85d36fb51f8e6"
+    ],
+    "templates/lesson.md": [
+      "f7ae065617187e84a6f033459344a41fcfaaaa50a626a8643cfcb63a88781c49"
+    ],
     "templates/plan.md": [
       "7571202fa052d6c7d8c519c1844142e50253619adb184f1a143724a35e03f3ed"
     ],
@@ -91,6 +105,9 @@
       "3cbac9c14583fdc1f89598cd08bbeb2dd40a9ce4b403d2cb073e0b614141e36e",
       "493620a4eadd27f6c8b2367fc3c9ae093aff54059ae683e102731fa43e36c2a7"
     ],
+    "templates/relay.md": [
+      "6bedc48d2973c9848c741e84d74f73482211b08f0780517227463933d3dc0646"
+    ],
     "templates/review.md": [
       "fb8b8395e1cd11197182f1309d40c6fc565b85ca15820447ea39fd6c4d924b96"
     ],
@@ -103,6 +120,7 @@
       "e166a2dd3dcf40bf8175a4121b921d2c7b83babc38735844bdf90bd54e9bc93d"
     ],
     "templates/task.md": [
+      "8098d3d9f1f6e76a8a854f2928f4cabe06f6d8c68730f603d135e7be8db8791a",
       "f985142432341824d962f3e81d864e58ad4f60a1290ce2051a0092af5740d483"
     ],
     "templates/ticket-manual.md": [

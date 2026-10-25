@@ -7,6 +7,13 @@ type: board
 ticket: "[[TICKET-ID]]"
 wave: 1
 last-reviewed: {}
+lead: none
+lead-since: ""
+po:
+  last-refresh: ""
+  exchanges-since: 0
+  analyst-since: 0
+  agents: []
 tags: [board]
 ---
 # Board
@@ -14,7 +21,8 @@ tags: [board]
 Tasks and wave reviews of [[TICKET-ID]] in [[provider-owner-repo]], kept by the lead; one row
 each, updated in place.
 Task files: `tasks/<ID>-NN-<slug>.md`, linked as `[[<ID>-NN-<slug>]]`. `last-reviewed` maps each
-repo slug to the last reviewed commit.
+repo slug to the last reviewed commit. `lead:`, `lead-since:` and `po:` (the running agents,
+refresh counters) are the PO's; the lead writes the rest.
 
 ## Tasks
 <!-- Status: planned · running · merged <sha> · partial · blocked · dropped · pending — user. Note: ≤1 line. -->
