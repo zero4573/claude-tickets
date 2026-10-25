@@ -131,7 +131,7 @@ through the same agent workflow as synced ones.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&typ, "type", "dev", "ticket-type, which picks the agents' pipeline (epic makes a lead ticket that covers others)")
+	cmd.Flags().StringVar(&typ, "type", "dev", "ticket-type, which shapes the lead's plan (epic makes a lead ticket that covers others)")
 	cmd.Flags().StringVar(&priority, "priority", "", "free text, e.g. high")
 	cmd.Flags().BoolVar(&open, "open", false, "open the new note in Obsidian")
 	return cmd

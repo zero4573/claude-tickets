@@ -7,7 +7,7 @@
 //	scaffold-history.json  the hash of every version of each scaffold file
 //	                       ct has shipped, so ct vault update knows an
 //	                       unedited old copy (generated: go generate ./assets)
-//	plugin/                the Claude Code plugin (skills, role agents, hooks)
+//	plugin/                the Claude Code plugin (skills, task and review agents, hooks)
 //	graph/                 the graphify image's sources (ct graph build)
 //	obsidian/              the Tasks community plugin's pin (tasks-plugin.json)
 //	                       and the workflow's settings for it

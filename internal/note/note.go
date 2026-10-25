@@ -24,8 +24,8 @@ func TicketPath(vault, id string) string {
 	return filepath.Join(vault, "tickets", id, id+".md")
 }
 
-// TicketDir is a ticket's folder: its note, hand-off files, kb-drafts/ and
-// logs/.
+// TicketDir is a ticket's folder: its note, the lead's plan, board, task,
+// contract and review files, kb-drafts/ and logs/.
 func TicketDir(vault, id string) string { return filepath.Dir(TicketPath(vault, id)) }
 
 // ArchiveDir is where ct clean puts a ticket's folder it archives (manual

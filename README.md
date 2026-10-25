@@ -10,10 +10,11 @@ What it gives you:
   server and an adapter) are pulled into the vault, unsupervised. Manual
   tickets are written in the vault and never synced.
 - **One session per ticket:** each runs in its own tmux window (or, without
-  tmux, in your terminal, one at a time), with role
-  agents (product owner, architect, developer, QA). Each session keeps a
-  task list in the ticket note and gets its own git worktrees, and you get
-  a desktop notification when it needs you.
+  tmux, in your terminal, one at a time). Its lead plans the ticket and
+  works it in waves of small task agents, each in its own task worktree,
+  with a review agent after each wave. Each session keeps a board of its
+  tasks in the ticket folder and gets its own git worktrees, and you get a
+  desktop notification when it needs you.
 - **Knowledge base:** the vault holds what the sessions learn: projects
   named by repo slug, the features and versions they shipped in, which
   projects work together (`depends-on`, optional groups), and flows across
@@ -30,7 +31,7 @@ so they work the same unsandboxed or inside a sandbox that wraps `claude`.
 |---|---|
 | `cmd/ct`, `internal/` | `ct`, the one command (Go): every subcommand below, its shell completion (`ct completion zsh\|bash\|fish`); OS specifics in `internal/platform` |
 | `assets/` | built into `ct`: `vault-scaffold/` (what `ct vault init` copies into a vault), `scaffold-history.json` (the hash of every version of those files ever shipped, so `ct vault update` knows an unedited old copy; `go generate ./assets`), `obsidian/` (the Tasks plugin pin and settings, shared with the Nix module), `plugin/` and `graph/` (below) |
-| `assets/plugin/` | the Claude Code plugin `tickets`: skills (`/tickets:work-ticket`, `/tickets:pr-feedback`, `/tickets:ticket-sync`, `/tickets:kb`, `/tickets:save`, `/tickets:recall`), the role agents (`tickets:product-owner`, ...), and the hooks that tell `ct status` what a session is doing |
+| `assets/plugin/` | the Claude Code plugin `tickets`: skills (`/tickets:work-ticket`, `/tickets:pr-feedback`, `/tickets:ticket-sync`, `/tickets:kb`, `/tickets:save`, `/tickets:recall`, and the agents' briefs `/tickets:task-agent`, `/tickets:wave-review`), the agents the lead spawns (`tickets:task`, `tickets:mechanical`, `tickets:reviewer`, `tickets:reviewer-deep`), and the hooks that tell `ct status` what a session is doing |
 | `assets/graph/` | the graphify image (`ct graph`) and the merger behind each session's code graph |
 | `testdata/`, `*_test.go` | the tests: `go test ./...` runs `ct` against a throwaway home with stub `tmux`, `podman`, `claude` and editor commands and real git, and `ct sync` against a fake Jira (`testdata/sync/`) |
 | `nix/`, `flake.nix` | the package, a home-manager module, and Obsidian modules (Linux, Flathub) |
@@ -170,14 +171,15 @@ the same flags and rules to decide what to mount, and how.
 ### Recommended session settings
 
 Not required, but what the workflow was built with: sessions commit, but
-never push, rewrite history or remove worktrees, and can't relax their own
-rules. For an Atlassian source, also deny the Rovo tools that cost credits
+never push, rewrite history, force-delete branches or remove workspaces,
+and can't relax their own rules. `git worktree remove` stays allowed: the
+lead removes its task worktrees (under `<workspace>/.tasks/`) after
+merging them, and deletes their merged branches with `git branch -d`. For an Atlassian source, also deny the Rovo tools that cost credits
 (`<server>` is the source's `mcp` name):
 
 ```json
 { "permissions": { "deny": [
-  "Bash(git push:*)", "Bash(git reset --hard:*)", "Bash(git worktree remove:*)",
-  "Bash(git branch -D:*)", "Bash(git clean:*)", "Bash(ct ws rm:*)",
+  "Bash(git push:*)", "Bash(git reset --hard:*)", "Bash(git branch -D:*)", "Bash(git clean:*)", "Bash(ct ws rm:*)",
   "Edit(.claude/settings.json)", "Write(.claude/settings.json)",
   "mcp__<server>__search", "mcp__<server>__getGraphContext",
   "mcp__<server>__getGraphObject", "mcp__<server>__addGraphContext",
@@ -224,7 +226,7 @@ clusters, and the vault's `AGENTS.md` has the rules.
 | `ct vault default [<vault>\|--pick\|--unset]` | The vault every other command acts on. Switch it to work on another vault. |
 | `ct sync [--source <name>] [--full]` | Pull your open tickets from each enabled source and reconcile the notes, unsupervised. For Jira, it finds and writes only what changed, without a model; Claude only converts HTML-only descriptions or comments. |
 | `ct new [--type <t>] "<summary>"` | Create a manual ticket `MAN-<n>`. |
-| `ct start [--force] [--feedback] [--no-attach] <ID>...` | Open one tmux window per named ticket, in a workspace marked as trusted in Claude Code so the session starts right away (with one ID it then switches to that window; `--no-attach` doesn't) (Tab completes the vault's open tickets; `--list` prints them; an ID that isn't in the vault's `tickets/` stops it before anything starts), each running `/tickets:work-ticket <ID>` (or `/tickets:pr-feedback` with `--feedback`). Re-running continues the last conversation. Without a multiplexer (launcher `none`): one ID, run in this terminal; `--no-attach` is refused; a session that looks running is refused (`--force` if it isn't). |
+| `ct start [--force] [--feedback] [--fresh] [--no-attach] <ID>...` | Open one tmux window per named ticket, in a workspace marked as trusted in Claude Code so the session starts right away (with one ID it then switches to that window; `--no-attach` doesn't) (Tab completes the vault's open tickets; `--list` prints them; an ID that isn't in the vault's `tickets/` stops it before anything starts), each running `/tickets:work-ticket <ID>` (or `/tickets:pr-feedback` with `--feedback`). Re-running continues the last conversation (`--fresh` starts a new one). Without a multiplexer (launcher `none`): one ID, run in this terminal; `--no-attach` is refused; a session that looks running is refused (`--force` if it isn't). |
 | `ct feedback <ID>...` | Shorthand for `ct start --feedback`: apply the review comments on your open Bitbucket PRs. Without a multiplexer, a running session gets nothing typed into it: type `/tickets:pr-feedback` there. |
 | `ct status [-w] [--interval <d>]` | Every session: `needs-input` / `idle` / `working` / `exited`, window (`-` without a multiplexer), source, status, dirty repos. With `-w`, stays on screen and refreshes every 2s (`--interval`, at least 1s) and whenever a session changes state, until Ctrl-C; piped, it prints once. |
 | `ct attach <ID>` | Jump to a ticket's window (Tab completes the open ones). tmux only: without a multiplexer, a session is in the terminal where it was started. |
@@ -375,25 +377,59 @@ interrupted run finishes when run again.
 
 ### Inside a ticket session
 
+One lead session per ticket plans the work and spawns small agents for it,
+in waves:
+
 ```mermaid
 flowchart TB
-  start["/tickets:work-ticket ID"] --> kickoff["Kickoff (asks you):<br/>repos (Bitbucket discovery), base branch,<br/>target version per repo"]
+  start["/tickets:work-ticket ID"] --> resume{board.md?}
+  resume -- yes --> wave
+  resume -- no --> kickoff["Kickoff (asks you):<br/>repos (Bitbucket discovery), base branch,<br/>target version per repo"]
   kickoff --> ws["ct ws add: worktrees on feature/ID<br/>graph merges them in"]
-  ws --> type{ticket-type}
-  type -- dev --> po[product-owner<br/>requirements.md] --> arch[architect<br/>design.md] --> dev[developer<br/>code + tests] --> qa[qa<br/>qa-report.md]
-  type -- bug --> archb[architect trace<br/>investigation.md] --> devb[developer fix +<br/>regression test] --> qa
-  type -- investigation --> archi[architect trace] --> devi[developer digs in<br/>fix only if asked]
-  type -- chore --> devc[developer] --> qac[qa if behaviour can change]
-  type -- epic --> lead[lead: works its covered tickets<br/>and tracks dependencies]
-  qa --> review[status: review]
-  devi --> review
-  qac --> review
-  lead --> review
+  ws --> plan["Plan (lead): plan.md, contracts/,<br/>tasks/ for wave 1 (2-6 tasks)"]
+  plan --> wave["Wave: up to 4 task / mechanical agents,<br/>each in .tasks/slug-NN on task/ID-NN-..."]
+  wave --> merge["Merge (lead): merge --no-ff into feature/ID,<br/>lint + tests, remove the task worktree"]
+  merge --> rev["Review: reviewer (or reviewer-deep)<br/>per repo, reviews/wave-N-slug.md"]
+  rev --> fix{"must-fix items,<br/>or waves left?"}
+  fix -- "yes: fix tasks / next wave" --> wave
+  fix -- no --> hand["Hand-over: backlog to follow-up<br/>tickets (ct new), kb-drafts, ## Review"]
+  hand --> review[status: review]
 ```
 
-- **The ticket note** holds the `## Tasks` list (each task tagged with its
-  role), `## Questions`, `## Review` and `## Follow-ups`. The hand-off files
-  (`requirements.md`, `design.md`, ...) and `kb-drafts/` sit next to it.
+- **The lead** (the session itself) clarifies scope, writes `plan.md`,
+  fixes interfaces in `contracts/` before anything uses them, and writes
+  one file per task in `tasks/` (goal, steps, checks, and the exact files
+  it `owns`). Tasks whose files overlap never run in the same wave. It
+  merges each task branch into the ticket branch, runs the repo's lint
+  and tests, and does follow-ups of up to 20 lines itself.
+- **Agents:** `tickets:task` (sonnet) implements one task in its own task
+  worktree, commits there and appends a `## Report` of up to 40 lines to
+  its task file; `tickets:mechanical` (sonnet, low effort) does renames,
+  fixture syncs and small follow-ups. After each wave, `tickets:reviewer`
+  (sonnet), or `tickets:reviewer-deep` (opus) when the wave changes a
+  contract or security-sensitive code, reviews each repo's new commits:
+  at most 3 must-fix, 6 should-fix and 5 consider items. Must-fixes become
+  fix tasks before the next wave; the rest go to fix tasks or `backlog.md`
+  (at most 40 open items). The agents get no subagents, graph or Atlassian
+  tools.
+- **Search:** the graphify code graph for structure (callers, paths
+  between repos, what a change touches); the fff MCP tools
+  (`mcp__fff__*`) for files and content when the session has them, else
+  `rg`.
+- **The ticket folder** holds `plan.md`, `board.md` (one row per task and
+  review, the lead's resume point), `backlog.md`, `tasks/`, `contracts/`,
+  `reviews/` and `kb-drafts/`. The ticket note's `## Tasks` has one line
+  per phase or wave; `## Questions`, `## Review` and `## Follow-ups` stay
+  there. At hand-over the lead offers to turn open backlog items into
+  follow-up tickets (`ct new`).
+- **Fresh context:** the lead resumes from `board.md` in a few calls, so
+  `/clear` and `/tickets:work-ticket <ID>` again (or `ct start --fresh
+  <ID>`) every wave or two keeps the session small.
+- **Ticket types** shape the plan, not the agents: a `bug` starts from a
+  root cause and a regression test that fails before the fix; an
+  `investigation` ends in `investigation.md`, with code only if asked; a
+  `chore` may be one task or none; an `epic` plans over the tickets it
+  covers.
 - **Questions:** a session stops and asks when something is unclear or a
   tradeoff is big. The hooks set the session to `needs-input`, which
   `ct status` shows and a desktop notification announces.
@@ -404,7 +440,8 @@ flowchart TB
 - **Committed, never pushed:** sessions commit on the ticket branches with
   your git identity. Where they can't sign (e.g. sandboxed, without your
   SSH agent), `ct ws sign <ID>` on the host re-signs the unpushed
-  commits (same changes and authors, new hashes) before you push. Never
+  commits (same changes and authors, new hashes; the lead's `--no-ff`
+  merges of task branches stay merges) before you push. Never
   pushing is your rule to set: see "Recommended session settings".
 
 ### /tickets:save
@@ -417,7 +454,7 @@ sequenceDiagram
   participant S as session (/tickets:save)
   participant L as ct vault lock
   participant V as vault
-  S->>S: gather: ticket note, hand-offs, kb-drafts, ct ws diff
+  S->>S: gather: ticket note, plan, board rows, review summaries,<br/>open backlog, kb-drafts, ct ws diff
   S->>L: acquire vault ID (waits for other saves)
   S->>V: session logs: tickets/ID/logs, projects/slug/logs
   S->>V: promote kb-drafts (ct vault links move: links kept)

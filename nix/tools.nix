@@ -4,7 +4,7 @@
 let
   inherit (pkgs.stdenv.hostPlatform) isLinux;
 
-  # The Claude Code plugin (skills, role agents, hooks). Its hooks run
+  # The Claude Code plugin (skills, task and review agents, hooks). Its hooks run
   # `ct hook ...`: here the bare binary (no cycle with the ct wrapper,
   # which points at this plugin), with notify-send for questions
   ctHook = pkgs.runCommand "ct-hook" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''

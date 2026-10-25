@@ -60,7 +60,7 @@ A ticket is skipped, with the reason, when:
   origin/<base> count as pushed: a squash-merged branch whose remote
   branch was deleted goes;
 - its work wasn't saved: no saved: marker (written by /tickets:save) or
-  summary block, and it has hand-off files, logs or commits, or kb-drafts
+  summary block, and it has ticket files, logs or commits, or kb-drafts
   not yet promoted. --save runs /tickets:save headless in its workspace
   first (refused when a repo there has no target version: the save would
   have to ask), logged to ` + logPath("clean-save-<ID>") + `;
