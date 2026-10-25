@@ -130,14 +130,10 @@ func staleGraphs(ctx vault.Context) {
 }
 
 func ticketSync(ctx vault.Context, only string, full bool) error {
-	// Changed ticket notes are not listed by the skill: whole-vault stale check,
-	// but only after a run that wrote something (a source that ran).
 	wrote := false
-	defer func() {
-		if wrote {
-			refreshIndex(ctx.Vault)
-		}
-	}()
+	noteRel := ""
+	var before map[string]stamp
+	var beforeErr error
 	cfgFile := filepath.Join(ctx.Vault, "tickets", ".sources.json")
 	stateFile := filepath.Join(ctx.Vault, "tickets", ".sync-state.json")
 	data, err := os.ReadFile(cfgFile)
@@ -178,6 +174,16 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 	}
 
 	staleGraphs(ctx)
+
+	// The skill and ct sync write ticket notes without listing them: snapshot
+	// tickets/ here and, after a run that wrote something (a source that ran),
+	// refresh the index for exactly the files that changed.
+	before, beforeErr = snapshotTickets(ctx.Vault)
+	defer func() {
+		if wrote {
+			refreshAfterSync(ctx.Vault, before, beforeErr, noteRel)
+		}
+	}()
 
 	logName := "ticket-sync-" + filepath.Base(ctx.Vault)
 	logFile := config.StateLog(logName)
@@ -335,6 +341,7 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 		} else if n != "" {
 			rel, _ := filepath.Rel(ctx.Vault, n)
 			both("ct sync: follow-ups for you in " + rel)
+			noteRel = filepath.ToSlash(rel)
 			noteName = filepath.Base(n)
 		}
 	}
