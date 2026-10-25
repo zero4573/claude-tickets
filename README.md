@@ -161,7 +161,9 @@ claude --plugin-dir <plugin> \
   --permission-mode auto [--continue] "/tickets:work-ticket <ID>"
 ```
 
-and the workspace's `.claude/settings.json` holds the one rule the ticket
+(`--continue` only with `ct start --continue`, when the workspace ran a
+session before; by default each start is a new conversation), and the
+workspace's `.claude/settings.json` holds the one rule the ticket
 system needs: **the main clones and the graph cache are never edited**
 (`Edit`/`Write`/`NotebookEdit` denied under `projectsRoot` and the cache;
 worktrees exist so the main clones stay untouched, and the graphs rely on
@@ -226,7 +228,7 @@ clusters, and the vault's `AGENTS.md` has the rules.
 | `ct vault default [<vault>\|--pick\|--unset]` | The vault every other command acts on. Switch it to work on another vault. |
 | `ct sync [--source <name>] [--full]` | Pull your open tickets from each enabled source and reconcile the notes, unsupervised. For Jira, it finds and writes only what changed, without a model; Claude only converts HTML-only descriptions or comments. |
 | `ct new [--type <t>] "<summary>"` | Create a manual ticket `MAN-<n>`. |
-| `ct start [--force] [--feedback] [--fresh] [--no-attach] <ID>...` | Open one tmux window per named ticket, in a workspace marked as trusted in Claude Code so the session starts right away (with one ID it then switches to that window; `--no-attach` doesn't) (Tab completes the vault's open tickets; `--list` prints them; an ID that isn't in the vault's `tickets/` stops it before anything starts), each running `/tickets:work-ticket <ID>` (or `/tickets:pr-feedback` with `--feedback`). Re-running continues the last conversation (`--fresh` starts a new one). Without a multiplexer (launcher `none`): one ID, run in this terminal; `--no-attach` is refused; a session that looks running is refused (`--force` if it isn't). |
+| `ct start [--force] [--feedback] [--continue] [--no-attach] <ID>...` | Open one tmux window per named ticket, in a workspace marked as trusted in Claude Code so the session starts right away (with one ID it then switches to that window; `--no-attach` doesn't) (Tab completes the vault's open tickets; `--list` prints them; an ID that isn't in the vault's `tickets/` stops it before anything starts), each running `/tickets:work-ticket <ID>` (or `/tickets:pr-feedback` with `--feedback`). Each run starts a new conversation, which resumes from the ticket's `board.md`; `--continue` (`-c`) reopens the workspace's last conversation instead (also on `ct feedback`). Without a multiplexer (launcher `none`): one ID, run in this terminal; `--no-attach` is refused; a session that looks running is refused (`--force` if it isn't). |
 | `ct feedback <ID>...` | Shorthand for `ct start --feedback`: apply the review comments on your open Bitbucket PRs. Without a multiplexer, a running session gets nothing typed into it: type `/tickets:pr-feedback` there. |
 | `ct status [-w] [--interval <d>]` | Every session: `needs-input` / `idle` / `working` / `exited`, window (`-` without a multiplexer), source, status, dirty repos. With `-w`, stays on screen and refreshes every 2s (`--interval`, at least 1s) and whenever a session changes state, until Ctrl-C; piped, it prints once. |
 | `ct attach <ID>` | Jump to a ticket's window (Tab completes the open ones). tmux only: without a multiplexer, a session is in the terminal where it was started. |
@@ -423,8 +425,9 @@ flowchart TB
   there. At hand-over the lead offers to turn open backlog items into
   follow-up tickets (`ct new`).
 - **Fresh context:** the lead resumes from `board.md` in a few calls, so
-  `/clear` and `/tickets:work-ticket <ID>` again (or `ct start --fresh
-  <ID>`) every wave or two keeps the session small.
+  `/clear` and `/tickets:work-ticket <ID>` again (or a new `ct start <ID>`,
+  which starts a new conversation by default) every wave or two keeps the
+  session small. `ct start --continue <ID>` reopens the last conversation.
 - **Ticket types** shape the plan, not the agents: a `bug` starts from a
   root cause and a regression test that fails before the fix; an
   `investigation` ends in `investigation.md`, with code only if asked; a

@@ -18,7 +18,8 @@ grep '^  --hard, or remove the ticket worktrees; the lead adds and removes task$
 grep '^  worktrees under `.tasks/`.$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^- Workflow: the lead plans the ticket in waves of task agents' home/Projects/work-a/MAN-1/CLAUDE.md
 grep 'board.md' home/Projects/work-a/MAN-1/CLAUDE.md
-grep '^Run `/tickets:work-ticket MAN-1` to \(re\)start the workflow \(`ct start --fresh$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^Run `/tickets:work-ticket MAN-1` to \(re\)start the workflow \(`ct start MAN-1`$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^opens a new conversation, which resumes from `board.md`; `ct start$' home/Projects/work-a/MAN-1/CLAUDE.md
 # settings: the main clones and the cache are read-only, merged with the user's
 grep '"Edit\(//.*/home/Projects/repo-a/\*\*\)"' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"Write\(//.*/home/.cache/claude-tickets/\*\*\)"' home/Projects/work-a/MAN-1/.claude/settings.json
@@ -38,9 +39,13 @@ stdout 'MAN-1 already open, sent /tickets:pr-feedback MAN-1 to its window'
 grep '^send-keys -t =tickets-a:MAN-1 /tickets:pr-feedback MAN-1 Enter$' calls/tmux
 rm tmux-windows
 
-# a workspace that ran a session continues it
+# a workspace that ran a session gets a new conversation; --continue continues it
 cp state.json home/Projects/work-a/MAN-1/.agent-state
+rm calls/tmux
 exec ct start --no-fetch MAN-1
+! stdout 'continuing'
+! grep ' --continue' calls/tmux
+exec ct start --no-fetch --continue MAN-1
 stdout 'started in tickets-a \(continuing its last session\)'
 grep 'new-session .* --permission-mode auto --continue ./tickets:work-ticket MAN-1.' calls/tmux
 

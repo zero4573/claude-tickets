@@ -168,4 +168,5 @@ the user, then `review`.
   `pending — user`.
 - One conversation per wave or two. When a wave is merged and reviewed, make sure the board,
   backlog and task files carry the state, then tell the user to `/clear` and run
-  `/tickets:work-ticket <ID>` again (or restart with `ct start --fresh <ID>`).
+  `/tickets:work-ticket <ID>` again (or restart with `ct start <ID>`: a new conversation that
+  resumes from the board; `ct start --continue <ID>` reopens the old one).

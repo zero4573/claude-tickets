@@ -49,8 +49,9 @@ rm home/Projects/work-a/MAN-1/.sessions.json
 ! exec ct-tty start --no-fetch MAN-1
 stderr 'MAN-1: its session looks running \(.agent-state: working at 2026-10-06T10:00:00-04:00\); it.s in the terminal where it was started. If it isn.t \(terminal closed\), ct start --force MAN-1'
 exec ct-tty start --no-fetch --force MAN-1
-stdout 'MAN-1 runs in this terminal \(continuing its last session\)'
-grep '--permission-mode auto --continue /tickets:work-ticket MAN-1$' calls/claude
+stdout 'MAN-1 runs in this terminal'
+! stdout 'continuing'
+! grep ' --continue' calls/claude
 
 # the recorded process has ended (the stub claude): a fresh .agent-state
 # doesn't count (PIDs can't be checked inside a container)
@@ -72,7 +73,8 @@ stderr 'type /tickets:pr-feedback in that session.s terminal, or if it isn.t run
 stderr 'ct start --feedback --force MAN-1'
 cp state-exited.json home/Projects/work-a/MAN-1/.agent-state
 exec ct-tty feedback --no-fetch MAN-1
-grep '--continue /tickets:pr-feedback MAN-1$' calls/claude
+grep '--permission-mode auto /tickets:pr-feedback MAN-1$' calls/claude
+! grep ' --continue' calls/claude
 grep '"command": "feedback"' home/Projects/work-a/MAN-1/.sessions.json
 
 # an ignored ticket is skipped, as with tmux

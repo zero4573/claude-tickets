@@ -23,7 +23,7 @@ import (
 )
 
 type startOpts struct {
-	force, noFetch, feedback, fresh, noAttach, list, all bool
+	force, noFetch, feedback, cont, noAttach, list, all bool
 	// name is the command as typed (ct start, ct feedback), for messages
 	name string
 }
@@ -38,7 +38,7 @@ func AssumeTerminal() { isTerminal = func() bool { return true } }
 
 const forceHelp = "start tickets marked ignore: true too, one covered by an open lead ticket on its own, or (without a multiplexer) one whose session only looks running from its .agent-state"
 const noAttachHelp = "with one ID, don't switch to its window (needs a terminal multiplexer)"
-const freshHelp = "start a new conversation even if the workspace already ran one (no --continue)"
+const continueHelp = "continue the workspace's last conversation instead of starting a new one"
 
 // launcherHelp is the part of ct start's and ct feedback's help about
 // running without a terminal multiplexer.
@@ -53,7 +53,7 @@ exited, e.g. after its terminal was closed) needs --force.`
 func startCmd() *cobra.Command {
 	o := startOpts{name: "ct start"}
 	cmd := &cobra.Command{
-		Use:   "start [--force] [--no-fetch] [--feedback] [--fresh] [--no-attach] <ID>... | --list [--all]",
+		Use:   "start [--force] [--no-fetch] [--feedback] [--continue] [--no-attach] <ID>... | --list [--all]",
 		Short: "Start (or re-open) one session per named ticket",
 		Long: `Starts (or re-opens) one Claude session for each ticket named, from the
 current vault (ct vault default), each in its own window of the vault's tmux
@@ -62,10 +62,10 @@ session (tickets-<vault>), running /tickets:work-ticket <ID> in the workspace
 Each must be a ticket of the vault: tickets/<ID>/<ID>.md, synced by ct sync or a manual
 ticket from ct new. If any isn't, none start.
 
-A workspace that already ran a session continues its last conversation;
---fresh starts a new one instead (/tickets:work-ticket resumes from the
-ticket's board.md, so a fresh conversation every wave or two keeps the
-context small). The workspace is marked as trusted in Claude Code, so the session starts
+Each session is a new conversation, even in a workspace that already ran
+one: /tickets:work-ticket resumes from the ticket's board.md, so a fresh
+conversation every wave or two keeps the context small. --continue (-c)
+continues the workspace's last conversation instead. The workspace is marked as trusted in Claude Code, so the session starts
 without asking. With one ID, run from a terminal, it then switches to that
 window (--no-attach doesn't). Attach later with ct attach <ID>, see all of
 them with ct status.
@@ -98,7 +98,7 @@ window is already open gets /tickets:pr-feedback typed into it.
 	f.BoolVar(&o.force, "force", false, forceHelp)
 	f.BoolVar(&o.noFetch, "no-fetch", false, "skip fetching the main clones first")
 	f.BoolVar(&o.feedback, "feedback", false, "run /tickets:pr-feedback instead of /tickets:work-ticket")
-	f.BoolVar(&o.fresh, "fresh", false, freshHelp)
+	f.BoolVarP(&o.cont, "continue", "c", false, continueHelp)
 	f.BoolVar(&o.noAttach, "no-attach", false, noAttachHelp)
 	f.BoolVar(&o.list, "list", false, "print the vault's open tickets")
 	f.BoolVar(&o.all, "all", false, "with --list: done and closed tickets too")
@@ -108,12 +108,13 @@ window is already open gets /tickets:pr-feedback typed into it.
 func feedbackCmd() *cobra.Command {
 	o := startOpts{name: "ct feedback"}
 	cmd := &cobra.Command{
-		Use:   "feedback [--force] [--no-fetch] [--fresh] [--no-attach] <ID>...",
+		Use:   "feedback [--force] [--no-fetch] [--continue] [--no-attach] <ID>...",
 		Short: "ct start --feedback: apply the review feedback on your open PRs",
 		Long: `Starts a session per ticket named running /tickets:pr-feedback <ID>: it
 applies the review feedback on your open PRs for the ticket, as ct start
 --feedback does. A ticket whose window is already open gets
-/tickets:pr-feedback typed into it.
+/tickets:pr-feedback typed into it. Each session is a new conversation;
+--continue (-c) continues the workspace's last conversation instead.
 
 ` + launcherHelp + ` There, a running session gets no
 keys typed into it: type /tickets:pr-feedback in its terminal yourself.`,
@@ -131,7 +132,7 @@ keys typed into it: type /tickets:pr-feedback in its terminal yourself.`,
 	f := cmd.Flags()
 	f.BoolVar(&o.force, "force", false, forceHelp)
 	f.BoolVar(&o.noFetch, "no-fetch", false, "skip fetching the main clones first")
-	f.BoolVar(&o.fresh, "fresh", false, freshHelp)
+	f.BoolVarP(&o.cont, "continue", "c", false, continueHelp)
 	f.BoolVar(&o.noAttach, "no-attach", false, noAttachHelp)
 	return cmd
 }
@@ -233,7 +234,7 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 	}
 
 	for _, k := range launch {
-		w, resume, err := prepareSession(ctx, k, skill, dirs, graphOK, o.fresh)
+		w, resume, err := prepareSession(ctx, k, skill, dirs, graphOK, o.cont)
 		if err != nil {
 			return err
 		}
@@ -332,11 +333,14 @@ func prepareTicketSession(ctx vault.Context, key string, dirs []string) (string,
 }
 
 // prepareSession readies a ticket's workspace (prepareTicketSession, plus the
-// graph MCP config) and builds its session; resume when the workspace already
-// ran one (it continues it), unless fresh.
-func prepareSession(ctx vault.Context, key, skill string, dirs []string, graphOK, fresh bool) (launcher.Window, bool, error) {
+// graph MCP config) and builds its session: a new conversation, or with cont
+// (--continue) the workspace's last one (resume) when it already ran one.
+func prepareSession(ctx vault.Context, key, skill string, dirs []string, graphOK, cont bool) (launcher.Window, bool, error) {
 	_, err := os.Stat(filepath.Join(ctx.WorkRoot, key, ".agent-state"))
-	resume := err == nil && !fresh
+	resume := err == nil && cont
+	if cont && !resume {
+		warnf("%s: no earlier session in its workspace to continue, starting a new one", key)
+	}
 	dir, argv, err := prepareTicketSession(ctx, key, dirs)
 	if err != nil {
 		return launcher.Window{}, false, err
@@ -458,8 +462,9 @@ func ticketClaudeMD(ctx vault.Context, key, dir string) string {
 		"- Workflow: the lead plans the ticket in waves of task agents, each in its\n"+
 		"  own task worktree and branch, merged into the ticket branch and reviewed\n"+
 		"  after each wave; `board.md` in the ticket folder tracks them.\n\n"+
-		"Run `/tickets:work-ticket %[1]s` to (re)start the workflow (`ct start --fresh\n"+
-		"%[1]s` for a new conversation), and `/tickets:save` once the user has\n"+
-		"reviewed the changes. The user signs and pushes.\n",
+		"Run `/tickets:work-ticket %[1]s` to (re)start the workflow (`ct start %[1]s`\n"+
+		"opens a new conversation, which resumes from `board.md`; `ct start\n"+
+		"--continue %[1]s` reopens the last one), and `/tickets:save` once the user\n"+
+		"has reviewed the changes. The user signs and pushes.\n",
 		key, note.Get(ticket, "source"), v, ticket, dir, p)
 }
