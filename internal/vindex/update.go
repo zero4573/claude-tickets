@@ -3,11 +3,14 @@ package vindex
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -132,8 +135,12 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 		}
 	}
 	old, oerr := load(vault)
+	var salvage *Index // a torn index, read leniently: only a vector cache
 	if oerr != nil {
 		old = nil
+		if errors.Is(oerr, ErrNoIndex) {
+			salvage = lenientLoad(vault)
+		}
 		if !errors.Is(oerr, ErrNoIndex) {
 			return oerr
 		}
@@ -221,6 +228,17 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 	if old != nil && old.Meta.Dims > 0 {
 		for i, c := range old.Chunks {
 			if v := old.Vector(i); !isZero(v) {
+				reuse[c.Hash] = v
+			}
+		}
+	}
+
+	// A torn index still holds vectors; they are reused only when the model
+	// and dims match and the chunk hash does, so a stale one can't leak.
+	if old == nil && salvage != nil && hasVecs && !o.Full && salvage.Meta.Model == meta.Model &&
+		salvage.Meta.ModelSHA256 == meta.ModelSHA256 && salvage.Meta.Dims == meta.Dims {
+		for i, c := range salvage.Chunks {
+			if v := salvage.Vector(i); !isZero(v) {
 				reuse[c.Hash] = v
 			}
 		}
@@ -532,3 +550,37 @@ var openEmbedder = modelcache.Open
 // beforeNotesWrite is a test hook: it runs after chunks.jsonl and vectors.f32
 // are written and before notes.jsonl and meta.json (the reader's torn window).
 var beforeNotesWrite func()
+
+// lenientLoad reads meta.json, chunks.jsonl and vectors.f32 of an index load
+// refused, without hash or tiling checks, for its vectors only. Nil when any
+// of them is unreadable or the row counts disagree.
+func lenientLoad(vault string) *Index {
+	dir := Dir(vault)
+	data, err := os.ReadFile(filepath.Join(dir, "meta.json"))
+	if err != nil {
+		return nil
+	}
+	ix := &Index{}
+	if json.Unmarshal(data, &ix.Meta) != nil || ix.Meta.Format != Format || ix.Meta.Dims <= 0 {
+		return nil
+	}
+	if readLines(filepath.Join(dir, "chunks.jsonl"), func(b []byte) error {
+		var c ChunkMeta
+		if err := json.Unmarshal(b, &c); err != nil {
+			return err
+		}
+		ix.Chunks = append(ix.Chunks, c)
+		return nil
+	}) != nil {
+		return nil
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "vectors.f32"))
+	if err != nil || len(raw) != len(ix.Chunks)*ix.Meta.Dims*4 {
+		return nil
+	}
+	ix.vecs = make([]float32, len(raw)/4)
+	for i := range ix.vecs {
+		ix.vecs[i] = math.Float32frombits(binary.LittleEndian.Uint32(raw[i*4:]))
+	}
+	return ix
+}

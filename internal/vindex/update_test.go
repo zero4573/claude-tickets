@@ -289,8 +289,8 @@ func TestLoadRequiresContiguousChunks(t *testing.T) {
 	if _, err := Load(v); !errors.Is(err, ErrNoIndex) {
 		t.Fatalf("got %v", err)
 	}
-	// Update rebuilds it.
-	if st, err := Update(v, UpdateOptions{}); err != nil || st.Embedded != 3 {
+	// Update rebuilds it, reusing the torn index's vectors by chunk hash.
+	if st, err := Update(v, UpdateOptions{}); err != nil || st.Embedded != 0 || st.Chunks != 3 {
 		t.Fatalf("%+v %v", st, err)
 	}
 }
@@ -522,5 +522,48 @@ func TestTouchOnlyUpdateStaysLoadable(t *testing.T) {
 	}
 	if _, err := Load(v); err != nil {
 		t.Fatalf("touch-only update broke the index: %v", err)
+	}
+}
+
+// A torn index (notes.jsonl no longer matches meta.json) is rebuilt, but its
+// vectors still serve as a cache by chunk hash: nothing unchanged is embedded
+// again, and the result equals a fresh build's.
+func TestTornIndexReusesVectors(t *testing.T) {
+	v := setup(t, "stub")
+	if _, err := Update(v, UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	put(t, v, "sub/b.md", "# B\n\nAlpha beta changed.\n")
+	if err := os.WriteFile(filepath.Join(Dir(v), "notes.jsonl"), []byte("torn\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(v); !errors.Is(err, ErrNoIndex) {
+		t.Fatalf("torn index loaded: %v", err)
+	}
+	st, err := Update(v, UpdateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Chunks != 3 || st.Embedded >= st.Chunks || st.Embedded == 0 {
+		t.Fatalf("want only the changed chunk embedded: %+v", st)
+	}
+	got, err := Load(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Update(v, UpdateOptions{Full: true}); err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := Load(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Chunks) != len(fresh.Chunks) || len(got.vecs) != len(fresh.vecs) {
+		t.Fatal("shape differs from a fresh build")
+	}
+	for i := range got.vecs {
+		if got.vecs[i] != fresh.vecs[i] {
+			t.Fatalf("vector %d differs from a fresh build", i)
+		}
 	}
 }

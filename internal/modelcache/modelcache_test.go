@@ -261,3 +261,89 @@ func TestFetchIdleTimeout(t *testing.T) {
 		t.Fatal("a stalled body was not cut")
 	}
 }
+
+// Two fetches at once (two terminals) both succeed: the second waits for the
+// lock instead of deleting the first one's .download-*/.stage-* files.
+func TestFetchConcurrent(t *testing.T) {
+	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", os.Getenv("CLAUDE_TICKETS_CACHE"))
+	model := bytes.Repeat([]byte("model"), 1000)
+	arc := tgz(t, "llama-b1", map[string]string{"libllama.so.0.1": "L", "libx.so": "X"})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(50 * time.Millisecond)
+		if r.URL.Path == "/m" {
+			w.Write(model)
+			return
+		}
+		w.Write(arc)
+	}))
+	defer srv.Close()
+	p := testPins(t, srv, arc, model)
+	errs := make(chan error, 4)
+	for i := 0; i < 4; i++ {
+		go func() { errs <- fetch(context.Background(), p, srv.Client(), "m", nil) }()
+	}
+	for i := 0; i < 4; i++ {
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+	}
+	if st := statusOf(p, "m"); !st.ModelOK || !st.LibOK {
+		t.Fatalf("not installed: %+v", st)
+	}
+	m, _ := modelOf(p, "m")
+	if b, _ := os.ReadFile(ModelPath(m)); sum(b) != sum(model) {
+		t.Fatal("model file differs")
+	}
+}
+
+// Sessions mount the cache read-only: what they call (Status, path
+// resolution) must succeed and create nothing there.
+func TestReadOnlyCache(t *testing.T) {
+	if os.Geteuid() == 0 || runtime.GOOS == "windows" {
+		t.Skip("needs a non-root unix user")
+	}
+	cache := t.TempDir()
+	t.Setenv("CLAUDE_TICKETS_CACHE", cache)
+	t.Setenv("XDG_CACHE_HOME", cache)
+	m := Default()
+	lib, err := LibDir()
+	if err != nil {
+		t.Skip(err)
+	}
+	os.MkdirAll(filepath.Dir(ModelPath(m)), 0o755)
+	os.WriteFile(ModelPath(m), []byte("gguf"), 0o644)
+	os.MkdirAll(lib, 0o755)
+	for _, f := range pins().Llama.Assets[platformKey()].Files {
+		os.WriteFile(filepath.Join(lib, f.As), []byte("lib"), 0o755)
+	}
+	list := func() (out []string) {
+		filepath.Walk(cache, func(p string, _ os.FileInfo, _ error) error { out = append(out, p); return nil })
+		return
+	}
+	before := list()
+	var dirs []string
+	for _, d := range before {
+		if st, err := os.Stat(d); err == nil && st.IsDir() {
+			dirs = append(dirs, d)
+		}
+	}
+	for _, d := range dirs {
+		os.Chmod(d, 0o555)
+	}
+	defer func() {
+		for _, d := range dirs {
+			os.Chmod(d, 0o755)
+		}
+	}()
+	st := StatusOf(m.ID)
+	if !st.ModelOK || !st.LibOK || st.Problem != "" {
+		t.Fatalf("status on a read-only cache: %+v", st)
+	}
+	if l, err := LibDir(); err != nil || l != lib {
+		t.Fatalf("LibDir: %q %v", l, err)
+	}
+	if got := strings.Join(list(), "\n"); got != strings.Join(before, "\n") {
+		t.Fatalf("read paths created files:\n%s", got)
+	}
+}
