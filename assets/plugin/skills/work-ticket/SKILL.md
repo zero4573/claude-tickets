@@ -33,8 +33,9 @@ picks up where the last one stopped. Paths `tickets/<ID>/…` are in the vault;
   Teamwork Graph tools, not even through `executeRead`.
 - **Graph first for structure:** the `graphify` MCP server holds every repo, with this
   ticket's worktrees in place of their main clones (ids prefixed `<slug>::`). Task worktrees
-  aren't in it. For files and content, use the fff MCP tools when available, else `rg` (or
-  the Grep tool). Read files by section or line range, never the board or task files whole.
+  aren't in it. For files and content, use the fff tools (`mcp__fff__find_files`,
+  `mcp__fff__grep`, `mcp__fff__multi_grep`) when available, else `rg` (or the Grep tool).
+  Read files by section or line range, never the board or task files whole.
 
 ## 0. Resume (always first; ≤3 calls)
 1. `rg -n '^\||^(status|wave|last-reviewed):' tickets/<ID>/board.md tickets/<ID>/<ID>.md`

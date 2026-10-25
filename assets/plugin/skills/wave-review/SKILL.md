@@ -16,8 +16,8 @@ fix-task IDs, the previous review file (if any), and a ≤5-line graph impact no
    (`rg -n '^W[0-9]+-.*-[MS][0-9]+' <prev review>`), and check them against the fix tasks the
    lead named. Don't re-review unchanged code.
 4. Read by hunk (`git diff <range> -- <file>`); open full files only where a hunk needs
-   context. Find callers with the fff MCP tools when available, else `rg`. Read the repo's
-   `AGENTS.md` by section (`rg -n '^## '`), not whole.
+   context. Find callers with the fff tools (`mcp__fff__grep`, `mcp__fff__multi_grep`) when
+   available, else `rg`. Read the repo's `AGENTS.md` by section (`rg -n '^## '`), not whole.
 
 ## What to look for (both hats)
 - **Architect:** boundaries and dependency direction, the ticket's contracts

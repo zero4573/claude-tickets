@@ -18,8 +18,9 @@ worktree) names the vault and the ticket.
    your task needs (`sed -n a,bp`), always including its conventions and its checking
    commands. A repo without one: its README, Makefile or package.json scripts.
 3. The contracts your task names: `tickets/<ID>/contracts/<name>.md` in the vault.
-4. Code by excerpt: find files and symbols with the fff MCP tools when available, else `rg`
-   (or the Grep tool); read line ranges, not whole files. Never read review files whole: grep
+4. Code by excerpt: find files and symbols with the fff tools (`mcp__fff__find_files`,
+   `mcp__fff__grep`, `mcp__fff__multi_grep`) when available, else `rg` (or the Grep tool);
+   read line ranges, not whole files. Never read review files whole: grep
    the finding IDs your task names (`rg -n -A6 'W1-<repo>-M01' tickets/<ID>/reviews/`).
 
 Budget: stop reading once you can act. Track roughly what you've read and written against the
