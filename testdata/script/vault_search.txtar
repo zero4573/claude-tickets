@@ -1,0 +1,84 @@
+# ct vault search: hybrid with the stub embedder, JSON shape, filters, budget,
+# keyword-only without a model, --mode semantic failing, usage errors.
+mkdir home/Documents/Obsidian/v/.obsidian
+mkdir home/Documents/Obsidian/v/projects/acme
+mkdir home/Documents/Obsidian/v/other
+cp acme.md home/Documents/Obsidian/v/projects/acme/acme.md
+cp crossing.md home/Documents/Obsidian/v/projects/acme/crossing.md
+cp far.md home/Documents/Obsidian/v/other/far.md
+
+env CLAUDE_TICKETS_EMBEDDER=stub
+
+# No index yet: built first (progress on stderr), then searched.
+exec ct vault search zebra crossing
+stdout '^1\. projects/acme/crossing\.md › Crossing  \([0-9.]+\)$'
+stdout '^   Zebra crossing paint rules\.'
+exists home/Documents/Obsidian/v/.ct/index/meta.json
+
+exec ct vault search zebra crossing --json
+stdout '"query":"zebra crossing","mode":"hybrid","model":"stub","keyword_only":false,"results":\[\{"rank":1,"note":"crossing","path":"projects/acme/crossing.md","heading":\["Crossing"\],"start_line":\d+,"end_line":\d+,"tokens":\d+,"score":[0-9.]+,"scores":\{"semantic":[0-9.e-]+,"keyword":[0-9.]+,"link":[0-9.]+\},"excerpt":"Zebra crossing paint rules\."\}'
+! stdout '"budget"'
+! stdout '"text"'
+
+# Filters.
+exec ct vault search granite --path other --json
+stdout '"path":"other/far.md"'
+exec ct vault search zebra --path other
+! stdout 'crossing'
+exec ct vault search zebra --type project
+! stdout 'crossing'
+exec ct vault search zebra --tag misc --project acme --no-update
+stdout 'crossing\.md'
+exec ct vault search zebra --tag nope
+! stdout 'crossing'
+exec ct vault search zebra --vault v --k 1 --no-links --mode keyword --json
+stdout '"mode":"keyword"'
+
+# Budget: full text, cumulative tokens, at least one result.
+exec ct vault search zebra giraffe granite --budget 1 --json
+stdout '"text":"Quartz basalt granite\."'
+stdout '"budget":\{"limit":1,"used":\d+,"truncated":true\}'
+exec ct vault search zebra giraffe granite --budget 5000 --json
+stdout '"truncated":false'
+
+# Usage errors exit 2.
+! exec ct vault search
+! exec ct vault search x --mode bogus
+stderr 'unknown --mode'
+
+# Keyword only: no model, keyword and link search, the hint once.
+rm home/Documents/Obsidian/v/.ct
+env CLAUDE_TICKETS_EMBEDDER=none
+exec ct vault search zebra --json
+stdout '"keyword_only":true'
+stdout '"path":"projects/acme/crossing.md"'
+stderr 'no embedding model, keyword search only'
+! exec ct vault search zebra --mode semantic
+stderr 'ct vault model fetch'
+
+# --no-update without an index is an error.
+rm home/Documents/Obsidian/v/.ct
+! exec ct vault search zebra --no-update
+stderr 'ct vault index'
+
+-- acme.md --
+---
+type: project
+tags: [core]
+---
+# Acme
+
+Giraffe savanna migration. See [[crossing]].
+-- crossing.md --
+---
+type: note
+tags: [misc]
+projects: [acme]
+---
+# Crossing
+
+Zebra crossing paint rules.
+-- far.md --
+# Far
+
+Quartz basalt granite.
