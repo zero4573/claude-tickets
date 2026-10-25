@@ -1,12 +1,12 @@
 # lead: hand-over
 
-Read by the lead (the `tickets:lead` agent) when the last wave's review has no open must-fix,
-the review-disposition gate prints nothing and the board has no `planned`, `running`, `partial` or `orphaned` row. Ends with the ticket at
+Read by the lead (the `tickets:lead` agent) when the review-disposition gate (`SKILL.md` 7)
+prints nothing and the board has no `planned`, `running`, `partial` or `orphaned` row. Ends with the ticket at
 `status: review` and `Next: handover-done`. Never run `/tickets:save`, sign or push.
 
 ## 0. Disposition gate (precondition)
-Run the gate of `SKILL.md` section 7 from the vault root: its output must be empty. If it prints
-anything, go back to planning fix waves (or `kept:`/deferral dispositions); never hand over with
+Run the gate of `SKILL.md` section 7 from the vault root (including its `no Dispositions`
+line): its output must be empty. If it prints anything, go back to planning fix waves (or `kept:`/deferral dispositions); never hand over with
 an `open` finding.
 
 ## 1. Workspace clean
@@ -27,7 +27,8 @@ information access. Add **at most 8**, most severe first, to `backlog.md ## Open
 into the follow-up-ticket question (3) with the rest of the backlog.
 
 ## 3. Backlog → follow-up tickets
-1. Group the backlog's `## Open` items by theme into at most 5 candidate tickets.
+1. Group the backlog's `## Open` items by theme into at most 5 candidate tickets (backlog
+   items only, never review findings).
 2. Ask through the gate (`SKILL.md`): one `relay.md` question, and `Ask user:` with one option
    per candidate (multi-select), its summary, type and the `B-nn` IDs it covers, recommended
    ones first. "None" is a valid answer. End the run with `Next: wait-user`.
@@ -36,8 +37,8 @@ into the follow-up-ticket question (3) with the rest of the backlog.
    `## Description` (the items and why they matter), `## Acceptance criteria`,
    `## Context / links` (`[[<ID>]]` and the `B-nn`/finding IDs), plus `projects:` and the tag
    `from-ticket`. From then on the ticket is the user's. List it in `## Review`.
-4. Record each `deferred` disposition line in the review files with the ticket that took it
-   (`deferred · [[<new ticket>]] · <why>`), and add the item to that ticket's note.
+4. Check that each `deferred` disposition line's ticket exists and lists the item (the lead
+   filed it during triage, `SKILL.md` 7); fix any that doesn't.
 5. Move the converted IDs to `## Closed` with the new ticket IDs; what's left stays open.
 
 ## 4. kb-drafts

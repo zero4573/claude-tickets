@@ -135,12 +135,16 @@ Every finding ends `resolved` or `deferred` in the file's `## Dispositions` (con
   `<ID> · resolved · kept: <reason ≤150 chars> (<sha if a comment or doc was added>)` for
   dropped, intended or not-applicable items (the reason is mandatory);
   `<ID> · deferred · [[<ticket>]] · <why>` when it goes to a follow-up ticket (filed with
-  `ct new`, or an existing one; add the item to that ticket's note). A backlog item is not an
+  `ct new`, or an existing one; add the item to that ticket's note). Writing a `deferred` line
+  means filing that ticket now (or naming the existing one and adding the item to its note),
+  so the gate can pass before hand-over. A backlog item is not an
   end state: it stays `open` (here and in `backlog.md`) until fixed or deferred. Keep planning
-  fix waves until the gate prints nothing. The gate, from the vault root, for every review
-  of the ticket:
+  fix waves until the gate prints nothing. The gate runs at hand-over (8); between waves only
+  an open must-fix blocks the next wave (a review just written is all `open`). The gate, from
+  the vault root, for every review of the ticket:
 ```sh
 for f in tickets/<ID>/reviews/*.md; do
+  rg -q '^## Dispositions' "$f" || echo "$f: no Dispositions"
   for id in $(rg -o '^- (W[0-9]+-[a-z0-9-]+-[MSC][0-9]+) · ' -r '$1' "$f" | sort -u); do
     rg -q "^- $id · (resolved|deferred) · " "$f" || echo "$f: $id"
   done
@@ -156,7 +160,7 @@ done
   yourself and record them in `plan.md ## Decisions`.
 
 ## 8. Hand-over
-When the gate (7) prints nothing, the last review has no open must-fix and no row is `planned`, `running`, `partial` or
+When the gate (7) prints nothing and no row is `planned`, `running`, `partial` or
 `orphaned`: read `handover.md` (next to this file) and do it. Never run `/tickets:save` or push.
 
 ## Ticket types (they shape the plan, not the agents)
