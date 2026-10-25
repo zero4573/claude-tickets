@@ -17,7 +17,7 @@ stdout '^  \+ templates/backlog.md$'
 ! grep '- \[ \]' home/Documents/Obsidian/demo/templates/task.md
 ! grep '#role/' home/Documents/Obsidian/demo/templates/ticket-manual.md
 grep '#ticket/<phase>' home/Documents/Obsidian/demo/templates/ticket-synced.md
-grep '^### Workflow$' home/Documents/Obsidian/demo/AGENTS.md
+grep '^## Ticket workflow$' home/Documents/Obsidian/demo/AGENTS.md
 # the PO's relay and board keys, the task's skills, and learning topics
 stdout '^  \+ templates/relay.md$'
 ! grep '- \[ \]' home/Documents/Obsidian/demo/templates/relay.md

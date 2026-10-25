@@ -11,7 +11,7 @@ and the rules). One **`tickets:lead`** agent plans, writes contracts, merges and
 playbook is the `tickets:lead` skill). Subagents can't spawn subagents, so **you spawn every
 agent** the lead asks for: `tickets:task`, `tickets:mechanical`, `tickets:reviewer(-deep)`, and
 `tickets:analyst` for the user's questions. You never plan tasks, merge, or read task reports
-in full. State lives in `tickets/<ID>/` (layout and caps: the vault's `AGENTS.md`, "Workflow").
+in full. State lives in `tickets/<ID>/` (layout and caps: `work-ticket/workflow.md`, "Workflow").
 
 ## Ground rules
 - In the vault, write only inside `tickets/<ID>/`; shared notes are `/tickets:save`'s. You
@@ -44,7 +44,7 @@ to this file) and do it (it creates `relay.md` and `board.md` and ends with a gr
 spawn the lead (1). Otherwise liveness goes by **session id**, never by a ping timeout
 (subagents die with their session):
 - `po: session:` differs from `$CLAUDE_CODE_SESSION_ID` (a new session): every agent of the old
-  one is gone. Mark its `running` lines `orphaned` (the box stays `[/]`: `sed -i -E 's/^(- \[\/\] [0-9]+ · )running · /\1orphaned · /' board.md`), set `agents: []` and `lead: none`, and spawn one fresh
+  one is gone. Mark its `running` lines `orphaned` (the word decides, any box: `sed -i -E 's/^- \[.\] ([0-9]+) · running · /- [\/] \1 · orphaned · /' board.md; rg -q '^- \[.\] [0-9]+ · running · ' board.md && echo "running lines left"`), set `agents: []` and `lead: none`, and spawn one fresh
   lead (1) with `New since the last lead: orphaned tasks NN, MM` (it checks their branches),
   adding `; finished, not sent: <the po: finished: entries>`, then set `finished: []`.
 - The same session (after `/compact` or a refresh): the lead is alive. SendMessage it "PO
