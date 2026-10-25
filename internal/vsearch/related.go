@@ -91,9 +91,25 @@ func Related(ix *vindex.Index, emb embed.Embedder, n int, o RelatedOptions) (*Re
 			}
 		}
 		if len(noVec) > 0 {
+			// One scale with the cosines (W4 C02): the normalised BM25 is scaled by
+			// the mean cosine of the embedded chunks, so an unembedded chunk can't
+			// outrank a clearly similar embedded one.
+			var mean float64
+			var n int
+			for i, s := range chunkScore {
+				if !noVec[i] && s > 0 {
+					mean += s
+					n++
+				}
+			}
+			if n > 0 {
+				mean /= float64(n)
+			} else {
+				mean = 1
+			}
 			kw := normalise(bm25(ix, q), nil)
 			for i := range noVec {
-				chunkScore[i] = kw[i]
+				chunkScore[i] = kw[i] * mean
 			}
 		}
 	} else {

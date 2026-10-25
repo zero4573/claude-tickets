@@ -6,7 +6,9 @@ package vindex
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,6 +40,10 @@ type Meta struct {
 	Notes       int    `json:"notes"`
 	Chunks      int    `json:"chunks"`
 	Updated     string `json:"updated"`
+	// Files holds the sha256 (hex) of notes.jsonl, chunks.jsonl and
+	// vectors.f32 ("" when dims is 0); Load verifies them, so a set torn by a
+	// crash between the renames is ErrNoIndex and the next Update rebuilds it.
+	Files map[string]string `json:"files,omitempty"`
 }
 
 // NoteMeta is one line of notes.jsonl.
@@ -119,6 +125,14 @@ func load(vault string) (*Index, error) {
 	if ix.Meta.Format != Format {
 		return nil, fmt.Errorf("%w: format %d", ErrNoIndex, ix.Meta.Format)
 	}
+	if ix.Meta.Files == nil {
+		return nil, fmt.Errorf("%w: meta.json has no file hashes (older index)", ErrNoIndex)
+	}
+	for _, name := range []string{"notes", "chunks"} {
+		if h, err := hashFile(filepath.Join(dir, name+".jsonl")); err != nil || h != ix.Meta.Files[name] {
+			return nil, fmt.Errorf("%w: %s.jsonl doesn't match meta.json (torn index)", ErrNoIndex, name)
+		}
+	}
 	if err := readLines(filepath.Join(dir, "notes.jsonl"), func(b []byte) error {
 		var n NoteMeta
 		if err := json.Unmarshal(b, &n); err != nil {
@@ -162,6 +176,9 @@ func load(vault string) (*Index, error) {
 		raw, err := os.ReadFile(filepath.Join(dir, "vectors.f32"))
 		if err != nil || len(raw) != ix.Meta.Chunks*ix.Meta.Dims*4 {
 			return nil, fmt.Errorf("%w: vectors.f32 doesn't match meta.json", ErrNoIndex)
+		}
+		if sum := sha256.Sum256(raw); hex.EncodeToString(sum[:]) != ix.Meta.Files["vectors"] {
+			return nil, fmt.Errorf("%w: vectors.f32 doesn't match meta.json (torn index)", ErrNoIndex)
 		}
 		ix.vecs = make([]float32, len(raw)/4)
 		for i := range ix.vecs {
@@ -292,4 +309,29 @@ func writeVectors(s *stager, path string, rows [][]float32) error {
 		}
 		return nil
 	})
+}
+
+// hashFile is the hex sha256 of a file's bytes.
+func hashFile(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// staged is the file whose bytes path will hold after commit: its temp file
+// when one is staged, path itself when nothing is, "" when it is removed.
+func (s *stager) staged(path string) string {
+	for i := len(s.ops) - 1; i >= 0; i-- {
+		if s.ops[i].path == path {
+			return s.ops[i].tmp
+		}
+	}
+	return path
 }

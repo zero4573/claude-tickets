@@ -411,3 +411,64 @@ func TestFilesSkipsSymlinkedDir(t *testing.T) {
 		t.Fatalf("real path not indexed: %d", len(ix.Notes))
 	}
 }
+
+// A crash between the renames (chunks and vectors renamed, notes and meta not)
+// leaves a set Load must refuse (ErrNoIndex), and the next Update repairs it.
+func TestTornIndexDetected(t *testing.T) {
+	v := setup(t, "stub")
+	Update(v, UpdateOptions{})
+	put(t, v, "sub/b.md", "# B\n\nNew text so a chunk is added.\n\n## More\n\nand more\n")
+	beforeNotesWrite = func() { panic("crash") }
+	defer func() { beforeNotesWrite = nil }()
+	func() {
+		defer func() { recover() }()
+		Update(v, UpdateOptions{})
+	}()
+	beforeNotesWrite = nil
+	if _, err := Load(v); !errors.Is(err, ErrNoIndex) {
+		t.Fatalf("torn index loaded: %v", err)
+	}
+	if _, err := Update(v, UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	ix, err := Load(v)
+	if err != nil || len(ix.Chunks) != 4 {
+		t.Fatalf("not repaired: %v", err)
+	}
+}
+
+// An index written before meta.json carried file hashes is rebuilt once.
+func TestOldMetaWithoutFilesRebuilds(t *testing.T) {
+	v := setup(t, "stub")
+	Update(v, UpdateOptions{})
+	p := filepath.Join(Dir(v), "meta.json")
+	b, _ := os.ReadFile(p)
+	if i := strings.Index(string(b), `,"files"`); i > 0 {
+		os.WriteFile(p, append([]byte(string(b[:i])), '}', '\n'), 0o644)
+	}
+	if _, err := Load(v); !errors.Is(err, ErrNoIndex) {
+		t.Fatalf("old meta loaded: %v", err)
+	}
+	if st, err := Update(v, UpdateOptions{}); err != nil || st.Changed != 2 {
+		t.Fatalf("%+v %v", st, err)
+	}
+	if _, err := Load(v); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// W4 C01: a vault reached through a symlink still takes a Files refresh.
+func TestFilesVaultBehindSymlink(t *testing.T) {
+	v := setup(t, "stub")
+	Update(v, UpdateOptions{})
+	link := filepath.Join(t.TempDir(), "vault-link")
+	if err := os.Symlink(v, link); err != nil {
+		t.Skip("no symlinks")
+	}
+	put(t, v, "sub/n.md", "# N\n\nnew\n")
+	Refresh(link, "sub/n.md")
+	ix, err := Load(v)
+	if err != nil || len(ix.Notes) != 3 {
+		t.Fatalf("not indexed through the symlinked vault: %v", err)
+	}
+}

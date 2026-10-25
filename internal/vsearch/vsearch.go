@@ -152,10 +152,27 @@ func Search(ix *vindex.Index, emb embed.Embedder, query string, o Options) (*Res
 	case !useKw:
 		ws, wk = 1, 0
 	}
+	// A zero row has no semantic score: it gets the keyword part plus the mean
+	// semantic score of the embedded candidates, scaled by its keyword score, so
+	// both kinds sit on one scale (W4 S03): a strong semantic hit beats a
+	// mediocre keyword-only row.
+	var meanSem float64
+	if len(zeroRow) > 0 {
+		var n int
+		for _, i := range cand {
+			if !zeroRow[i] && ix.Vector(i) != nil {
+				meanSem += sem[i]
+				n++
+			}
+		}
+		if n > 0 {
+			meanSem /= float64(n)
+		}
+	}
 	base := make([]float64, len(ix.Chunks))
 	for _, i := range cand {
 		if zeroRow[i] {
-			base[i] = kw[i]
+			base[i] = zeroScore(ws, wk, meanSem, kw[i])
 			continue
 		}
 		base[i] = ws*sem[i] + wk*kw[i]
@@ -343,4 +360,11 @@ func dot(a, b []float32) float64 {
 		s0 += a[i] * b[i]
 	}
 	return float64(s0 + s1 + s2 + s3)
+}
+
+// zeroScore scores a chunk without a vector on the scale of embedded ones: its
+// keyword part plus the mean semantic score, both scaled by its keyword match
+// (no keyword match, no score). Semantic mode (wk 0) gives ws*meanSem*kw.
+func zeroScore(ws, wk, meanSem, kw float64) float64 {
+	return (wk + ws*meanSem) * kw
 }

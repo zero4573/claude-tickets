@@ -106,9 +106,9 @@ func Run(o Options, items []Item, env Env) Result {
 	var res Result
 	// Archived, moved and rewritten notes: the search index (if any) catches up,
 	// but only after a run that wrote something (not on errors or previews).
-	saveRan := false
+	saveRan, wrote := false, false // wrote: an item may have changed a note, even if it then failed (W4 S05)
 	defer func() {
-		if res.Cleaned > 0 || res.FollowUp != "" || saveRan {
+		if wrote || res.Cleaned > 0 || res.FollowUp != "" || saveRan {
 			vindex.Refresh(o.Vault)
 		}
 	}()
@@ -210,7 +210,7 @@ func Run(o Options, items []Item, env Env) Result {
 		if stopped() {
 			break
 		}
-		msg, more, err := one(o, env, items, it, &changed)
+		msg, more, err := one(o, env, items, it, &changed, &wrote)
 		tasks = append(tasks, more...)
 		if err != nil {
 			say("%s: %v", it.ID, err)
@@ -262,7 +262,7 @@ func savedSince(vault, id string, start time.Time) bool {
 // trash, or deleted) its referenced files to the archive, the links to it
 // to its URL, its folder; or (archive) its folder to the archive. tasks are
 // follow-ups for links it couldn't rewrite.
-func one(o Options, env Env, items []Item, it Item, changed *[]string) (msg string, tasks []string, err error) {
+func one(o Options, env Env, items []Item, it Item, changed *[]string, wrote *bool) (msg string, tasks []string, err error) {
 	if err := vaultlock.Acquire(o.Vault, lockOwner); err != nil {
 		return "", nil, err
 	}
@@ -300,6 +300,7 @@ func one(o Options, env Env, items []Item, it Item, changed *[]string) (msg stri
 	dir := note.TicketDir(o.Vault, it.ID)
 	archive := note.ArchiveDir(o.Vault, it.ID)
 	if it.Action == Archive {
+		*wrote = true
 		moved, _, err := links.MoveTree(o.Vault, dir, archive, nil, it.ID+".md")
 		if err != nil {
 			return "", nil, err
@@ -309,10 +310,12 @@ func one(o Options, env Env, items []Item, it Item, changed *[]string) (msg stri
 
 	kept := links.Referenced(o.Vault, dir, gone(o, items, it.ID))
 	if len(kept) > 0 {
+		*wrote = true
 		if _, _, err := links.MoveTree(o.Vault, dir, archive, kept, ""); err != nil {
 			return "", nil, err
 		}
 	}
+	*wrote = true
 	n, notes, err := links.RewriteToURL(o.Vault, note.TicketPath(o.Vault, it.ID), it.ID, it.URL, []string{dir}, links.RewriteOpts{
 		Skip: SyncOwned(),
 		NotRewritten: func(p links.Place) {
@@ -326,6 +329,7 @@ func one(o Options, env Env, items []Item, it Item, changed *[]string) (msg stri
 	}
 	where := ""
 	if it.Action == Purge {
+		*wrote = true
 		if err := fsx.RemoveAll(dir); err != nil {
 			return "", tasks, err
 		}
@@ -338,6 +342,7 @@ func one(o Options, env Env, items []Item, it Item, changed *[]string) (msg stri
 		if err := os.MkdirAll(filepath.Dir(trash), 0o755); err != nil {
 			return "", tasks, err
 		}
+		*wrote = true
 		if err := os.Rename(dir, trash); err != nil {
 			return "", tasks, err
 		}

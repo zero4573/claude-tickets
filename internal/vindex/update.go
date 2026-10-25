@@ -268,6 +268,9 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 		if o.Files != nil {
 			// A Files refresh gets caller-supplied paths: skip notes under a
 			// symlinked directory, as the full walk does (W3 C02).
+			// The check compares against realVault + dir, so a vault that is itself
+			// reached through a symlink works, while a notes dir symlinked to another
+			// place (even inside the vault) is skipped, like the full walk (W4 C01).
 			d := filepath.Dir(rel)
 			ok, seen := dirOK[d]
 			if !seen {
@@ -428,6 +431,23 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 		first := len(sg.ops)
 		if err := writeJSONL(sg, filepath.Join(dir, "notes.jsonl"), noteRows); err != nil {
 			return err
+		}
+		meta.Files = map[string]string{}
+		for _, name := range []string{"notes", "chunks", "vectors"} {
+			ext := ".jsonl"
+			if name == "vectors" {
+				ext = ".f32"
+			}
+			src := sg.staged(filepath.Join(dir, name+ext))
+			if src == "" || (name == "vectors" && !hasVecs) {
+				meta.Files[name] = ""
+				continue
+			}
+			h, err := hashFile(src)
+			if err != nil {
+				return err
+			}
+			meta.Files[name] = h
 		}
 		meta.Updated = time.Now().UTC().Format(time.RFC3339)
 		if err := writeMeta(sg, filepath.Join(dir, "meta.json"), meta); err != nil {

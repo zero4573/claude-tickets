@@ -3,9 +3,12 @@ package vbench
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/zero4573/claude-tickets/internal/chunk"
 	"github.com/zero4573/claude-tickets/internal/modelcache"
 	"github.com/zero4573/claude-tickets/internal/vindex"
 	"github.com/zero4573/claude-tickets/internal/vsearch"
@@ -53,6 +56,7 @@ func TestReport(t *testing.T) {
 	type tot struct{ n, old, new, oldOK, newOK int }
 	scen := map[string]*tot{"kb": {}, "recall": {}}
 	var lat []time.Duration
+	followUps := 0
 	for _, f := range v.Facts {
 		var resp *vsearch.Response
 		for rep := 0; rep < 3; rep++ {
@@ -74,7 +78,11 @@ func TestReport(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		o, n := Old(dir, files, f), New(resp, f)
+		o := Old(dir, files, f)
+		n, fu := New(dir, resp, f)
+		if fu {
+			followUps++
+		}
 		s := scen[f.Scenario]
 		s.n++
 		s.old += o.Tokens
@@ -103,6 +111,59 @@ func TestReport(t *testing.T) {
 	}
 	red := 100 * (1 - float64(all.new)/float64(all.old))
 	fmt.Printf("%-8s %3d %10d %10d %9.1f%% %6d/%-2d %6d/%-2d\n", "all", all.n, all.old, all.new, red, all.oldOK, all.n, all.newOK, all.n)
-	fmt.Printf("\ntargets (%s): >=50%% fewer tokens: %v; search < 1s (p95): %v; quality new >= old: %v\n", embedder,
+	fmt.Printf("new counts %d follow-up `note get` call(s) of the top section (made when the search text lacked the answer)\n", followUps)
+	note := ""
+	if embedder == "stub" {
+		// The stub has no semantics: its quality is the keyword-only floor and
+		// the targets are a regression guard (budget, latency), not the
+		// product's numbers.
+		note = " [keyword-only floor: the stub has no semantics; CT_EMBED_REAL=1 gives the real numbers]"
+	}
+	fmt.Printf("\ntargets (%s)%s: >=50%% fewer tokens: %v; search < 1s (p95): %v; quality new >= old: %v\n", embedder, note,
 		red >= 50, Percentile(lat, .95) < time.Second, all.newOK >= all.oldOK)
+	if embedder != "stub" && (red < 50 || all.newOK < all.oldOK) {
+		t.Errorf("targets missed with the real model")
+	}
+}
+
+// W4 S02: New's cost includes the follow-up `note get` of the top section when
+// the search text lacks the answer; and OLD with one distinctive keyword reads
+// at most ReadN notes (W4 S01).
+func TestNewCountsFollowUp(t *testing.T) {
+	dir := t.TempDir()
+	long := "# Top\n\n## Intro\n\nShort.\n\n## Answer\n\nThe planted sentence lives here and is long enough to count. " + strings.Repeat("More words follow. ", 40) + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "top.md"), []byte(long), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f := Fact{Sentence: "The planted sentence lives here"}
+	resp := &vsearch.Response{Results: []vsearch.Result{{Rank: 1, Path: "top.md", Heading: []string{"Top", "Answer"}, Text: "unrelated text"}}}
+	n, fu := New(dir, resp, f)
+	base := chunk.Tokens(Render(resp))
+	if !fu || n.Tokens <= base || !n.Found {
+		t.Fatalf("follow-up not counted: %+v follow=%v base=%d", n, fu, base)
+	}
+	resp.Results[0].Text = f.Sentence
+	if n, fu = New(dir, resp, f); fu || n.Tokens != chunk.Tokens(Render(resp)) {
+		t.Fatalf("follow-up made though the search had the answer: %+v", n)
+	}
+}
+
+func TestOldReadsAtMostReadN(t *testing.T) {
+	dir := t.TempDir()
+	var files []string
+	for i := 0; i < 12; i++ {
+		name := fmt.Sprintf("n%02d.md", i)
+		files = append(files, name)
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("# N\n\nmentions zebra here\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f := Fact{Scenario: "kb", Keywords: []string{"acme", "zebra", "the"}, Sentence: "nope"}
+	if d := Distinctive(f); len(d) != 1 || d[0] != "zebra" {
+		t.Fatalf("distinctive %v", d)
+	}
+	one := chunk.Tokens(read(dir, "n00.md"))
+	if o := Old(dir, files, f); o.Tokens > ReadN*one+chunk.Tokens(listing(dir, "projects", "knowledge-base", "references"))+12*8 {
+		t.Fatalf("read more than %d notes: %d tokens", ReadN, o.Tokens)
+	}
 }

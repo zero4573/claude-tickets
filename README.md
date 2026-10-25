@@ -534,6 +534,12 @@ incrementally, `ct vault index` does it explicitly). The model is downloaded int
 `<cache>/models/` on the host; sessions in a sandbox or container must be able to read that
 directory, since they can't fetch it. Without the model, search is keyword-only and says so.
 
+`make bench` compares the token cost and latency of search against grep-and-read on a generated
+2,000-note vault. The generator plants each fact and its distractors with the questions' own
+vocabulary, so with the default stub embedder the numbers are a regression guard (budget,
+latency, a keyword-only quality floor), not real-vault numbers. For the real model run
+`ct vault model fetch` on the host, then `CT_EMBED_REAL=1 make bench`.
+
 ## Knowledge base without a ticket
 
 ```mermaid
