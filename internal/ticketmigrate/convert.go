@@ -227,15 +227,14 @@ func ConvertBoard(in []byte) Converted {
 	var out []line
 	var problems, warnings []Problem
 	var cm tracker
-	fenced := false
+	var fence fenceTracker
 	for i := 0; i < len(d.lines); i++ {
 		l := d.lines[i]
-		if t := strings.TrimSpace(l.text); !cm.open && (strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~")) {
-			fenced = !fenced
+		if !cm.open && fence.line(l.text, i+1) {
 			out = append(out, l)
 			continue
 		}
-		if fenced || cm.comment(l.text) {
+		if fence.open() || cm.comment(l.text) {
 			out = append(out, l)
 			continue
 		}
@@ -289,7 +288,44 @@ func ConvertBoard(in []byte) Converted {
 			out = append(out, line{text, d.lines[i].cr})
 		}
 	}
+	if fence.open() {
+		warnings = append(warnings, Problem{fence.start, "a code fence opened here is never closed; the tables after it were not converted"})
+	}
 	return d.result(out, in, problems, warnings)
+}
+
+// fenceTracker follows Markdown code fences: one closes only with the same
+// character, at least as long as the opening, and nothing else on the line.
+type fenceTracker struct {
+	char  byte
+	n     int
+	start int // line of the opening, while open
+}
+
+func (f *fenceTracker) open() bool { return f.n > 0 }
+
+// line reports whether text (line number no) is a fence marker.
+func (f *fenceTracker) line(text string, no int) bool {
+	t := strings.TrimSpace(text)
+	if len(t) < 3 || (t[0] != '`' && t[0] != '~') {
+		return false
+	}
+	n := 0
+	for n < len(t) && t[n] == t[0] {
+		n++
+	}
+	if n < 3 {
+		return false
+	}
+	if f.open() {
+		if t[0] == f.char && n >= f.n && strings.TrimSpace(t[n:]) == "" {
+			f.n = 0
+			return true
+		}
+		return false
+	}
+	f.char, f.n, f.start = t[0], n, no
+	return true
 }
 
 // ConvertReview turns the lines of a review's Dispositions into checklist

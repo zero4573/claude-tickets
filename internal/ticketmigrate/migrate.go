@@ -137,7 +137,7 @@ func migrateTicket(vault, id string, statusTpl []byte, today string, dryRun bool
 		data := strings.NewReplacer("TICKET-ID", id, "{{date}}", today).Replace(string(statusTpl))
 		if !dryRun {
 			if err := writeStatus(sp, []byte(data), 0o644); err != nil {
-				warn("%s: %v; not written", tc.StatusRel, err)
+				warn("%s: %v; not written (the ticket's other files are converted; run it again to add it)", tc.StatusRel, err)
 				statusFailed = true
 			}
 		}

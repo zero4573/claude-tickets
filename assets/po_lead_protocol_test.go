@@ -579,3 +579,72 @@ func TestFollowUpAskWording(t *testing.T) {
 		}
 	}
 }
+
+// W7-claude-tickets-S01/S02: every quoted "Heading" cited after the vault's
+// AGENTS.md (or [[AGENTS]]) or after work-ticket/workflow.md names a heading
+// that exists there, in the scaffold (templates, tree comments), the plugin
+// skills and agents.
+func TestHeadingCitationsResolve(t *testing.T) {
+	headings := func(p string) map[string]bool {
+		data, err := fs.ReadFile(Files, p)
+		if err != nil {
+			data, err = fs.ReadFile(Scaffold, p)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[string]bool{}
+		for _, l := range strings.Split(string(data), "\n") {
+			if m := regexp.MustCompile(`^#{1,6} +(.+?) *$`).FindStringSubmatch(l); m != nil {
+				out[m[1]] = true
+			}
+		}
+		return out
+	}
+	agents := headings("vault-scaffold/AGENTS.md")
+	workflow := headings("plugin/skills/work-ticket/workflow.md")
+	// the vault's AGENTS.md / [[AGENTS]] / the tree-comment "see" forms; the
+	// repo AGENTS.md ("its `AGENTS.md` "Checking"") is another file
+	agentsRe := regexp.MustCompile("(?:vault's `AGENTS\\.md`,? \\(?|\\[\\[AGENTS\\]\\],? \\(?|\\(see |; see )\"([^\"]+)\"")
+	workflowRe := regexp.MustCompile("work-ticket/workflow\\.md`?,? \\(?\"([^\"]+)\"")
+	texts := pluginTexts(t)
+	err := fs.WalkDir(Scaffold, "vault-scaffold", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".md") {
+			return err
+		}
+		data, err := fs.ReadFile(Scaffold, p)
+		texts[p] = string(data)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// a citation may be the part of a heading before its colon, and wraps lines
+	has := func(set map[string]bool, cited string) bool {
+		cited = strings.Join(strings.Fields(cited), " ")
+		for h := range set {
+			if h == cited || strings.HasPrefix(h, cited+":") {
+				return true
+			}
+		}
+		return false
+	}
+	n := 0
+	for p, s := range texts {
+		for _, m := range agentsRe.FindAllStringSubmatch(s, -1) {
+			n++
+			if !has(agents, m[1]) {
+				t.Errorf("%s cites AGENTS.md %q: no such heading", p, m[1])
+			}
+		}
+		for _, m := range workflowRe.FindAllStringSubmatch(s, -1) {
+			n++
+			if !has(workflow, m[1]) {
+				t.Errorf("%s cites workflow.md %q: no such heading", p, m[1])
+			}
+		}
+	}
+	if n < 10 {
+		t.Errorf("only %d citations matched: the pattern is stale", n)
+	}
+}

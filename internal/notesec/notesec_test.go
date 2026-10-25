@@ -3,12 +3,14 @@ package notesec
 import (
 	"bytes"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/zero4573/claude-tickets/assets"
 	"github.com/zero4573/claude-tickets/internal/mdsec"
 	"github.com/zero4573/claude-tickets/internal/vaultlock"
 )
@@ -322,5 +324,25 @@ func TestApply(t *testing.T) {
 	vaultlock.Release(v, "me")
 	if ents, _ := os.ReadDir(filepath.Join(v, "inbox")); len(ents) != 1 {
 		t.Fatal("temp file left", ents)
+	}
+}
+
+// W7-claude-tickets-C01: the guard messages cite AGENTS.md "Who writes what"
+// item 3; the shipped scaffold keeps that heading and item.
+func TestWhoWritesWhatPinned(t *testing.T) {
+	data, err := fs.ReadFile(assets.Scaffold, "vault-scaffold/AGENTS.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	_, rest, ok := strings.Cut(s, "\n### Who writes what\n")
+	if !ok {
+		t.Fatal("vault-scaffold/AGENTS.md has no `### Who writes what` heading")
+	}
+	if !strings.Contains(rest, "\n3. A **ticket's agents**") {
+		t.Error("`### Who writes what` has no numbered item 3 (A **ticket's agents** ...)")
+	}
+	if !strings.Contains(whoWrites, `"Who writes what" 3`) {
+		t.Errorf("whoWrites no longer cites the item: %s", whoWrites)
 	}
 }

@@ -10,7 +10,7 @@ tags: [relay]
 # Relay
 
 Messages between you, the PO and the lead of [[TICKET-ID]]: requests, features, feedback,
-questions, answers and grill decisions, one line each (rules: [[AGENTS]], "Workflow"). The
+questions, answers and grill decisions, one line each (rules: `work-ticket/workflow.md`, "Workflow"). The
 PO trims it to the caps; the durable record is `plan.md ## Decisions`, the note's
 `## Questions` and `board.md`. Plain lines only, no checkboxes.
 
