@@ -94,6 +94,8 @@ func Related(ix *vindex.Index, emb embed.Embedder, n int, o RelatedOptions) (*Re
 			// One scale with the cosines (W4 C02): the normalised BM25 is scaled by
 			// the mean cosine of the embedded chunks, so an unembedded chunk can't
 			// outrank a clearly similar embedded one.
+			// Related has no candidate set like Search: every unskipped chunk is
+			// ranked, so the mean is over all of them (W6 S01, intentional).
 			var mean float64
 			var cnt int
 			for i, s := range chunkScore {
@@ -105,6 +107,9 @@ func Related(ix *vindex.Index, emb embed.Embedder, n int, o RelatedOptions) (*Re
 			if cnt > 0 {
 				mean /= float64(cnt)
 			} else {
+				// Nothing embedded to compare with: rank by BM25 alone, as in
+				// keyword-only mode (W6 S02, intentional; Search instead gives such
+				// zero rows their keyword part only, as meanSem is 0 there).
 				mean = 1
 			}
 			kw := normalise(bm25(ix, q), nil)
