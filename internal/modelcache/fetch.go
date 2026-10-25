@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/zero4573/claude-tickets/internal/lock"
 )
 
 // Timeouts of the default client: the server must answer within
@@ -72,11 +74,21 @@ func fetch(ctx context.Context, p *pinFile, c *http.Client, id string, w io.Writ
 	if !ok {
 		return fmt.Errorf("unknown model %q (ct vault model list)", id)
 	}
-	st := statusOf(p, id)
-	libDir, err := libDirFor(p)
-	if err != nil {
+	if _, err := libDirFor(p); err != nil {
 		return err
 	}
+	// One fetch at a time: a second one waits instead of deleting the first
+	// one's .download-* and .stage-* in removeStale.
+	if err := os.MkdirAll(Dir(), 0o755); err != nil {
+		return err
+	}
+	return lock.With(filepath.Join(Dir(), ".fetch.lock"), func() error { return fetchLocked(ctx, p, c, m, w) })
+}
+
+func fetchLocked(ctx context.Context, p *pinFile, c *http.Client, m Model, w io.Writer) error {
+	id := m.ID
+	st := statusOf(p, id)
+	libDir, _ := libDirFor(p)
 	removeStale(filepath.Dir(libDir))
 	removeStale(filepath.Dir(ModelPath(m)))
 	if st.LibOK {
