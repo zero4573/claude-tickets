@@ -19,8 +19,9 @@ worktree) names the vault and the ticket.
    commands. A repo without one: its README, Makefile or package.json scripts.
 3. The contracts your task names: `tickets/<ID>/contracts/<name>.md` in the vault.
 4. Code by excerpt: find files and symbols with the fff tools (`mcp__fff__find_files`,
-   `mcp__fff__grep`, `mcp__fff__multi_grep`) when available, else `rg` (or the Grep tool);
-   read line ranges, not whole files. Never read review files whole: grep
+   `mcp__fff__grep`, `mcp__fff__multi_grep`) when available, else `rg` (or the Grep tool),
+   always scoped to your worktree path (fff indexes the whole workspace, so unscoped searches
+   hit the ticket worktree's and other tasks' copies); read line ranges, not whole files. Never read review files whole: grep
    the finding IDs your task names (`rg -n -A6 'W1-<repo>-M01' tickets/<ID>/reviews/`).
 
 Budget: stop reading once you can act. Track roughly what you've read and written against the
@@ -33,8 +34,9 @@ report `partial` with what's left instead of going on.
   clones under the projects root. A task with `repo: vault` has no worktree: it writes only
   the `tickets/<ID>/` files in its `owns`.
 - Run the repo's own checks from its `AGENTS.md` (lint, unit tests, generators) and fix what
-  you broke. Filter the output to failures (`2>&1 | grep -E 'FAIL|panic|error' | head`) and
-  judge by the exit code. The sandbox can run containers (podman / podman-compose).
+  you broke. Keep the command's own exit code and filter its log: `<cmd> > <log> 2>&1; rc=$?;
+  rg -n 'FAIL|panic|error' <log> | head -20; echo exit=$rc`. A nonzero `exit` is a failure,
+  whatever the filtered output shows. The sandbox can run containers (podman / podman-compose).
 - If a command fails on the environment (a missing tool, dependency or network), stop and
   report the command and the error. Don't work around it.
 - Save large outputs to files in your scratch directory and summarise them with

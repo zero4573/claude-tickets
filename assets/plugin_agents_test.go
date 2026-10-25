@@ -145,4 +145,23 @@ func TestWaveSkillsReferences(t *testing.T) {
 			t.Errorf("template %s.md: no type: %s", tpl, tpl)
 		}
 	}
+	// QA D1: a check's verdict is the command's own exit code, not that of
+	// a `| grep | head` pipe after it.
+	for _, p := range []string{"work-ticket", "task-agent"} {
+		s := read("plugin/skills/" + p + "/SKILL.md")
+		if strings.Contains(s, "exit=$?") || !strings.Contains(s, "rc=$?") || !strings.Contains(s, "echo exit=$rc") {
+			t.Errorf("%s: checks must report the command's exit code (rc=$? ... echo exit=$rc)", p)
+		}
+	}
+	// QA D2, D7: git doesn't expand globs in revisions; a merge reverts with -m 1.
+	if strings.Contains(lead, "..task/<ID>-NN-*") || !strings.Contains(lead, "git revert -m 1 <merge-sha>") {
+		t.Error("work-ticket: task-branch glob in a revision, or merge revert without -m 1")
+	}
+	// QA D6: save reads a review's ## Summary, which the review template has.
+	if !strings.Contains(read("plugin/skills/save/SKILL.md"), "`## Summary`") {
+		t.Error("save: should read each review's ## Summary section")
+	}
+	if data, _ := fs.ReadFile(Scaffold, "vault-scaffold/templates/review.md"); !strings.Contains(string(data), "\n## Summary\n") {
+		t.Error("review template has no ## Summary section")
+	}
 }

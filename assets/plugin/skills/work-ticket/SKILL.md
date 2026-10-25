@@ -34,7 +34,8 @@ picks up where the last one stopped. Paths `tickets/<ID>/…` are in the vault;
 - **Graph first for structure:** the `graphify` MCP server holds every repo, with this
   ticket's worktrees in place of their main clones (ids prefixed `<slug>::`). Task worktrees
   aren't in it. For files and content, use the fff tools (`mcp__fff__find_files`,
-  `mcp__fff__grep`, `mcp__fff__multi_grep`) when available, else `rg` (or the Grep tool).
+  `mcp__fff__grep`, `mcp__fff__multi_grep`) when available, else `rg` (or the Grep tool),
+  scoped to the ticket worktree's path: fff indexes all of `<ws>`, `.tasks/` included.
   Read files by section or line range, never the board or task files whole.
 
 ## 0. Resume (always first; ≤3 calls)
@@ -42,10 +43,12 @@ picks up where the last one stopped. Paths `tickets/<ID>/…` are in the vault;
 2. `tail -n 25 tickets/<ID>/backlog.md`
 3. `for r in <ws>/*/; do git -C "$r" worktree list; done 2>/dev/null` (stray task worktrees)
 
-No board: a new ticket. If call 1 shows no `## Workspace` table rows, read `kickoff.md`
+No board: a new ticket. If `## Workspace` has no data rows under the header (only
+`| Repo (slug) |…` and `|---|`), read `kickoff.md`
 (next to this file) and do it, then go to 2. Don't read task files whole to resume. Otherwise the next action is the first that applies:
 `status: blocked` → the open question in `## Questions`; `running` rows → check the task
-branch (`git log --oneline <ticket-branch>..task/<ID>-NN-*`) and merge it (5) or re-spawn it
+branch (name from call 3 or `git branch --list 'task/<ID>-*'`; then `git log --oneline
+<ticket-branch>..<task-branch>`) and merge it (5) or re-spawn it
 with "New since: resumed, commits so far …"; a merged wave without a review row → 6; open
 must-fix tasks → 7; `planned` rows → 4; nothing left → hand-over (8).
 
@@ -91,15 +94,16 @@ agent that uses it runs: stop the agent, update the contract, re-plan its task.
 ## 5. Merge (you)
 Per finished task, in task order, one chain with filtered output in `<ws>/<slug>`:
 `git merge --no-ff -q task/<ID>-NN-<task-slug> -m "<ID> merge task NN: <title>"`, then the
-repo's lint and tests from its `AGENTS.md` "Checking" (`2>&1 | grep -E 'FAIL|panic' | head;
-echo exit=$?`; judge by the exit code). Trust the report for detail: open files only when it
+repo's lint and tests from its `AGENTS.md` "Checking" (`<cmd> > <log> 2>&1; rc=$?;
+rg -n 'FAIL|panic|error' <log> | head -20; echo exit=$rc`). A nonzero `exit` blocks the
+merge, whatever the filtered output shows. Trust the report for detail: open files only when it
 claims something risky or lists "Outside owns". Then:
 - the board row: `sed -i -E 's/^(\| NN \|([^|]*\|){4}) [^|]* \|/\1 merged <sha> |/' board.md`;
 - `git worktree remove <ws>/.tasks/<slug>-NN && git branch -d task/<ID>-NN-<task-slug>`.
   If removal is denied, mark the row `pending — user` and give the user the command.
 - A `repo: vault` task has nothing to merge: check its files, set the row `merged -`.
-- A failing merge check: `git merge --abort` (or revert the merge commit if checks failed
-  after it) and send the failure to the agent's task as a follow-up, or fix it yourself.
+- A failing merge check: `git merge --abort` (or `git revert -m 1 <merge-sha>` if checks
+  failed after it) and send the failure to the agent's task as a follow-up, or fix it yourself.
 - `partial` or `blocked` reports: row status `partial`/`blocked`, the reason in the note.
 - Follow-ups of ≤20 lines (a doc row, one type, a board line) you do yourself in the ticket
   worktree and commit (`<ID> <subject>`); no micro-tasks. Batch bigger ones into the next

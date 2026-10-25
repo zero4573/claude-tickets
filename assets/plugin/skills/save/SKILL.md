@@ -64,8 +64,8 @@ never delete notes without asking.
   branches.
 - The ticket note (`## Tasks`, `## Questions` answers, `## Follow-ups`,
   `## Review`), then by section, not whole: `plan.md` (scope, decisions,
-  `## Relationships`), the `board.md` rows (`rg -n '^\|'`), the first 5
-  lines of each `reviews/*.md` summary, `backlog.md ## Open`,
+  `## Relationships`), the `board.md` rows (`rg -n '^\|'`), the `## Summary`
+  section (≤5 lines) of each `reviews/*.md`, `backlog.md ## Open`,
   `investigation.md`, `pr-feedback.md` if `/tickets:pr-feedback` ran, and
   `kb-drafts/`. An old-format ticket has other files instead; read those.
 - For a lead ticket, the notes of the tickets in its `covers` list.
