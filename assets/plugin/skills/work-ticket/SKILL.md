@@ -100,7 +100,7 @@ Each event gets one short action; never forward report bodies.
    `answered`, append `R-mm · <date> · user→lead · answer · R-nn: <answer> · open`, and
    SendMessage the lead "R-nn answered (R-mm)". The lead records the decision in `plan.md` and
    sets `status: in-progress`.
-Kickoff questions (`kickoff.md`) are yours and are asked directly, without relay entries. Follow-up items are asked one per item (this ticket, new, existing, or leave); nothing is filed with `ct new` before the answer.
+Kickoff questions (`kickoff.md`) are yours and are asked directly, without relay entries. Follow-up items (the lead's deferral candidates and open backlog; never fix tasks or `kept:`) are asked as the lead's `Ask user:` says (A, this ticket; B, a new ticket; C, an existing ticket (name it); D, leave it in the backlog (backlog items only)). Up to 4 items: one question each. More than 4: one question per repo or theme, listing each item with the lead's proposed option (A-D); the user accepts it or overrides it per item. Ask at most 4 questions per AskUserQuestion call and use more calls when needed. Rule: nothing is filed with `ct new` before the answer.
 
 ## 4. relay.md (capped)
 Frontmatter `type: relay`, `ticket: "[[<ID>]]"`; sections `## Closed`, then `## Open` (last,

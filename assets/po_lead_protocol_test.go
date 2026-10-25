@@ -318,3 +318,61 @@ func TestFollowUpsAskedPerItem(t *testing.T) {
 		t.Error("handover.md: still groups into candidates")
 	}
 }
+
+// The A-D follow-up options, the batching rule and the scope read the same in
+// every file that states them.
+func TestFollowUpAskWording(t *testing.T) {
+	texts := pluginTexts(t)
+	for _, p := range []string{"vault-scaffold/AGENTS.md", "vault-scaffold/templates/backlog.md"} {
+		data, err := fs.ReadFile(Scaffold, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		texts[p] = string(data)
+	}
+	const opts = "A, this ticket; B, a new ticket; C, an existing ticket (name it); D, leave it in the backlog (backlog items only)"
+	for _, p := range []string{
+		"plugin/skills/lead/SKILL.md", "plugin/skills/lead/handover.md", "plugin/skills/work-ticket/SKILL.md",
+		"vault-scaffold/AGENTS.md", "vault-scaffold/templates/backlog.md",
+	} {
+		if !strings.Contains(texts[p], opts) {
+			t.Errorf("%s: missing the A-D options wording", p)
+		}
+	}
+	// Batching (S02): the same rule in the lead and the PO texts.
+	for _, p := range []string{"plugin/skills/lead/SKILL.md", "plugin/skills/lead/handover.md", "plugin/skills/work-ticket/SKILL.md"} {
+		for _, want := range []string{
+			"Up to 4 items: one",
+			"More than 4: one question per repo or theme, listing each item with ",
+			"proposed option (A-D); the user accepts it or overrides it per item",
+			"at most 4 questions per",
+		} {
+			if !strings.Contains(texts[p], want) {
+				t.Errorf("%s: missing batching rule %q", p, want)
+			}
+		}
+	}
+	// Scope (S01).
+	if !strings.Contains(texts["plugin/skills/lead/SKILL.md"], "items you would not fix in this") ||
+		!strings.Contains(texts["plugin/skills/work-ticket/SKILL.md"], "never fix tasks or `kept:`") {
+		t.Error("lead and PO texts must scope the ask to deferral candidates and backlog items")
+	}
+	// Other places that mention the ask, and the wave review that never files.
+	if !strings.Contains(texts["plugin/skills/wave-review/SKILL.md"], "you never file tickets") {
+		t.Error("wave-review: reviewer must never file tickets")
+	}
+	if !strings.Contains(texts["plugin/skills/retro/SKILL.md"], "a retro item only becomes\na backlog item") {
+		t.Error("retro: in a ticket a retro item only becomes a backlog item")
+	}
+	if !strings.Contains(texts["plugin/skills/lead/SKILL.md"], "Never file a ticket on your own") ||
+		!strings.Contains(texts["vault-scaffold/AGENTS.md"], "Agents never file a follow-up ticket on their own") {
+		t.Error("lead skill and scaffold AGENTS.md must forbid unasked filing")
+	}
+	for _, bad := range []string{"you pick become follow-up", "Writing a `deferred` line means filing"} {
+		for p, s := range texts {
+			if strings.Contains(s, bad) {
+				t.Errorf("%s: contains %q", p, bad)
+			}
+		}
+	}
+}

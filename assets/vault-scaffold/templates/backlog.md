@@ -10,7 +10,7 @@ tags: [backlog]
 # Backlog
 
 Leftovers of [[TICKET-ID]]: review findings and items not fixed yet, triaged by the lead at
-each wave start; at hand-over you decide each: this ticket, a new ticket, an existing ticket, or stay. Projects:
+each wave start; at hand-over you answer for the open items: A, this ticket; B, a new ticket; C, an existing ticket (name it); D, leave it in the backlog (backlog items only). Projects:
 [[provider-owner-repo]]. Plain bullets only, no checkboxes.
 
 ## Open
