@@ -39,6 +39,12 @@ func Ask(question, def string) string {
 	return def
 }
 
+// Line prints "<question> " and returns the answer as typed (no default).
+func Line(question string) string {
+	fmt.Fprintf(os.Stderr, "%s ", question)
+	return readLine()
+}
+
 // YesNo asks a (y/n) question with def ("y" or "n") on Enter.
 func YesNo(question, def string) bool {
 	a := Ask(question+" (y/n)", def)
