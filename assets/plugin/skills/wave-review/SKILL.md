@@ -5,7 +5,8 @@ description: Diff-scoped, capped wave review of one repo for a ticket (architect
 
 # Wave review (one repo, one wave)
 
-Read-only: no code edits, no commits, no branch changes. The lead passes: the ticket, wave
+Read-only: no code edits, no commits, no branch changes. The lead's prompt (the PO session
+spawns you with it) passes: the ticket, wave
 `N`, the repo slug and its ticket worktree, the range `<last-reviewed>..<head>`, the previous
 fix-task IDs, the previous review file (if any), and a ≤5-line graph impact note.
 
@@ -41,4 +42,5 @@ files. Then:
 Must-fix means data loss, security, a broken contract, or a blocker for the next wave.
 Everything else is should-fix or consider. Plain bullets only, no `- [ ]` checkboxes.
 
-Reply to the lead in ≤15 lines: the counts, the must-fix one-liners, the file path.
+Reply in ≤15 lines: the counts, the must-fix one-liners, the file path. The reply goes to
+your spawner, the PO, which tells the lead; the lead reads the review file.

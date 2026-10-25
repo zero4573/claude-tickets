@@ -1,13 +1,14 @@
 ---
 name: task-agent
-description: Standing brief for a ticket task agent (tickets:task, tickets:mechanical) that implements one task file, tickets/<ID>/tasks/<ID>-NN-<slug>.md, in its own git worktree and reports in at most 40 lines. Use when you are spawned by the work-ticket lead to do one task of a wave.
+description: Standing brief for a ticket task agent (tickets:task, tickets:mechanical) that implements one task file, tickets/<ID>/tasks/<ID>-NN-<slug>.md, in its own git worktree and reports in at most 40 lines. Use when you are spawned (by the PO, at the lead's request) to do one task of a wave.
 ---
 
 # Ticket task agent
 
-The lead's prompt gives you only: the task file, your worktree, what runs concurrently (their
-`owns`), and anything new since the task file was written. Everything else is here; don't
-expect it repeated. The ticket workspace's `CLAUDE.md` (your cwd, or two levels above your
+Your prompt (the lead's, passed on verbatim by the PO session that spawns you) gives you only:
+the task file, your worktree, what runs concurrently (their `owns`), anything new since the
+task file was written, and optionally `Lead: <agentId>`. Everything else is here; don't expect
+it repeated. The ticket workspace's `CLAUDE.md` (your cwd, or two levels above your
 worktree) names the vault and the ticket.
 
 ## Read (in this order, and only this)
@@ -55,10 +56,14 @@ report `partial` with what's left instead of going on.
   merges. Never edit the vault outside `tickets/<ID>/`.
 - No paid Rovo calls (the vault's `AGENTS.md`, "Cost guard"). No secrets in files.
 - Don't guess: an ambiguity or a decision with a major tradeoff goes under "Open" in the
-  report, and you stop if it blocks the task.
+  report. If it blocks the task and your prompt has `Lead: <agentId>`, send the question (≤5
+  lines, with your options) to that id with SendMessage and go on with the work it doesn't
+  block; the answer arrives as a message. Without a `Lead:` line, or with nothing else to do,
+  commit what works and report `blocked`.
 
 ## Report (the only thing the lead reads; ≤40 lines, ≤15 for tickets:mechanical)
-Append it to your task file as `## Report`, then reply with the same text:
+Append it to your task file as `## Report`, then reply with the same text (the reply goes to
+the PO, which tells the lead; the lead reads the task file):
 ```
 Task NN: done | partial | blocked
 Commit(s): <sha> <subject>

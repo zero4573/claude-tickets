@@ -1,8 +1,8 @@
-# work-ticket: hand-over
+# lead: hand-over
 
-Read by the lead (`/tickets:work-ticket <ID>`) when the last wave's review has no open
-must-fix and the board has no `planned`, `running` or `partial` row. Ends with the ticket at
-`status: review`. Never run `/tickets:save`, sign or push.
+Read by the lead (the `tickets:lead` agent) when the last wave's review has no open must-fix
+and the board has no `planned`, `running` or `partial` row. Ends with the ticket at
+`status: review` and `Next: handover-done`. Never run `/tickets:save`, sign or push.
 
 ## 1. Workspace clean
 In one chain per repo:
@@ -14,9 +14,10 @@ ticket ID). A task worktree or branch you couldn't remove stays on the board as
 
 ## 2. Backlog → follow-up tickets
 1. Group the backlog's `## Open` items by theme into at most 5 candidate tickets.
-2. Ask with **AskUserQuestion** (multiSelect): one option per candidate, its summary, type
-   and the `B-nn` IDs it covers, recommended ones first. "None" is a valid answer.
-3. For each chosen one: `ct new --type <dev|bug|chore|investigation> "<summary>"`. It prints
+2. Ask through the gate (`SKILL.md`): one `relay.md` question, and `Ask user:` with one option
+   per candidate (multi-select), its summary, type and the `B-nn` IDs it covers, recommended
+   ones first. "None" is a valid answer. End the run with `Next: wait-user`.
+3. When the PO messages you the answer, for each chosen one: `ct new --type <dev|bug|chore|investigation> "<summary>"`. It prints
    the new note's path. Write its initial content yourself, in that note only:
    `## Description` (the items and why they matter), `## Acceptance criteria`,
    `## Context / links` (`[[<ID>]]` and the `B-nn`/finding IDs), plus `projects:` and the tag
@@ -44,7 +45,7 @@ Make sure `tickets/<ID>/kb-drafts/` is complete, each note with a `target:` fiel
 ## 5. Finish
 1. Set `status: review` (and on each covered ticket whose part is done). Mark the
    hand-over line in `## Tasks` `[x]` with `✅ <today>`.
-2. Tell the user in ≤8 lines: the ticket is ready for review; `ct ws diff <ID>` shows the
-   changes; they can ask for changes in this session; after review, run `/tickets:save`,
-   then `ct ws sign <ID>` on the host, and push.
-3. Stop.
+2. End with the final block: `Spawn: none`, `Ask user: none`, `Status:` the ticket is ready
+   for review (`ct ws diff <ID>` shows the changes) plus any `pending — user` command, and
+   `Next: handover-done`. The PO tells the user the rest (changes in this session, then
+   `/tickets:save`, `ct ws sign <ID>` on the host, and push).

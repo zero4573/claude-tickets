@@ -1,7 +1,7 @@
 ---
 name: task
-description: Implements one task of a ticket's wave (tickets/<ID>/tasks/<ID>-NN-*.md) in its own git worktree, writing only the paths the task owns, and reports in at most 40 lines. Spawned by the work-ticket lead for feature and fix tasks.
-tools: Read, Edit, Write, Bash, Grep, Glob, Skill, mcp__fff__find_files, mcp__fff__grep, mcp__fff__multi_grep
+description: Implements one task of a ticket's wave (tickets/<ID>/tasks/<ID>-NN-*.md) in its own git worktree, writing only the paths the task owns, and reports in at most 40 lines. Spawned by the PO (/tickets:work-ticket) at the lead's request for feature and fix tasks.
+tools: Read, Edit, Write, Bash, Grep, Glob, Skill, SendMessage, mcp__fff__find_files, mcp__fff__grep, mcp__fff__multi_grep
 model: sonnet
 skills:
   - tickets:task-agent

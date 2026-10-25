@@ -1,8 +1,9 @@
 # work-ticket: kickoff
 
-Read by the lead (`/tickets:work-ticket <ID>`) when the ticket note's `## Workspace` is
-empty, and again for a repo that turns out to be needed later. It ends with the worktrees
-created and `## Workspace` written; then go back to "2. Plan" in `SKILL.md`.
+Read by the PO (`/tickets:work-ticket <ID>`) when the ticket note's `## Workspace` is
+empty, and again for a repo that turns out to be needed later (the lead asks for it through
+`relay.md`). It ends with the worktrees created and `## Workspace` written; then spawn the
+lead ("1. Spawn the lead" in `SKILL.md`).
 
 ## 1. Load context
 
@@ -17,14 +18,14 @@ created and `## Workspace` written; then go back to "2. Plan" in `SKILL.md`.
    it in (or to answer your questions) before going on. Don't invent requirements.
 4. **Classify.** Use `ticket-type` from the note (`dev`, `bug`, `investigation`, `chore`,
    `epic`). If the ticket's content clearly contradicts it (e.g. a "Task" that is really a bug
-   report), say so and use the better fit. Update `ticket-type`, which the lead owns. The
-   type shapes the plan ("Ticket types" in `SKILL.md`), not the agents.
+   report), say so and use the better fit. Update `ticket-type`, which the kickoff owns. The
+   type shapes the lead's plan ("Ticket types" in the `tickets:lead` skill), not the agents.
 
 ## 2. Lead tickets (`ticket-type: epic`)
 
 An epic, or any ticket with `ticket-type: epic`, is a **lead**. Its workspace does the work of
 every ticket in its `covers` list. Those are the children assigned to the user, and
-`ct start` sends them here. Run it like one bigger ticket:
+`ct start` sends them here. The lead agent runs it like one bigger ticket:
 - **One workspace, one branch per repo:** `feature/<LEAD-ID>[-<description>]` for all the
   covered tickets together.
 - **One plan** over all of them: `plan.md` has scope and acceptance criteria per covered
