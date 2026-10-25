@@ -107,6 +107,15 @@ func Search(ix *vindex.Index, emb embed.Embedder, query string, o Options) (*Res
 		return nil, ErrNoModel
 	}
 	useKw := mode != ModeSemantic
+	// Zero rows are "not embedded yet": they score by keyword, whatever the mode.
+	zeroRow := map[int]bool{}
+	if useSem {
+		for i := range ix.Chunks {
+			if v := ix.Vector(i); v != nil && zero(v) {
+				zeroRow[i] = true
+			}
+		}
+	}
 	k := o.K
 	if k <= 0 {
 		k = DefaultK
@@ -131,7 +140,7 @@ func Search(ix *vindex.Index, emb embed.Embedder, query string, o Options) (*Res
 		}
 	}
 	var kw []float64
-	if useKw {
+	if useKw || len(zeroRow) > 0 {
 		kw = normalise(bm25(ix, query), cand)
 	} else {
 		kw = make([]float64, len(ix.Chunks))
@@ -145,6 +154,10 @@ func Search(ix *vindex.Index, emb embed.Embedder, query string, o Options) (*Res
 	}
 	base := make([]float64, len(ix.Chunks))
 	for _, i := range cand {
+		if zeroRow[i] {
+			base[i] = kw[i]
+			continue
+		}
 		base[i] = ws*sem[i] + wk*kw[i]
 	}
 	order := append([]int(nil), cand...)

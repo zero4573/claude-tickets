@@ -83,8 +83,9 @@ func (ix *Index) Vector(i int) []float32 {
 	return ix.vecs[i*d : (i+1)*d]
 }
 
-// Load reads the index under index.lock, so it never sees a set a writer is
-// half through. A missing, damaged or inconsistent index gives an error
+// Load reads the index under index.commit.lock, which a writer holds only
+// around its renames (never while embedding): it never sees a set a writer is
+// half through and never waits for an embed. A missing, damaged or inconsistent index gives an error
 // wrapping ErrNoIndex. Where the lock file can't be opened (a read-only
 // vault) it reads without it.
 func Load(vault string) (*Index, error) {
@@ -94,7 +95,7 @@ func Load(vault string) (*Index, error) {
 	var ix *Index
 	var lerr error
 	ran := false
-	if err := lock.With(filepath.Join(vault, ".ct", "index.lock"), func() error {
+	if err := lock.With(filepath.Join(vault, ".ct", "index.commit.lock"), func() error {
 		ran = true
 		ix, lerr = load(vault)
 		return nil
@@ -104,7 +105,7 @@ func Load(vault string) (*Index, error) {
 	return ix, lerr
 }
 
-// load is Load for a caller holding the lock.
+// load is Load for a caller holding the commit lock or index.lock.
 func load(vault string) (*Index, error) {
 	dir := Dir(vault)
 	data, err := os.ReadFile(filepath.Join(dir, "meta.json"))
@@ -193,8 +194,50 @@ func readLines(path string, fn func([]byte) error) error {
 	}
 }
 
-// writeAtomic writes path through a temp file in its directory and a rename.
-func writeAtomic(path string, fn func(w io.Writer) error) error {
+// stager collects files written to temp names so that all renames happen
+// together, under the commit lock. A nil *stager renames at once.
+type stager struct{ ops []stagedOp }
+
+type stagedOp struct{ tmp, path string } // tmp == "": remove path
+
+func (s *stager) cleanup() {
+	for _, o := range s.ops {
+		if o.tmp != "" {
+			os.Remove(o.tmp)
+		}
+	}
+	s.ops = nil
+}
+
+// remove stages the removal of path.
+func (s *stager) remove(path string) { s.ops = append(s.ops, stagedOp{path: path}) }
+
+// commit applies the staged renames and removals in order; after runs before
+// op number n (a test hook).
+func (s *stager) commit(n int, after func()) error {
+	for i, o := range s.ops {
+		if i == n && after != nil {
+			after()
+		}
+		var err error
+		if o.tmp == "" {
+			if err = os.Remove(o.path); os.IsNotExist(err) {
+				err = nil
+			}
+		} else {
+			err = os.Rename(o.tmp, o.path)
+			s.ops[i].tmp = ""
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// writeAtomic writes path through a temp file in its directory and a rename;
+// with a stager the rename waits for its commit.
+func writeAtomic(s *stager, path string, fn func(w io.Writer) error) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*")
 	if err != nil {
 		return err
@@ -212,6 +255,10 @@ func writeAtomic(path string, fn func(w io.Writer) error) error {
 		os.Remove(name)
 		return err
 	}
+	if s != nil {
+		s.ops = append(s.ops, stagedOp{tmp: name, path: path})
+		return nil
+	}
 	if err := os.Rename(name, path); err != nil {
 		os.Remove(name)
 		return err
@@ -219,8 +266,8 @@ func writeAtomic(path string, fn func(w io.Writer) error) error {
 	return nil
 }
 
-func writeJSONL[T any](path string, rows []T) error {
-	return writeAtomic(path, func(w io.Writer) error {
+func writeJSONL[T any](s *stager, path string, rows []T) error {
+	return writeAtomic(s, path, func(w io.Writer) error {
 		enc := json.NewEncoder(w)
 		enc.SetEscapeHTML(false)
 		for _, r := range rows {
@@ -232,8 +279,8 @@ func writeJSONL[T any](path string, rows []T) error {
 	})
 }
 
-func writeVectors(path string, rows [][]float32) error {
-	return writeAtomic(path, func(w io.Writer) error {
+func writeVectors(s *stager, path string, rows [][]float32) error {
+	return writeAtomic(s, path, func(w io.Writer) error {
 		var b [4]byte
 		for _, r := range rows {
 			for _, f := range r {

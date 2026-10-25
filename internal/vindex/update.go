@@ -104,7 +104,10 @@ func embedInput(name string, c chunk.Chunk) string {
 // chunked and embedded (vectors are reused by chunk hash), removed notes
 // dropped. A note is unchanged when mtime and size match, or the sha256 does.
 // A different model, model checksum or chunk size rebuilds everything. With no
-// embedding model (embed.ErrUnavailable) the index is keyword-only.
+// embedding model (embed.ErrUnavailable) an index with vectors keeps them and
+// new chunks get zero rows ("not embedded yet", searched by keyword only); one
+// without vectors stays without. Update holds index.lock for its whole run, and
+// index.commit.lock (the one Load takes) only around the final renames.
 func Update(vault string, o UpdateOptions) (UpdateStats, error) {
 	start := time.Now()
 	var st UpdateStats
@@ -152,7 +155,7 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 	}
 
 	var emb embed.Embedder
-	e, err := modelcache.Open(want)
+	e, err := openEmbedder(want)
 	switch {
 	case err == nil:
 		emb = e
@@ -258,8 +261,24 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 		notes = append(notes, oldChunksOf(i))
 	}
 	exists := map[string]bool{}
+	realVault, _ := filepath.EvalSymlinks(vault)
+	dirOK := map[string]bool{}
 	for _, rel := range paths {
 		abs := filepath.Join(vault, filepath.FromSlash(rel))
+		if o.Files != nil {
+			// A Files refresh gets caller-supplied paths: skip notes under a
+			// symlinked directory, as the full walk does (W3 C02).
+			d := filepath.Dir(rel)
+			ok, seen := dirOK[d]
+			if !seen {
+				r, err := filepath.EvalSymlinks(filepath.Join(vault, filepath.FromSlash(d)))
+				ok = err == nil && r == filepath.Join(realVault, filepath.FromSlash(d))
+				dirOK[d] = ok
+			}
+			if !ok {
+				continue
+			}
+		}
 		fi, err := os.Lstat(abs)
 		if err != nil || !fi.Mode().IsRegular() {
 			continue
@@ -389,29 +408,36 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 	meta.Notes, meta.Chunks = st.Notes, st.Chunks
 
 	dir := Dir(vault)
+	sg := &stager{}
+	defer sg.cleanup()
 	unchanged := old != nil && st.Changed == 0 && st.Removed == 0 && st.Embedded == 0 && !rewriteNotes
 	if !unchanged {
 		structural := full || old == nil || st.Changed > 0 || st.Removed > 0 || st.Embedded > 0
 		if structural {
-			if err := writeJSONL(filepath.Join(dir, "chunks.jsonl"), chunkRows); err != nil {
+			if err := writeJSONL(sg, filepath.Join(dir, "chunks.jsonl"), chunkRows); err != nil {
 				return err
 			}
 			if hasVecs {
-				if err := writeVectors(filepath.Join(dir, "vectors.f32"), vecRows); err != nil {
+				if err := writeVectors(sg, filepath.Join(dir, "vectors.f32"), vecRows); err != nil {
 					return err
 				}
-			} else if err := os.Remove(filepath.Join(dir, "vectors.f32")); err != nil && !os.IsNotExist(err) {
-				return err
+			} else {
+				sg.remove(filepath.Join(dir, "vectors.f32"))
 			}
 		}
-		if beforeNotesWrite != nil {
-			beforeNotesWrite()
-		}
-		if err := writeJSONL(filepath.Join(dir, "notes.jsonl"), noteRows); err != nil {
+		first := len(sg.ops)
+		if err := writeJSONL(sg, filepath.Join(dir, "notes.jsonl"), noteRows); err != nil {
 			return err
 		}
 		meta.Updated = time.Now().UTC().Format(time.RFC3339)
-		if err := writeMeta(filepath.Join(dir, "meta.json"), meta); err != nil {
+		if err := writeMeta(sg, filepath.Join(dir, "meta.json"), meta); err != nil {
+			return err
+		}
+		// Only the renames run under the commit lock, so readers never wait for
+		// embedding.
+		if err := lock.With(filepath.Join(vault, ".ct", "index.commit.lock"), func() error {
+			return sg.commit(first, beforeNotesWrite)
+		}); err != nil {
 			return err
 		}
 	}
@@ -426,8 +452,8 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 	return nil
 }
 
-func writeMeta(path string, m Meta) error {
-	return writeAtomic(path, func(w io.Writer) error {
+func writeMeta(s *stager, path string, m Meta) error {
+	return writeAtomic(s, path, func(w io.Writer) error {
 		b, err := jsonMarshal(m)
 		if err != nil {
 			return err
@@ -479,6 +505,9 @@ func isZero(v []float32) bool {
 	}
 	return true
 }
+
+// openEmbedder is modelcache.Open; tests swap it for a blocking stub.
+var openEmbedder = modelcache.Open
 
 // beforeNotesWrite is a test hook: it runs after chunks.jsonl and vectors.f32
 // are written and before notes.jsonl and meta.json (the reader's torn window).

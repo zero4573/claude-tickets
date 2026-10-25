@@ -35,7 +35,11 @@ func searchVault(flag string) (string, error) {
 func loadForSearch(v string, noUpdate bool) (*vindex.Index, embed.Embedder, error) {
 	if !noUpdate {
 		if _, err := vindex.Update(v, vindex.UpdateOptions{Log: os.Stderr}); err != nil {
-			return nil, nil, err
+			// A usable index is better than none (read-only vault, full disk).
+			if _, serr := os.Stat(filepath.Join(vindex.Dir(v), "meta.json")); serr != nil {
+				return nil, nil, err
+			}
+			fmt.Fprintf(os.Stderr, "ct: vault index not updated: %v\n", err)
 		}
 	}
 	ix, err := vindex.Load(v)

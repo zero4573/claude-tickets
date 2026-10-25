@@ -131,8 +131,14 @@ func staleGraphs(ctx vault.Context) {
 }
 
 func ticketSync(ctx vault.Context, only string, full bool) error {
-	// Changed ticket notes are not listed by the skill: whole-vault stale check.
-	defer vindex.Refresh(ctx.Vault)
+	// Changed ticket notes are not listed by the skill: whole-vault stale check,
+	// but only after a run that wrote something (a source that ran).
+	wrote := false
+	defer func() {
+		if wrote {
+			vindex.Refresh(ctx.Vault)
+		}
+	}()
 	cfgFile := filepath.Join(ctx.Vault, "tickets", ".sources.json")
 	stateFile := filepath.Join(ctx.Vault, "tickets", ".sync-state.json")
 	data, err := os.ReadFile(cfgFile)
@@ -255,6 +261,7 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 			say(js.Plan.String())
 			// Each ticket's changes are found and written here; failures become
 			// follow-ups and are retried next run (the note's source-updated stays)
+			wrote = true
 			if bad := js.Apply(); len(bad) > 0 {
 				ticketsFailed = append(ticketsFailed, bad...)
 			}
@@ -283,6 +290,7 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 			// claude.ai connectors tied to the login, which need interactive auth.
 			// $CLAUDE_TICKETS_SESSION_SETTINGS carries your own rules (e.g. which
 			// MCP tools a sync may never call).
+			wrote = true
 			argv, err := session.Command()
 			if err != nil {
 				return err

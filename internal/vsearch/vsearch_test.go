@@ -222,3 +222,56 @@ func TestRelated(t *testing.T) {
 		t.Fatalf("keyword fallback %+v", k)
 	}
 }
+
+// A note added while the model is unavailable has zero vector rows in an index
+// that has vectors ("not embedded yet").
+func TestZeroRowsScoredByKeyword(t *testing.T) {
+	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "stub")
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	v := t.TempDir()
+	put(t, v, "a.md", "# A\n\nGiraffe savanna migration.\n")
+	put(t, v, "b.md", "# B\n\nQuartz basalt granite.\n")
+	put(t, v, "a2.md", "# Pangolin armor\n\nScales.\n")
+	if _, err := vindex.Update(v, vindex.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	put(t, v, "z.md", "# Pangolin armor\n\nPangolin scales armor.\n")
+	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
+	if _, err := vindex.Update(v, vindex.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	ix, err := vindex.Load(v)
+	if err != nil || ix.Meta.Dims == 0 {
+		t.Fatalf("%v dims %d", err, ix.Meta.Dims)
+	}
+	emb := embed.Stub(64)
+	for _, mode := range []string{ModeHybrid, ModeSemantic} {
+		r, err := Search(ix, emb, "pangolin armor", Options{Mode: mode})
+		if err != nil {
+			t.Fatalf("%s: %v", mode, err)
+		}
+		if len(r.Results) == 0 || r.Results[0].Path != "z.md" {
+			t.Fatalf("%s: zero row not ranked by keyword: %v", mode, paths(r))
+		}
+		if r.Results[0].Score < 0.5 {
+			t.Fatalf("%s: score %v is capped by the semantic weight", mode, r.Results[0].Score)
+		}
+	}
+	// Related on the unembedded note and towards it.
+	z := NoteIndex(ix, "z.md")
+	if r, _ := Related(ix, emb, z, RelatedOptions{IncludeLinked: true}); !r.KeywordOnly {
+		t.Fatal("seed without centroid should be keyword-only")
+	}
+	a2 := NoteIndex(ix, "a2.md")
+	r, err := Related(ix, emb, a2, RelatedOptions{IncludeLinked: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, x := range r.Results {
+		found = found || x.Path == "z.md"
+	}
+	if !found {
+		t.Fatalf("note without centroid missing from related: %+v", r.Results)
+	}
+}
