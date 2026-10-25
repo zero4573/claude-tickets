@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -110,10 +111,18 @@ func Run(o Options, items []Item, env Env) Result {
 	var res Result
 	// Archived, moved and rewritten notes: the search index (if any) catches up,
 	// but only after a run that wrote something (not on errors or previews).
-	saveRan, wrote := false, false // wrote: an item may have changed a note, even if it then failed (W4 S05)
+	saveRan := false
+	var touched pathSet // what the items changed, vault-relative
+	whole := false      // an item failed after it wrote (W4 S05): the paths are unknown
 	defer func() {
-		if wrote || res.Cleaned > 0 || res.FollowUp != "" || saveRan {
+		if res.FollowUp != "" {
+			touched.add(rel(o.Vault, res.FollowUp))
+		}
+		switch {
+		case whole || saveRan:
 			refreshIndex(o.Vault)
+		case len(touched.list) > 0:
+			refreshIndex(o.Vault, touched.list...)
 		}
 	}()
 	var tasks []string
@@ -214,9 +223,11 @@ func Run(o Options, items []Item, env Env) Result {
 		if stopped() {
 			break
 		}
-		msg, more, err := one(o, env, items, it, &changed, &wrote)
+		wrote := false
+		msg, more, err := one(o, env, items, it, &changed, &touched, &wrote)
 		tasks = append(tasks, more...)
 		if err != nil {
+			whole = whole || wrote
 			say("%s: %v", it.ID, err)
 			res.Failed = true
 			continue
@@ -266,7 +277,7 @@ func savedSince(vault, id string, start time.Time) bool {
 // trash, or deleted) its referenced files to the archive, the links to it
 // to its URL, its folder; or (archive) its folder to the archive. tasks are
 // follow-ups for links it couldn't rewrite.
-func one(o Options, env Env, items []Item, it Item, changed *[]string, wrote *bool) (msg string, tasks []string, err error) {
+func one(o Options, env Env, items []Item, it Item, changed *[]string, touched *pathSet, wrote *bool) (msg string, tasks []string, err error) {
 	if err := vaultlock.Acquire(o.Vault, lockOwner); err != nil {
 		return "", nil, err
 	}
@@ -305,17 +316,20 @@ func one(o Options, env Env, items []Item, it Item, changed *[]string, wrote *bo
 	archive := note.ArchiveDir(o.Vault, it.ID)
 	if it.Action == Archive {
 		*wrote = true
-		moved, _, err := links.MoveTree(o.Vault, dir, archive, nil, it.ID+".md")
+		mv, err := links.MoveTree(o.Vault, dir, archive, nil, it.ID+".md")
+		touched.addMove(mv)
 		if err != nil {
 			return "", nil, err
 		}
-		return strings.Join(append(parts, fmt.Sprintf("archived %d file(s) to %s", moved, rel(o.Vault, archive))), "; "), nil, nil
+		return strings.Join(append(parts, fmt.Sprintf("archived %d file(s) to %s", len(mv.Moves), rel(o.Vault, archive))), "; "), nil, nil
 	}
 
 	kept := links.Referenced(o.Vault, dir, gone(o, items, it.ID))
 	if len(kept) > 0 {
 		*wrote = true
-		if _, _, err := links.MoveTree(o.Vault, dir, archive, kept, ""); err != nil {
+		mv, err := links.MoveTree(o.Vault, dir, archive, kept, "")
+		touched.addMove(mv)
+		if err != nil {
 			return "", nil, err
 		}
 	}
@@ -326,11 +340,12 @@ func one(o Options, env Env, items []Item, it Item, changed *[]string, wrote *bo
 			tasks = append(tasks, fmt.Sprintf("%s:%d still links %s (removed by ct clean) in a frontmatter form it can't rewrite: make it \"[%s](%s)\"",
 				rel(o.Vault, p.File), p.Line, it.ID, it.ID, it.URL))
 		},
-		Changed: func(f string) { *changed = append(*changed, f) },
+		Changed: func(f string) { *changed = append(*changed, f); touched.add(rel(o.Vault, f)) },
 	})
 	if err != nil {
 		return "", tasks, err
 	}
+	touched.addTree(o.Vault, dir) // it goes away: its files leave the index
 	where := ""
 	if it.Action == Purge {
 		*wrote = true
@@ -362,4 +377,41 @@ func one(o Options, env Env, items []Item, it Item, changed *[]string, wrote *bo
 func withoutSave(o Options) Options {
 	o.Save = false
 	return o
+}
+
+// pathSet is the vault-relative paths a run changed: each once, in the
+// order first seen.
+type pathSet struct {
+	list []string
+	seen map[string]bool
+}
+
+func (s *pathSet) add(paths ...string) {
+	if s.seen == nil {
+		s.seen = map[string]bool{}
+	}
+	for _, p := range paths {
+		if !s.seen[p] {
+			s.seen[p] = true
+			s.list = append(s.list, p)
+		}
+	}
+}
+
+// addMove adds what a MoveTree moved and rewrote (also its partial result).
+func (s *pathSet) addMove(r links.MoveResult) {
+	for _, m := range r.Moves {
+		s.add(m.From, m.To)
+	}
+	s.add(r.Changed...)
+}
+
+// addTree adds every file under dir.
+func (s *pathSet) addTree(vault, dir string) {
+	_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			s.add(rel(vault, p))
+		}
+		return nil
+	})
 }

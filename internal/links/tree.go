@@ -26,11 +26,11 @@ type move struct {
 // re-run completes an interrupted move: a file whose new path a link
 // already names moves too. It fails, before changing anything, if a
 // destination exists. Empty folders left in srcDir are removed. It returns
-// the files moved and the links rewritten.
-func MoveTree(vault, srcDir, dstDir string, files []string, last string) (moved, rewritten int, err error) {
+// the files moved, links rewritten and notes changed (MoveResult).
+func MoveTree(vault, srcDir, dstDir string, files []string, last string) (res MoveResult, err error) {
 	vault, srcDir, dstDir = resolvePath(vault), resolvePath(srcDir), resolvePath(dstDir)
 	if !fsx.Inside(srcDir, vault) || !fsx.Inside(dstDir, vault) || fsx.Within(dstDir, srcDir) || fsx.Within(srcDir, dstDir) {
-		return 0, 0, errors.New("move: both folders must be inside the vault, and apart")
+		return MoveResult{}, errors.New("move: both folders must be inside the vault, and apart")
 	}
 	var all []string
 	_ = filepath.WalkDir(srcDir, func(p string, d fs.DirEntry, err error) error {
@@ -69,7 +69,7 @@ func MoveTree(vault, srcDir, dstDir string, files []string, last string) (moved,
 		}
 		m := plan(f)
 		if _, err := os.Lstat(m.dst); err == nil {
-			return 0, 0, fmt.Errorf("move: destination exists: %s", m.dstRel)
+			return MoveResult{}, fmt.Errorf("move: destination exists: %s", m.dstRel)
 		}
 		if last != "" && f == filepath.Join(srcDir, last) {
 			final = &m
@@ -82,9 +82,11 @@ func MoveTree(vault, srcDir, dstDir string, files []string, last string) (moved,
 	}
 	if len(moves) == 0 {
 		fsx.RemoveEmptyDirs(srcDir)
-		return 0, 0, nil
+		return MoveResult{}, nil
 	}
 
+	changed := map[string]bool{}
+	defer func() { res.Changed = sortedKeys(changed) }()
 	forms := make([][]string, len(moves))
 	for i, m := range moves {
 		forms[i] = pathForms(m.srcRel)
@@ -105,7 +107,7 @@ func MoveTree(vault, srcDir, dstDir string, files []string, last string) (moved,
 			}
 			for i, mv := range moves {
 				if namesPath(t, forms[i]) {
-					rewritten++
+					res.Rewritten++
 					return m[1] + "[[" + linkPath(mv.dstRel) + m[3] + m[4] + "]]"
 				}
 			}
@@ -113,21 +115,22 @@ func MoveTree(vault, srcDir, dstDir string, files []string, last string) (moved,
 		})
 		if out != text {
 			if err := fsx.WriteFileAtomic(f, []byte(out), 0o644); err != nil {
-				return 0, rewritten, err
+				return res, err
 			}
+			changed[rel(f)] = true
 		}
 	}
 	for _, m := range moves {
 		if err := os.MkdirAll(filepath.Dir(m.dst), 0o755); err != nil {
-			return moved, rewritten, err
+			return res, err
 		}
 		if err := moveFile(m.src, m.dst); err != nil {
-			return moved, rewritten, err
+			return res, err
 		}
-		moved++
+		res.Moves = append(res.Moves, Moved{m.srcRel, m.dstRel})
 	}
 	fsx.RemoveEmptyDirs(srcDir)
-	return moved, rewritten, nil
+	return res, nil
 }
 
 // pendingMoves is the files (of all) whose new path an unresolved
