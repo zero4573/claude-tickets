@@ -123,11 +123,30 @@ ticket, wave N, slug, ticket worktree, range `<last-reviewed>..<head sha>` (firs
 note from graphify `get_neighbors` on the changed symbols (`git diff --stat <range>` for the
 files). It writes `reviews/wave-N-<slug>.md` and replies to the PO, who tells you it's done:
 read the file's summary and finding lines, add a `## Reviews` row, set `last-reviewed`.
+Every finding ends `resolved` or `deferred` in the file's `## Dispositions` (contract
+`review-disposition-v1`): you fill each line as you triage (7).
 
 ## 7. Fix and triage
 - Must-fixes become fix task files `<ID>-NN-wN-fixes-<repo>` (4–5); the next wave starts only
   when they are merged. Should-fix and consider items go into fix tasks or the backlog
   (`B-nn · w<N> · <repo> · <item> · <finding id>`).
+- **No review item stays open.** Fill every `## Dispositions` line of the review:
+  `<ID> · resolved · task NN (<merge sha>)` (or a commit sha) once a fix is merged;
+  `<ID> · resolved · kept: <reason ≤150 chars> (<sha if a comment or doc was added>)` for
+  dropped, intended or not-applicable items (the reason is mandatory);
+  `<ID> · deferred · [[<ticket>]] · <why>` when it goes to a follow-up ticket (filed with
+  `ct new`, or an existing one; add the item to that ticket's note). A backlog item is not an
+  end state: it stays `open` (here and in `backlog.md`) until fixed or deferred. Keep planning
+  fix waves until the gate prints nothing. The gate, from the vault root, for every review
+  of the ticket:
+```sh
+for f in tickets/<ID>/reviews/*.md; do
+  for id in $(rg -o '^- (W[0-9]+-[a-z0-9-]+-[MSC][0-9]+) · ' -r '$1' "$f" | sort -u); do
+    rg -q "^- $id · (resolved|deferred) · " "$f" || echo "$f: $id"
+  done
+done
+```
+  Each printed `<file>: <ID>` needs a fix task in the next wave, a `kept:` reason or a deferral.
 - At each wave start, triage `backlog.md` to ≤40 open items (drop, merge, or plan them) and move
   closed IDs to one `## Closed` line for the wave. Then plan the next wave's task files,
   including the `relay.md` entries that are `open` for you.
@@ -137,7 +156,7 @@ read the file's summary and finding lines, add a `## Reviews` row, set `last-rev
   yourself and record them in `plan.md ## Decisions`.
 
 ## 8. Hand-over
-When the last review has no open must-fix and no row is `planned`, `running`, `partial` or
+When the gate (7) prints nothing, the last review has no open must-fix and no row is `planned`, `running`, `partial` or
 `orphaned`: read `handover.md` (next to this file) and do it. Never run `/tickets:save` or push.
 
 ## Ticket types (they shape the plan, not the agents)

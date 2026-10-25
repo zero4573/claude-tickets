@@ -64,7 +64,7 @@ Each event gets one short action; never forward report bodies.
   in one message (agent type, `model` if given, the prompt verbatim plus `Lead: <id>`) and add
   it to `po:`; turn `Ask user:` into the gate (3); give the user `Status:` (5). `Next:`
   `wait-tasks` → wait for notices; `wait-user` → the gate; `rotate` → the lead has finished:
-  spawn a fresh one (1), never two at once; `handover-done` → set `lead: none`, tell the user
+  spawn a fresh one (1), never two at once; `handover-done` → first run the review-disposition gate from the vault root (the loop in the lead skill, section 7, over `tickets/<ID>/reviews/*.md`) and, if it prints IDs, wake the lead with them (fix tasks, `kept:` reasons or deferrals) instead of accepting; else set `lead: none`, tell the user
   the ticket is ready for review (`ct ws diff <ID>`, changes can be asked for here, then
   `/tickets:save`, `ct ws sign <ID>` on the host, push), and suggest a refresh (6).
 - **Lead messages `main` mid-run:** act on it like a block item.
