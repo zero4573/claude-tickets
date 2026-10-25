@@ -459,9 +459,13 @@ func ticketClaudeMD(ctx vault.Context, key, dir string) string {
 		"  `ct ws sign %[1]s`. Never push, rewrite pushed commits, reset\n"+
 		"  --hard, or remove the ticket worktrees; the lead adds and removes task\n"+
 		"  worktrees under `.tasks/`.\n"+
-		"- Workflow: the lead plans the ticket in waves of task agents, each in its\n"+
-		"  own task worktree and branch, merged into the ticket branch and reviewed\n"+
-		"  after each wave; `board.md` in the ticket folder tracks them.\n\n"+
+		"- Workflow: this session is the PO, the one the user talks to. It runs one\n"+
+		"  `tickets:lead` subagent, which plans the ticket in waves of task agents\n"+
+		"  (each in its own task worktree and branch, merged into the ticket branch\n"+
+		"  and reviewed after each wave), and spawns every agent the lead asks for.\n"+
+		"  Requests, questions and answers between the user, the PO and the lead go\n"+
+		"  through `relay.md`; `board.md` tracks the tasks. When the context is\n"+
+		"  heavy, `/tickets:po-refresh` checkpoints them and gives the `/compact` to run.\n\n"+
 		"Run `/tickets:work-ticket %[1]s` to (re)start the workflow (`ct start %[1]s`\n"+
 		"opens a new conversation, which resumes from `board.md`; `ct start\n"+
 		"--continue %[1]s` reopens the last one), and `/tickets:save` once the user\n"+

@@ -16,7 +16,10 @@ grep '^- Ticket: `MAN-1` \(source: `manual`\)$' home/Projects/work-a/MAN-1/CLAUD
 grep 'ct ws sign MAN-1' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^  --hard, or remove the ticket worktrees; the lead adds and removes task$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^  worktrees under `.tasks/`.$' home/Projects/work-a/MAN-1/CLAUDE.md
-grep '^- Workflow: the lead plans the ticket in waves of task agents' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^- Workflow: this session is the PO, the one the user talks to. It runs one$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^  .tickets:lead. subagent, which plans the ticket in waves of task agents$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep 'through .relay.md.; .board.md. tracks the tasks' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '/tickets:po-refresh. checkpoints them' home/Projects/work-a/MAN-1/CLAUDE.md
 grep 'board.md' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^Run `/tickets:work-ticket MAN-1` to \(re\)start the workflow \(`ct start MAN-1`$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^opens a new conversation, which resumes from `board.md`; `ct start$' home/Projects/work-a/MAN-1/CLAUDE.md
