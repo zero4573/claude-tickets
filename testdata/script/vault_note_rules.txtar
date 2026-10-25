@@ -1,0 +1,196 @@
+# ct vault note: write rules (workspace, protected parts, epic covers, no workspace, --save, vault lock)
+mkdir v/.obsidian v/inbox v/projects/acme v/raw v/tickets/PROJ-1 v/tickets/PROJ-2
+cp epic.md v/tickets/PROJ-1/PROJ-1.md
+cp child.md v/tickets/PROJ-2/PROJ-2.md
+cp scratch.md v/tickets/PROJ-1/scratch.md
+cp scratch.md v/projects/acme/a.md
+cp scratch.md v/inbox/i.md
+cp scratch.md v/raw/r.md
+env CLAUDE_TICKETS_VAULT=$WORK/v
+mkdir ws1/sub
+cp ws1.json ws1/workspace.json
+
+# a ticket workspace (PROJ-1, an epic covering PROJ-2): its own folder is writable
+cd ws1/sub
+exec ct vault note append scratch.md Log --file ../../add.txt
+stdout 'wrote tickets/PROJ-1/scratch.md'
+grep '^added$' ../../v/tickets/PROJ-1/scratch.md
+exec ct vault note frontmatter PROJ-1 status --set doing
+exec ct vault note set-section PROJ-1 Tasks --file ../../add.txt
+
+# other folders are refused (exit 3) and left alone
+! exec ct vault note append projects/acme/a.md Log --file ../../add.txt
+stderr 'ct vault note: refusing to write projects/acme/a.md: a ticket.s agents write only inside tickets/PROJ-1/ until /tickets:save \(AGENTS.md, "Who writes what" 3\); /tickets:save passes --save'
+exec sh ../../code.sh ct vault note append projects/acme/a.md Log --file ../../add.txt
+stdout '^code=3$'
+! grep '^added$' ../../v/projects/acme/a.md
+! exists ../../v/.vault.lock.d
+
+# protected fields and sections of the ticket note
+exec sh ../../code.sh ct vault note frontmatter PROJ-1 title --set Other
+stdout '^code=3$'
+exec sh ../../code.sh ct vault note frontmatter PROJ-1 source-url --set x
+stdout '^code=3$'
+exec sh ../../code.sh ct vault note frontmatter PROJ-1 covers --add '[[PROJ-9]]'
+stdout '^code=3$'
+! exec ct vault note set-section PROJ-1 Description --file ../../add.txt
+stderr 'refusing to write section "Epic > Description"'
+exec sh ../../code.sh ct vault note set-section PROJ-1 'Acceptance criteria' --file ../../add.txt
+stdout '^code=3$'
+exec sh ../../code.sh ct vault note append PROJ-1 'Context / links' --file ../../add.txt
+stdout '^code=3$'
+exec sh ../../code.sh ct vault note append PROJ-1 Description --create 2 --file ../../add.txt
+stdout '^code=3$'
+
+# the epic writes the work sections and status of the tickets it covers, nothing else
+exec ct vault note set-section PROJ-2 Tasks --file ../../add.txt
+exec ct vault note frontmatter PROJ-2 status --set doing
+grep '^status: doing$' ../../v/tickets/PROJ-2/PROJ-2.md
+exec sh ../../code.sh ct vault note set-section PROJ-2 Notes --file ../../add.txt
+stdout '^code=3$'
+exec sh ../../code.sh ct vault note frontmatter PROJ-2 title --set x
+stdout '^code=3$'
+exec sh ../../code.sh ct vault note frontmatter PROJ-2 tags --add x
+stdout '^code=3$'
+exec sh ../../code.sh ct vault note set-section PROJ-2 Description --file ../../add.txt
+stdout '^code=3$'
+cmp ../../v/tickets/PROJ-2/PROJ-2.md ../../child_after.md
+
+# a ticket that isn't an epic can't write its sibling
+cd $WORK
+mkdir ws2
+cp ws2.json ws2/workspace.json
+cd ws2
+exec sh ../code.sh ct vault note set-section PROJ-1 Tasks --file ../add.txt
+stdout '^code=3$'
+exec ct vault note set-section PROJ-2 Notes --file ../add.txt
+
+# no workspace: inbox only
+cd $WORK
+exec ct vault note append inbox/i.md Log --file add.txt
+exec sh code.sh ct vault note append projects/acme/a.md Log --file add.txt
+stdout '^code=3$'
+! exec ct vault note append projects/acme/a.md Log --file add.txt
+stderr 'only inside inbox/ until /tickets:save'
+exec sh code.sh ct vault note append scratch.md Log --file add.txt
+stdout '^code=3$'
+
+# --save: the shared notes, not raw/ or a ticket note's protected parts
+exec ct vault note append projects/acme/a.md Log --save --file add.txt
+grep '^added$' v/projects/acme/a.md
+exec sh code.sh ct vault note append raw/r.md Log --save --file add.txt
+stdout '^code=3$'
+exec sh code.sh ct vault note frontmatter PROJ-2 title --set x --save
+stdout '^code=3$'
+exec sh code.sh ct vault note set-section PROJ-2 Description --save --file add.txt
+stdout '^code=3$'
+exec ct vault note frontmatter PROJ-2 status --set done --save
+exec ct vault note frontmatter PROJ-2 tags --add t --save
+grep '^tags: \[t\]$' v/tickets/PROJ-2/PROJ-2.md
+
+# the vault lock: taken for a write and released; one already held by the same owner is used and kept
+! exists v/.vault.lock.d
+exec ct vault lock acquire v me
+exec ct vault note append inbox/i.md Log --owner me --file add.txt
+exec ct vault lock status v
+stdout '^locked by .me.$'
+exec ct vault lock release v me
+env CLAUDE_TICKETS_LOCK_OWNER=envowner
+exec ct vault lock acquire v envowner
+exec ct vault note append inbox/i.md Log --file add.txt
+exec ct vault lock status v
+stdout '^locked by .envowner.$'
+exec ct vault lock release v envowner
+! exists v/.vault.lock.d
+
+-- epic.md --
+---
+title: Epic
+ticket-type: epic
+covers: ["[[PROJ-2]]"]
+status: open
+---
+# Epic
+
+## Description
+
+d
+
+## Acceptance criteria
+
+ac
+
+## Context / links
+
+c
+
+## Tasks
+
+t
+-- child.md --
+---
+title: Child
+status: open
+---
+# Child
+
+## Description
+
+d
+
+## Acceptance criteria
+
+ac
+
+## Context / links
+
+c
+
+## Tasks
+
+t
+
+## Notes
+
+n
+-- child_after.md --
+---
+title: Child
+status: doing
+---
+# Child
+
+## Description
+
+d
+
+## Acceptance criteria
+
+ac
+
+## Context / links
+
+c
+
+## Tasks
+
+added
+
+## Notes
+
+n
+-- scratch.md --
+# Scratch
+
+## Log
+
+first
+-- add.txt --
+added
+-- ws1.json --
+{"id": "PROJ-1", "repos": []}
+-- ws2.json --
+{"id": "PROJ-2", "repos": []}
+-- code.sh --
+"$@" >/dev/null 2>&1
+echo "code=$?"

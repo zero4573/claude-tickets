@@ -1,0 +1,285 @@
+# ct vault note: outline, get, set-section, append, frontmatter (in an unrelated cwd: writes go to inbox/)
+mkdir v/.obsidian
+mkdir v/inbox
+mkdir v/projects
+cp n.md v/inbox/n.md
+cp other.md v/projects/n.md
+env CLAUDE_TICKETS_VAULT=$WORK/v
+
+# outline
+exec ct vault note outline inbox/n.md
+cmp stdout outline.txt
+exec ct vault note outline inbox/n.md --json
+stdout '"path":"inbox/n.md"'
+stdout '"frontmatter":\{"start_line":1,"end_line":8\}'
+stdout '"path":\["T","A","A1"\]'
+
+# resolution: bare name, ambiguous, missing
+! exec ct vault note outline n
+stderr 'ambiguous: inbox/n.md, projects/n.md'
+exec sh code.sh ct vault note outline n
+stdout '^code=2$'
+! exec ct vault note outline nope
+stderr 'not found'
+exec sh code.sh ct vault note outline nope
+stdout '^code=2$'
+exec ct vault note outline inbox/n.md --vault $WORK/v
+
+# get
+exec ct vault note get inbox/n.md A
+cmp stdout get_a.md
+exec ct vault note get inbox/n.md A --no-subsections
+cmp stdout get_a_nosub.md
+exec ct vault note get inbox/n.md 'A > A1'
+cmp stdout get_a1.md
+exec ct vault note get inbox/n.md
+cmp stdout n.md
+! exec ct vault note get inbox/n.md Zed
+stderr 'section not found'
+exec sh code.sh ct vault note get inbox/n.md Zed
+stdout '^code=2$'
+! exec ct vault note get inbox/n.md A --bogus
+exec sh code.sh ct vault note get inbox/n.md A --bogus
+stdout '^code=2$'
+
+# set-section: only up to the first subsection, then with subsections
+stdin new_a.txt
+exec ct vault note set-section inbox/n.md A
+stdout 'wrote inbox/n.md'
+cmp v/inbox/n.md after_set.md
+exec ct vault note set-section inbox/n.md A --with-subsections --file new_a.txt
+cmp v/inbox/n.md after_set_sub.md
+cp n.md v/inbox/n.md
+
+# append, and --create
+exec ct vault note append inbox/n.md B --file add.txt
+cmp v/inbox/n.md after_append.md
+! exec ct vault note append inbox/n.md C --file add.txt
+exec sh code.sh ct vault note append inbox/n.md C --file add.txt
+stdout '^code=2$'
+cp n.md v/inbox/n.md
+stdin add.txt
+exec ct vault note append inbox/n.md C --create 2
+cmp v/inbox/n.md after_create.md
+cp n.md v/inbox/n.md
+
+# frontmatter
+exec ct vault note frontmatter inbox/n.md
+cmp stdout fm.txt
+exec ct vault note frontmatter inbox/n.md tags
+stdout '^\[a, b\]$'
+exec ct vault note frontmatter inbox/n.md status --json
+stdout '^\{"status":"open"\}$'
+exec ct vault note frontmatter inbox/n.md --json
+stdout '"tags":\["a","b"\]'
+stdout '"list":\["x","y"\]'
+! exec ct vault note frontmatter inbox/n.md nope
+exec sh code.sh ct vault note frontmatter inbox/n.md nope
+stdout '^code=2$'
+exec ct vault note frontmatter inbox/n.md status --set done
+exec ct vault note frontmatter inbox/n.md tags --add c
+exec ct vault note frontmatter inbox/n.md tags --remove a
+exec ct vault note frontmatter inbox/n.md list --add z
+exec ct vault note frontmatter inbox/n.md list --remove x
+exec ct vault note frontmatter inbox/n.md ticket --set '[[PROJ-1]]'
+cmp v/inbox/n.md after_fm.md
+! exec ct vault note frontmatter inbox/n.md tags --set x --add y
+exec sh code.sh ct vault note frontmatter inbox/n.md tags --set x --add y
+stdout '^code=2$'
+exec ct vault note frontmatter inbox/n.md tags --add c
+stdout 'unchanged inbox/n.md'
+! exists v/.vault.lock.d
+
+-- n.md --
+---
+title: T
+tags: [a, b]
+list:
+  - x
+  - y
+status: open
+---
+# T
+
+intro
+
+## A
+
+a body
+
+### A1
+
+sub
+
+## B
+
+b body
+-- other.md --
+# other
+-- outline.txt --
+1-8  frontmatter
+9-23  # T  (~13 tok)
+13-20  ## A  (~7 tok)
+17-20  ### A1  (~4 tok)
+21-23  ## B  (~4 tok)
+-- get_a.md --
+## A
+
+a body
+
+### A1
+
+sub
+
+-- get_a_nosub.md --
+## A
+
+a body
+
+-- get_a1.md --
+### A1
+
+sub
+
+-- new_a.txt --
+new text
+
+more
+-- after_set.md --
+---
+title: T
+tags: [a, b]
+list:
+  - x
+  - y
+status: open
+---
+# T
+
+intro
+
+## A
+
+new text
+
+more
+
+### A1
+
+sub
+
+## B
+
+b body
+-- after_set_sub.md --
+---
+title: T
+tags: [a, b]
+list:
+  - x
+  - y
+status: open
+---
+# T
+
+intro
+
+## A
+
+new text
+
+more
+
+## B
+
+b body
+-- add.txt --
+appended
+-- after_append.md --
+---
+title: T
+tags: [a, b]
+list:
+  - x
+  - y
+status: open
+---
+# T
+
+intro
+
+## A
+
+a body
+
+### A1
+
+sub
+
+## B
+
+b body
+appended
+-- after_create.md --
+---
+title: T
+tags: [a, b]
+list:
+  - x
+  - y
+status: open
+---
+# T
+
+intro
+
+## A
+
+a body
+
+### A1
+
+sub
+
+## B
+
+b body
+
+## C
+
+appended
+-- fm.txt --
+title: T
+tags: [a, b]
+list:
+  - x
+  - y
+status: open
+-- after_fm.md --
+---
+title: T
+tags: [b, c]
+list:
+  - y
+  - z
+status: done
+ticket: "[[PROJ-1]]"
+---
+# T
+
+intro
+
+## A
+
+a body
+
+### A1
+
+sub
+
+## B
+
+b body
+-- code.sh --
+"$@" >/dev/null 2>&1
+echo "code=$?"
