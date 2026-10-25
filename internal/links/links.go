@@ -616,8 +616,10 @@ func moveFile(src, dst string) error {
 }
 
 // writeNote rewrites a linking note in place: through a symlink (the target
-// is rewritten, the link stays) and keeping the file's mode. It is a var as
-// a test seam.
+// is rewritten, the link stays, as os.WriteFile did, also when it points
+// outside the vault) and keeping the file's mode. Callers only pass notes
+// they just read, so a dangling link never gets here. The atomic rename
+// replaces the inode: hard links and ownership are not kept. A var: test seam.
 var writeNote = func(f string, data []byte) error {
 	target, err := filepath.EvalSymlinks(f)
 	if err != nil {
@@ -632,7 +634,7 @@ var writeNote = func(f string, data []byte) error {
 
 // WrapWriteNoteForTest wraps the note writer (wrap gets the current one) and
 // returns the restore func. For tests in other packages that need a write to
-// fail where chmod can't (root).
+// fail where chmod can't (root). Test only: not for production code.
 func WrapWriteNoteForTest(wrap func(next func(f string, data []byte) error) func(f string, data []byte) error) (restore func()) {
 	old := writeNote
 	writeNote = wrap(old)

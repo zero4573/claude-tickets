@@ -2,11 +2,12 @@ package cli
 
 import (
 	"errors"
-	"github.com/zero4573/claude-tickets/internal/links"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/zero4573/claude-tickets/internal/links"
 )
 
 func linksMoveVault(t *testing.T) string {
