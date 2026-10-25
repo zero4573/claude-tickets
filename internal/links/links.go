@@ -559,8 +559,7 @@ func Move(vault, src, dst string) (res MoveResult, err error) {
 			return m[0]
 		})
 		if out != text {
-			st, _ := os.Stat(f)
-			if err := os.WriteFile(f, []byte(out), st.Mode().Perm()); err != nil {
+			if err := fsx.WriteFileAtomic(f, []byte(out), 0o644); err != nil {
 				return res, err
 			}
 			rf, _ := filepath.Rel(vault, f)

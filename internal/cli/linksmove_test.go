@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 )
 
@@ -61,5 +63,42 @@ func TestLinksMoveRefusedDoesNotRefresh(t *testing.T) {
 	}
 	if len(calls) != 0 {
 		t.Fatalf("refused moves refreshed the index: %v", calls)
+	}
+}
+
+func TestLinksMoveWriteErrorStillRefreshes(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("permissions not enforced")
+	}
+	v := linksMoveVault(t)
+	for rel, body := range map[string]string{"a/ok.md": "[[inbox/a]]\n", "z/ro/stuck.md": "[[inbox/a]]\n"} {
+		p := filepath.Join(v, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ro := filepath.Join(v, "z/ro")
+	if err := os.Chmod(ro, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(ro, 0o755)
+	old := refreshIndex
+	var calls [][]string
+	refreshIndex = func(_ string, paths ...string) { calls = append(calls, paths) }
+	defer func() { refreshIndex = old }()
+	cmd := vaultLinksCmd()
+	cmd.SetArgs([]string{"move", v, "inbox/a.md", "notes/a2.md"})
+	cmd.SilenceUsage, cmd.SilenceErrors = true, true
+	err := cmd.Execute()
+	var ce codeError
+	if !errors.As(err, &ce) || ce.code != 2 {
+		t.Fatalf("err = %v, want exit 2", err)
+	}
+	want := [][]string{{"inbox/a.md", "notes/a2.md", "a/ok.md", "notes/b.md"}}
+	if !reflect.DeepEqual(calls, want) {
+		t.Fatalf("refresh calls = %v, want %v", calls, want)
 	}
 }
