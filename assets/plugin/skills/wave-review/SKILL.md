@@ -14,8 +14,8 @@ fix-task IDs, the previous review file (if any), and a ≤5-line graph impact no
 1. `git -C <worktree> log --oneline --merges <range>`: the wave's merges.
 2. `git -C <worktree> diff --stat <range>`: only these files are in scope.
 3. Vault decisions the diff touches: `ct vault search "<topic>" --project <slug> --budget 1500`.
-   Previous findings: read the previous review's `## Dispositions`; any ID not
-   `resolved` or `deferred` is still open (`rg -n '^- W[0-9]+-.* · open' <prev review>`). Check
+   Previous findings: read the previous review's `## Dispositions`; any ID whose line says `open` or `fixing`
+   is still open (`rg -n '^- \[.\] W[0-9]+-.* · (open|fixing)' <prev review>`). Check
    those against the fix tasks the lead named. Don't re-review unchanged code.
 4. Read by hunk (`git diff <range> -- <file>`); open full files only where a hunk needs
    context. Find callers with the fff tools (`mcp__fff__grep`, `mcp__fff__multi_grep`) when
@@ -40,11 +40,11 @@ files. Then:
   (`<repo>` is the slug's repo part, e.g. `W2-billing-service-M01`);
 - "keep as pattern" ≤5 bullets;
 - previous findings: one line listing resolved and still-open IDs;
-- `## Dispositions` (last section): one line `- <ID> · open` for every finding ID you wrote
+- `## Dispositions` (last section): one line `- [ ] <ID> · open` for every finding ID you wrote
   in must-fix, should-fix and consider (the ID exactly as in the finding). The lead replaces
-  `open` with `resolved · <how>` or `deferred · [[<ticket>]] · <why>`; you never do, and you never file tickets.
+  the box and word (`[x] resolved`, `[-] kept`, `[x] deferred`, `[/] fixing`); you never do, and you never file tickets.
 Must-fix means data loss, security, a broken contract, or a blocker for the next wave.
-Everything else is should-fix or consider. Plain bullets only, no `- [ ]` checkboxes.
+Everything else is should-fix or consider. Findings are plain bullets; only the Dispositions lines are checklist lines.
 
 Reply in ≤15 lines: the counts, the must-fix one-liners, the file path. The reply goes to
 your spawner, the PO, which tells the lead; the lead reads the review file.

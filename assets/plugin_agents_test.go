@@ -171,8 +171,12 @@ func TestWaveSkillsReferences(t *testing.T) {
 	}
 	for _, tpl := range []string{"plan", "board", "task", "review", "backlog"} {
 		data, _ := fs.ReadFile(Scaffold, "vault-scaffold/templates/"+tpl+".md")
-		if strings.Contains(string(data), "- [ ]") {
-			t.Errorf("template %s.md has a checkbox (pending.md would list it)", tpl)
+		// Only board, review and backlog carry checklist lines (vault-checklists-v1).
+		checkable := tpl == "board" || tpl == "review" || tpl == "backlog"
+		for _, line := range strings.Split(string(data), "\n") {
+			if !checkable && strings.HasPrefix(strings.TrimSpace(line), "- [") {
+				t.Errorf("template %s.md has a checkbox: %q", tpl, line)
+			}
 		}
 		if !strings.Contains(string(data), "type: "+tpl+"\n") {
 			t.Errorf("template %s.md: no type: %s", tpl, tpl)
@@ -355,7 +359,7 @@ func TestAdaptedSkills(t *testing.T) {
 		t.Error("task-agent: doesn't load the skills its task file lists")
 	}
 	handover := read("plugin/skills/lead/handover.md")
-	for _, s := range []string{"`/tickets:retro`", "**at most 8**", "B-nn · retro"} {
+	for _, s := range []string{"`/tickets:retro`", "**at most 8**", "retro: <change>"} {
 		if !strings.Contains(handover, s) {
 			t.Errorf("handover: missing %q", s)
 		}
@@ -439,5 +443,35 @@ func TestScaffoldForPOAndTeach(t *testing.T) {
 		if !strings.Contains(agents, s) {
 			t.Errorf("vault AGENTS.md: missing %q", s)
 		}
+	}
+}
+
+// No line inside a template's HTML comment starts with `- [`: the Tasks plugin
+// would list it as a task (vault-checklists-v1). Examples go in backticks.
+func TestTemplateCommentsHaveNoCheckboxLines(t *testing.T) {
+	err := fs.WalkDir(Scaffold, "vault-scaffold/templates", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		data, err := fs.ReadFile(Scaffold, p)
+		if err != nil {
+			return err
+		}
+		inComment := false
+		for i, line := range strings.Split(string(data), "\n") {
+			if strings.Contains(line, "<!--") {
+				inComment = true
+			}
+			if inComment && strings.HasPrefix(strings.TrimSpace(line), "- [") {
+				t.Errorf("%s:%d: comment line starts with a checkbox: %q", p, i+1, line)
+			}
+			if strings.Contains(line, "-->") {
+				inComment = false
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

@@ -1,13 +1,13 @@
 # lead: hand-over
 
 Read by the lead (the `tickets:lead` agent) when the review-disposition gate (`SKILL.md` 7)
-prints nothing and the board has no `planned`, `running`, `partial` or `orphaned` row.
+prints nothing and the board has no `planned`, `running`, `partial` or `orphaned` line.
 Ends with the ticket at `status: review` and `Next: handover-done`. Never run `/tickets:save`, sign or push.
 
 ## 0. Disposition gate (precondition)
 Run the gate of `SKILL.md` section 7 from the vault root (including its `no Dispositions`
-line): its output must be empty. If it prints anything, go back to planning fix waves
-(or `kept:`/deferral dispositions); never hand over with an `open` finding.
+line and the open-line and `#deferred` checks): its output must be empty. If it prints anything, go back to planning fix waves
+(or `kept:`/deferral dispositions); never hand over with an `open` or `fixing` finding.
 
 ## 1. Workspace clean
 In one chain per repo:
@@ -18,12 +18,12 @@ ticket ID). A task worktree or branch you couldn't remove stays on the board as
 `pending — user`, with the exact command in `## Review`.
 
 ## 2. Retro (short; the method of the user-invoked `/tickets:retro`)
-Over the board rows, the reviews' `## Summary` and finding lines, and the task reports
+Over the board lines, the reviews' `## Summary` and finding lines, and the task reports
 (`rg -n -A12 '^## Report' tickets/<ID>/tasks/`), find what would have made this ticket's agents
 faster or safer: navigation pointers, missing or unwired automated checks, reviewer rules
 (mechanical violations get a check instead), `AGENTS.md` no-ops and bloat, tool economy,
 information access. Add **at most 8**, most severe first, to `backlog.md ## Open` as
-`B-nn · retro · <repo|plugin|vault> · <change> (<evidence: task NN, finding id>)`. They go
+`- [ ] B-nn · w<N> · <repo|plugin|vault> · retro: <change> (<evidence: task NN, finding id>) ➕ <date>`. They go
 into the per-item follow-up question (3) with the rest of the backlog.
 
 ## 3. Backlog → follow-up tickets
@@ -42,7 +42,7 @@ into the per-item follow-up question (3) with the rest of the backlog.
    For answer C, add the item to that ticket's note.
 3. Check that each `deferred` disposition line's ticket exists and lists the item (the lead
    filed it during triage after the user's answer, `SKILL.md` 7); fix any that doesn't.
-4. Move the items sent to tickets to `## Closed` with the ticket IDs; the rest stays open.
+4. Close the items sent to tickets: change each line in `backlog.md` to `- [x] B-nn · … · deferred → [[<ticket>]] #deferred ✅ <date>` and move it under `## Closed` (`### w<N>`); a dropped one is `- [-] … · dropped: <reason> ❌ <date>`; the rest stays `[ ]` in `## Open`.
 
 ## 4. kb-drafts
 Make sure `tickets/<ID>/kb-drafts/` is complete, each note with a `target:` field:
@@ -60,7 +60,7 @@ Make sure `tickets/<ID>/kb-drafts/` is complete, each note with a `target:` fiel
 - the waves and their reviews: counts, and any must-fix left open with its reason;
 - tests added and run, with results;
 - open `## Follow-ups` (blockers still waiting on someone) and the new tickets filed after the user's answers (B);
-- remaining risks, and the board's `pending — user` rows: what the user checks by hand.
+- remaining risks, and the board's `pending — user` lines: what the user checks by hand.
 
 ## 6. Finish
 1. Set `status: review` (and on each covered ticket whose part is done). Mark the
