@@ -26,7 +26,7 @@ ROOT
 │       ├── contracts/     #     <name>-v<N>.md: exact shapes that tasks share
 │       ├── reviews/       #     wave-N-<slug>.md: one capped review per wave and repo, ending in `## Dispositions`
 │       └── kb-drafts/, logs/, investigation.md, pr-feedback.md, PROJ-12-questionnaire-<slug>.md
-├── learning/<topic>/      # one folder per topic you learn (ct teach; see "Learning topics")
+├── learning/<topic>/      # one folder per topic you learn (ct teach; see "Learning topics and finding context")
 ├── inbox/                 # knowledge drafts from non-ticket sessions (promoted by /tickets:save),
 │                          #   and follow-up notes (type: follow-ups) unattended commands leave for you
 ├── knowledge-base/, references/, logs/, archive/ # findings, reference material, global logs, ct clean's leavings (never edit)
@@ -108,8 +108,8 @@ and the hooks. A ticket runs as a **PO** session (`/tickets:work-ticket <ID>`, t
 to) with one **lead** agent that plans and merges in waves of task agents, each wave reviewed;
 state lives in `tickets/<ID>/`. How it works (kickoff, plan, contracts, waves, review,
 hand-over, `relay.md`, the agents), the dependency fields, lead tickets and the status
-lifecycle: `skills/work-ticket/workflow.md` in the plugin, and the skills `work-ticket`, `lead`,
-`task-agent` and `wave-review`. Session commands: `/tickets:save` (session log, promotes drafts,
+lifecycle: `work-ticket/workflow.md`, "Workflow" X `work-ticket`, `lead`, `task-agent` and `wave-review`. The skills ship with the
+plugin, not in the vault; in a session they run as `/tickets:<skill>` (e.g. `/tickets:work-ticket`). Session commands: `/tickets:save` (session log, promotes drafts,
 appends the summary), `/tickets:recall` (read-only recap), `/tickets:kb` (answers from the vault,
 drafts into `inbox/`) and `/tickets:teach` (learning topics).
 Paths: `workRoot` (in `.workflow.json`) holds the ticket workspaces `<workRoot>/<ID>`, `projectsRoot` the

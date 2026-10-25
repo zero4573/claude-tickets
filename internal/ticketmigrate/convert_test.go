@@ -291,3 +291,23 @@ func TestConvertBoardSkipsFencesAndComments(t *testing.T) {
 		t.Errorf("table after a fence not converted:\n%s", c.Data)
 	}
 }
+
+// W7-claude-tickets-C02: a fence closes only with its own character and
+// length; one open at EOF is a warning.
+func TestConvertBoardFences(t *testing.T) {
+	tbl := "| ID | Task | Repo | Wave | Deps | Status | Note |\n|---|---|---|---|---|---|---|\n| 01 | a | r | 1 | - | planned | - |\n"
+	// a ``` fence "closed" by ~~~ stays open: the table is not converted, with a warning
+	c := ConvertBoard([]byte("# B\n```\n~~~\n" + tbl))
+	if c.Changed || len(c.Warnings) != 1 || c.Warnings[0].Line != 2 {
+		t.Fatalf("%+v", c)
+	}
+	// a longer closing fence closes; a shorter one doesn't
+	c = ConvertBoard([]byte("# B\n````\n```\n" + tbl + "`````\n" + tbl))
+	if len(c.Warnings) != 0 || !c.Changed || strings.Count(string(c.Data), "- [ ] 01") != 1 {
+		t.Fatalf("%+v\n%s", c, c.Data)
+	}
+	c = ConvertBoard([]byte("# B\n~~~\n" + tbl + "~~~\n" + tbl))
+	if len(c.Warnings) != 0 || strings.Count(string(c.Data), "- [ ] 01") != 1 {
+		t.Fatalf("%+v\n%s", c, c.Data)
+	}
+}

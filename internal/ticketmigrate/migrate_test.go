@@ -235,7 +235,7 @@ func TestMigrateStatusWriteFailureIsAWarning(t *testing.T) {
 	}
 	warned := false
 	for _, w := range res.Warnings {
-		if strings.Contains(w, "A-1-status.md") && strings.Contains(w, "not written") {
+		if strings.Contains(w, "A-1-status.md") && strings.Contains(w, "not written") && strings.Contains(w, "run it again to add it") {
 			warned = true
 		}
 	}
