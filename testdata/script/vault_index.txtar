@@ -1,0 +1,117 @@
+# ct vault index: first build, incremental runs, deletes, --full, the
+# keyword-only index and its one-time hint, a model change, a damaged index.
+mkdir home/Documents/Obsidian/v/.obsidian
+mkdir home/Documents/Obsidian/v/projects/acme
+mkdir home/Documents/Obsidian/v/raw
+mkdir home/Documents/Obsidian/v/archive
+mkdir home/Documents/Obsidian/v/templates
+cp acme.md home/Documents/Obsidian/v/projects/acme/acme.md
+cp other.md home/Documents/Obsidian/v/other.md
+cp other.md home/Documents/Obsidian/v/raw/skip.md
+cp other.md home/Documents/Obsidian/v/archive/skip.md
+cp other.md home/Documents/Obsidian/v/templates/skip.md
+cp other.md home/Documents/Obsidian/v/.obsidian/skip.md
+
+env CLAUDE_TICKETS_EMBEDDER=stub
+
+# First build: skipped folders are not indexed.
+exec ct vault index
+stdout '^indexed 2 notes: 2 changed, 0 removed, 3 chunks embedded \(stub\) in [0-9.]+s$'
+exists home/Documents/Obsidian/v/.ct/.gitignore
+exists home/Documents/Obsidian/v/.ct/index/meta.json
+exists home/Documents/Obsidian/v/.ct/index/notes.jsonl
+exists home/Documents/Obsidian/v/.ct/index/chunks.jsonl
+exists home/Documents/Obsidian/v/.ct/index/vectors.f32
+grep '"format":1,"model":"stub"' home/Documents/Obsidian/v/.ct/index/meta.json
+grep '"dims":64' home/Documents/Obsidian/v/.ct/index/meta.json
+grep '"notes":2,"chunks":3' home/Documents/Obsidian/v/.ct/index/meta.json
+grep '"path":"projects/acme/acme.md","name":"acme"' home/Documents/Obsidian/v/.ct/index/notes.jsonl
+grep '"links":\["other"\]' home/Documents/Obsidian/v/.ct/index/notes.jsonl
+! grep 'skip' home/Documents/Obsidian/v/.ct/index/notes.jsonl
+
+# Nothing changed: nothing embedded.
+exec ct vault index
+stdout '0 changed, 0 removed, 0 chunks embedded'
+exec ct vault index --json
+stdout '"changed":0,"chunks":3,"embedded":0,"keyword_only":false,"model":"stub","notes":2,"removed":0'
+
+# Edit one note: only its changed chunk is embedded.
+cp acme2.md home/Documents/Obsidian/v/projects/acme/acme.md
+exec ct vault index
+stdout '2 notes: 1 changed, 0 removed, 1 chunks embedded'
+
+# Rewriting a note with the same content changes nothing.
+cp acme2.md home/Documents/Obsidian/v/projects/acme/acme.md
+exec ct vault index
+stdout ' 0 changed'
+stdout '0 chunks embedded'
+
+# Delete a note.
+rm home/Documents/Obsidian/v/other.md
+exec ct vault index
+stdout '1 notes: 0 changed, 1 removed'
+
+# --full re-embeds everything.
+exec ct vault index --full
+stdout '2 chunks embedded'
+
+# A vault named on the command line; bad flags are usage errors.
+exec ct vault index v --chunk-tokens 128
+stdout '2 chunks embedded'
+! exec ct vault index --no-such-flag
+stderr 'unknown flag'
+
+# No model: keyword-only index, the hint once.
+env CLAUDE_TICKETS_EMBEDDER=none
+exec ct vault index
+stdout 'keyword only'
+stderr '^ct: no embedding model, keyword search only; on the host run: ct vault model fetch$'
+grep '"model":"","model_sha256":"","dims":0' home/Documents/Obsidian/v/.ct/index/meta.json
+! exists home/Documents/Obsidian/v/.ct/index/vectors.f32
+exec ct vault index
+! stderr 'no embedding model'
+exec ct vault index --json
+stdout '"keyword_only":true'
+
+# The model comes back: full rebuild with vectors.
+env CLAUDE_TICKETS_EMBEDDER=stub
+exec ct vault index
+stdout '2 chunks embedded \(stub\)'
+exists home/Documents/Obsidian/v/.ct/index/vectors.f32
+
+# A damaged meta.json is rebuilt.
+cp broken.json home/Documents/Obsidian/v/.ct/index/meta.json
+exec ct vault index
+stdout '2 chunks embedded'
+grep '"format":1' home/Documents/Obsidian/v/.ct/index/meta.json
+
+-- acme.md --
+---
+type: project
+tags: [a]
+---
+# Acme
+
+See [[other]] for more.
+
+## Details
+
+The first details.
+-- acme2.md --
+---
+type: project
+tags: [a]
+---
+# Acme
+
+See [[other]] for more.
+
+## Details
+
+The edited details.
+-- other.md --
+# Other
+
+Some other text.
+-- broken.json --
+{"format":

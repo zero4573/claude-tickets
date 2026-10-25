@@ -179,3 +179,30 @@ func TestCoverage(t *testing.T) {
 	cs := Split([]byte(src), Options{})
 	checkSpans(t, src, cs)
 }
+
+func TestSplitLongLine(t *testing.T) {
+	line := strings.Repeat("word ", 400) // 2000 bytes, one line
+	src := []byte("# T\n\n" + line + "\n")
+	got := Split(src, Options{MaxTokens: 100})
+	if len(got) < 5 {
+		t.Fatalf("want a split into several chunks, got %d", len(got))
+	}
+	for _, c := range got {
+		if c.Tokens > 100 {
+			t.Fatalf("chunk over max: %d tokens", c.Tokens)
+		}
+		if strings.HasPrefix(c.Text, "ord") || strings.HasSuffix(c.Text, "wor") {
+			t.Fatalf("word cut: %q", c.Text)
+		}
+		if string(src[c.Start:c.End]) != strings.TrimRight(c.Text, " ") && !strings.Contains(string(src[c.Start:c.End]), strings.Fields(c.Text)[0]) {
+			t.Fatalf("span does not match text")
+		}
+	}
+	// A single word longer than max is cut.
+	got = Split([]byte("# T\n\n"+strings.Repeat("x", 1000)+"\n"), Options{MaxTokens: 50})
+	for _, c := range got {
+		if c.Tokens > 50 {
+			t.Fatalf("long word chunk over max: %d", c.Tokens)
+		}
+	}
+}

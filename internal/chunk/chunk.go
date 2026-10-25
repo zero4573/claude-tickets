@@ -6,6 +6,7 @@ package chunk
 import (
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/zero4573/claude-tickets/internal/mdsec"
 )
@@ -31,6 +32,7 @@ func Tokens(s string) int { return (len(s) + 3) / 4 }
 type ln struct {
 	start, end int    // raw byte span of the line, without newline (and without a trailing \r)
 	text       string // cleaned text
+	exact      bool   // text is the raw bytes of the span (no comment stripped, no trailing blanks)
 }
 
 type unit struct {
@@ -123,7 +125,7 @@ func units(src []byte, body mdsec.Span) []unit {
 			raw = raw[:len(raw)-1]
 			end--
 		}
-		l := ln{start: pos, end: end, text: raw}
+		l := ln{start: pos, end: end, text: raw, exact: true}
 		pos = next
 		if fn > 0 {
 			code = append(code, l)
@@ -143,6 +145,7 @@ func units(src []byte, body mdsec.Span) []unit {
 		}
 		l.text, inComment = stripComments(raw, inComment)
 		l.text = cleanLine(l.text)
+		l.exact = l.text == raw
 		if strings.TrimSpace(l.text) == "" {
 			flush()
 			continue
@@ -180,6 +183,8 @@ func stripComments(s string, in bool) (string, bool) {
 	}
 }
 
+// The fence helpers below duplicate the fence rules of internal/mdsec (which
+// owns them; this package keeps its own copy): keep both in step.
 func fenceOpen(s string) (byte, int, bool) {
 	t := strings.TrimLeft(s, " \t")
 	if len(t) < 3 || (t[0] != '`' && t[0] != '~') {
@@ -251,7 +256,11 @@ func pieces(u unit, max int) []unit {
 		}
 		var cur []ln
 		size := 0
-		for _, l := range p { // by lines, packed up to max
+		var plines []ln
+		for _, l := range p {
+			plines = append(plines, splitLine(l, max)...)
+		}
+		for _, l := range plines { // by lines, packed up to max
 			add := Tokens(l.text) + 1
 			if len(cur) > 0 && size+add > max {
 				out = append(out, unit{lns: cur, fence: u.fence})
@@ -296,4 +305,44 @@ func pack(us []unit, max int) [][]unit {
 		groups = append(groups, cur)
 	}
 	return groups
+}
+
+// splitLine breaks a line over max tokens at word boundaries (a word longer
+// than max is cut at a rune boundary). The parts keep exact byte spans when
+// the line's text is its raw bytes, else the whole line's span.
+func splitLine(l ln, max int) []ln {
+	if Tokens(l.text) <= max {
+		return []ln{l}
+	}
+	limit := max * 4
+	var out []ln
+	text := l.text
+	off := 0 // offset in the line text
+	emit := func(from, to int) {
+		part := ln{start: l.start, end: l.end, text: text[from:to]}
+		if l.exact {
+			part.start, part.end, part.exact = l.start+from, l.start+to, true
+		}
+		out = append(out, part)
+	}
+	for off < len(text) {
+		if len(text)-off <= limit {
+			emit(off, len(text))
+			break
+		}
+		cut := off + limit
+		if i := strings.LastIndexAny(text[off:cut+1], " \t"); i > 0 {
+			cut = off + i
+		} else {
+			for cut > off && !utf8.RuneStart(text[cut]) {
+				cut--
+			}
+		}
+		emit(off, cut)
+		off = cut
+		for off < len(text) && (text[off] == ' ' || text[off] == '\t') {
+			off++
+		}
+	}
+	return out
 }
