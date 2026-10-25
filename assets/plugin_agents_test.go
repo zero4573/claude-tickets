@@ -392,7 +392,7 @@ func TestScaffoldForPOAndTeach(t *testing.T) {
 		t.Error("relay template: ## Closed must come before ## Open (the PO tails Open)")
 	}
 	for _, s := range []string{"type: relay\n", `ticket: "[[TICKET-ID]]"`, "≤30", "≤40",
-		"<request|feature|feedback|question|answer|decision>", "<open|planned|answered>"} {
+		"<request|feature|feedback|question|answer|decision>", "<open|planned|answered|copied>", "`copied`"} {
 		if !strings.Contains(relay, s) {
 			t.Errorf("relay template: missing %q", s)
 		}
@@ -400,7 +400,7 @@ func TestScaffoldForPOAndTeach(t *testing.T) {
 	if strings.Contains(relay, "- [ ]") {
 		t.Error("relay template has a checkbox")
 	}
-	for _, s := range []string{"\nlead: none\n", "\nlead-since: \"\"\n", "\npo:\n  last-refresh: \"\"\n  exchanges-since: 0\n  analyst-since: 0\n  agents: []\n"} {
+	for _, s := range []string{"\nlead: none\n", "\nlead-since: \"\"\n", "\npo:\n  session: \"\"\n  last-refresh: \"\"\n  exchanges-since: 0\n  analyst-since: 0\n  agents: []\n"} {
 		if !strings.Contains(tpl("board"), s) {
 			t.Errorf("board template: missing %q", s)
 		}

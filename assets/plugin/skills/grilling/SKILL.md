@@ -28,12 +28,13 @@ depend on that fact wait. **Decisions are the user's**: never settle one silentl
 ask the user to confirm it (AskUserQuestion: confirm / adjust). Don't act before they confirm.
 
 ## In a ticket (the PO, or `/tickets:grill`)
-- Each settled decision: one `relay.md` line,
-  `R-nn · <date> · user→lead · decision · Qn: <decision> · open` (no `relay.md` yet: create it
-  from the `relay` template; ids and caps as in the PO playbook, "relay.md"). The first decision of a ticket's first grill starts with
-  `Brief: <what is being built and why, ≤120 chars>;`.
+- Once the user confirms, append `relay.md` lines (the PO creates the file at kickoff; ids and
+  caps as in the PO playbook, "relay.md"), each `R-nn · <date> · user→lead · decision · <text> · open`:
+  on a ticket's first grill, first the brief, `Brief: <the confirmed summary of scope and
+  decisions, ≤5 lines' worth on this one line, sentences split by semicolons>`; then one per
+  settled decision, `Qn: <decision>`.
 - The note's `## Questions`: `- **yyyy-MM-dd** (grill) Qn <question>` with
   `  - **Answer:** <answer>` under it; a skip is recorded as `skipped; assumed <…>`.
-- The lead copies them into `plan.md ## Decisions` and sets them `planned`.
+- The lead copies the brief into `plan.md ## Scope`, the rest into `## Decisions`; all `copied`.
 
 Adapted from mattpocock/skills (MIT); see THIRD_PARTY_NOTICES.md.

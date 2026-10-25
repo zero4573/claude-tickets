@@ -15,9 +15,10 @@ in full. State lives in `tickets/<ID>/` (layout and caps: the vault's `AGENTS.md
 
 ## Ground rules
 - In the vault, write only inside `tickets/<ID>/`; shared notes are `/tickets:save`'s. You
-  write the note's `## Questions`, `relay.md`, and `board.md`'s frontmatter `lead:`,
-  `lead-since:` and `po:` (with `sed -i` on those lines only); the kickoff also writes
-  `## Workspace`, `projects:`, `ticket-type` and the kickoff line. The lead writes the rest.
+  write the note's `## Questions` and `status` (the gate's; the lead sets it as it plans),
+  `relay.md`, `board.md`'s frontmatter `lead:`, `lead-since:` and `po:` (with `sed -i` on those
+  lines only) and its `orphaned` marks (0); the kickoff also writes `## Workspace`, `projects:`,
+  `ticket-type`, the kickoff line and the first `relay.md`/`board.md`. The lead writes the rest.
 - In the ticket note, never touch the identity and source fields (`source`, `source-*`), the
   `ignore*` fields, or the ticket's content (the `<!-- source:start -->` block of a synced
   ticket; `## Description`, `## Acceptance criteria`, `## Context / links` of a manual one).
@@ -29,25 +30,31 @@ in full. State lives in `tickets/<ID>/` (layout and caps: the vault's `AGENTS.md
 - **At most one lead.** Never `general-purpose` agents. Run every agent in the background.
 
 ## 0. Resume (always first; ≤3 calls)
-1. `sed -n '2,/^---$/p' tickets/<ID>/board.md; rg -n '^\|' tickets/<ID>/board.md` (frontmatter
-   `lead:`, `lead-since:`, `po:` and the rows)
-2. `tail -n 32 tickets/<ID>/relay.md` (`## Open` is last)
-3. `rg -n '^(status|ticket-type):|^## Workspace' -A3 tickets/<ID>/<ID>.md`
+`<vault>` is the absolute vault path from `CLAUDE.md`; your cwd is `~/work/<ID>`.
+1. `sed -n '2,/^---$/p' <vault>/tickets/<ID>/board.md; rg -n '^\|' <vault>/tickets/<ID>/board.md`
+   (frontmatter `lead:`, `lead-since:`, `po:` and the rows)
+2. `tail -n 32 <vault>/tickets/<ID>/relay.md; echo "$CLAUDE_CODE_SESSION_ID"` (`## Open` is last)
+3. `rg -n '^(status|ticket-type):|^## Workspace' -A3 <vault>/tickets/<ID>/<ID>.md`
 
-No board and `## Workspace` has no data rows (only `| Repo (slug) |…` and `|---|`): read
-`kickoff.md` (next to this file) and do it (it ends with a `tickets:grilling` round scaled to
-the ticket), then spawn the lead (1). Otherwise: a `lead:` id you
-didn't spawn in this conversation is **stale** (subagents die with their session): set
-`lead: none` and spawn a fresh lead. An id you hold (after `/compact`): SendMessage it "PO
-refreshed; send status"; no answer means stale, so spawn a fresh one. Ids in `po:` that you
-don't hold are gone too; the lead re-requests their `running` rows.
+`## Workspace` has no data rows (only `| Repo (slug) |…` and `|---|`): read `kickoff.md` (next
+to this file) and do it (it creates `relay.md` and `board.md` and ends with a grill), then
+spawn the lead (1). Otherwise liveness goes by **session id**, never by a ping timeout
+(subagents die with their session):
+- `po: session:` differs from `$CLAUDE_CODE_SESSION_ID` (a new session): every agent of the old
+  one is gone. Mark its `running` rows `orphaned` (`sed -i -E 's/^(\| [0-9]+ \|([^|]*\|){4})
+  running \|/\1 orphaned |/' board.md`), set `agents: []` and `lead: none`, and spawn one fresh
+  lead (1) with `New since the last lead: orphaned tasks NN, MM` (it checks their branches).
+- The same session (after `/compact` or a refresh): the lead is alive. SendMessage it "PO
+  refreshed; send status" and wait; replace it only after its completion notice arrived.
+- `lead: none` with `status: review` or `done`: spawn no lead unless the user brings new work
+  or review feedback (then 2, "User input").
 
 ## 1. Spawn the lead (one only)
 Only when no lead runs in this conversation. Spawn `tickets:lead` with:
 `Lead for <ID>. Workspace: <ws>. Vault: <vault>. New since the last lead: <one line|none>.`
-Record it: `sed -i -E 's/^lead:.*/lead: <agentId>/; s/^lead-since:.*/lead-since: <date time>/'
-board.md` (on a new ticket the lead creates the board; record it once it exists). Agents you
-spawn later for its `Spawn:` entries get the prompt verbatim plus a line `Lead: <agentId>`.
+At once record it: `sed -i -E 's/^lead:.*/lead: <agentId>/; s/^lead-since:.*/lead-since: <date
+time>/; s/^  session:.*/  session: <$CLAUDE_CODE_SESSION_ID>/' <vault>/tickets/<ID>/board.md`.
+Agents you spawn later for its `Spawn:` entries get the prompt verbatim plus `Lead: <agentId>`.
 
 ## 2. Event loop
 Each event gets one short action; never forward report bodies.
@@ -90,13 +97,16 @@ Kickoff questions (`kickoff.md`) are yours and are asked directly, without relay
 ## 4. relay.md (capped)
 Frontmatter `type: relay`, `ticket: "[[<ID>]]"`; sections `## Closed`, then `## Open` (last,
 so `tail` reads it and new entries are appended with `>>`). One line per entry:
-`R-nn · <date> · <from>→<to> · <request|feature|feedback|question|answer|decision> · <text ≤200 chars> · <open|planned|answered>`.
+`R-nn · <date> · <from>→<to> · <request|feature|feedback|question|answer|decision> · <text ≤200 chars> · <open|planned|answered|copied>`.
 Next free id: `rg -o 'R-[0-9]+' relay.md | sort -V | tail -1`. `## Open` holds **≤30** entries,
 `## Closed` **≤40** one-line summaries (`R-nn → T-NN merged`, `→ decision in plan.md`,
-`→ [[MAN-x]]`); the file stays about 100 lines. Whenever you write it and a cap is exceeded,
-trim: move `answered` questions with their `planned` answer, and `planned` entries whose board
-row (Note `R-nn`) is merged, to `## Closed`; drop the oldest Closed lines. The durable record is
-`plan.md ## Decisions`, `## Questions` and `board.md`. No checkboxes; read it by `tail` or `rg`.
+`→ [[MAN-x]]`); the file stays about 100 lines. The lead marks `decision` and `answer` entries
+`copied` once they're in `plan.md ## Decisions`. Whenever you write it and a cap is exceeded,
+trim: move `copied`, `answered` and `planned` entries whose board row (Note `R-nn`) is merged,
+or that have no row, to `## Closed`, oldest first, until `## Open` is ≤30; drop the oldest
+Closed lines. If more than 30 are still truly open, batch new user input into one entry per
+theme instead of one per message. The durable record is `plan.md ## Decisions`, `## Questions`
+and `board.md`. No checkboxes; read it by `tail` or `rg`.
 
 ## 5. Talking to the user
 - Status updates: ≤8 lines, decisions and risks first, no per-file lists, no restating agent
@@ -119,6 +129,7 @@ At most once per wave or quiet point, never in the middle of a gate question; if
 lead: <agentId|none>
 lead-since: <yyyy-MM-dd HH:mm>
 po:
+  session: <$CLAUDE_CODE_SESSION_ID when the lead was spawned>
   last-refresh: <yyyy-MM-dd>
   exchanges-since: <n>
   analyst-since: <n>

@@ -2,8 +2,9 @@
 
 Read by the PO (`/tickets:work-ticket <ID>`) when the ticket note's `## Workspace` is
 empty, and again for a repo that turns out to be needed later (the lead asks for it through
-`relay.md`). It ends with the worktrees created, `## Workspace` written and the grill (4) done;
-then spawn the lead ("1. Spawn the lead" in `SKILL.md`). A repo added later skips the grill.
+`relay.md`). It ends with the worktrees created, `## Workspace`, `relay.md` and `board.md`
+written and the grill (4) done; then spawn the lead ("1. Spawn the lead" in `SKILL.md`). A
+repo added later skips the grill.
 
 ## 1. Load context
 
@@ -112,6 +113,9 @@ every ticket in its `covers` list. Those are the children assigned to the user, 
    - the kickoff line in `## Tasks` marked `[x]` with `✅ <today>`.
 6. If a repo turns out to be needed later, local or not, run this same gate for it before
    adding it (and before any task names it as `repo`).
+7. On a new ticket (no `relay.md` or `board.md` yet), whether or not a grill follows: create
+   both in `<vault>/tickets/<ID>/` from `<vault>/templates/relay.md` and `board.md`, filling
+   `{{title}}`, `{{date}}`, `TICKET-ID` and the board's `provider-owner-repo` (the first slug).
 
 ## 4. Grill (always on a new ticket, before the lead)
 

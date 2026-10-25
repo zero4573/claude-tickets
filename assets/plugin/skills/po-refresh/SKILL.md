@@ -16,7 +16,7 @@ Write what you hold only in this conversation:
   (`"<agentId> · <agent> · task NN|review wN-<repo>|analyst · <since>"`, `[]` when none).
 - `relay.md ## Open`: every pending user question and every request, feature or feedback the
   user gave that has no entry yet (`R-nn · … · open`); trim to the caps (`## Open` ≤30,
-  `## Closed` ≤40).
+  `## Closed` ≤40) by the PO playbook's rule ("4. relay.md").
 - The ticket note's `status`: `blocked` while a user question is pending, else as the lead set it.
 
 Then check that the PO playbook's resume (≤3 calls: board frontmatter and rows,
@@ -36,6 +36,6 @@ Otherwise say `/clear` could orphan the lead and the running workers (whether ba
 subagents survive it is unverified), so use `/compact`.
 
 ## 3. After the refresh
-Resume with the PO playbook ("0. Resume"): read `lead:` and `po:`, SendMessage the lead by id
-"PO refreshed; send status", and carry on with the event loop. A lead that doesn't answer is
-stale: set `lead: none` and spawn a fresh one (one lead only).
+Resume with the PO playbook ("0. Resume"): `po: session:` still matches this session, so the
+lead is alive. SendMessage it by id "PO refreshed; send status", wait for its answer, and carry
+on with the event loop. Never replace it unless its completion notice arrived (one lead only).

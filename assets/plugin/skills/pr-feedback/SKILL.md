@@ -18,7 +18,7 @@ The ground rules of `work-ticket` apply:
   thread or coherent group, subject starting with the ticket ID), unsigned.
   Never push, rewrite commits already on a remote (the PR's existing
   commits), reset, or remove the ticket worktrees (task worktrees under
-  `<ws>/.tasks/` come and go as in `work-ticket`). The user reviews, signs
+  `<ws>/.tasks/` come and go as in `lead/SKILL.md` §4–5). The user reviews, signs
   (`ct ws sign <ID>`), pushes, and posts the replies.
 - **Bitbucket is read-only:** the token has no write scopes; never post,
   resolve, approve or edit anything there. Replies are drafted in the vault.
@@ -140,7 +140,7 @@ Record the questions and answers in the ticket note's `## Questions`, as
   a fix task file `tasks/<ID>-NN-pr<n>-<repo>.md` (template `task`; the
   threads, exact `owns`, the expected behaviour), a `board.md` row, and a
   `tickets:task` agent in a task worktree branched from the PR branch,
-  merged back as in `work-ticket` §4–5.
+  merged back as in `lead/SKILL.md` "5. Merge" (the `tickets:lead` skill).
 - **Check:** after the changes, run the repo's tests and linters, and add a
   regression test where a comment found a bug. If they touch behaviour other
   projects depend on (graphify `get_neighbors`), run those callers' tests too.

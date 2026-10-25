@@ -19,4 +19,5 @@ PO trims it to the caps; the durable record is `plan.md ## Decisions`, the note'
 
 ## Open
 <!-- ≤30 entries, appended at the end (tail reads them):
-R-nn · yyyy-MM-dd · <from>→<to> · <request|feature|feedback|question|answer|decision> · <text ≤200 chars> · <open|planned|answered> -->
+R-nn · yyyy-MM-dd · <from>→<to> · <request|feature|feedback|question|answer|decision> · <text ≤200 chars> · <open|planned|answered|copied>
+`copied`: the lead has copied the decision or answer into plan.md ## Decisions. -->

@@ -1,7 +1,7 @@
 # lead: hand-over
 
 Read by the lead (the `tickets:lead` agent) when the last wave's review has no open must-fix
-and the board has no `planned`, `running` or `partial` row. Ends with the ticket at
+and the board has no `planned`, `running`, `partial` or `orphaned` row. Ends with the ticket at
 `status: review` and `Next: handover-done`. Never run `/tickets:save`, sign or push.
 
 ## 1. Workspace clean

@@ -360,13 +360,15 @@ Several agents work at once, so each part of the vault has one writer:
    the task views (`pending.md`, `done.md`, `follow-ups.md`), and everything
    not listed here.
 3. A **ticket's agents** write only inside `tickets/<ID>/` until
-   `/tickets:save`. The **PO** writes the note's `## Questions` and kickoff
-   fields (`## Workspace`, `projects:`, `ticket-type`), `relay.md` (the
-   lead appends its own questions and updates its entries' state), the
-   questionnaires, and `board.md`'s `lead:`, `lead-since:` and `po:`. The
-   **lead** writes the rest of the folder: the other work sections,
-   `plan.md`, `board.md`, `backlog.md`, the task files, `contracts/` and
-   `kb-drafts/`. A task agent writes only its own task file's `## Report`
+   `/tickets:save`. The **PO** writes the note's `## Questions`, `status`
+   (it runs the gate; the lead also sets it as it plans) and kickoff fields
+   (`## Workspace`, `projects:`, `ticket-type`), `relay.md` (the lead
+   appends its own questions and sets any entry's state), the
+   questionnaires, the first `board.md` from its template, and `board.md`'s
+   `lead:`, `lead-since:` and `po:`, plus the `orphaned` mark on rows of
+   an ended session. The **lead** writes the rest of the folder: the other
+   work sections, `plan.md`, `board.md`, `backlog.md`, the task files,
+   `contracts/` and `kb-drafts/`. A task agent writes only its own task file's `## Report`
    (plus the code in its `owns`); a reviewer only its `reviews/` file; an
    analyst nothing.
    At hand-over the lead may also create follow-up tickets for backlog items
@@ -444,10 +446,12 @@ in a few calls; `ct start --continue <ID>` reopens the last one.
 
 **relay.md:** `## Closed` (≤40 one-line summaries), then `## Open` (≤30
 entries, appended), trimmed by the PO; one line each, `R-nn · <date> ·
-<from>→<to> · <type> · <text> · <open|planned|answered>`. `board.md`'s
-`lead:` and `po:` (running agents, refresh counters) are the PO's; a lead
-id from an earlier session is stale and replaced. The lead rotates after
-each reviewed wave. A heavy PO context: `/tickets:po-refresh` checkpoints
+<from>→<to> · <type> · <text> · <open|planned|answered|copied>` (`copied`:
+in `plan.md ## Decisions`). `board.md`'s `lead:` and `po:` (session id,
+running agents, refresh counters) are the PO's; when `po: session:` isn't
+the current session, its agents are gone: their `running` rows become
+`orphaned` and a fresh lead picks them up. The lead rotates after each
+reviewed wave. A heavy PO context: `/tickets:po-refresh` checkpoints
 board and relay and prints the `/compact` to type (the lead and workers
 keep running); the PO suggests it at quiet points.
 

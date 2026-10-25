@@ -38,24 +38,27 @@ the vault; `<ws>/<slug>` is a ticket worktree (`workspace.json`).
 2. `tail -n 25 tickets/<ID>/backlog.md; sed -n '/^## Open/,$p' tickets/<ID>/relay.md`
 3. `for r in <ws>/*/; do git -C "$r" worktree list; done 2>/dev/null` (stray task worktrees)
 
-No board: a new ticket (the PO has done the kickoff), go to 2. Don't read task files whole to
-resume. The next action is the first that applies: `relay.md` entries to you that are `open`
-(answers → `plan.md ## Decisions`, `status: in-progress`; requests, features and feedback → plan
-them, below); `status: blocked` with no answer yet → end with `Next: wait-user`; `running` rows
-→ check the task branch (name from call 3 or `git branch --list 'task/<ID>-*'`, then
-`git log --oneline <ticket-branch>..<task-branch>`) and merge it (5), or ask for it again with
-"New since: resumed, commits so far …" if its agent is gone; a merged wave without a review row
-→ 6; open must-fix tasks → 7; `planned` rows → 4; nothing left → hand-over (8).
+A board with no rows: a new ticket (the PO did the kickoff and created `board.md` and
+`relay.md`), go to 2. Don't read task files whole to resume. The next action is the first that
+applies: `relay.md` entries to you that are `open` (answers and decisions →
+`plan.md ## Decisions`, then `copied`, `status: in-progress`; requests, features and feedback
+→ plan them, below); `status: blocked` with no answer yet → end with `Next: wait-user`;
+`orphaned` rows (the PO's prompt names them; their agents died with an old session) → check
+the task branch (name from call 3 or `git branch --list 'task/<ID>-*'`, then
+`git log --oneline <ticket-branch>..<task-branch>`, and its `## Report`): merge it (5), ask for
+it again with "New since: resumed, commits so far …", or re-plan it; `running` rows → their
+agents live, `Next: wait-tasks`; a merged wave without a review row → 6; open must-fix tasks →
+7; `planned` rows → 4; nothing left → hand-over (8).
 
 ## 1. relay.md (shared with the PO)
-One line per entry, appended with `>>`; change only the last field of your own line with `sed -i`:
-`R-nn · <date> · <from>→<to> · <request|feature|feedback|question|answer|decision> · <text ≤200 chars> · <open|planned|answered>`.
+One line per entry, appended with `>>`; change the state (last field) of any line with `sed -i`:
+`R-nn · <date> · <from>→<to> · <request|feature|feedback|question|answer|decision> · <text ≤200 chars> · <open|planned|answered|copied>`.
 The PO adds the user's `request`, `feature`, `feedback` and `answer` entries and messages you
 one line ("new request R-09", "R-07 answered"). For each: plan it into the next wave (task
 files, board rows with `R-nn` in the Note, state `planned`), record it (`plan.md ## Decisions`,
-state `planned`), or ask (the gate). A grill (`tickets:grilling`, run by the PO) leaves
+state `copied`), or ask (the gate). A grill (`tickets:grilling`, run by the PO) leaves
 `user→lead · decision` entries: copy each into `plan.md ## Decisions` (the first one's
-`Brief:` into `## Scope`) and set it `planned`. Caps (the PO trims): `## Open` ≤30 lines, `## Closed` ≤40.
+`Brief:` into `## Scope`) and set it `copied`. Caps (the PO trims): `## Open` ≤30 lines, `## Closed` ≤40.
 
 ## 2. Plan (you, no separate analysis agents)
 1. Recall: for each repo, `projects/<slug>/architecture/<slug>-decisions.md` (grep the index),
@@ -69,14 +72,14 @@ state `planned`), or ask (the gate). A grill (`tickets:grilling`, run by the PO)
    `id`, `ticket`, `wave`, `repo`, `agent`, `depends_on`, `owns`, `branch`, `worktree`,
    `context_budget`, `contracts`, optional `skills: [tickets:diagnose]`; body `## Goal` ≤5 lines, `## Do` ≤25, `## Checks`,
    `## Done when` ≤5). `owns` is exact repo-relative files or `dir/**`.
-5. Write `board.md` (a `planned` row per task) and `backlog.md`, add the plan and wave lines to
-   `## Tasks`, set `status: in-progress`.
+5. Fill `board.md` (the PO created it; a `planned` row per task) and write `backlog.md`, add
+   the plan and wave lines to `## Tasks`, set `status: in-progress`.
 
 ## 3. Contracts first
 An API, schema, file-format or CLI-flag change goes into `contracts/<name>-v<N>.md` (exact
-shapes) before any task that produces or consumes it is spawned. If the shape isn't obvious,
-ask for one design pass: a `Spawn:` entry for the built-in `Plan` agent with `model: sonnet`,
-"propose the contract and its risks, ≤60 lines"; put the result in the contract. A contract
+shapes) before any task that produces or consumes it is spawned. You draft it yourself, even
+when the shape isn't obvious: you are the planner and have the context. A risky one gets a
+`tickets:reviewer-deep` pass on the contract file before the tasks that use it. A contract
 never changes while an agent that uses it runs: have it stopped, update the contract, re-plan.
 
 ## 4. Implement (through Spawn)
@@ -134,8 +137,8 @@ read the file's summary and finding lines, add a `## Reviews` row, set `last-rev
   yourself and record them in `plan.md ## Decisions`.
 
 ## 8. Hand-over
-When the last review has no open must-fix and no row is `planned`, `running` or `partial`: read
-`handover.md` (next to this file) and do it. Never run `/tickets:save` or push.
+When the last review has no open must-fix and no row is `planned`, `running`, `partial` or
+`orphaned`: read `handover.md` (next to this file) and do it. Never run `/tickets:save` or push.
 
 ## Ticket types (they shape the plan, not the agents)
 - `dev`: as above. `chore`: one task, or you do it directly; review only if behaviour can change.
@@ -163,7 +166,8 @@ then `review`.
 2. End the run with `Ask user:` listing them, each with options, your recommendation first, and
    the tradeoffs. The PO asks, records the answer in `## Questions` and `relay.md`, and messages
    you; you write it to `plan.md ## Decisions` (a major one also as a decision draft in
-   `kb-drafts/`, template `templates/decision.md`), set `status: in-progress`, and go on.
+   `kb-drafts/`, template `templates/decision.md`), set the answer entry `copied` and
+   `status: in-progress`, and go on.
 Urgent mid-run items (a contract a running task breaks) may also go to the PO at once with
 SendMessage `to: "main"`.
 
