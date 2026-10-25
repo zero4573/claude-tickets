@@ -66,8 +66,12 @@ func Command(dirs ...string) ([]string, error) {
 //   - what the ticket system needs: the main clones (projectsRoot) and the
 //     cache are never edited (// marks an absolute path in a rule), plus
 //     extraDeny
+//   - the workspace's own Go caches (GoEnv), so a session (in its
+//     container) fetches and builds Go modules there
 //   - merged with $CLAUDE_TICKETS_SESSION_SETTINGS, the user's own rules
 //     (objects merge, arrays are joined)
+//
+// It also writes <dir>/.ignore (WriteIgnore).
 func WriteSettings(dir, projectsRoot string, extraDeny ...string) error {
 	var deny []any
 	for _, p := range []string{projectsRoot, config.CacheDir()} {
@@ -78,7 +82,11 @@ func WriteSettings(dir, projectsRoot string, extraDeny ...string) error {
 	for _, r := range extraDeny {
 		deny = append(deny, r)
 	}
-	var settings any = map[string]any{"permissions": map[string]any{"deny": deny}}
+	env := map[string]any{}
+	for k, v := range GoEnv(dir) {
+		env[k] = v
+	}
+	var settings any = map[string]any{"permissions": map[string]any{"deny": deny}, "env": env}
 	if f := os.Getenv("CLAUDE_TICKETS_SESSION_SETTINGS"); f != "" {
 		var extra any
 		data, err := os.ReadFile(f)
@@ -93,7 +101,40 @@ func WriteSettings(dir, projectsRoot string, extraDeny ...string) error {
 	if err := os.MkdirAll(filepath.Join(dir, ".claude"), 0o755); err != nil {
 		return err
 	}
+	if err := WriteIgnore(dir); err != nil {
+		return err
+	}
 	return writeJSON(filepath.Join(dir, ".claude", "settings.json"), settings)
+}
+
+// CacheDir is a workspace's cache folder, <dir>/.cache: Go's module and
+// build caches (GoEnv). graphify never scans a .cache folder, and .ignore
+// (WriteIgnore) keeps it out of fff and rg (Claude's Grep) searches unless
+// a search names it.
+func CacheDir(dir string) string { return filepath.Join(dir, ".cache") }
+
+// GoEnv is the Go environment of a workspace's sessions: GOPATH, its
+// module cache and the build cache under <dir>/.cache/go, so every ticket
+// container fetches its own modules into a folder it can write, and
+// ct ws rm removes them with the workspace.
+func GoEnv(dir string) map[string]string {
+	goDir := filepath.Join(CacheDir(dir), "go")
+	return map[string]string{
+		"GOPATH":     goDir,
+		"GOMODCACHE": filepath.Join(goDir, "pkg", "mod"),
+		"GOCACHE":    filepath.Join(goDir, "build"),
+	}
+}
+
+// ignoreFile is <dir>/.ignore, read by fff and rg (the ignore-file format
+// both share, honoured outside a git repo too).
+const ignoreFile = "# Written by ct; regenerated on every start, so don't edit it.\n" +
+	"# fff and rg (Claude's Grep) skip these unless a search names them.\n" +
+	"/.cache/\n"
+
+// WriteIgnore writes <dir>/.ignore.
+func WriteIgnore(dir string) error {
+	return os.WriteFile(filepath.Join(dir, ".ignore"), []byte(ignoreFile), 0o644)
 }
 
 // merge is a deep merge of b into a: objects key by key, arrays joined

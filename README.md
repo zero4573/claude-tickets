@@ -173,7 +173,14 @@ workspace's `.claude/settings.json` holds the one rule the ticket
 system needs: **the main clones and the graph cache are never edited**
 (`Edit`/`Write`/`NotebookEdit` denied under `projectsRoot` and the cache;
 worktrees exist so the main clones stay untouched, and the graphs rely on
-it), plus `CLAUDE_TICKETS_SESSION_SETTINGS` merged in. A sandbox can read
+it). Its `env` puts Go's `GOPATH`, `GOMODCACHE` and `GOCACHE` under
+`<workspace>/.cache/go`, so each session, in its own container, fetches
+and builds modules in a folder it can write. graphify never scans a
+`.cache` folder, and `ct` writes `<workspace>/.ignore` (`/.cache/`) so fff
+and rg (Claude's Grep) skip it unless a search names it. `ct ws rm`
+removes the caches with the workspace, and `ct ws gc` drops them from
+workspaces with no running session. `CLAUDE_TICKETS_SESSION_SETTINGS` is
+merged in last, so your own `env` wins. A sandbox can read
 the same flags and rules to decide what to mount, and how.
 
 ### Recommended session settings

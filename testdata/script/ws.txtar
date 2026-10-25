@@ -87,6 +87,9 @@ stderr 'github-acme-billing has uncommitted changes, not removing'
 exists home/Projects/work-a/MAN-1/workspace.json
 rm home/Projects/work-a/MAN-1/github-acme-billing/untracked.txt
 mkdir home/Projects/work-a/MAN-1/github-acme-billing/graphify-out
+# the Go module cache (read-only folders, as go leaves them) goes too
+mkdir home/Projects/work-a/MAN-1/.cache/go/pkg/mod/example.com/m@v1/sub
+chmod 0555 home/Projects/work-a/MAN-1/.cache/go/pkg/mod/example.com/m@v1
 exec ct ws rm MAN-1
 stdout 'removed .*/MAN-1/github-acme-billing \(branch feature/MAN-1-fix-the-thing kept\)'
 stdout 'removed workspace .*/work-a/MAN-1$'

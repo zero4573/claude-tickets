@@ -28,6 +28,12 @@ grep '"Edit\(//.*/home/Projects/repo-a/\*\*\)"' home/Projects/work-a/MAN-1/.clau
 grep '"Write\(//.*/home/.cache/claude-tickets/\*\*\)"' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"Bash\(git push:\*\)"' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"defaultMode": "auto"' home/Projects/work-a/MAN-1/.claude/settings.json
+# Go fetches and builds into the workspace's .cache, which searches skip
+grep '"GOMODCACHE": ".*/home/Projects/work-a/MAN-1/.cache/go/pkg/mod"' home/Projects/work-a/MAN-1/.claude/settings.json
+grep '"GOCACHE": ".*/home/Projects/work-a/MAN-1/.cache/go/build"' home/Projects/work-a/MAN-1/.claude/settings.json
+grep '"GOPATH": ".*/home/Projects/work-a/MAN-1/.cache/go"' home/Projects/work-a/MAN-1/.claude/settings.json
+grep '^/.cache/$' home/Projects/work-a/MAN-1/.ignore
+grep '^- Go: `GOPATH`' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '"hasTrustDialogAccepted": true' home/.claude.json
 grep '"keep": 1' home/.claude.json
 grep '"command": ".*ct' home/Projects/work-a/MAN-1/.claude/graph-mcp.json

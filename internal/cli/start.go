@@ -452,7 +452,11 @@ func ticketClaudeMD(ctx vault.Context, key, dir string) string {
 		"- Vault tools: `ct vault lock` and `ct vault links` (used by `/tickets:save`).\n"+
 		"  `ct new` files a manual ticket.\n"+
 		"- Code graph: the `graphify` MCP server merges this workspace's worktrees\n"+
-		"  with every other repo's main clone. Query it before reading files.\n\n"+
+		"  with every other repo's main clone. Query it before reading files.\n"+
+		"- Go: `GOPATH`, `GOMODCACHE` and `GOCACHE` are under `%[5]s/.cache/go`\n"+
+		"  (set in `.claude/settings.json`), so modules are fetched into this\n"+
+		"  workspace. graphify never scans `.cache/`, and `.ignore` keeps it out of\n"+
+		"  fff and Grep searches: name the path to search it.\n\n"+
 		"- Git: commit your work on the ticket branch in coherent steps (subject\n"+
 		"  starting with `%[1]s`, unless the repo's own convention says otherwise).\n"+
 		"  Commits are unsigned here; the user signs them on the host with\n"+

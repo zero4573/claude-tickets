@@ -21,6 +21,7 @@ import (
 	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/repo"
+	"github.com/zero4573/claude-tickets/internal/session"
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
@@ -509,8 +510,8 @@ func wsRemove(ctx vault.Context, key string, force, merged bool) error {
 		return fmt.Errorf("rm: some worktrees were kept; workspace %s left in place", dir)
 	}
 	for _, f := range []string{"graphify-out", ".claude", "workspace.json", "workspace.json.lock",
-		"CLAUDE.md", ".agent-state", ".sessions.json", ".sessions.json.lock", key + ".code-workspace"} {
-		_ = os.RemoveAll(filepath.Join(dir, f))
+		"CLAUDE.md", ".ignore", ".cache", ".agent-state", ".sessions.json", ".sessions.json.lock", key + ".code-workspace"} {
+		_ = fsx.RemoveAll(filepath.Join(dir, f))
 	}
 	fsx.RemoveEmptyDirs(dir)
 	if _, err := os.Stat(dir); err == nil {
@@ -770,6 +771,13 @@ func wsGc(ctx vault.Context, l launcher.Launcher, days int, dry bool) error {
 			fmt.Printf("ct ws gc: %sdrop the merged graph of %s\n", act, key)
 			if !dry {
 				_ = os.RemoveAll(filepath.Join(dir, "graphify-out"))
+			}
+		}
+		// Go's module and build caches (session.GoEnv) refill when next used
+		if cache := session.CacheDir(dir); !running && fsx.IsDir(cache) {
+			fmt.Printf("ct ws gc: %sdrop the caches of %s\n", act, key)
+			if !dry {
+				_ = fsx.RemoveAll(cache)
 			}
 		}
 
