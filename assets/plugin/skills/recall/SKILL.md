@@ -47,9 +47,11 @@ Read-only. Never write to the vault.
    description sections), `## Workspace`, `## Tasks`, `## Questions`,
    `## Follow-ups`, `## Review`, and the summaries at the end. Also its
    dependency fields (`blocked-by`, `blocked`, `parent`).
-2. The 3 most recent `tickets/<ID>/logs/` notes, the hand-off files' open
-   questions and verdicts, and `pr-feedback.md` if there is one (threads
-   still marked `needs you`, replies not posted yet).
+2. The 3 most recent `tickets/<ID>/logs/` notes; the `board.md` rows
+   (`rg -n '^\|'`), `tail -n 25 backlog.md`, and the open must-fixes
+   (`rg -n -- '-M[0-9]+ ' reviews/`, minus those the board shows fixed);
+   `pr-feedback.md` if any (threads `needs you`, replies not posted yet).
+   An old-format ticket has other files instead; skim their open questions.
 3. **Leads and covered tickets:**
    - A lead (`ticket-type: epic`): each ticket in its `covers` list, briefly
      (status, its group in `## Tasks`), and the open `## Follow-ups` on
@@ -58,8 +60,7 @@ Read-only. Never write to the vault.
      lead's workspace, so recall the lead too, and say that
      `ct start <LEAD>` is where to pick it up.
 4. For each repo in `## Workspace`, steps 1, 2 and 4 of **Project**.
-5. In a workspace, `ct ws ls <ID>` for each worktree's branch and
-   uncommitted changes.
+5. In a workspace, `ct ws ls <ID>` (branches, uncommitted changes).
 
 ## Summarize
 
@@ -69,7 +70,6 @@ Keep it short and concrete:
 - **Decisions in force:** the ones that constrain what comes next.
 - **Works with:** the projects it depends on, those that depend on it,
   and its groups (omit for a standalone project).
-- **Open:** unanswered questions, unfinished tasks (`[ ]` / `[/]`),
-  open follow-ups (who to chase), PR threads waiting on the user, pending
-  items from the logs.
+- **Open:** unanswered questions, unmerged board rows and open must-fixes,
+  open follow-ups (who to chase), PR threads waiting on the user.
 - **Next:** the next 1 to 3 concrete steps.

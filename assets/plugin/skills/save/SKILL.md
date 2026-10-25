@@ -9,14 +9,10 @@ The user runs this at the end of a session, after reviewing the changes.
 This is the only time shared vault notes are written. Things can change a
 lot mid-session, so write what is true **now**.
 
-Follow the vault's `AGENTS.md`:
-- frontmatter on every note
-- kebab-case filenames and tags
-- wikilinks by **bare note name** only
-- at least 2 wikilinks per note
-- templates from `templates/`
-- one concept per note
-- never delete notes without asking
+Follow the vault's `AGENTS.md`: frontmatter on every note, kebab-case
+filenames and tags, wikilinks by **bare note name** only, at least 2
+wikilinks per note, templates from `templates/`, one concept per note,
+never delete notes without asking.
 
 ## Which mode
 
@@ -66,13 +62,15 @@ Follow the vault's `AGENTS.md`:
 
 - `CLAUDE.md` and `workspace.json`: repos, base branches, target versions,
   branches.
-- The ticket note (`## Tasks`, `## Questions` answers, `## Follow-ups`), the
-  hand-off files (`requirements.md`, `design.md`, `investigation.md`,
-  `dev-notes.md`, `qa-report.md`), `pr-feedback.md` if `/tickets:pr-feedback` ran,
-  and `kb-drafts/`.
+- The ticket note (`## Tasks`, `## Questions` answers, `## Follow-ups`,
+  `## Review`), then by section, not whole: `plan.md` (scope, decisions,
+  `## Relationships`), the `board.md` rows (`rg -n '^\|'`), the first 5
+  lines of each `reviews/*.md` summary, `backlog.md ## Open`,
+  `investigation.md`, `pr-feedback.md` if `/tickets:pr-feedback` ran, and
+  `kb-drafts/`. An old-format ticket has other files instead; read those.
 - For a lead ticket, the notes of the tickets in its `covers` list.
 - `ct ws diff <ID> --stat`, plus the full diff where needed, to see
-  what actually changed. Prefer it over the hand-off files when they
+  what actually changed. Prefer it over the ticket files when they
   disagree: the code is what ships.
 - `ct vault groups <vault> <slug>...` for the ticket's repos: their
   `depends-on`, used-by and groups, and so which group notes step 4 may
@@ -138,7 +136,7 @@ Where things go:
   `- yyyy-MM-dd [[decision-note]] (<ID>): one-line summary`. Create it if
   missing; `/tickets:recall` reads it.
 - **Dependencies between projects** (the vault's `AGENTS.md`, "Projects
-  and groups"), from `design.md`'s Relationships item and the diff:
+  and groups"), from `plan.md ## Relationships` and the diff:
   - A project that starts needing another (calls its API, consumes its
     events, reads its database, packages or imports it): add
     `"[[<other-slug>]]"` to the dependent's `depends-on` and a row to its
@@ -163,7 +161,7 @@ Where things go:
     in different groups): **ask the user** with AskUserQuestion. Offer:
     create a group (propose a name and the members), add the projects to
     an existing group, or file it under the main dependent project.
-  - Create a group only with the user's answer, or an architect draft
+  - Create a group only with the user's answer, or a kb-draft
     (`target: projects/<group>`) the user approved. Its name is kebab-case,
     unique in the vault, says what the projects do together, and is never
     a repo slug. Creating it means:
@@ -260,7 +258,7 @@ Run `ct vault lock release <vault> <ID>`. Then, in the ticket's frontmatter
 - set `saved: <date +%FT%T>`, adding the field after `status` if it's
   missing. `ct clean` reads it to know the ticket's work is in the vault;
 - set `status: done`, **unless it's `closed`** (the source, or the user,
-  closed it), which stays: `/tickets:save` ends the agents' work, and
+  closed it), which stays: `/tickets:save` ends the lead's work, and
   signing and pushing are the user's steps.
 
 Tell them:

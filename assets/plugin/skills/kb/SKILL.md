@@ -8,8 +8,7 @@ description: Answer questions about the projects the Obsidian knowledge-base vau
 The vault is named in the system prompt (`ct claude`) or in `CLAUDE.md`
 (a `kb` or ticket session). If neither names one, the session has no
 knowledge base: say so (relaunch with `ct claude`, or use `kb`) and answer from the code graph and code only. Read the vault's
-`AGENTS.md` once per session. Without a question, ask what the user wants
-to know.
+`AGENTS.md` once per session. Without a question, ask what the user wants.
 
 ## Answer: vault first, then graph, then code
 
@@ -26,14 +25,15 @@ to know.
    - **History:** `tickets/` (search by repo slug, feature or keyword, and
      read the summaries at the end of the ticket notes).
 
-   Repos are named by slug, `<provider>-<owner>-<repo>`. A bare repo name
+   Repos are named by slug, `<provider>-<owner>-<repo>`; a bare repo name
    matches a project note's `aliases`.
-2. **The code graph** (`graphify` MCP server): find where something lives,
-   who calls it, and the path between repos (`query_graph`,
-   `shortest_path`, `get_neighbors`). Node ids are prefixed with the repo's
-   slug.
-3. **The code**, read to confirm details. Main clones under `~/Projects` are
-   read-only and on whatever branch they're on. In a `kb` session, look at
+2. **The code graph** (`graphify` MCP server) for structure: where something
+   lives, who calls it, the path between repos (`query_graph`,
+   `shortest_path`, `get_neighbors`). Node ids are prefixed with the slug.
+3. **The code**, read by excerpt to confirm details. Find files and content
+   with the fff tools (`mcp__fff__find_files`, `mcp__fff__grep`,
+   `mcp__fff__multi_grep`) when available, else `rg`. Main clones under
+   `~/Projects` are read-only and on whatever branch they're on. In a `kb` session, look at
    another branch, tag or commit with `ct kb repo checkout <repo> <ref>`: an
    exploration clone in the session that the code graph swaps in and rebuilds.
    `ct kb repo fetch` gets the latest remote branches, `ct kb repo graph <repo>`

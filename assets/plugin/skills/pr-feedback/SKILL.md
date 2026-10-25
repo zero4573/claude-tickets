@@ -12,20 +12,20 @@ ticket. Outside a ticket workspace, say this only works in one (start it
 with `ct feedback <ID>`) and stop.
 
 The ground rules of `work-ticket` apply:
-- **Vault writes:** in the vault, write only inside `tickets/<ID>/`. A lead
-  ticket's session may also write the work sections and `status` of the
-  tickets it `covers` (see `work-ticket`).
+- **Vault writes:** only inside `tickets/<ID>/` (a lead ticket also writes the
+  work sections and `status` of the tickets it `covers`).
 - **Git:** commit the applied feedback on the PR's branch (one commit per
   thread or coherent group, subject starting with the ticket ID), unsigned.
   Never push, rewrite commits already on a remote (the PR's existing
-  commits), reset, or remove worktrees. The user reviews, signs
+  commits), reset, or remove the ticket worktrees (task worktrees under
+  `<ws>/.tasks/` come and go as in `work-ticket`). The user reviews, signs
   (`ct ws sign <ID>`), pushes, and posts the replies.
-- **Bitbucket is read-only:** the token has no write scopes, and you never
-  post, resolve, approve or edit anything there. Replies are drafted in the
-  vault.
+- **Bitbucket is read-only:** the token has no write scopes; never post,
+  resolve, approve or edit anything there. Replies are drafted in the vault.
 - **No paid Rovo calls** (the vault's `AGENTS.md`, "Cost guard"): never
   `search` or the Teamwork Graph tools, not even through `executeRead`.
-- **Code:** query the `graphify` graph before reading code.
+- **Code:** the `graphify` graph for structure, then the fff tools
+  (`mcp__fff__find_files`, `mcp__fff__grep`) when available, else `rg`.
 
 ## 1. Find the PRs
 
@@ -106,8 +106,9 @@ Everything else is **open feedback**.
 ## 3. Triage each thread
 
 Read the code each thread points at (the file at `inline.path`, around the
-line), the PR diff where needed (`getBitbucketRepoPullRequestDiff`), and the
-ticket's hand-off files for why it was written that way. Then classify it:
+line), the PR diff where needed (`getBitbucketRepoPullRequestDiff`), and
+`plan.md ## Decisions` (by section) for why it was written that way. Then
+classify it:
 
 | Kind | What to do |
 |---|---|
@@ -128,19 +129,21 @@ Record the questions and answers in the ticket note's `## Questions`, as
 
 ## 4. Apply
 
-- **Track it:** add a line to the ticket note's `## Tasks`, `Address PR #<n>
-  review feedback (<k> threads) #role/developer ➕ <today>`, with a subtask
-  per change. Set the ticket's `status: in-progress`.
+- **Track it:** add one line to the ticket note's `## Tasks`, `- [/] Address
+  PR #<n> review feedback (<k> threads) #ticket/wave ➕ <today>` (details go
+  in `pr-feedback.md`, not subtasks). Set the ticket's `status: in-progress`.
 - **Lead tickets:** the PRs of covered tickets are handled here too. Add the
   task line to the covered ticket's `## Tasks` as well, ending with
   `(in [[<lead ID>]])`, and set the `status` of each covered ticket whose PR
   you work on as you set the lead's (`in-progress`, then `review`).
-- **Who edits:** do small changes yourself. Hand larger ones to the
-  `developer` subagent with the threads, the files, and the expected
-  behaviour.
+- **Who edits:** changes of ≤20 lines you make yourself. Larger ones become
+  a fix task file `tasks/<ID>-NN-pr<n>-<repo>.md` (template `task`; the
+  threads, exact `owns`, the expected behaviour), a `board.md` row, and a
+  `tickets:task` agent in a task worktree branched from the PR branch,
+  merged back as in `work-ticket` §4–5.
 - **Check:** after the changes, run the repo's tests and linters, and add a
-  regression test where a comment found a bug. Run the `qa` subagent if the
-  changes touch behaviour that other projects depend on.
+  regression test where a comment found a bug. If they touch behaviour other
+  projects depend on (graphify `get_neighbors`), run those callers' tests too.
 - Changes are committed on the PR's branch in the worktree, on top of its
   pushed commits, and not pushed.
 
@@ -166,14 +169,12 @@ its link) and one table row per thread:
   so the next run skips threads that haven't changed.
 
 Then:
-1. Mark the tasks done (in covered tickets too) and set the ticket's
-   `status: review`.
+1. Mark the `## Tasks` line `[x]` with `✅ <today>` (in covered tickets
+   too) and set the ticket's `status: review`.
 2. Add to `## Review`: the PRs handled, what changed per repo
    (`ct ws diff <ID> --stat`), test results, and the threads that still
    need the user.
-3. Tell the user, in a few lines:
-   - how many threads were applied, answered, or need them
-   - that `pr-feedback.md` has the replies to post
-   - that the changes are committed, not pushed, on the PR branches: review
-     them, run `ct ws sign <ID>` on the host, then push to update the
-     PRs.
+3. Tell the user, in ≤8 lines: how many threads were applied, answered, or
+   need them; that `pr-feedback.md` has the replies to post; that the
+   changes are committed, not pushed, on the PR branches (review them, run
+   `ct ws sign <ID>` on the host, then push to update the PRs).
