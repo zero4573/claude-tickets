@@ -33,7 +33,7 @@ let
       ];
     };
     # TODO(host): purego was added to go.mod; run `nix build .#default` and paste the hash it reports
-    vendorHash = lib.fakeHash;
+    vendorHash = "sha256-mTX4/p9otTdny5gQRO/jmlv0TS9w4BhWv49YXVCEohA=";
     subPackages = [ "cmd/ct" ];
     ldflags = [ "-s" "-w" "-X github.com/zero4573/claude-tickets/internal/version.Version=${version}" ]
       # The prebuilt llama.cpp library needs libstdc++ and libgomp, which NixOS keeps out of the
