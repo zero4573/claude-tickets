@@ -1,0 +1,57 @@
+# ct ws sign keeps the --no-ff merges of task branches (--rebase-merges):
+# the merge commit and both its parents are re-signed, the history keeps
+# its shape
+[!exec:ssh-keygen] skip 'needs ssh-keygen'
+[container] skip 'ct ws sign runs on the host, where the signing key is'
+mkdir home/Documents/Obsidian/a/.obsidian
+exec ssh-keygen -q -t ed25519 -N '' -C jane -f key
+exec sh -c 'echo "jane@example.com $(cat key.pub)" > allowed'
+expand gitconfig
+exec git init -q -b main seed
+exec git -C seed add -A
+exec git -C seed commit -q -m init
+exec git clone -q --bare seed remote/acme/billing.git
+exec git clone -q git@github.com:acme/billing.git home/Projects/repo-a/github/acme/billing
+exec ct ws add MAN-1 github-acme-billing --base main
+env R=home/Projects/work-a/MAN-1/github-acme-billing
+
+# one commit on the ticket branch, one on a task branch merged with --no-ff
+cp seed/README.md $R/one.txt
+exec git -C $R add one.txt
+exec git -C $R commit -q -m 'MAN-1 one'
+exec git -C $R worktree add -q $WORK/home/Projects/work-a/MAN-1/.tasks/github-acme-billing-01 -b task/MAN-1-01-two HEAD
+cp seed/README.md home/Projects/work-a/MAN-1/.tasks/github-acme-billing-01/two.txt
+exec git -C home/Projects/work-a/MAN-1/.tasks/github-acme-billing-01 add two.txt
+exec git -C home/Projects/work-a/MAN-1/.tasks/github-acme-billing-01 commit -q -m 'MAN-1 two'
+exec git -C $R worktree remove $WORK/home/Projects/work-a/MAN-1/.tasks/github-acme-billing-01
+exec git -C $R merge --no-ff -q task/MAN-1-01-two -m 'MAN-1 merge task 01: two'
+exec git -C $R branch -d task/MAN-1-01-two
+exec git -C $R log '--format=%G? %s' -n4
+stdout '^N MAN-1 merge task 01: two$'
+
+exec ct ws sign MAN-1
+stdout 'github-acme-billing: signed 3 commit\(s\) on feature/MAN-1'
+exec git -C $R log --topo-order '--format=%G? %p %s' -n4
+stdout '^G [0-9a-f]+ [0-9a-f]+ MAN-1 merge task 01: two$'
+stdout '^G [0-9a-f]+ MAN-1 two$'
+stdout '^G [0-9a-f]+ MAN-1 one$'
+stdout '^N  init$'
+exec git -C $R rev-list --count --merges HEAD
+stdout '^1$'
+exec git -C $R ls-files
+stdout '^one.txt$'
+stdout '^two.txt$'
+exec ct ws sign MAN-1
+stdout 'unpushed commits on feature/MAN-1 are already signed'
+
+-- gitconfig --
+[url "$WORK/remote/"]
+	insteadOf = git@github.com:
+[gpg]
+	format = ssh
+[gpg "ssh"]
+	allowedSignersFile = $WORK/allowed
+[user]
+	signingKey = $WORK/key
+-- seed/README.md --
+# billing
