@@ -108,21 +108,25 @@ const whoWrites = `(AGENTS.md, "Who writes what" 3); /tickets:save passes --save
 // Check applies the write rules to a write of rel (vault-relative, with
 // slashes) touching target. A nil result means it is allowed.
 func Check(c Ctx, rel string, t Target) error {
+	_, err := check(c, rel, t)
+	return err
+}
+
+func check(c Ctx, rel string, t Target) (coveredOnly bool, err error) {
 	rel = path.Clean(filepath.ToSlash(rel))
 	if rel == ".." || strings.HasPrefix(rel, "../") || path.IsAbs(rel) {
-		return refuse("refusing to write %s: outside the vault", rel)
+		return false, refuse("refusing to write %s: outside the vault", rel)
 	}
 	tid, isTicket := ticketOf(rel)
-	coveredOnly := false // a covered ticket's note: work sections and status only
 	switch {
 	case c.Save:
 		for _, p := range strings.Split(rel, "/") {
 			if strings.HasPrefix(p, ".") {
-				return refuse("refusing to write %s: --save never writes dot-directories or dot-files", rel)
+				return false, refuse("refusing to write %s: --save never writes dot-directories or dot-files", rel)
 			}
 		}
 		if top := strings.SplitN(rel, "/", 2)[0]; top == "raw" || top == "templates" || top == "archive" {
-			return refuse("refusing to write %s: --save never writes raw/, templates/ or archive/", rel)
+			return false, refuse("refusing to write %s: --save never writes raw/, templates/ or archive/", rel)
 		}
 	case c.Workspace != "":
 		if !strings.HasPrefix(rel, "tickets/"+c.Workspace+"/") {
@@ -130,32 +134,35 @@ func Check(c Ctx, rel string, t Target) error {
 				coveredOnly = true
 				break
 			}
-			return refuse("refusing to write %s: a ticket's agents write only inside tickets/%s/ until /tickets:save %s", rel, c.Workspace, whoWrites)
+			return false, refuse("refusing to write %s: a ticket's agents write only inside tickets/%s/ until /tickets:save %s", rel, c.Workspace, whoWrites)
 		}
 	default:
 		if !strings.HasPrefix(rel, "inbox/") {
-			return refuse("refusing to write %s: outside a ticket workspace agents write only inside inbox/ until /tickets:save %s", rel, whoWrites)
+			return false, refuse("refusing to write %s: outside a ticket workspace agents write only inside inbox/ until /tickets:save %s", rel, whoWrites)
 		}
 	}
 	if !isTicket {
-		return nil
+		return coveredOnly, nil
+	}
+	if t.Field == "" && len(t.Section) == 0 {
+		return false, refuse("refusing to write %s: the write names no section or field, so the rules can't check it", rel)
 	}
 	if t.Field != "" {
 		if coveredOnly {
 			if strings.ToLower(t.Field) != "status" {
-				return refuse("refusing to write field %q of %s: an epic writes only the work sections and status of the tickets it covers", t.Field, rel)
+				return false, refuse("refusing to write field %q of %s: an epic writes only the work sections and status of the tickets it covers", t.Field, rel)
 			}
 		} else if protectedField(t.Field) {
-			return refuse("refusing to write field %q of %s: the identity, source and ignore fields of a ticket note are never written by agents (AGENTS.md, \"Who writes what\")", t.Field, rel)
+			return false, refuse("refusing to write field %q of %s: the identity, source and ignore fields of a ticket note are never written by agents (AGENTS.md, \"Who writes what\")", t.Field, rel)
 		}
 	}
 	if len(t.Section) > 0 {
 		if inSet(contentSections, t.Section) {
-			return refuse("refusing to write section %q of %s: the Description, Acceptance criteria and Context / links of a ticket note are never written by agents (AGENTS.md, \"Who writes what\")", strings.Join(t.Section, " > "), rel)
+			return false, refuse("refusing to write section %q of %s: the Description, Acceptance criteria and Context / links of a ticket note are never written by agents (AGENTS.md, \"Who writes what\")", strings.Join(t.Section, " > "), rel)
 		}
 		if coveredOnly && !inSet(workSections, t.Section) {
-			return refuse("refusing to write section %q of %s: an epic writes only the work sections and status of the tickets it covers", strings.Join(t.Section, " > "), rel)
+			return false, refuse("refusing to write section %q of %s: an epic writes only the work sections and status of the tickets it covers", strings.Join(t.Section, " > "), rel)
 		}
 	}
-	return nil
+	return coveredOnly, nil
 }

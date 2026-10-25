@@ -54,7 +54,10 @@ ambiguous, 3 refused by a write rule.`,
 func noteErr(err error) error {
 	var amb *mdsec.AmbiguousError
 	var ref *notesec.RefusedError
+	var use *notesec.UsageError
 	switch {
+	case errors.As(err, &use):
+		return exitWith(2, err)
 	case err == nil:
 		return nil
 	case errors.As(err, &ref):

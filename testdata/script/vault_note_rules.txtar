@@ -42,6 +42,18 @@ stdout '^code=3$'
 exec sh ../../code.sh ct vault note append PROJ-1 Description --create 2 --file ../../add.txt
 stdout '^code=3$'
 
+exec cp ../../v/tickets/PROJ-1/PROJ-1.md ../../snap.md
+# the write, not its named target, is what the rules check
+exec sh ../../code.sh ct vault note set-section PROJ-1 Epic --with-subsections --file ../../add.txt
+stdout '^code=3$'
+cmp ../../v/tickets/PROJ-1/PROJ-1.md ../../snap.md
+exec sh ../../nlkey.sh
+stdout '^code=2$'
+cmp ../../v/tickets/PROJ-1/PROJ-1.md ../../snap.md
+exec sh ../../code.sh ct vault note append PROJ-1 Tasks --file ../../dupdesc.txt
+stdout '^code=3$'
+cmp ../../v/tickets/PROJ-1/PROJ-1.md ../../snap.md
+
 # the epic writes the work sections and status of the tickets it covers, nothing else
 exec ct vault note set-section PROJ-2 Tasks --file ../../add.txt
 exec ct vault note frontmatter PROJ-2 status --set doing
@@ -193,4 +205,12 @@ added
 {"id": "PROJ-2", "repos": []}
 -- code.sh --
 "$@" >/dev/null 2>&1
+echo "code=$?"
+-- dupdesc.txt --
+## Description
+
+x
+-- nlkey.sh --
+k=$(printf 'status: x\ntitle')
+ct vault note frontmatter PROJ-1 "$k" --set hacked >/dev/null 2>&1
 echo "code=$?"

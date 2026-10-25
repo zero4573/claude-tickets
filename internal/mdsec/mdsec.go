@@ -161,7 +161,7 @@ func Parse(src []byte) *Doc {
 			continue
 		}
 		if fn == 0 {
-			if k := strings.Index(s, "<!--"); k >= 0 && !strings.Contains(s[k+4:], "-->") {
+			if k := strings.Index(noCode(s), "<!--"); k >= 0 && !strings.Contains(s[k+4:], "-->") {
 				// a comment left open on this line: headings up to the
 				// closing --> are not sections
 				if _, _, isHead := heading(s); !isHead {
@@ -299,4 +299,49 @@ func (d *Doc) pick(spec string, hits []int) (*Section, error) {
 		e.Candidates = append(e.Candidates, d.Sections[i])
 	}
 	return nil, e
+}
+
+// noCode blanks backtick code spans (same length), so a literal "<!--" in
+// one doesn't open a comment.
+func noCode(s string) string {
+	if !strings.Contains(s, "`") {
+		return s
+	}
+	b := []byte(s)
+	run := func(i int) int {
+		n := 0
+		for i+n < len(b) && b[i+n] == '`' {
+			n++
+		}
+		return n
+	}
+	for i := 0; i < len(b); {
+		if b[i] != '`' {
+			i++
+			continue
+		}
+		n := run(i)
+		end := -1
+		for j := i + n; j < len(b); {
+			if b[j] != '`' {
+				j++
+				continue
+			}
+			m := run(j)
+			if m == n {
+				end = j
+				break
+			}
+			j += m
+		}
+		if end < 0 {
+			i += n
+			continue
+		}
+		for k := i; k < end+n; k++ {
+			b[k] = ' '
+		}
+		i = end + n
+	}
+	return string(b)
 }

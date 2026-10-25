@@ -249,6 +249,9 @@ func (b *fmBlock) insertAt() int { return len(b.lines) - 1 }
 
 // SetField sets a scalar field, adding it when missing.
 func SetField(src []byte, key, value string) ([]byte, error) {
+	if err := checkKey(key); err != nil {
+		return nil, err
+	}
 	if strings.ContainsAny(value, "\r\n") {
 		return nil, fmt.Errorf("--set takes a one-line value")
 	}
@@ -341,6 +344,9 @@ func flowLine(key string, items []string, nl string) string {
 // AddItem adds an item to a list field (flow or block style kept), making
 // the field when missing. Adding an item already present changes nothing.
 func AddItem(src []byte, key, item string) ([]byte, error) {
+	if err := checkKey(key); err != nil {
+		return nil, err
+	}
 	return edit(src, func(b *fmBlock) (bool, error) {
 		f := b.find(key)
 		if f == nil {
@@ -380,6 +386,9 @@ func AddItem(src []byte, key, item string) ([]byte, error) {
 // RemoveItem removes an item from a list field; a missing item or field
 // changes nothing.
 func RemoveItem(src []byte, key, item string) ([]byte, error) {
+	if err := checkKey(key); err != nil {
+		return nil, err
+	}
 	return edit(src, func(b *fmBlock) (bool, error) {
 		f := b.find(key)
 		if f == nil {
@@ -432,4 +441,20 @@ func ListField(src []byte, key string) []string {
 	}
 	_, items, _ := blockItems(b, f)
 	return items
+}
+
+// UsageError is a bad argument (ct exits 2).
+type UsageError struct{ Msg string }
+
+func (e *UsageError) Error() string { return e.Msg }
+
+var keyOnly = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]*$`)
+
+// checkKey rejects a field key that is not a plain YAML key, so a key can't
+// smuggle a newline, a colon or padding into the written line.
+func checkKey(key string) error {
+	if !keyOnly.MatchString(key) {
+		return &UsageError{fmt.Sprintf("invalid frontmatter field name %q", key)}
+	}
+	return nil
 }

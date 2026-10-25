@@ -111,7 +111,7 @@ func SetSection(src []byte, spec string, content []byte, withSub bool) ([]byte, 
 	if err != nil {
 		return nil, Target{}, err
 	}
-	t := Target{Section: s.Path}
+	t := Target{Section: s.Path, Level: s.Level, Content: content}
 	start, end := s.Body.Start, s.Body.End
 	if withSub {
 		end = s.Whole.End
@@ -169,12 +169,12 @@ func Append(src []byte, spec string, content []byte, create int) ([]byte, Target
 		}
 		add = append(add, strings.Repeat("#", create)+" "+title+nl+nl...)
 		add = append(add, fit(content, cr)...)
-		return append(append([]byte{}, src...), add...), Target{Section: []string{title}}, nil
+		return append(append([]byte{}, src...), add...), Target{Section: []string{title}, Level: create, Content: content}, nil
 	}
 	if err != nil {
 		return nil, Target{}, err
 	}
-	t := Target{Section: s.Path}
+	t := Target{Section: s.Path, Level: s.Level, Content: content}
 	body := src[s.Body.Start:s.Body.End]
 	var nb []byte
 	if s.Heading.End == len(src) && !bytes.HasSuffix(src, []byte("\n")) {
@@ -214,4 +214,6 @@ func nlOf(src []byte) string {
 type Target struct {
 	Section []string
 	Field   string
+	Level   int    // the section's heading level (0: unknown)
+	Content []byte // Markdown written into the section, for the heading check
 }
