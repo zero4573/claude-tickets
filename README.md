@@ -10,16 +10,22 @@ What it gives you:
   server and an adapter) are pulled into the vault, unsupervised. Manual
   tickets are written in the vault and never synced.
 - **One session per ticket:** each runs in its own tmux window (or, without
-  tmux, in your terminal, one at a time). Its lead plans the ticket and
-  works it in waves of small task agents, each in its own task worktree,
-  with a review agent after each wave. Each session keeps a board of its
-  tasks in the ticket folder and gets its own git worktrees, and you get a
-  desktop notification when it needs you.
+  tmux, in your terminal, one at a time). The session is the ticket's
+  product owner (PO): you talk to it, it grills you on the ticket first,
+  and it runs a lead agent that plans the ticket and works it in waves of
+  small task agents, each in its own task worktree, with a review agent
+  after each wave. New requirements, feedback and questions go to the PO at
+  any time. Each session keeps a board of its tasks in the ticket folder
+  and gets its own git worktrees, and you get a desktop notification when
+  it needs you.
 - **Knowledge base:** the vault holds what the sessions learn: projects
   named by repo slug, the features and versions they shipped in, which
   projects work together (`depends-on`, optional groups), and flows across
   the projects that work together as mermaid diagrams. `kb` answers
   questions about the vault's projects without a ticket.
+- **Learning topics:** `ct teach <topic>` teaches you a topic over many
+  sessions from primary sources, with short lessons, quizzes and a record
+  of what you know, kept in the vault's `learning/<topic>/`.
 - **A code graph:** graphify gives every session the call graph of the
   repos it works in, and of the calls between them, so it reads less code.
 
@@ -31,7 +37,7 @@ so they work the same unsandboxed or inside a sandbox that wraps `claude`.
 |---|---|
 | `cmd/ct`, `internal/` | `ct`, the one command (Go): every subcommand below, its shell completion (`ct completion zsh\|bash\|fish`); OS specifics in `internal/platform` |
 | `assets/` | built into `ct`: `vault-scaffold/` (what `ct vault init` copies into a vault), `scaffold-history.json` (the hash of every version of those files ever shipped, so `ct vault update` knows an unedited old copy; `go generate ./assets`), `obsidian/` (the Tasks plugin pin and settings, shared with the Nix module), `plugin/` and `graph/` (below) |
-| `assets/plugin/` | the Claude Code plugin `tickets`: skills (`/tickets:work-ticket`, `/tickets:pr-feedback`, `/tickets:ticket-sync`, `/tickets:kb`, `/tickets:save`, `/tickets:recall`, and the agents' briefs `/tickets:task-agent`, `/tickets:wave-review`), the agents the lead spawns (`tickets:task`, `tickets:mechanical`, `tickets:reviewer`, `tickets:reviewer-deep`), and the hooks that tell `ct status` what a session is doing |
+| `assets/plugin/` | the Claude Code plugin `tickets`: skills (`/tickets:work-ticket` (the PO), `/tickets:po-refresh`, `/tickets:grill`, `/tickets:retro`, `/tickets:teach`, `/tickets:pr-feedback`, `/tickets:ticket-sync`, `/tickets:kb`, `/tickets:save`, `/tickets:recall`; the playbooks and methods the agents load: `tickets:lead`, `tickets:task-agent`, `tickets:wave-review`, `tickets:grilling`, `tickets:diagnose`, `tickets:questionnaire`), the agents (`tickets:lead`, and the `tickets:task`, `tickets:mechanical`, `tickets:reviewer`, `tickets:reviewer-deep` and `tickets:analyst` agents the PO spawns), and the hooks that tell `ct status` what a session is doing. Some skills are adapted from mattpocock/skills (see Credits) |
 | `assets/graph/` | the graphify image (`ct graph`) and the merger behind each session's code graph |
 | `testdata/`, `*_test.go` | the tests: `go test ./...` runs `ct` against a throwaway home with stub `tmux`, `podman`, `claude` and editor commands and real git, and `ct sync` against a fake Jira (`testdata/sync/`) |
 | `nix/`, `flake.nix` | the package, a home-manager module, and Obsidian modules (Linux, Flathub) |
@@ -126,7 +132,7 @@ Without the module, export them.
 | Variable | What |
 |---|---|
 | `CLAUDE_TICKETS_CLAUDE` | the claude command sessions run, with any extra arguments (default `claude`) |
-| `CLAUDE_TICKETS_SESSION_SETTINGS` | a Claude settings JSON merged into every ticket and kb session's `.claude/settings.json`: your own rules (see below) |
+| `CLAUDE_TICKETS_SESSION_SETTINGS` | a Claude settings JSON merged into every ticket, kb and teach session's `.claude/settings.json`: your own rules (see below) |
 | `CLAUDE_TICKETS_MCP_CONFIG` | a standard MCP config (`{"mcpServers": {"<name>": {"type": "http", "url": …, "headers": {…}}}}`) naming each server the ticket sources use; `ct sync` talks to them directly |
 | `CLAUDE_TICKETS_MCP_PREPARE` | a command run before `ct sync` talks to them (e.g. starting a local proxy) |
 | `CLAUDE_TICKETS_CONTAINER` | `podman` or `docker` for the code graph (default: `ct vault configure --section runtime`, else detected; podman's docker alias counts as podman) |
@@ -237,6 +243,7 @@ clusters, and the vault's `AGENTS.md` has the rules.
 | `ct clean [<ID>...] [--dry-run] [--yes] [--save] [--include-done] [--keep-manual] [--purge] [--days N]` | Clean up closed tickets: remove the workspace, then move a synced ticket's folder to the vault's `.trash/` (links to it become `[ID](<source-url>)`; files other notes link or embed move to `archive/tickets/<ID>/`) and a manual one's to `archive/tickets/<ID>/`. Skips open tickets, running sessions, uncommitted or unpushed work (commits already in `origin/<base>`, e.g. squash-merged, count as pushed) and unsaved sessions (`--save` runs `/tickets:save` headless first). Prints the plan and asks; `--yes` without a terminal. |
 | `ct kb [--continue] [--print] ["<question>"]` | Ask about the vault's projects without a ticket: a session with the vault, every repo read-only, and a graph merged from every repo. |
 | `ct kb repo checkout\|fetch\|graph\|ls\|reset` | Inside a kb session: exploration clones of any branch, to build and test in (never committed). |
+| `ct teach [--continue] [<topic>] \| --list` | Learn a topic (kebab-case) over many sessions: a session running `/tickets:teach <topic>` in the window `teach-<topic>` (launcher `none`: this terminal), with the vault, every repo read-only and the merged graph. No topic: pick one of the vault's `learning/*/` or type a new one (without a terminal it prints them and fails). A new conversation each time; `--continue` (`-c`) reopens the topic's last one. `--list` prints the topics. See "Learning a topic". |
 | `ct claude [claude args]` | `claude` in the current repo with the vault as its knowledge base: the vault added, the plugin's skills, and the repo's project notes named in the system prompt. |
 | `ct graph build\|status\|mcp` | The graphify image (`localhost/claude-tickets-graphify:<hash>`, podman or docker) and the stdio MCP server sessions use for their code graph. |
 | `ct graph index [<repo>...]` | Build or refresh the main clones' code graphs. |
@@ -379,31 +386,51 @@ interrupted run finishes when run again.
 
 ### Inside a ticket session
 
-One lead session per ticket plans the work and spawns small agents for it,
-in waves:
+The ticket session is the **PO** (product owner), the one you talk to. It
+runs one **lead** agent that plans the work in waves of small agents, and
+spawns every agent the lead asks for (subagents can't spawn agents):
 
 ```mermaid
 flowchart TB
-  start["/tickets:work-ticket ID"] --> resume{board.md?}
-  resume -- yes --> wave
-  resume -- no --> kickoff["Kickoff (asks you):<br/>repos (Bitbucket discovery), base branch,<br/>target version per repo"]
-  kickoff --> ws["ct ws add: worktrees on feature/ID<br/>graph merges them in"]
-  ws --> plan["Plan (lead): plan.md, contracts/,<br/>tasks/ for wave 1 (2-6 tasks)"]
-  plan --> wave["Wave: up to 4 task / mechanical agents,<br/>each in .tasks/slug-NN on task/ID-NN-..."]
-  wave --> merge["Merge (lead): merge --no-ff into feature/ID,<br/>lint + tests, remove the task worktree"]
-  merge --> rev["Review: reviewer (or reviewer-deep)<br/>per repo, reviews/wave-N-slug.md"]
+  you([you]) <-->|"questions, requests,<br/>feedback, status"| po["PO: /tickets:work-ticket ID"]
+  po --> resume{board.md?}
+  resume -- no --> kickoff["Kickoff (asks you): repos, base branch,<br/>target version; ct ws add worktrees"]
+  kickoff --> grill["Grill (tickets:grilling): rounds of<br/>questions with recommended answers"]
+  grill --> lead
+  resume -- yes --> lead["Lead (tickets:lead, one at a time):<br/>plan.md, contracts/, tasks/, board.md"]
+  po <-->|"relay.md, messages;<br/>Spawn / Ask user / Status / Next"| lead
+  po -->|"spawns, for the lead"| wave["Wave: up to 4 task / mechanical agents,<br/>each in .tasks/slug-NN on task/ID-NN-..."]
+  wave -->|"done (the PO tells the lead)"| merge["Merge (lead): merge --no-ff into feature/ID,<br/>lint + tests, remove the task worktree"]
+  merge --> rev["Review (spawned by the PO): reviewer or<br/>reviewer-deep per repo, reviews/wave-N-slug.md"]
   rev --> fix{"must-fix items,<br/>or waves left?"}
   fix -- "yes: fix tasks / next wave" --> wave
-  fix -- no --> hand["Hand-over: backlog to follow-up<br/>tickets (ct new), kb-drafts, ## Review"]
+  fix -- no --> hand["Hand-over (lead): retro, backlog to follow-up<br/>tickets (ct new), kb-drafts, ## Review"]
   hand --> review[status: review]
+  po -->|"questions that need no lead"| analyst["tickets:analyst (read-only)"]
 ```
 
-- **The lead** (the session itself) clarifies scope, writes `plan.md`,
-  fixes interfaces in `contracts/` before anything uses them, and writes
-  one file per task in `tasks/` (goal, steps, checks, and the exact files
-  it `owns`). Tasks whose files overlap never run in the same wave. It
-  merges each task branch into the ticket branch, runs the repo's lint
-  and tests, and does follow-ups of up to 20 lines itself.
+- **The PO** (`/tickets:work-ticket`, the session itself) runs the
+  kickoff, then grills you (`tickets:grilling`): rounds of questions, each
+  with a recommended answer that "yes" accepts, one round for a clear
+  chore and several for a vague feature. Facts it looks up instead of
+  asking you, and "skip" ends it. For a blocker someone else owns, it
+  offers a questionnaire for that person (`tickets:questionnaire`). Then it
+  spawns the lead and relays: the lead's questions to you (recorded under
+  `## Questions`), your new requirements, features and feedback to the
+  lead (as `relay.md` entries it plans into the next wave), and each
+  spawned agent's completion. Questions that don't need the lead go to
+  `tickets:analyst` (read-only, at most 20 lines with `file:line`).
+  Status updates are short and come from `board.md`. `/tickets:grill`
+  grills you on new scope at any point.
+- **The lead** (`tickets:lead`, a background agent, never two at once,
+  with no Agent tool) writes `plan.md`, fixes interfaces in `contracts/`
+  before anything uses them, and writes one file per task in `tasks/`
+  (goal, steps, checks, and the exact files it `owns`). Tasks whose files
+  overlap never run in the same wave. It merges each task branch into the
+  ticket branch, runs the repo's lint and tests, and does follow-ups of up
+  to 20 lines itself. It ends each run with a block the PO acts on
+  (`Spawn:`, `Ask user:`, `Status:`, `Next:`), and is replaced by a fresh
+  lead after each reviewed wave.
 - **Agents:** `tickets:task` (sonnet) implements one task in its own task
   worktree, commits there and appends a `## Report` of up to 40 lines to
   its task file; `tickets:mechanical` (sonnet, low effort) does renames,
@@ -412,28 +439,34 @@ flowchart TB
   contract or security-sensitive code, reviews each repo's new commits:
   at most 3 must-fix, 6 should-fix and 5 consider items. Must-fixes become
   fix tasks before the next wave; the rest go to fix tasks or `backlog.md`
-  (at most 40 open items). The agents get no subagents, graph or Atlassian
-  tools.
+  (at most 40 open items). These agents get no subagents, graph or
+  Atlassian tools.
 - **Search:** the graphify code graph for structure (callers, paths
   between repos, what a change touches); the fff MCP tools
   (`mcp__fff__*`) for files and content when the session has them, else
   `rg`.
 - **The ticket folder** holds `plan.md`, `board.md` (one row per task and
-  review, the lead's resume point), `backlog.md`, `tasks/`, `contracts/`,
+  review, the resume point; its `lead:` and `po:` are the PO's), `relay.md`
+  (you, the PO and the lead; capped), `backlog.md`, `tasks/`, `contracts/`,
   `reviews/` and `kb-drafts/`. The ticket note's `## Tasks` has one line
   per phase or wave; `## Questions`, `## Review` and `## Follow-ups` stay
-  there. At hand-over the lead offers to turn open backlog items into
-  follow-up tickets (`ct new`).
-- **Fresh context:** the lead resumes from `board.md` in a few calls, so
-  `/clear` and `/tickets:work-ticket <ID>` again (or a new `ct start <ID>`,
-  which starts a new conversation by default) every wave or two keeps the
-  session small. `ct start --continue <ID>` reopens the last conversation.
+  there. At hand-over the lead runs a short retro (`/tickets:retro` runs
+  one any time: fixes to the agents' environment) and offers to turn open
+  backlog items into follow-up tickets (`ct new`).
+- **Fresh context:** the PO resumes from `board.md` and `relay.md` in a
+  few calls, so a new `ct start <ID>` (a new conversation by default)
+  picks up where the last one stopped, with a fresh lead.
+  `ct start --continue <ID>` reopens the last conversation. When the PO's
+  context grows, it suggests `/tickets:po-refresh` at a quiet point: it
+  checkpoints the board and relay and gives you the `/compact` to type,
+  while the lead and workers keep running.
 - **Ticket types** shape the plan, not the agents: a `bug` starts from a
-  root cause and a regression test that fails before the fix; an
+  root cause (`tickets:diagnose`: a tight pass/fail loop first) and a
+  regression test that fails before the fix; an
   `investigation` ends in `investigation.md`, with code only if asked; a
   `chore` may be one task or none; an `epic` plans over the tickets it
   covers.
-- **Questions:** a session stops and asks when something is unclear or a
+- **Questions:** the PO stops and asks when something is unclear or a
   tradeoff is big. The hooks set the session to `needs-input`, which
   `ct status` shows and a desktop notification announces.
 - **Dependencies:** `blocked-by` / `blocks` / `parent` / `related` in the
@@ -492,6 +525,39 @@ flowchart LR
 - **`ct claude`** in any repo gives the same skills (`/tickets:kb`,
   `/tickets:recall`, `/tickets:save`) to a plain session. A plain `claude`
   session knows nothing of the vault.
+
+## Learning a topic
+
+```mermaid
+flowchart LR
+  t(["ct teach topic"]) --> s["session (workRoot/.teach-vault/topic):<br/>/tickets:teach topic"]
+  s --> m{mission?}
+  m -- no --> int["interview: why, success,<br/>constraints, out of scope"] --> res
+  m -- yes --> res["resources from primary sources<br/>(web search and fetch)"]
+  res --> l["short lesson: one win, citations,<br/>retrieval questions, practice"]
+  l --> q[HTML quiz] --> r["learning record, glossary,<br/>reference note"] --> l
+```
+
+- **`ct teach <topic>`** (kebab-case, e.g. `rust-async`) opens a session
+  running `/tickets:teach <topic>` in the tmux window `teach-<topic>` (with
+  the launcher `none`, in this terminal), with the vault, every repo
+  read-only for examples, and the merged code graph. Without a topic it
+  lists the vault's `learning/*/` and lets you pick one or name a new one;
+  `--list` prints them. Each run is a new conversation that picks up from
+  the topic's notes; `--continue` reopens the last one.
+- **State:** the session works in `<workRoot>/.teach-<vault>/<topic>`
+  (its `CLAUDE.md` names the vault and the topic), and writes only the
+  vault's `learning/<topic>/`, directly and under the vault lock:
+  `<topic>.md` (the mission and an index), `-resources`, `-glossary` and
+  `-notes` (your preferences), `lessons/`, `reference/` (what you
+  reread), `records/` (what you've shown you know) and `quizzes/`
+  (self-contained HTML, linked from each lesson). Topics aren't tied to
+  projects; related repos go in `projects:`.
+- **Method:** a mission first; knowledge only from primary sources it
+  finds on the web, and communities for judgement calls; each lesson just
+  beyond what your records show, opening with retrieval questions on
+  earlier lessons (spaced and interleaved); quiz answers of equal length
+  in varying positions; one glossary kept to.
 
 ## Code graph
 
@@ -568,3 +634,11 @@ leave these notes alone.
   server needs podman and the unpacked filesystem under the cache dir.
 - **Skills not found.** Plugin skills are namespaced: `/tickets:save`, not
   `/save`.
+
+## Credits
+
+The `grilling`, `grill`, `diagnose`, `retro`, `questionnaire` and `teach`
+skills are adapted, in our own wording, from
+[mattpocock/skills](https://github.com/mattpocock/skills) (MIT License).
+The license text and which skill comes from which are in
+[`assets/plugin/THIRD_PARTY_NOTICES.md`](assets/plugin/THIRD_PARTY_NOTICES.md).
