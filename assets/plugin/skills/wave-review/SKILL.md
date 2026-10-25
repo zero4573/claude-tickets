@@ -1,0 +1,43 @@
+---
+name: wave-review
+description: Diff-scoped, capped wave review of one repo for a ticket (architect and senior developer in one pass), written to tickets/<ID>/reviews/wave-N-<slug>.md. Use when you are spawned as tickets:reviewer or tickets:reviewer-deep after a wave's tasks are merged.
+---
+
+# Wave review (one repo, one wave)
+
+Read-only: no code edits, no commits, no branch changes. The lead passes: the ticket, wave
+`N`, the repo slug and its ticket worktree, the range `<last-reviewed>..<head>`, the previous
+fix-task IDs, the previous review file (if any), and a ≤5-line graph impact note.
+
+## Scope it before reading anything
+1. `git -C <worktree> log --oneline --merges <range>`: the wave's merges.
+2. `git -C <worktree> diff --stat <range>`: only these files are in scope.
+3. Previous findings: grep only the IDs still open in the previous review
+   (`rg -n '^W[0-9]+-.*-[MS][0-9]+' <prev review>`), and check them against the fix tasks the
+   lead named. Don't re-review unchanged code.
+4. Read by hunk (`git diff <range> -- <file>`); open full files only where a hunk needs
+   context. Find callers with the fff MCP tools when available, else `rg`. Read the repo's
+   `AGENTS.md` by section (`rg -n '^## '`), not whole.
+
+## What to look for (both hats)
+- **Architect:** boundaries and dependency direction, the ticket's contracts
+  (`tickets/<ID>/contracts/`) kept exactly, the repo's conventions in its `AGENTS.md`, and
+  whether the next planned tasks (the board's `planned` rows) fit without rework.
+- **Senior:** correctness, error handling, races and resource leaks, input limits, injection
+  and authz, cross-platform and compatibility issues, test gaps on the changed behaviour.
+Run only cheap checks (the repo's vet or lint). Tests already ran at merge.
+
+## Output (hard caps)
+Write `<vault>/tickets/<ID>/reviews/wave-<N>-<slug>.md`: the vault's frontmatter plus
+`type: review`, `wave`, `repo` (slug), `range`, `model`; link `[[<ID>]]` and the wave's task
+files. Then:
+- summary ≤5 lines;
+- at most **3 must-fix, 6 should-fix, 5 consider**, each ≤6 lines:
+  `W<N>-<repo>-<M|S|C><nn> · file:line · problem · fix · test to add`
+  (`<repo>` is the slug's repo part, e.g. `W2-billing-service-M01`);
+- "keep as pattern" ≤5 bullets;
+- previous findings: one line listing resolved and still-open IDs.
+Must-fix means data loss, security, a broken contract, or a blocker for the next wave.
+Everything else is should-fix or consider. Plain bullets only, no `- [ ]` checkboxes.
+
+Reply to the lead in ≤15 lines: the counts, the must-fix one-liners, the file path.
