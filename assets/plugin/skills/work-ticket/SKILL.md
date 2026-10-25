@@ -64,19 +64,8 @@ Each event gets one short action; never forward report bodies.
 - **Lead's final block** (`Spawn:`, `Ask user:`, `Status:`, `Next:`): spawn each `Spawn:` entry
   in one message (agent type, `model` if given, the prompt verbatim plus `Lead: <id>`) and add
   it to `po: agents:` with its `wave:`; turn `Ask user:` into the gate (3); give the user
-  `Status:` (5). `Next:` `wait-tasks` → wait for notices; `wait-user` → the gate; `rotate` → the lead has finished:
-  spawn a fresh one (1), never two at once; `handover-done` → first `cd <vault>` (your cwd is the workspace) and run the review-disposition gate for <ID>:
-  ```sh
-  for f in tickets/<ID>/reviews/*.md; do
-    rg -q '^## Dispositions' "$f" || echo "$f: no Dispositions"
-    for id in $(rg -o '^- (W[0-9]+-[a-z0-9-]+-[MSC][0-9]+) · ' -r '$1' "$f" | sort -u); do
-      rg -q "^- $id · (resolved|deferred) · " "$f" || echo "$f: $id"
-    done
-  done
-  ```
-  If it prints anything, wake the lead with it (fix tasks, `kept:` reasons or deferrals) instead of accepting. If it prints nothing, set `lead: none`, tell the user
-  the ticket is ready for review (`ct ws diff <ID>`, changes can be asked for here, then
-  `/tickets:save`, `ct ws sign <ID>` on the host, push), and suggest a refresh (6).
+  `Status:` (5). `Next:` `wait-tasks` → wait for notices; `wait-user` → the gate; `rotate` → the
+  lead has finished: spawn a fresh one (1), never two at once; `handover-done` → `handover.md`.
 - **Lead messages `main` mid-run:** act on it like a block item.
 - **Completion notice of a task or reviewer: batch it per wave.** Each lead resume re-reads its
   whole transcript, so wake it **once per wave**. Take the notice's first line and move the agent

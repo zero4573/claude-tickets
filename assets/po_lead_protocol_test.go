@@ -211,7 +211,7 @@ func TestPOLeadQAFixes(t *testing.T) {
 }
 
 // The review-disposition gate loop (contract review-disposition-v1 v1.1) is
-// the same in the lead skill and the PO skill, and flags a missing section.
+// the same in the lead skill and the PO's hand-over, and flags a missing section.
 func TestDispositionGateLoopMatches(t *testing.T) {
 	const gate = `for f in tickets/<ID>/reviews/*.md; do
   rg -q '^## Dispositions' "$f" || echo "$f: no Dispositions"
@@ -220,12 +220,8 @@ func TestDispositionGateLoopMatches(t *testing.T) {
   done
 done`
 	texts := pluginTexts(t)
-	for _, p := range []string{"plugin/skills/lead/SKILL.md", "plugin/skills/work-ticket/SKILL.md"} {
-		text := texts[p]
-		if strings.Contains(p, "work-ticket") {
-			text = strings.ReplaceAll(text, "\n  ", "\n")
-		}
-		if !strings.Contains(text, gate) {
+	for _, p := range []string{"plugin/skills/lead/SKILL.md", "plugin/skills/work-ticket/handover.md"} {
+		if !strings.Contains(texts[p], gate) {
 			t.Errorf("%s: gate loop differs from the contract", p)
 		}
 	}

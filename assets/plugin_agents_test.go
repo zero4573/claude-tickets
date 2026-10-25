@@ -149,7 +149,8 @@ func TestWaveSkillsReferences(t *testing.T) {
 		}
 	}
 	lead := read("plugin/skills/lead/SKILL.md")
-	for f, dir := range map[string]string{"kickoff.md": "work-ticket", "handover.md": "lead"} {
+	for _, df := range [][2]string{{"work-ticket", "kickoff.md"}, {"work-ticket", "handover.md"}, {"lead", "handover.md"}} {
+		dir, f := df[0], df[1]
 		if !strings.Contains(read("plugin/skills/"+dir+"/SKILL.md"), "`"+f+"`") {
 			t.Errorf("%s doesn't point at %s", dir, f)
 		}
