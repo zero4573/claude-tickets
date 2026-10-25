@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/links"
 )
 
 // FileChange is a converted file: its vault-relative path (slash form), and
@@ -50,6 +49,9 @@ type Result struct {
 	Current  int // non-closed tickets with nothing to do
 	Closed   int // skipped
 }
+
+// writeStatus writes a new status file: a test seam.
+var writeStatus = fsx.WriteFileAtomic
 
 // beforeWrite is a test seam: called just before a converted file is
 // re-read and written.
@@ -129,15 +131,17 @@ func migrateTicket(vault, id string, statusTpl []byte, today string, dryRun bool
 	tc := TicketChange{ID: id, StatusRel: path.Join("tickets", id, id+"-status.md")}
 	warn := func(format string, a ...any) { res.Warnings = append(res.Warnings, fmt.Sprintf(format, a...)) }
 
+	statusFailed := false
 	sp := filepath.Join(dir, id+"-status.md")
 	if _, err := os.Lstat(sp); errors.Is(err, fs.ErrNotExist) {
 		data := strings.NewReplacer("TICKET-ID", id, "{{date}}", today).Replace(string(statusTpl))
 		if !dryRun {
-			if err := fsx.WriteFileAtomic(sp, []byte(data), 0o644); err != nil {
-				return tc, err
+			if err := writeStatus(sp, []byte(data), 0o644); err != nil {
+				warn("%s: %v; not written", tc.StatusRel, err)
+				statusFailed = true
 			}
 		}
-		tc.StatusAdded = true
+		tc.StatusAdded = !statusFailed
 	} else if err != nil {
 		return tc, err
 	}
@@ -171,7 +175,7 @@ func migrateTicket(vault, id string, statusTpl []byte, today string, dryRun bool
 				warn("%s: changed during the update; run it again", vrel)
 				return
 			}
-			if err := links.WriteNote(abs, c.Data); err != nil {
+			if err := fsx.WriteNote(abs, c.Data); err != nil {
 				warn("%s: %v; not converted", vrel, err)
 				return
 			}

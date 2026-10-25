@@ -19,12 +19,13 @@ import (
 const (
 	TasksComment = "<!-- One line per task: `- [<s>] NN · <status> · [[<ID>-NN-<slug>]] · <repo> · w<N> · deps <NN, …|-> · <note ≤1 line> ➕ <date>`\n" +
 		"     `[ ]` planned · `[/]` running, orphaned, partial, blocked, pending — user · `[x]` merged <sha> ✅ <date> · `[-]` dropped ❌ <date> -->"
-	ReviewsComment = "<!-- One bullet per review (not a task): `- w<N> · <repo> · <from>..<to> · M/S/C <m>/<s>/<c> · [[wave-N-<slug>]] · fix tasks <NN, …|lead <sha>|->` -->"
+	ReviewsComment = "<!-- Plain bullets (a review is not a task): `- w<N> · <repo> · <from>..<to> · M/S/C <m>/<s>/<c> · [[wave-N-<slug>]] · fix tasks <NN, …|lead <sha>|->`\n" +
+		"     a pass with no review file: `- w<N> fix · <repo> · <from>..<to> · - · <what the lead checked> · -` -->"
 
 	// the Dispositions comment of a v1 review, and what replaces it
-	dispositionsV1a     = "<!-- The lead's: one line per finding, `<ID> · resolved · <how>`, `<ID> · resolved · kept: <reason>` or `<ID> · deferred · [[<ticket>]] · <why>` -->"
+	dispositionsV1a     = "<!-- The lead's: one line per finding," // prefix of every v1 comment
 	dispositionsV1b     = "<!-- The reviewer lists every finding ID of Must-fix, Should-fix and Consider as `- <ID> · open`. -->"
-	DispositionsComment = "<!-- The reviewer lists every finding ID of Must-fix, Should-fix and Consider as `- [ ] <ID> · open`. The lead keeps one line per ID, the box following the word: `- [/] <ID> · fixing · task NN` · `- [x] <ID> · resolved · <how> ✅ <date>` · `- [-] <ID> · kept: <reason> ❌ <date>` · `- [x] <ID> · deferred → [[<ticket>]] · <why> #deferred ✅ <date>` -->"
+	DispositionsComment = "<!-- The reviewer writes one line per finding ID of Must-fix, Should-fix and Consider: `- [ ] <ID> · open`. The lead keeps exactly one line per ID and sets box, word and date: `- [/] <ID> · fixing · task NN`, `- [x] <ID> · resolved · task NN (<sha>) ✅ <date>`, `- [-] <ID> · kept: <reason ≤150 chars> ❌ <date>`, `- [x] <ID> · deferred → [[<ticket>]] · <why> #deferred ✅ <date>` -->"
 )
 
 var (
@@ -225,8 +226,19 @@ func ConvertBoard(in []byte) Converted {
 	d := split(in)
 	var out []line
 	var problems, warnings []Problem
+	var cm tracker
+	fenced := false
 	for i := 0; i < len(d.lines); i++ {
 		l := d.lines[i]
+		if t := strings.TrimSpace(l.text); !cm.open && (strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~")) {
+			fenced = !fenced
+			out = append(out, l)
+			continue
+		}
+		if fenced || cm.comment(l.text) {
+			out = append(out, l)
+			continue
+		}
 		cells, ok := splitRow(l.text)
 		tasks, reviews := ok && sameCells(cells, v1Tasks), ok && sameCells(cells, v1Reviews)
 		if !tasks && !reviews {
@@ -295,7 +307,7 @@ func ConvertReview(in []byte) Converted {
 		}
 		if cm.comment(l.text) {
 			switch {
-			case inSection && t == dispositionsV1a:
+			case inSection && strings.HasPrefix(t, dispositionsV1a):
 				for _, c := range strings.Split(DispositionsComment, "\n") {
 					out = append(out, line{c, l.cr})
 				}

@@ -87,3 +87,26 @@ func TestWriteFileAtomic(t *testing.T) {
 		t.Errorf("new file mode = %v", st.Mode().Perm())
 	}
 }
+
+func TestWriteNoteThroughSymlinkKeepsModeAndLink(t *testing.T) {
+	d := t.TempDir()
+	real, link := filepath.Join(d, "real.md"), filepath.Join(d, "link.md")
+	if err := os.WriteFile(real, []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, link); err != nil {
+		t.Skip("symlinks:", err)
+	}
+	if err := WriteNote(link, []byte("new")); err != nil {
+		t.Fatal(err)
+	}
+	if st, err := os.Lstat(link); err != nil || st.Mode()&os.ModeSymlink == 0 {
+		t.Error("the link was replaced")
+	}
+	if b, _ := os.ReadFile(real); string(b) != "new" {
+		t.Errorf("target %q", b)
+	}
+	if st, _ := os.Stat(real); st.Mode().Perm() != 0o600 {
+		t.Errorf("mode %v", st.Mode())
+	}
+}

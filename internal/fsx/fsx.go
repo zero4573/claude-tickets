@@ -152,3 +152,21 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 	}
 	return err
 }
+
+// WriteNote rewrites an existing note in place: through a symlink (the
+// target is rewritten, the link stays, as os.WriteFile did, also when it
+// points outside the vault) and keeping the file's mode, by an atomic
+// rename. Callers only pass notes they just read, so a dangling link never
+// gets here. The rename replaces the inode: hard links and ownership are
+// not kept.
+func WriteNote(f string, data []byte) error {
+	target, err := filepath.EvalSymlinks(f)
+	if err != nil {
+		return err
+	}
+	mode := os.FileMode(0o644)
+	if st, err := os.Stat(target); err == nil {
+		mode = st.Mode().Perm()
+	}
+	return WriteFileAtomic(target, data, mode)
+}

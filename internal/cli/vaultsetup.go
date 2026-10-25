@@ -384,12 +384,9 @@ func vaultUpdate(v string, o updateOpts) error {
 	}
 
 	// The tickets: their status file, board, reviews and backlog
-	mig, err := migrateTickets(v, statusTpl, time.Now().Format("2006-01-02"), dry)
+	mig, migErr := migrateTickets(v, statusTpl, time.Now().Format("2006-01-02"), dry)
 	for _, w := range mig.Warnings {
 		warnf("%s", w)
-	}
-	if err != nil {
-		return err
 	}
 	for _, t := range mig.Tickets {
 		var what []string
@@ -411,8 +408,10 @@ func vaultUpdate(v string, o updateOpts) error {
 			}
 		}
 	}
-	fmt.Printf("ct vault update: %s %d, already current %d, closed (skipped) %d\n",
-		verb("tickets migrated", "tickets that would be migrated"), mig.Migrated, mig.Current, mig.Closed)
+	if migErr == nil {
+		fmt.Printf("ct vault update: %s %d, already current %d, closed (skipped) %d\n",
+			verb("tickets migrated", "tickets that would be migrated"), mig.Migrated, mig.Current, mig.Closed)
+	}
 
 	if !dry {
 		var written []string
@@ -427,7 +426,7 @@ func vaultUpdate(v string, o updateOpts) error {
 			refreshIndex(v, written...)
 		}
 	}
-	return nil
+	return migErr
 }
 
 // tasksPlugin installs the Tasks community plugin when the vault doesn't
