@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/zero4573/claude-tickets/internal/embed"
+	"github.com/zero4573/claude-tickets/internal/lock"
 )
 
 func sum(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
@@ -345,5 +346,36 @@ func TestReadOnlyCache(t *testing.T) {
 	}
 	if got := strings.Join(list(), "\n"); got != strings.Join(before, "\n") {
 		t.Fatalf("read paths created files:\n%s", got)
+	}
+}
+
+// A second fetch waits for the first one's lock, and gives up when ctx is done.
+func TestFetchLockWaitRespectsContext(t *testing.T) {
+	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
+	if err := os.MkdirAll(Dir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	held := make(chan struct{})
+	release := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		lock.With(filepath.Join(Dir(), ".fetch.lock"), func() error { close(held); <-release; return nil })
+	}()
+	<-held
+	defer func() { close(release); <-done }()
+	srv := httptest.NewServer(http.NotFoundHandler())
+	defer srv.Close()
+	p := testPins(t, srv, nil, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	var out bytes.Buffer
+	start := time.Now()
+	err := fetch(ctx, p, srv.Client(), "m", &out)
+	if !errors.Is(err, context.DeadlineExceeded) || time.Since(start) > 2*time.Second {
+		t.Fatalf("err %v after %v", err, time.Since(start))
+	}
+	if !strings.Contains(out.String(), "waiting for another model fetch") {
+		t.Fatalf("no waiting notice: %q", out.String())
 	}
 }

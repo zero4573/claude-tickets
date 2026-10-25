@@ -567,3 +567,82 @@ func TestTornIndexReusesVectors(t *testing.T) {
 		}
 	}
 }
+
+// negStub is a stub embedder under another id whose vectors are negated.
+type negStub struct{ embed.Embedder }
+
+func (negStub) ID() string { return "stub2" }
+func (n negStub) Embed(texts []string, q bool) ([][]float32, error) {
+	vs, err := n.Embedder.Embed(texts, q)
+	for _, v := range vs {
+		for i := range v {
+			v[i] = -v[i]
+		}
+	}
+	return vs, err
+}
+
+// A commit torn after vectors.f32 (of a new model, same dims) was renamed
+// leaves the old meta next to foreign vectors: they must not be reused (W7 S01).
+func TestSalvageRefusesForeignVectors(t *testing.T) {
+	v := setup(t, "stub")
+	if _, err := Update(v, UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	orig := openEmbedder
+	defer func() { openEmbedder = orig; beforeNotesWrite = nil }()
+	openEmbedder = func(string) (embed.Embedder, error) { return negStub{embed.Stub(64)}, nil }
+	beforeNotesWrite = func() { panic("crash") }
+	func() {
+		defer func() { recover() }()
+		Update(v, UpdateOptions{Model: "stub2"})
+	}()
+	beforeNotesWrite = nil
+	openEmbedder = orig
+	if _, err := Load(v); !errors.Is(err, ErrNoIndex) {
+		t.Fatalf("torn index loaded: %v", err)
+	}
+	st, err := Update(v, UpdateOptions{Model: "stub"})
+	if err != nil || st.Embedded != st.Chunks || st.Chunks == 0 {
+		t.Fatalf("foreign vectors reused: %+v %v", st, err)
+	}
+}
+
+// The salvage is refused when the torn index's model or sha is not the one
+// being built.
+func TestSalvageRefusesModelAndShaMismatch(t *testing.T) {
+	tear := func(t *testing.T) string {
+		v := setup(t, "stub")
+		if _, err := Update(v, UpdateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(Dir(v), "notes.jsonl"), []byte("torn\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	t.Run("model", func(t *testing.T) {
+		v := tear(t)
+		orig := openEmbedder
+		defer func() { openEmbedder = orig }()
+		openEmbedder = func(string) (embed.Embedder, error) { return negStub{embed.Stub(64)}, nil }
+		st, err := Update(v, UpdateOptions{Model: "stub2"})
+		if err != nil || st.Embedded != st.Chunks {
+			t.Fatalf("%+v %v", st, err)
+		}
+	})
+	t.Run("sha", func(t *testing.T) {
+		v := tear(t)
+		p := filepath.Join(Dir(v), "meta.json")
+		b, _ := os.ReadFile(p)
+		b = []byte(strings.Replace(string(b), `"model_sha256":""`, `"model_sha256":"abc"`, 1))
+		if !strings.Contains(string(b), `"abc"`) {
+			t.Fatalf("meta: %s", b)
+		}
+		os.WriteFile(p, b, 0o644)
+		st, err := Update(v, UpdateOptions{})
+		if err != nil || st.Embedded != st.Chunks {
+			t.Fatalf("%+v %v", st, err)
+		}
+	})
+}

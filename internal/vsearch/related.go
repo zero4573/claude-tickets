@@ -104,7 +104,7 @@ func Related(ix *vindex.Index, emb embed.Embedder, n int, o RelatedOptions) (*Re
 				}
 			}
 			mean, cnt := meanSemanticN(cand, chunkScore, func(i int) bool { return noVec[i] })
-			if cnt == 0 || mean == 0 {
+			if cnt == 0 || mean < 1e-6 {
 				// Nothing embedded to compare with (or nothing similar: every cosine
 				// clamps to 0): rank by BM25 alone, as in
 				// keyword-only mode (W6 S02, intentional; Search instead gives such
