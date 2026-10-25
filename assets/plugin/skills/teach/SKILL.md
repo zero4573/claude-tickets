@@ -10,6 +10,7 @@ argument-hint: "<topic, kebab-case>"
 The vault is named in the system prompt (`ct teach`) or the session's `CLAUDE.md`; without
 one, say so and stop. Read the vault's `AGENTS.md` once (`rg -n '^## '`, then "Note Rules").
 No topic: list `ls <vault>/learning/` and ask (AskUserQuestion) which one, or a new one.
+Before writing, `ct vault search "<subject>" --path learning/<topic>` for what's already taught.
 The topic is kebab-case; it names the folder and prefixes every file, so names stay unique.
 
 ## Writer rule

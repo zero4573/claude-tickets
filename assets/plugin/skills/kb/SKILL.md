@@ -12,7 +12,11 @@ knowledge base: say so (relaunch with `ct claude`, or use `kb`) and answer from 
 
 ## Answer: vault first, then graph, then code
 
-1. **The vault:**
+1. **The vault:** start with `ct vault search "<question>" --budget 2000`
+   (`--project <slug>` for one repo), then `ct vault related <note>` on the best
+   hit, then `ct vault note outline <note>` and `ct vault note get <note>
+   "<section>"`; read a whole note only when the section isn't enough. Where
+   to look when search comes up short:
    - **One repo:** its project notes `projects/<slug>/` (index, features,
      sequences, data, `<slug>-decisions.md`, recent logs).
    - **Across projects:** `ct vault groups <vault> <slug>` gives the

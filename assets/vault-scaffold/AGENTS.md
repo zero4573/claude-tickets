@@ -219,6 +219,11 @@ review agents, and the hooks. Sessions run your `claude` command (which may be s
 | `ct vault lock acquire\|release\|status\|run` | The lock `/tickets:save` holds while writing shared notes, and a teach session around multi-file writes (`.vault.lock.d`). A lock idle for 30 minutes is taken over. |
 | `ct vault links check\|move` | Check that wikilinks resolve; move a note without breaking links to it. |
 | `ct vault groups <vault> [<slug\|group>...] [--json] [--check]` | Which projects work together (groups, `depends-on`, used-by) and which are unrelated; `--check` validates those links. Read-only. See "Projects and groups". |
+| `ct vault index [<vault>] [--full]` | Build or update the search index in `<vault>/.ct/` (incremental; the search commands do it themselves). |
+| `ct vault search <query> [--project <slug>] [--type <t>] [--path <folder>] [--budget <tokens>] [--json]` | Find the notes and sections that answer a question (semantic + keyword + links). `--budget` returns the best sections' text up to that many tokens. |
+| `ct vault related <note> [--chunks] [--json]` | Notes (or sections) similar to a note that it doesn't already link. |
+| `ct vault note outline\|get\|set-section\|append\|frontmatter <note> …` | Read or change one section or frontmatter field of a note, leaving every other byte alone. Writes follow "Who writes what" (`--save` for `/tickets:save`). |
+| `ct vault model status\|fetch\|list` | The local embedding model search uses. `fetch` downloads it (on the host). |
 | `ct graph index` | Refresh the code graphs of the main clones (`<projectsRoot>/<provider>/<owner>/<repo>`). |
 | `ct graph build\|status` | The graphify image the code graph runs in (podman or docker); built when needed. |
 | `ct layout [--apply]` | Move repos into `<projectsRoot>/<provider>/<owner>/<repo>`. Leaves alone a main clone that any vault's workspace borrows objects from. |
@@ -346,8 +351,18 @@ related repos go in `projects:`):
   deleted) and `quizzes/<topic>-NNNN-<name>.html` (self-contained, linked
   from its lesson).
 
+### Finding context
+Search before reading: `ct vault search "<question>" --budget 2000` (add `--project <slug>`
+or `--path <folder>`) returns the best sections' text. To go further, `ct vault note outline
+<note>` then `ct vault note get <note> "<section>"`, and `ct vault related <note>` for
+neighbours. Read a whole note only to edit it or when the section isn't enough. `.ct/` is a
+rebuildable index: never edit it. The embedding model is fetched on the host with `ct vault
+model fetch`; without it search is keyword-only.
+
 ### Who writes what
-Several agents work at once, so each part of the vault has one writer:
+Several agents work at once, so each part of the vault has one writer.
+`ct vault note` enforces these rules (it refuses a write outside the session's area with
+exit 3; `/tickets:save` passes `--save`):
 1. **ct sync** owns a synced ticket's `source-*` fields and source block.
    It also sets `status: new` on new tickets and `closed` when the source
    closes one, `.sync-state.json`, and the dependency fields it reads from

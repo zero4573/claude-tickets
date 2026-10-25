@@ -143,6 +143,8 @@ Without the module, export them.
 | `CLAUDE_TICKETS_CACHE` | cache dir (default: per OS) |
 | `CLAUDE_TICKETS_STATE_DIR` | log dir (default: per OS) |
 | `CLAUDE_TICKETS_PLUGIN`, `CLAUDE_TICKETS_GRAPH_DIR` | use this copy of the plugin / graph image sources instead of the built-in one (the Nix package sets them) |
+| `CLAUDE_TICKETS_EMBEDDER` | `none` turns the embedding model off (search is keyword-only); `stub` is for tests |
+| `CLAUDE_TICKETS_LIB_PATH` | extra absolute directories (PATH style) searched for the llama.cpp library and its runtime libraries; the Nix package sets it |
 | `OBSIDIAN_ROOT` | where the vaults live (default `~/Documents/Obsidian`) |
 | `CLAUDE_TICKETS_TASKS_URL` | where `ct vault init` downloads the Tasks plugin release from: a mirror holding `<version>/<file>` (default: the GitHub releases); the checksums are always the pinned ones |
 
@@ -510,6 +512,27 @@ sequenceDiagram
 The `saved:` timestamp tells `ct clean` the ticket's work is in the vault
 (tickets saved before it existed are recognized by their summary block).
 
+
+## Vault search
+
+`ct vault search "<query>"` finds the notes and sections that answer a question, ranked by
+embedding similarity, keywords (BM25) and links; `ct vault related <note>` finds similar
+notes; `ct vault note outline|get|set-section|append|frontmatter` reads or writes one
+section, leaving every other byte as it was (writes follow the vault's write rules, and
+`/tickets:save` passes `--save`). The skills use them to find context without reading whole
+notes.
+
+```sh
+ct vault model fetch                                   # once, on the host: model + llama.cpp lib
+ct vault search "how does sync dedupe tickets" --project acme --budget 2000
+ct vault note outline acme-architecture
+ct vault note get acme-architecture "Data flow"
+```
+
+The index lives in `<vault>/.ct/` (rebuildable, never edit it; searches update it
+incrementally, `ct vault index` does it explicitly). The model is downloaded into
+`<cache>/models/` on the host; sessions in a sandbox or container must be able to read that
+directory, since they can't fetch it. Without the model, search is keyword-only and says so.
 
 ## Knowledge base without a ticket
 

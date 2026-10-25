@@ -61,8 +61,8 @@ state `copied`), or ask (the gate). A grill (`tickets:grilling`, run by the PO) 
 `Brief:` into `## Scope`) and set it `copied`. Caps (the PO trims): `## Open` ≤30 lines, `## Closed` ≤40.
 
 ## 2. Plan (you, no separate analysis agents)
-1. Recall: for each repo, `projects/<slug>/architecture/<slug>-decisions.md` (grep the index),
-   the 3 latest `projects/<slug>/logs/` notes by name and first lines, and
+1. Recall: for each repo, `ct vault search "<ticket subject>" --project <slug> --budget 2000`,
+   then `ct vault note get` of the decisions or log sections it points at (not whole notes), and
    `ct vault groups <vault> <slug>...` (neighbours and groups; read only what matters).
 2. Clarify scope yourself. Product or UX questions go through the gate, in **one** batch.
 3. Write `plan.md` (≤150 lines): `## Scope`, `## Acceptance criteria`, `## Decisions`,

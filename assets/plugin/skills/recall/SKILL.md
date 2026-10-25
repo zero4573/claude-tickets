@@ -29,6 +29,9 @@ Read-only. Never write to the vault.
 
 ## Project
 
+0. `ct vault search "<what's open, decided, in progress>" --project <project>
+   --budget 1500` to find what matters before reading; then
+   `ct vault note get <note> "<section>"` rather than whole notes.
 1. The 3 most recent notes in `projects/<project>/logs/`, newest first by
    filename date.
 2. `projects/<project>/architecture/<project>-decisions.md`, plus the decision notes

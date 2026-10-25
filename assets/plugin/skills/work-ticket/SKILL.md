@@ -26,6 +26,8 @@ in full. State lives in `tickets/<ID>/` (layout and caps: the vault's `AGENTS.md
   `- [ ]` checkboxes in `relay.md`, plan, board, task, review or backlog files.
 - Commits are unsigned (the user runs `ct ws sign <ID>`). Never push, rewrite pushed commits,
   `reset --hard`, or remove the ticket worktrees.
+- **Find vault context with `ct vault search "<topic>" --project <slug> --budget 2000`** (kickoff
+  and status answers), then `ct vault note get <note> "<section>"`; whole notes only when needed.
 - **No paid Rovo calls** (the vault's `AGENTS.md`, "Cost guard").
 - **At most one lead.** Never `general-purpose` agents. Run every agent in the background.
 
