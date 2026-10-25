@@ -9,6 +9,9 @@ import (
 )
 
 // stamp is what a snapshot records per file: enough to tell an edit.
+// mtime+size is a deliberate limit: a same-size edit within one mtime tick
+// (coarse-timestamp filesystems) goes unseen here until the next search's
+// stale check catches it. Accepted (plan.md Decisions); no hashing.
 type stamp struct {
 	mtime int64
 	size  int64

@@ -182,6 +182,10 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 	defer func() {
 		if wrote {
 			refreshAfterSync(ctx.Vault, before, beforeErr, noteRel)
+		} else if noteRel != "" {
+			// No source wrote anything (e.g. Jira unreachable), but the
+			// follow-up note is a new file the index doesn't know yet.
+			refreshIndex(ctx.Vault, noteRel)
 		}
 	}()
 
