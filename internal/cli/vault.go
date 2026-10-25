@@ -57,8 +57,16 @@ choice comes from; and where ct keeps its own settings, cache and logs.`,
 		vaultLinksCmd(),
 		vaultGroupsCmd(),
 	)
+	for _, sub := range vaultSubcommands {
+		cmd.AddCommand(sub())
+	}
 	return cmd
 }
+
+// vaultSubcommands are more ct vault subcommands, each registered from its
+// own file's init (vault search, index, note, model), so files that add one
+// don't all edit vaultCmd.
+var vaultSubcommands []func() *cobra.Command
 
 func vaultDefaultCmd() *cobra.Command {
 	var pick, unset bool
