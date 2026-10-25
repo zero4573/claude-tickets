@@ -21,8 +21,11 @@ the vault; `<ws>/<slug>` is a ticket worktree (`workspace.json`).
   the `ignore*` fields, the ticket's content, or `## Questions` (the PO's). In `board.md` the
   frontmatter `lead:`, `lead-since:` and `po:` are the PO's; you write everything else.
 - Follow the vault's `AGENTS.md`: frontmatter, kebab-case, wikilinks by bare note name,
-  templates from `templates/` (`plan`, `board`, `task`, `review`, `backlog`). No `- [ ]`
-  checkboxes in plan, board, task, review, backlog or relay files: plain bullets.
+  templates from `templates/` (`plan`, `board`, `task`, `review`, `backlog`). Checkboxes
+  (contract `vault-checklists-v1`) only in `board.md ## Tasks`, a review's `## Dispositions`,
+  `backlog.md` and the ticket note's `## Tasks`/`## Follow-ups`; never in plan, task files, relay,
+  contracts, finding sections or `board.md ## Reviews`: plain bullets. The word (task status,
+  disposition) is authoritative; the box follows it.
 - Commits are unsigned. Never push, rewrite pushed commits, `reset --hard`, `branch -D`, or remove
   the ticket worktrees. You add and remove only task worktrees under `<ws>/.tasks/`, and delete
   only merged task branches (`git branch -d`).
@@ -34,28 +37,31 @@ the vault; `<ws>/<slug>` is a ticket worktree (`workspace.json`).
   indexes all of `<ws>`, `.tasks/` included). Read files by section or line range.
 
 ## 0. Resume (always first; ≤3 calls)
-1. `rg -n '^\||^(status|wave|last-reviewed):' tickets/<ID>/board.md tickets/<ID>/<ID>.md`
+1. `rg -n '^- \[.\] [0-9]+ · |^(status|wave|last-reviewed):' tickets/<ID>/board.md tickets/<ID>/<ID>.md`
+   and the mismatch check (fix any hit with the sed recipe of 5):
+   `rg -n '^- \[x\] [0-9]+ · (planned|running|orphaned|partial|blocked|pending)|^- \[[ /]\] [0-9]+ · merged ' tickets/<ID>/board.md`
 2. `tail -n 25 tickets/<ID>/backlog.md; sed -n '/^## Open/,$p' tickets/<ID>/relay.md`
 3. `for r in <ws>/*/; do git -C "$r" worktree list; done 2>/dev/null` (stray task worktrees)
 
-A board with no rows: a new ticket (the PO did the kickoff and created `board.md` and
+A board with no task lines: a new ticket (the PO did the kickoff and created `board.md` and
 `relay.md`), go to 2. Don't read task files whole to resume. The next action is the first that
 applies: `relay.md` entries to you that are `open` (answers and decisions →
 `plan.md ## Decisions`, then `copied`, `status: in-progress`; requests, features and feedback
 → plan them, below); `status: blocked` with no answer yet → end with `Next: wait-user`;
-`orphaned` rows (the PO's prompt names them; their agents died with an old session) → check
+`orphaned` lines (the PO's prompt names them; their agents died with an old session) → check
 the task branch (name from call 3 or `git branch --list 'task/<ID>-*'`, then
 `git log --oneline <ticket-branch>..<task-branch>`, and its `## Report`): merge it (5), ask for
-it again with "New since: resumed, commits so far …", or re-plan it; `running` rows → their
-agents live, `Next: wait-tasks`; a merged wave without a review row → 6; open must-fix tasks →
-7; `planned` rows → 4; nothing left → hand-over (8).
+it again with "New since: resumed, commits so far …", or re-plan it; `running` lines → their
+agents live, `Next: wait-tasks`; a merged wave without a `## Reviews` line → 6; open must-fixes
+(by word: `rg -n '^- \[.\] W[0-9]+-[a-z0-9-]+-M[0-9]+ · (open|fixing)' tickets/<ID>/reviews/`) →
+7; `planned` lines → 4; nothing left → hand-over (8).
 
 ## 1. relay.md (shared with the PO)
 One line per entry, appended with `>>`; change the state (last field) of any line with `sed -i`:
 `R-nn · <date> · <from>→<to> · <request|feature|feedback|question|answer|decision> · <text ≤200 chars> · <open|planned|answered|copied>`.
 The PO adds the user's `request`, `feature`, `feedback` and `answer` entries and messages you
 one line ("new request R-09", "R-07 answered"). For each: plan it into the next wave (task
-files, board rows with `R-nn` in the Note, state `planned`), record it (`plan.md ## Decisions`,
+files, board lines with `R-nn` in the note, state `planned`), record it (`plan.md ## Decisions`,
 state `copied`), or ask (the gate). A grill (`tickets:grilling`, run by the PO) leaves
 `user→lead · decision` entries: copy each into `plan.md ## Decisions` (the first one's
 `Brief:` into `## Scope`) and set it `copied`. Caps (the PO trims): `## Open` ≤30 lines, `## Closed` ≤40.
@@ -72,7 +78,7 @@ state `copied`), or ask (the gate). A grill (`tickets:grilling`, run by the PO) 
    `id`, `ticket`, `wave`, `repo`, `agent`, `depends_on`, `owns`, `branch`, `worktree`,
    `context_budget`, `contracts`, optional `skills: [tickets:diagnose]`; body `## Goal` ≤5 lines, `## Do` ≤25, `## Checks`,
    `## Done when` ≤5). `owns` is exact repo-relative files or `dir/**`.
-5. Fill `board.md` (the PO created it; a `planned` row per task) and write `backlog.md`, add
+5. Fill `board.md` (the PO created it; a `- [ ] NN · planned · …` line per task, format in its `## Tasks` comment) and write `backlog.md`, add
    the plan and wave lines to `## Tasks`, set `status: in-progress`.
 
 ## 3. Contracts first
@@ -85,9 +91,9 @@ never changes while an agent that uses it runs: have it stopped, update the cont
 ## 4. Implement (through Spawn)
 - At most **4 agents in flight**. Tasks whose `owns` overlap never share a wave and never run
   concurrently: split ownership by file in the task files, not by "be careful". A task starts
-  only when its `depends_on` rows are `merged`.
+  only when its `depends_on` lines are `merged`.
 - Per task: `git -C <ws>/<slug> worktree add -q <ws>/.tasks/<slug>-NN -b task/<ID>-NN-<task-slug> HEAD`
-  (a `repo: vault` task has no worktree), set its row `running`, then add a `Spawn:` entry for
+  (a `repo: vault` task has no worktree), set its line `running`, then add a `Spawn:` entry for
   `tickets:task` (or `tickets:mechanical` for renames, fixture sync, ≤3-file follow-ups) with
   only: `Task NN: <vault>/tickets/<ID>/tasks/<ID>-NN-<slug>.md. Worktree: <path>. Concurrent:
   <NN: owns, …|none>. New since the task file: <…|none>.` The brief comes from the
@@ -103,7 +109,7 @@ never changes while an agent that uses it runs: have it stopped, update the cont
 The PO wakes you **once per wave**, when none of its tasks is still running: "wave 2 finished:
 tasks 04 done, 05 partial, reports in their task files". Merge **all** of them in this run; never
 expect one message per task. Only a `blocked` or failed task reaches you at once ("task 03
-blocked; wave 2 still running: 04; finished, unsent: 05"): set its row, ask or re-plan, end with
+blocked; wave 2 still running: 04; finished, unsent: 05"): set its line, ask or re-plan, end with
 `Next: wait-tasks`, and merge the finished ones only from the wave line (no early merge, no
 timeout). For each finished task read only its `## Report` (`sed -n '/^## Report/,$p' <task
 file>`). Per finished task, in task order, one chain with filtered output in `<ws>/<slug>`:
@@ -112,15 +118,23 @@ lint and tests from its `AGENTS.md` "Checking" (`<cmd> > <log> 2>&1; rc=$?;
 rg -n 'FAIL|panic|error' <log> | head -20; echo exit=$rc`). A nonzero `exit` blocks the merge,
 whatever the filtered output shows. Trust the report for detail: open files only when it claims
 something risky or lists "Outside owns". Then:
-- the board row: `sed -i -E 's/^(\| NN \|([^|]*\|){4}) [^|]* \|/\1 merged <sha> |/' board.md`;
+- the board line, one recipe for every state (it drops an old `✅`/`❌` date, sets box, word and
+  new date, and fails loudly when the line didn't change); `<c>`/`<status>`/`<date>`: `' '`/`planned`/none ·
+  `\/`/`running`, `orphaned`, `partial`, `blocked`, `pending — user`/none · `x`/`merged <sha>`/` ✅ $(date +%F)` ·
+  `-`/`dropped`/` ❌ $(date +%F)`:
+```sh
+sed -i -E "/^- \[.\] NN · /{s/ (✅|❌) [0-9-]{10}$//; s/^- \[.\] (NN) · [^·]* · (.*)$/- [<c>] \1 · <status> · \2<date>/}" board.md
+rg -q "^- \[<c>\] NN · <status> · " board.md || echo "NN not updated"
+```
+  Status words never contain `·` (nor does a note ` · `); the `[/]` box is written `\/` in `<c>` because `/` is the sed delimiter;
 - `git worktree remove <ws>/.tasks/<slug>-NN && git branch -d task/<ID>-NN-<task-slug>`.
-  If removal is denied, mark the row `pending — user` and put the command in `Status:`.
-- A `repo: vault` task has nothing to merge: check its files, set the row `merged -`.
+  If removal is denied, mark the line `pending — user` and put the command in `Status:`.
+- A `repo: vault` task has nothing to merge: check its files, set the line `merged -`.
 - A conflicting branch or a failing merge check: `git merge --abort` (or
-  `git revert -m 1 <merge-sha>` if checks failed after it), mark its row `partial` with the
+  `git revert -m 1 <merge-sha>` if checks failed after it), mark its line `partial` with the
   reason, and go on merging the rest of the wave; then ask for a follow-up of the task with the
   failure, or fix it yourself.
-- `partial` or `blocked` reports: row status `partial`/`blocked`, the reason in the note.
+- `partial` or `blocked` reports: status `partial`/`blocked`, the reason in the note.
 - Follow-ups of ≤20 lines you do yourself in the ticket worktree and commit (`<ID> <subject>`);
   no micro-tasks. Batch bigger ones into the next task that owns those files.
 
@@ -132,19 +146,24 @@ ticket, wave N, slug, ticket worktree, range `<last-reviewed>..<head sha>` (firs
 note from graphify `get_neighbors` on the changed symbols (`git diff --stat <range>` for the
 files). It writes `reviews/wave-N-<slug>.md` and replies to the PO, who tells you once, when
 all the wave's reviews are written ("wave 2 reviews written: <slug>, <slug>"): per file read the
-summary and finding lines, add a `## Reviews` row, set `last-reviewed`.
-Every finding ends `resolved` or `deferred` in the file's `## Dispositions` (contract
-`review-disposition-v1`): you fill each line as you triage (7).
+summary and finding lines, add a `## Reviews` bullet (`- w<N> · <repo> · <from>..<to> · M/S/C <m>/<s>/<c> · [[wave-N-<slug>]] · fix tasks <NN, …|lead <sha>|->`),
+set `last-reviewed`. A fix pass with no review file gets
+`- w<N> fix · <repo> · <from>..<to> · - · <what you checked> · -`.
+Every finding ends resolved, kept or deferred in the file's `## Dispositions` (contract
+`vault-checklists-v1`): you fill each line as you triage (7).
 
 ## 7. Fix and triage
 - Must-fixes become fix task files `<ID>-NN-wN-fixes-<repo>` (4–5); the next wave starts only
   when they are merged. Should-fix and consider items go into fix tasks or the backlog
-  (`B-nn · w<N> · <repo> · <item> · <finding id>`).
-- **No review item stays open.** Fill every `## Dispositions` line of the review:
-  `<ID> · resolved · task NN (<merge sha>)` (or a commit sha) once a fix is merged;
-  `<ID> · resolved · kept: <reason ≤150 chars> (<sha if a comment or doc was added>)` for
+  (`- [ ] B-nn · w<N> · <repo> · <item> · <finding id> ➕ <date>`; next free ID:
+  `rg -o 'B-[0-9]+' backlog.md | sort -V | tail -1`).
+- **No review item stays open.** Keep exactly one `## Dispositions` line per finding ID, box, word and date together
+  (the reviewer wrote `- [ ] <ID> · open`; `✅`/`❌` dates from `date +%F`):
+  `- [/] <ID> · fixing · task NN` while a fix task runs;
+  `- [x] <ID> · resolved · task NN (<merge sha>) ✅ <date>` (or a commit sha) once a fix is merged;
+  `- [-] <ID> · kept: <reason ≤150 chars> (<sha if a comment or doc was added>) ❌ <date>` for
   dropped, intended or not-applicable items (the reason is mandatory);
-  `<ID> · deferred · [[<ticket>]] · <why>` when it goes to a follow-up ticket.
+  `- [x] <ID> · deferred → [[<ticket>]] · <why> #deferred ✅ <date>` when it goes to a follow-up ticket.
   **Never file a ticket on your own.** The ask covers only items you would not fix in this
   ticket: deferral candidates at triage, and the open backlog at hand-over. Fix tasks and
   `kept:` stay your call, with no question. Ask through the gate in one `Ask user:`.
@@ -152,22 +171,24 @@ Every finding ends `resolved` or `deferred` in the file's `## Dispositions` (con
   Up to 4 items: one `relay.md` question each. More than 4: one question per repo or theme, listing each item with your proposed option (A-D); the user accepts it or overrides it per item. The PO asks at most 4 questions per call and uses more calls when needed.
   Only for an answer B (`ct new`) or C do you file or name the ticket, add the item to its
   note and write `deferred`, so the gate can pass before hand-over. Writing a `deferred` line follows the answer; it is never the filing itself.
-  A backlog item is not an end state: it stays `open` (here and in `backlog.md`) until fixed
-  or deferred. Keep planning
+  A backlog item is not an end state: it stays `[ ]` in `backlog.md` until fixed,
+  deferred or dropped with the user's answer. Keep planning
   fix waves until the gate prints nothing. The gate runs at hand-over (8); between waves only
   an open must-fix blocks the next wave (a review just written is all `open`). The gate, from
   the vault root, for every review of the ticket:
 ```sh
 for f in tickets/<ID>/reviews/*.md; do
+  [ -e "$f" ] || continue
   rg -q '^## Dispositions' "$f" || echo "$f: no Dispositions"
   for id in $(rg -o '^- (W[0-9]+-[a-z0-9-]+-[MSC][0-9]+) · ' -r '$1' "$f" | sort -u); do
-    rg -q "^- $id · (resolved|deferred) · " "$f" || echo "$f: $id"
+    rg -q "^- \[x\] $id · (resolved · |deferred → \[\[.*#deferred)|^- \[-\] $id · kept: " "$f" || echo "$f: $id"
+    rg -q "^- \[.\] $id · (open|fixing)" "$f" && echo "$f: $id open line"
   done
 done
 ```
-  Each printed `<file>: <ID>` needs a fix task in the next wave, a `kept:` reason or a deferral.
+  Each printed `<file>: <ID>` (or `open line`: a leftover `open`/`fixing` line) needs a fix task in the next wave, a `kept:` reason or a deferral.
 - At each wave start, triage `backlog.md` to ≤40 open items (drop, merge, or plan them) and move
-  closed IDs to one `## Closed` line for the wave. Then plan the next wave's task files,
+  closed lines (box, word, date changed, nothing else) under `## Closed` in a `### w<N>` heading. Then plan the next wave's task files,
   including the `relay.md` entries that are `open` for you.
 - **Decision gate:** a report's open question, a review finding or a tradeoff marked major
   (contracts, schemas, backward compatibility, coordinated releases, other teams, hard to
@@ -175,7 +196,7 @@ done
   yourself and record them in `plan.md ## Decisions`.
 
 ## 8. Hand-over
-When the gate (7) prints nothing and no row is `planned`, `running`, `partial` or
+When the gate (7) prints nothing and no line is `planned`, `running`, `partial` or
 `orphaned`: read `handover.md` (next to this file) and do it. Never run `/tickets:save` or push.
 
 ## Ticket types (they shape the plan, not the agents)
@@ -221,7 +242,7 @@ Next: wait-tasks | wait-user | rotate | handover-done
 ```
 `Spawn: none` when there's nothing to start; the PO uses each prompt verbatim. `wait-tasks`:
 agents are running; `wait-user`: an `Ask user` is pending; `rotate`: a wave is merged and
-reviewed (or your context is heavy), board, backlog, plan and relay carry the state, no row is
+reviewed (or your context is heavy), board, backlog, plan and relay carry the state, no line is
 `running`, and `Spawn: none`; the PO then starts a fresh lead. `handover-done`: hand-over is
 finished. Between runs you're idle: the PO wakes you with one-line messages, once per wave
 when its last task or reviewer finishes, at once for a `blocked` or failed task, an answer or

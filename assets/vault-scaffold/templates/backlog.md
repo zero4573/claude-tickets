@@ -11,10 +11,12 @@ tags: [backlog]
 
 Leftovers of [[TICKET-ID]]: review findings and items not fixed yet, triaged by the lead at
 each wave start; at hand-over you answer for the open items: A, this ticket; B, a new ticket; C, an existing ticket (name it); D, leave it in the backlog (backlog items only). Projects:
-[[provider-owner-repo]]. Plain bullets only, no checkboxes.
+[[provider-owner-repo]].
 
 ## Open
-<!-- ≤40 lines: B-nn · w<N> · <repo> · <item> · <source id> -->
+<!-- ≤40: `- [ ] B-nn · w<N> · <repo> · <item> · <source id> ➕ <date>` -->
 
 ## Closed
-<!-- One line of IDs per wave: w<N>: B-01, B-03 (→ <new ticket ID>) -->
+<!-- Closed lines move here unchanged but for box, word and date, under one `### w<N>` heading per wave:
+     `- [x] … · fixed · task NN (<sha>) ✅ <date>`, `- [x] … · deferred → [[<ticket>]] #deferred ✅ <date>`,
+     `- [-] … · dropped: <reason> ❌ <date>` -->

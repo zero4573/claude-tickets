@@ -25,7 +25,7 @@ Read-only. Never write to the vault.
   workspace's ticket, else the cwd repo's slug as the system prompt names
   it (`<provider>-<owner>-<repo>`, from its path under `~/Projects`). Also
   mention any drafts waiting in `inbox/` for that project, and open tasks
-  in `inbox/` follow-up notes (`type: follow-ups`) that link its tickets.
+  in `inbox/` follow-up notes (`type: follow-ups`) that link its tickets (`inbox.md` lists them).
 
 ## Project
 
@@ -50,9 +50,9 @@ Read-only. Never write to the vault.
    description sections), `## Workspace`, `## Tasks`, `## Questions`,
    `## Follow-ups`, `## Review`, and the summaries at the end. Also its
    dependency fields (`blocked-by`, `blocked`, `parent`).
-2. The 3 most recent `tickets/<ID>/logs/` notes; the `board.md` rows
-   (`rg -n '^\|'`), `tail -n 25 backlog.md`, and the open must-fixes
-   (`rg -- '-M[0-9]+ · open$' reviews/`, their Dispositions lines; a review
+2. The 3 most recent `tickets/<ID>/logs/` notes; the `board.md` task lines
+   (`rg -n '^- \[.\] [0-9]+ · '`; the ticket's live task views are in `<ID>-status.md`), `tail -n 25 backlog.md`, and the open must-fixes
+   (by word: `rg -n '^- \[.\] W[0-9]+-[a-z0-9-]+-M[0-9]+ · (open|fixing)' reviews/`, their `[ ]`/`[/]` Dispositions lines; a review
    without `## Dispositions` predates the rule: check its must-fixes against
    the board);
    `pr-feedback.md` if any (threads `needs you`, replies not posted yet).
