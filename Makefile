@@ -2,6 +2,7 @@
 # (make works without configure too, with the defaults below). Targets:
 #   all (build)  ct, stamped with the version from git describe
 #   test         go test ./...
+#   bench        vault search token/latency benchmark (internal/vbench)
 #   check        go vet, gofmt and the tests
 #   install      ct and its zsh/bash/fish completions (DESTDIR honoured)
 #   uninstall    removes them
@@ -22,7 +23,7 @@ ZSHDIR = $(DATADIR)/zsh/site-functions
 BASHDIR = $(DATADIR)/bash-completion/completions
 FISHDIR = $(DATADIR)/fish/vendor_completions.d
 
-.PHONY: all build test check install uninstall cross clean
+.PHONY: all build test bench check install uninstall cross clean
 
 all: build
 
@@ -34,6 +35,10 @@ ct: go.mod go.sum $(shell find cmd internal assets -type f)
 
 test:
 	$(GO) test ./...
+
+# Token/latency benchmark on a generated 2,000-note vault (stub embedder; CT_EMBED_REAL=1 for the model)
+bench:
+	CT_BENCH=1 $(GO) test ./internal/vbench -run TestReport -v -timeout 30m
 
 check:
 	$(GO) vet ./...
