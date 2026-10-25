@@ -17,8 +17,10 @@ ticket ID). A task worktree or branch you couldn't remove stays on the board as
 2. Ask with **AskUserQuestion** (multiSelect): one option per candidate, its summary, type
    and the `B-nn` IDs it covers, recommended ones first. "None" is a valid answer.
 3. For each chosen one: `ct new --type <dev|bug|chore|investigation> "<summary>"`. It prints
-   the new note's path. Don't write into the new ticket's folder (its content is the user's):
-   list its `B-nn` items under it in `## Review` instead.
+   the new note's path. Write its initial content yourself, in that note only:
+   `## Description` (the items and why they matter), `## Acceptance criteria`,
+   `## Context / links` (`[[<ID>]]` and the `B-nn`/finding IDs), plus `projects:` and the tag
+   `from-ticket`. From then on the ticket is the user's. List it in `## Review`.
 4. Move the converted IDs to `## Closed` with the new ticket IDs; what's left stays open.
 
 ## 3. kb-drafts
