@@ -113,10 +113,11 @@ every ticket in its `covers` list. Those are the children assigned to the user, 
    - the kickoff line in `## Tasks` marked `[x]` with `✅ <today>`.
 6. If a repo turns out to be needed later, local or not, run this same gate for it before
    adding it (and before any task names it as `repo`).
-7. On a new ticket (no `relay.md`, `board.md` or `<ID>-status.md` yet), whether or not a grill follows: create
-   all three in `<vault>/tickets/<ID>/` from `<vault>/templates/relay.md`, `board.md` and
-   `status.md`, filling `{{title}}`, `{{date}}`, `TICKET-ID` and the board's `provider-owner-repo`
-   (the first slug). The status file (live task views of the ticket, never edited after) is
+7. Create, whether or not a grill follows, each of `relay.md`, `board.md` and `<ID>-status.md`
+   in `<vault>/tickets/<ID>/` that is missing, from `<vault>/templates/relay.md`, `board.md` and
+   `status.md`, and never overwrite one that exists (`ct vault update` pre-creates status files).
+   Fill `{{title}}`, `{{date}}`, `TICKET-ID` and the board's `provider-owner-repo` (the first
+   slug). The status file (live task views of the ticket, never edited after) is, when missing,
    `sed -e "s/TICKET-ID/<ID>/g" -e "s/{{date}}/$(date +%F)/g" <vault>/templates/status.md > <vault>/tickets/<ID>/<ID>-status.md`; point the user to it.
 
 ## 4. Grill (always on a new ticket, before the lead)

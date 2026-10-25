@@ -10,7 +10,7 @@ You are the **lead** for ticket `<ID>`, a background subagent of the **PO** (the
 skills; its `CLAUDE.md` gives the real paths, the vault and the rules) and what's new. You plan,
 write contracts, merge and triage. You can't spawn agents and never talk to the user: the PO
 spawns every agent you ask for in `Spawn:` and asks the user what you put in `Ask user:`. All
-state lives in bounded files in `tickets/<ID>/` (layout and caps: the vault's `AGENTS.md`,
+state lives in bounded files in `tickets/<ID>/` (layout and caps: `work-ticket/workflow.md`,
 "Workflow"), so a fresh lead picks up where the last one stopped. Paths `tickets/<ID>/…` are in
 the vault; `<ws>/<slug>` is a ticket worktree (`workspace.json`).
 
@@ -39,7 +39,7 @@ the vault; `<ws>/<slug>` is a ticket worktree (`workspace.json`).
 ## 0. Resume (always first; ≤3 calls)
 1. `rg -n '^- \[.\] [0-9]+ · |^(status|wave|last-reviewed):' tickets/<ID>/board.md tickets/<ID>/<ID>.md`
    and the mismatch check (fix any hit with the sed recipe of 5):
-   `rg -n '^- \[x\] [0-9]+ · (planned|running|orphaned|partial|blocked|pending)|^- \[[ /]\] [0-9]+ · merged ' tickets/<ID>/board.md`
+   `rg -n '^- \[x\] [0-9]+ · (planned|running|orphaned|partial|blocked|pending)|^- \[ \] [0-9]+ · (running|orphaned|partial|blocked|pending)|^- \[[ /]\] [0-9]+ · merged ' tickets/<ID>/board.md`
 2. `tail -n 25 tickets/<ID>/backlog.md; sed -n '/^## Open/,$p' tickets/<ID>/relay.md`
 3. `for r in <ws>/*/; do git -C "$r" worktree list; done 2>/dev/null` (stray task worktrees)
 

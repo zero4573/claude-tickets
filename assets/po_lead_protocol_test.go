@@ -165,7 +165,8 @@ func TestPOLeadQAFixes(t *testing.T) {
 	has("lead", lead, "`orphaned` lines", "re-plan it", "`partial` or\n`orphaned`")
 	has("lead hand-over", handover, "`partial` or `orphaned` line")
 	has("board template", tpl("board"), "\n  session: \"\"\n", "running, orphaned,")
-	has("AGENTS.md", agents, "`po: session:`", "`orphaned`", "`status`\n   (it runs the gate")
+	has("AGENTS.md", agents, "`orphaned`", "`status` (it runs the gate")
+	has("workflow.md", texts["plugin/skills/work-ticket/workflow.md"], "`po: session:`", "`orphaned`")
 
 	// D3: decisions and answers close once copied; the trim can reach ≤30.
 	has("PO", po, "`copied`, `answered` and `planned` entries", "or that have no line",
@@ -173,7 +174,7 @@ func TestPOLeadQAFixes(t *testing.T) {
 	has("lead", lead, "set it `copied`", "set the answer entry `copied`", "change the state (last field) of any line")
 	states := regexp.MustCompile(`<open\|[a-z|]+>`)
 	want := "<open|planned|answered|copied>"
-	for name, text := range map[string]string{"PO": po, "lead": lead, "relay template": tpl("relay"), "AGENTS.md": agents} {
+	for name, text := range map[string]string{"PO": po, "lead": lead, "relay template": tpl("relay"), "workflow.md": texts["plugin/skills/work-ticket/workflow.md"]} {
 		got := states.FindAllString(text, -1)
 		if len(got) == 0 {
 			t.Errorf("%s: no relay state list", name)
@@ -251,7 +252,7 @@ func TestChecklistLineForms(t *testing.T) {
 	want := map[string][]string{
 		"plugin/skills/lead/SKILL.md": {
 			"`vault-checklists-v1`", "rg -n '^- \\[.\\] [0-9]+ · |^(status|wave|last-reviewed):'",
-			"`rg -n '^- \\[x\\] [0-9]+ · (planned|running|orphaned|partial|blocked|pending)|^- \\[[ /]\\] [0-9]+ · merged '",
+			"`rg -n '^- \\[x\\] [0-9]+ · (planned|running|orphaned|partial|blocked|pending)|^- \\[ \\] [0-9]+ · (running|orphaned|partial|blocked|pending)|^- \\[[ /]\\] [0-9]+ · merged '",
 			"rg -q \"^- \\[<c>\\] NN · <status> · \" board.md || echo \"NN not updated\"",
 			"· (open|fixing)' tickets/<ID>/reviews/`", "- [ ] B-nn · w<N> · <repo> · <item> · <finding id> ➕ <date>",
 			"rg -o 'B-[0-9]+' backlog.md | sort -V | tail -1", "`### w<N>`",
@@ -261,8 +262,8 @@ func TestChecklistLineForms(t *testing.T) {
 		"plugin/skills/lead/handover.md":       {"#deferred", "- [ ] B-nn · w<N>"},
 		"plugin/skills/wave-review/SKILL.md":   {"`- [ ] <ID> · open`", "(open|fixing)"},
 		"plugin/skills/recall/SKILL.md":        {"(open|fixing)", "<ID>-status.md"},
-		"plugin/skills/work-ticket/SKILL.md":   {"<ID>-status.md", "- \\[\\/\\] [0-9]+ · )running · "},
-		"plugin/skills/work-ticket/kickoff.md": {"status.md", "<ID>-status.md", `s/TICKET-ID/<ID>/g`},
+		"plugin/skills/work-ticket/SKILL.md":   {"<ID>-status.md", "s/^- \\[.\\] ([0-9]+) · running · /- [\\/] \\1 · orphaned · /", "running lines left"},
+		"plugin/skills/work-ticket/kickoff.md": {"status.md", "<ID>-status.md", `s/TICKET-ID/<ID>/g`, "never overwrite one that exists"},
 		"plugin/agents/reviewer.md":            {"`- [ ] <ID> · open`"},
 		"plugin/agents/reviewer-deep.md":       {"`- [ ] <ID> · open`"},
 	}
@@ -273,7 +274,7 @@ func TestChecklistLineForms(t *testing.T) {
 			}
 		}
 	}
-	// No file names the removed views (the vault AGENTS.md is task 10's).
+	// No file names the removed views (the vault AGENTS.md included).
 	for p, s := range texts {
 		for _, old := range []string{"pending.md", "done.md", "follow-ups.md"} {
 			if strings.Contains(s, old) {
@@ -282,14 +283,19 @@ func TestChecklistLineForms(t *testing.T) {
 		}
 	}
 	err := fs.WalkDir(Scaffold, "vault-scaffold", func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || p == "vault-scaffold/AGENTS.md" {
+		if err != nil || d.IsDir() {
 			return err
 		}
 		data, err := fs.ReadFile(Scaffold, p)
 		if err != nil {
 			return err
 		}
-		for _, old := range []string{"pending.md", "done.md", "follow-ups.md"} {
+		olds := []string{"pending.md", "done.md", "follow-ups.md"}
+		if p == "vault-scaffold/AGENTS.md" {
+			// It names the inbox notes `<command>-follow-ups.md`.
+			olds = olds[:2]
+		}
+		for _, old := range olds {
 			if strings.Contains(string(data), old) {
 				t.Errorf("%s still mentions %s", p, old)
 			}
@@ -467,10 +473,6 @@ func TestWaveBatchedWakeups(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	agentsData, err := fs.ReadFile(Scaffold, "vault-scaffold/AGENTS.md")
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	// The PO batches per wave and kind, and sends blocked/failed at once.
 	has("PO", po, "batch it per wave", "wake it **once per wave**", "**no\n  entry of the same wave and kind**",
@@ -498,7 +500,7 @@ func TestWaveBatchedWakeups(t *testing.T) {
 	// po-refresh checkpoints both lists; the board template and AGENTS.md carry them.
 	has("po-refresh", refresh, "w<N>|- · task NN|review <repo>|analyst", "`finished:`", "the buffered notices")
 	has("board template", string(tplData), "\n  agents: []\n  finished: []\n")
-	has("AGENTS.md", string(agentsData), "wakes the lead once per wave")
+	has("workflow.md", texts["plugin/skills/work-ticket/workflow.md"], "wakes the lead once per wave")
 }
 
 // R-08: no agent files a follow-up ticket without a per-item answer from the user.

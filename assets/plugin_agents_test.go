@@ -437,11 +437,27 @@ func TestScaffoldForPOAndTeach(t *testing.T) {
 	}
 	data, _ := fs.ReadFile(Scaffold, "vault-scaffold/AGENTS.md")
 	agents := string(data)
-	for _, s := range []string{"relay.md", "`tickets:lead`", "`tickets:analyst`", "`tickets:grilling`",
-		"`tickets:diagnose`", "/tickets:po-refresh", "`/tickets:retro`", "`lead:`, `lead-since:` and `po:`",
-		"### Learning topics", "ct teach", "`learning/<topic>/`", "teach-<topic>`)", "questionnaire"} {
+	for _, s := range []string{"relay.md", "`lead:`, `lead-since:` and `po:`", "### Learning topics", "ct teach",
+		"`learning/<topic>/`", "teach-<topic>`)", "questionnaire"} {
 		if !strings.Contains(agents, s) {
 			t.Errorf("vault AGENTS.md: missing %q", s)
+		}
+	}
+	// The workflow prose moved out of AGENTS.md into the skills (task 10).
+	workflow, _ := fs.ReadFile(Files, "plugin/skills/work-ticket/workflow.md")
+	for _, s := range []string{"`tickets:lead`", "`tickets:analyst`", "`tickets:grilling`", "`tickets:diagnose`",
+		"/tickets:po-refresh", "`/tickets:retro`", "`lead:` and\n`po:`"} {
+		if !strings.Contains(string(workflow), s) {
+			t.Errorf("work-ticket/workflow.md: missing %q", s)
+		}
+	}
+	// AGENTS.md is a short rulebook: at most 200 lines, the headings code cites kept.
+	if n := strings.Count(agents, "\n"); n > 200 {
+		t.Errorf("vault AGENTS.md has %d lines, want at most 200", n)
+	}
+	for _, h := range []string{"\n### Who writes what\n", "\n### Ticket sources\n", "\n### Task lists\n", "\n## Note Rules\n"} {
+		if !strings.Contains(agents, h) {
+			t.Errorf("vault AGENTS.md: heading %q missing", strings.TrimSpace(h))
 		}
 	}
 }

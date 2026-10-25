@@ -121,3 +121,14 @@ lock. Instead, for each durable fact that the vault lacked or had wrong:
 Keep the drafts to facts worth keeping: how things work, why they're built
 that way, which versions and projects are involved, and gotchas. Leave out
 the conversation itself.
+
+## Sessions outside tickets
+`ct claude` in a repo gives the session the default vault (`ct vault default`) as its knowledge
+base, and its system prompt names the vault and the repo's `projects/<slug>/`; a plain `claude`
+session knows nothing of the vault. This skill answers from the vault, then the code graph, then
+the code, and records new or corrected facts as drafts in `inbox/` (`target:`, `session:`).
+`/tickets:save` in that session writes the project log and promotes the session's drafts;
+`/tickets:recall` works there too. Sessions outside tickets (a repo session, `kb`) write only new
+drafts in `inbox/`, each under its own name, until `/tickets:save`; a `kb` session may also create
+a manual ticket (`ct new`, tag `from-kb`) once the user has said yes, and from then on such a
+ticket (`from-kb` or `from-ticket`) is the user's, like any manual ticket.

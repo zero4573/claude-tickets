@@ -237,8 +237,8 @@ clusters, and the vault's `AGENTS.md` has the rules.
 | Command | What it does |
 |---|---|
 | `ct vault` | The current vault and where its workspaces, main clones and tmux session are, and the launcher in effect (and where it was chosen). |
-| `ct vault init [<vault>]` | Set a vault up: folders, `AGENTS.md`, templates, the `tickets.base` dashboard, task views, then `ct vault configure` for the settings not made yet, and the Tasks plugin (downloaded when missing; `--skip-plugins` to leave it out). Keeps existing files (and records what it shipped in `.scaffold.json`); `ct vault update` brings them up to date. |
-| `ct vault update [<vault>] [--dry-run] [--diff] [--take <file>]` | Bring the files `ct` ships into a vault (`AGENTS.md`, templates, `tickets.base`, task views) up to date: missing ones are added, unedited old versions replaced in place, edited ones kept and reported (`--diff` shows the difference, `--take <file>` takes the shipped version and keeps the old one as `<file>.bak`; `<file>` is relative to the vault root or any path inside it), files a newer `ct` wrote (per `.scaffold.json`) kept and never downgraded, files no longer shipped reported, never deleted. `--dry-run` previews it. Settings and your own notes are never touched. |
+| `ct vault init [<vault>]` | Set a vault up: folders, `AGENTS.md`, templates, the `tickets.base` dashboard, `inbox.md`, then `ct vault configure` for the settings not made yet, and the Tasks plugin (downloaded when missing; `--skip-plugins` to leave it out). Keeps existing files (and records what it shipped in `.scaffold.json`); `ct vault update` brings them up to date. |
+| `ct vault update [<vault>] [--dry-run] [--diff] [--take <file>]` | Bring the files `ct` ships into a vault (`AGENTS.md`, templates, `tickets.base`, `inbox.md`) up to date: missing ones are added, unedited old versions replaced in place, edited ones kept and reported (`--diff` shows the difference, `--take <file>` takes the shipped version and keeps the old one as `<file>.bak`; `<file>` is relative to the vault root or any path inside it), files a newer `ct` wrote (per `.scaffold.json`) kept and never downgraded, files no longer shipped reported and never deleted, except the retired task views (see "Vault layout and checklists" below). It also migrates the ticket folders (same section). `--dry-run` previews it. Settings and your own notes are never touched. |
 | `ct vault configure [<vault>] [--section locations\|sources\|runtime]` | The vault's settings, each prompt showing its current value: locations (`.workflow.json`, see below), ticket sources (`tickets/.sources.json`), and the container runtime (host-wide). |
 | `ct vault default [<vault>\|--pick\|--unset]` | The vault every other command acts on. Switch it to work on another vault. |
 | `ct sync [--source <name>] [--full]` | Pull your open tickets from each enabled source and reconcile the notes, unsupervised. For Jira, it finds and writes only what changed, without a model; Claude only converts HTML-only descriptions or comments. |
@@ -459,7 +459,8 @@ flowchart TB
 - **The ticket folder** holds `plan.md`, `board.md` (one row per task and
   review, the resume point; its `lead:` and `po:` are the PO's), `relay.md`
   (you, the PO and the lead; capped), `backlog.md`, `tasks/`, `contracts/`,
-  `reviews/` and `kb-drafts/`. The ticket note's `## Tasks` has one line
+  `reviews/`, `kb-drafts/` and `<ID>-status.md` (live task views of the folder; the PO
+  creates it at kickoff and nobody edits it). The ticket note's `## Tasks` has one line
   per phase or wave; `## Questions`, `## Review` and `## Follow-ups` stay
   there. At hand-over the lead runs a short retro (`/tickets:retro` runs
   one any time: fixes to the agents' environment) and offers to turn open
@@ -639,12 +640,45 @@ when its process is alive on this host (ct start without a multiplexer and
 can't be checked, when its `.agent-state` is less than a day old and not
 `exited`.
 
+## Vault layout and checklists
+
+`AGENTS.md` in the vault is a short rulebook (at most 200 lines: vault map, note rules, who
+writes what). The workflow itself lives in the plugin's skills, shared prose in
+`skills/work-ticket/workflow.md`.
+
+- **`inbox.md`** (vault root) lists the open tasks in `inbox/`: the follow-up notes unattended
+  commands leave (`type: follow-ups`) and any draft with tasks. The old task views `pending.md`,
+  `done.md` and `follow-ups.md` are gone.
+- **`tickets/<ID>/<ID>-status.md`** (from `templates/status.md`, created by the PO at kickoff and
+  by `ct vault update` for existing tickets) shows the ticket's tasks live: Pending, Done and
+  Deferred (`#deferred`), over its own folder. It carries no ID in its queries, so it keeps
+  working after `ct clean` archives the folder.
+- **Checklists:** checkboxes (`[ ]` todo, `[/]` in progress, `[x]` done, `[-]` cancelled, with
+  `➕`, `✅`, `❌` dates) appear only in the ticket note's `## Tasks` and `## Follow-ups`,
+  `board.md ## Tasks` (one line per task, status word after the ID), a review's
+  `## Dispositions` and `backlog.md`; everywhere else in the ticket folder plain bullets. The
+  status or disposition word decides the state, the box follows it.
+
+### What `ct vault update` removes and migrates
+
+Run it with no ticket session working (a running lead holds the old skills in context). It takes
+the vault lock, then:
+- adds `inbox.md` and `templates/status.md`, and **removes** the retired `pending.md`, `done.md`
+  and `follow-ups.md` when unedited (an edited one is kept with a warning: delete it by hand);
+- **migrates every ticket folder** whose note is not `status: closed`: writes a missing
+  `<ID>-status.md`, converts `board.md` tables to one line per task and review, turns review
+  `## Dispositions` and the open items of `backlog.md` into checklist lines. Files in another
+  shape are left whole with a warning naming the line (`convert it by hand`); a second run
+  changes nothing.
+
+`--dry-run` and `--diff` print what would change and write nothing.
+
 ## Follow-up notes
 
 Commands that run unattended leave what needs you in the vault, not only in
 a terminal or log. Each run that has something writes
 `inbox/<date>-<time>-<command>-follow-ups.md` (`type: follow-ups`), with one
-Tasks-plugin task per item, so they appear in `pending.md`:
+Tasks-plugin task per item, so they appear in `inbox.md`:
 
 | Command | Writes tasks for |
 |---|---|
