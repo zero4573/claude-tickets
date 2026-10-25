@@ -209,3 +209,24 @@ func TestPOLeadQAFixes(t *testing.T) {
 		}
 	}
 }
+
+// The review-disposition gate loop (contract review-disposition-v1 v1.1) is
+// the same in the lead skill and the PO skill, and flags a missing section.
+func TestDispositionGateLoopMatches(t *testing.T) {
+	const gate = `for f in tickets/<ID>/reviews/*.md; do
+  rg -q '^## Dispositions' "$f" || echo "$f: no Dispositions"
+  for id in $(rg -o '^- (W[0-9]+-[a-z0-9-]+-[MSC][0-9]+) · ' -r '$1' "$f" | sort -u); do
+    rg -q "^- $id · (resolved|deferred) · " "$f" || echo "$f: $id"
+  done
+done`
+	texts := pluginTexts(t)
+	for _, p := range []string{"plugin/skills/lead/SKILL.md", "plugin/skills/work-ticket/SKILL.md"} {
+		text := texts[p]
+		if strings.Contains(p, "work-ticket") {
+			text = strings.ReplaceAll(text, "\n  ", "\n")
+		}
+		if !strings.Contains(text, gate) {
+			t.Errorf("%s: gate loop differs from the contract", p)
+		}
+	}
+}
