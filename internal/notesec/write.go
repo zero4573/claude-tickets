@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/zero4573/claude-tickets/internal/vaultlock"
 )
@@ -19,7 +20,10 @@ type Op func(src []byte) ([]byte, Target, error)
 // the meantime, and the result is written to a temp file and renamed over
 // it. It reports whether the file changed.
 func Apply(c Ctx, rel, owner string, op Op) (bool, error) {
-	file := filepath.Join(c.Vault, filepath.FromSlash(rel))
+	file, rel, err := realPath(c.Vault, rel)
+	if err != nil {
+		return false, err
+	}
 	src, err := os.ReadFile(file)
 	if err != nil {
 		return false, err
@@ -28,7 +32,7 @@ func Apply(c Ctx, rel, owner string, op Op) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if err := Check(c, rel, t); err != nil {
+	if err := checkWrite(c, rel, src, out, t); err != nil {
 		return false, err
 	}
 	if bytes.Equal(out, src) {
@@ -53,7 +57,7 @@ func Apply(c Ctx, rel, owner string, op Op) (bool, error) {
 		if out, t, err = op(again); err != nil {
 			return false, err
 		}
-		if err := Check(c, rel, t); err != nil {
+		if err := checkWrite(c, rel, again, out, t); err != nil {
 			return false, err
 		}
 		if bytes.Equal(out, again) {
@@ -91,4 +95,26 @@ func writeAtomic(file string, data []byte) error {
 		return err
 	}
 	return nil
+}
+
+// realPath resolves symlinks in the note and its parents and returns the
+// real file with its vault-relative path, so the rules see where the write
+// really lands. A note that resolves outside the vault is refused.
+func realPath(vault, rel string) (file, real string, err error) {
+	root, err := filepath.EvalSymlinks(vault)
+	if err != nil {
+		return "", "", err
+	}
+	if root, err = filepath.Abs(root); err != nil {
+		return "", "", err
+	}
+	f, err := filepath.EvalSymlinks(filepath.Join(vault, filepath.FromSlash(rel)))
+	if err != nil {
+		return "", "", err
+	}
+	r, err := filepath.Rel(root, f)
+	if err != nil || r == ".." || strings.HasPrefix(r, ".."+string(filepath.Separator)) {
+		return "", "", refuse("refusing to write %s: it resolves outside the vault", rel)
+	}
+	return f, filepath.ToSlash(r), nil
 }

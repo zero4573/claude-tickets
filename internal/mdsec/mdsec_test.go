@@ -207,3 +207,8 @@ func TestWhitespacePreamble(t *testing.T) {
 		t.Fatal(titles(d))
 	}
 }
+
+func TestCodeSpanCommentOpener(t *testing.T) {
+	d := Parse([]byte("# T\n\nuse `<!--` to open a comment\n\n## Description\n\nd\n"))
+	eq(t, titles(d), []string{"T", "T>Description"})
+}
