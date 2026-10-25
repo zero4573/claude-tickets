@@ -1,0 +1,46 @@
+# ct start --fresh: a workspace that ran a session starts a new
+# conversation (no --continue); without it, it continues the last one
+mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a
+mkdir home/Documents/Obsidian/a/tickets/MAN-1
+cp open.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+
+exec ct start --help
+stdout '--fresh +start a new conversation even if the workspace already ran one \(no --continue\)'
+stdout '--fresh starts a new one instead'
+exec ct feedback --help
+stdout '--fresh +start a new conversation'
+
+# tmux: the window's claude gets no --continue
+exec ct start --no-fetch MAN-1
+cp state-exited.json home/Projects/work-a/MAN-1/.agent-state
+exec ct start --no-fetch --fresh MAN-1
+stdout '^ct start: MAN-1 started in tickets-a -- ct attach MAN-1$'
+! grep ' --continue' calls/tmux
+exec ct start --no-fetch MAN-1
+stdout 'started in tickets-a \(continuing its last session\)'
+grep 'new-session .* --permission-mode auto --continue ./tickets:work-ticket MAN-1.' calls/tmux
+
+# none: claude runs here; the stub records its arguments
+env CLAUDE_TICKETS_LAUNCHER=none
+exec ct-tty start --no-fetch --fresh MAN-1
+stdout '^ct start: MAN-1 runs in this terminal; no window'
+! stdout 'continuing'
+grep '--permission-mode auto /tickets:work-ticket MAN-1$' calls/claude
+! grep ' --continue' calls/claude
+rm home/Projects/work-a/MAN-1/.sessions.json
+exec ct-tty feedback --no-fetch --fresh MAN-1
+grep '--permission-mode auto /tickets:pr-feedback MAN-1$' calls/claude
+! grep ' --continue' calls/claude
+rm home/Projects/work-a/MAN-1/.sessions.json
+exec ct-tty start --no-fetch MAN-1
+stdout '\(continuing its last session\)'
+grep '--permission-mode auto --continue /tickets:work-ticket MAN-1$' calls/claude
+
+-- open.md --
+---
+summary: Open
+status: in-progress
+source: manual
+---
+-- state-exited.json --
+{"state": "exited", "reason": "", "ts": "2026-10-01T10:00:00-04:00"}

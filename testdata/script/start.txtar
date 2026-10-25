@@ -14,6 +14,11 @@ grep '"id": "MAN-1"' home/Projects/work-a/MAN-1/workspace.json
 grep '"vault": ".*/Obsidian/a"' home/Projects/work-a/MAN-1/workspace.json
 grep '^- Ticket: `MAN-1` \(source: `manual`\)$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep 'ct ws sign MAN-1' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^  --hard, or remove the ticket worktrees; the lead adds and removes task$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^  worktrees under `.tasks/`.$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^- Workflow: the lead plans the ticket in waves of task agents' home/Projects/work-a/MAN-1/CLAUDE.md
+grep 'board.md' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^Run `/tickets:work-ticket MAN-1` to \(re\)start the workflow \(`ct start --fresh$' home/Projects/work-a/MAN-1/CLAUDE.md
 # settings: the main clones and the cache are read-only, merged with the user's
 grep '"Edit\(//.*/home/Projects/repo-a/\*\*\)"' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"Write\(//.*/home/.cache/claude-tickets/\*\*\)"' home/Projects/work-a/MAN-1/.claude/settings.json
