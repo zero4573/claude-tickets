@@ -15,6 +15,7 @@ import (
 	"github.com/zero4573/claude-tickets/internal/config"
 	"github.com/zero4573/claude-tickets/internal/graph"
 	"github.com/zero4573/claude-tickets/internal/launcher"
+	"github.com/zero4573/claude-tickets/internal/modelcache"
 	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/repo"
 	"github.com/zero4573/claude-tickets/internal/session"
@@ -256,13 +257,14 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 // sessionDirs is what a ticket session works in, given to claude as
 // --add-dir: the vault, the main clones (read-only to sessions:
 // session.WriteSettings), each main clone's .git (writable, so ct ws add can
-// create worktrees and branches) and the graph image cache (read-only).
+// create worktrees and branches), the graph image cache and the embedding
+// model cache (both read-only; each is added only when it exists).
 func sessionDirs(ctx vault.Context) []string {
 	dirs := []string{ctx.Vault, ctx.ProjectsRoot}
 	for _, c := range repo.MainClones(ctx.ProjectsRoot) {
 		dirs = append(dirs, filepath.Join(ctx.ProjectsRoot, c, ".git"))
 	}
-	return append(dirs, filepath.Join(config.CacheDir(), "graphify"))
+	return append(dirs, filepath.Join(config.CacheDir(), "graphify"), modelcache.Dir())
 }
 
 // refuseRunning keeps a second foreground session out of a workspace whose

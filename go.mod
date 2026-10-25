@@ -3,6 +3,7 @@ module github.com/zero4573/claude-tickets
 go 1.26.0
 
 require (
+	github.com/ebitengine/purego v0.11.2
 	github.com/rogpeppe/go-internal v1.16.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/sys v0.48.0

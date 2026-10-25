@@ -16,6 +16,7 @@ import (
 	"github.com/zero4573/claude-tickets/internal/config"
 	"github.com/zero4573/claude-tickets/internal/graph"
 	"github.com/zero4573/claude-tickets/internal/launcher"
+	"github.com/zero4573/claude-tickets/internal/modelcache"
 	"github.com/zero4573/claude-tickets/internal/prompt"
 	"github.com/zero4573/claude-tickets/internal/session"
 	"github.com/zero4573/claude-tickets/internal/vault"
@@ -180,7 +181,7 @@ func teach(ctx vault.Context, topic string, cont bool) error {
 	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(teachClaudeMD(ctx, topic)), 0o644); err != nil {
 		return err
 	}
-	argv, err := session.Command(ctx.Vault, ctx.ProjectsRoot, filepath.Join(config.CacheDir(), "graphify"))
+	argv, err := session.Command(ctx.Vault, ctx.ProjectsRoot, filepath.Join(config.CacheDir(), "graphify"), modelcache.Dir())
 	if err != nil {
 		return err
 	}

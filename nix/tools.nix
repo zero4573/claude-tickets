@@ -32,9 +32,13 @@ let
         ../go.mod ../go.sum ../cmd ../internal ../assets ../ct_test.go ../ct_sync_test.go ../testdata
       ];
     };
-    vendorHash = "sha256-Ld0QpIlwZQH3hGdu761fJAeBqere+q6RLPxE1ReQj/Q=";
+    # TODO(host): purego was added to go.mod; run `nix build .#default` and paste the hash it reports
+    vendorHash = lib.fakeHash;
     subPackages = [ "cmd/ct" ];
-    ldflags = [ "-s" "-w" "-X github.com/zero4573/claude-tickets/internal/version.Version=${version}" ];
+    ldflags = [ "-s" "-w" "-X github.com/zero4573/claude-tickets/internal/version.Version=${version}" ]
+      # The prebuilt llama.cpp library needs libstdc++ and libgomp, which NixOS keeps out of the
+      # default search path: ct preloads them from here (CLAUDE_TICKETS_LIB_PATH goes first)
+      ++ lib.optional isLinux "-X github.com/zero4573/claude-tickets/internal/embed.DefaultLibPath=${lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]}";
     # Every package, and the CLI tests (stub tmux, podman, editor; real
     # git, with an SSH signing key for ct ws sign)
     nativeCheckInputs = with pkgs; [ coreutils git gnutar openssh ];
