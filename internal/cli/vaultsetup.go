@@ -900,10 +900,11 @@ func configureRuntime(o setupOpts) error {
 func vaultLockCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lock acquire|release|status|run ...",
-		Short: "The lock /tickets:save holds while writing shared notes",
+		Short: "The lock /tickets:save and teach sessions hold while writing shared notes",
 		Long: `An exclusive lock on a vault's shared notes (projects/, knowledge-base/,
-references/), so concurrent ticket sessions running /tickets:save take
-turns. <owner> identifies the holder, e.g. the ticket key.
+references/, learning/), so ticket sessions running /tickets:save and
+teach sessions (ct teach, writing learning/<topic>/) take turns. <owner>
+identifies the holder, e.g. the ticket key or teach-<topic>.
 
 The lock is the directory <vault>/.vault.lock.d (mkdir is atomic), holding
 an owner file; stale takeovers serialize on <vault>/.vault.lock.d.guard.
