@@ -61,6 +61,17 @@ rm home/Documents/Obsidian/v/.ct
 ! exec ct vault search zebra --no-update
 stderr 'ct vault index'
 
+# W3 S01: a failing update with an index in place warns and searches on.
+exec ct vault index
+rm home/Documents/Obsidian/v/.ct/index.lock
+mkdir home/Documents/Obsidian/v/.ct/index.lock
+exec ct vault search zebra crossing
+stderr 'ct: vault index not updated'
+stdout 'projects/acme/crossing\.md'
+exec ct vault related projects/acme/crossing.md
+stderr 'ct: vault index not updated'
+rm home/Documents/Obsidian/v/.ct/index.lock
+
 -- acme.md --
 ---
 type: project

@@ -154,6 +154,9 @@ func (f *noteFlags) apply(cmd *cobra.Command, name string, op notesec.Op) error 
 		fmt.Fprintf(cmd.OutOrStdout(), "unchanged %s\n", rel)
 		return nil
 	}
+	if r, err := notesec.RealRel(v, rel); err == nil {
+		rel = r
+	}
 	afterNoteWrite(v, rel)
 	fmt.Fprintf(cmd.OutOrStdout(), "wrote %s\n", rel)
 	return nil

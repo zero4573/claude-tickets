@@ -118,3 +118,10 @@ func realPath(vault, rel string) (file, real string, err error) {
 	}
 	return f, filepath.ToSlash(r), nil
 }
+
+// RealRel is the vault-relative path rel resolves to once symlinks are
+// followed (the path Apply writes and the search index lists).
+func RealRel(vault, rel string) (string, error) {
+	_, real, err := realPath(vault, rel)
+	return real, err
+}

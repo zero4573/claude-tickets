@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zero4573/claude-tickets/internal/embed"
+	"github.com/zero4573/claude-tickets/internal/modelcache"
 )
 
 func put(t *testing.T, vault, rel, body string) {
@@ -280,7 +283,7 @@ func TestLoadRequiresContiguousChunks(t *testing.T) {
 	Update(v, UpdateOptions{})
 	ix, _ := Load(v)
 	ix.Notes[1].First++ // a gap before note 1's rows
-	if err := writeJSONL(filepath.Join(Dir(v), "notes.jsonl"), ix.Notes); err != nil {
+	if err := writeJSONL(nil, filepath.Join(Dir(v), "notes.jsonl"), ix.Notes); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Load(v); !errors.Is(err, ErrNoIndex) {
@@ -292,7 +295,7 @@ func TestLoadRequiresContiguousChunks(t *testing.T) {
 	}
 }
 
-// Load takes index.lock: a reader started in a writer's torn window waits
+// Load takes the commit lock: a reader started in a writer's torn window waits
 // for the writer instead of reporting a half-written index.
 func TestLoadWaitsForWriter(t *testing.T) {
 	v := setup(t, "stub")
@@ -335,5 +338,76 @@ func TestFilesSkipsSymlinks(t *testing.T) {
 	ix, _ := Load(v)
 	if len(ix.Notes) != 2 {
 		t.Fatalf("symlinked note indexed: %d notes", len(ix.Notes))
+	}
+}
+
+type blocking struct {
+	embed.Embedder
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (b blocking) Embed(texts []string, q bool) ([][]float32, error) {
+	select {
+	case b.entered <- struct{}{}:
+	default:
+	}
+	<-b.release
+	return b.Embedder.Embed(texts, q)
+}
+
+// W3 S03: Load takes only the commit lock, so it returns the old index while
+// a writer is inside Embed; a second Update still waits on index.lock.
+func TestLoadDoesNotWaitForEmbedding(t *testing.T) {
+	v := setup(t, "stub")
+	if _, err := Update(v, UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	put(t, v, "sub/b.md", "# B\n\nChanged text to embed.\n")
+	b := blocking{embed.Stub(64), make(chan struct{}, 1), make(chan struct{})}
+	openEmbedder = func(string) (embed.Embedder, error) { return b, nil }
+	defer func() { openEmbedder = modelcache.Open }()
+	done := make(chan error, 1)
+	go func() { _, err := Update(v, UpdateOptions{}); done <- err }()
+	select {
+	case <-b.entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Update never reached Embed")
+	}
+	loaded := make(chan *Index, 1)
+	go func() { ix, _ := Load(v); loaded <- ix }()
+	select {
+	case ix := <-loaded:
+		if ix == nil || len(ix.Chunks) != 3 {
+			t.Fatalf("old index: %+v", ix)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Load waited for the embedding writer")
+	}
+	close(b.release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+// W3 C02: a note under a symlinked directory is not added by a Files refresh.
+func TestFilesSkipsSymlinkedDir(t *testing.T) {
+	v := setup(t, "stub")
+	Update(v, UpdateOptions{})
+	if err := os.Symlink(filepath.Join(v, "sub"), filepath.Join(v, "link-dir")); err != nil {
+		t.Skip("no symlinks")
+	}
+	put(t, v, "sub/n.md", "# N\n\nnew\n")
+	Refresh(v, "link-dir/n.md")
+	ix, _ := Load(v)
+	for _, n := range ix.Notes {
+		if strings.HasPrefix(n.Path, "link-dir/") {
+			t.Fatalf("indexed %s", n.Path)
+		}
+	}
+	Refresh(v, "sub/n.md")
+	ix, _ = Load(v)
+	if len(ix.Notes) != 3 {
+		t.Fatalf("real path not indexed: %d", len(ix.Notes))
 	}
 }

@@ -102,10 +102,16 @@ func gone(o Options, items []Item, except string) []string {
 // checks the links of the notes it changed and leaves follow-up tasks for
 // what it skipped.
 func Run(o Options, items []Item, env Env) Result {
-	// Archived, moved and rewritten notes: the search index (if any) catches up.
-	defer vindex.Refresh(o.Vault)
 	out := env.Out
 	var res Result
+	// Archived, moved and rewritten notes: the search index (if any) catches up,
+	// but only after a run that wrote something (not on errors or previews).
+	saveRan := false
+	defer func() {
+		if res.Cleaned > 0 || res.FollowUp != "" || saveRan {
+			vindex.Refresh(o.Vault)
+		}
+	}()
 	var tasks []string
 	say := func(format string, a ...any) { fmt.Fprintf(out, "ct clean: "+format+"\n", a...) }
 
@@ -134,6 +140,7 @@ func Run(o Options, items []Item, env Env) Result {
 		if stopped() {
 			return res
 		}
+		saveRan = true
 		log, err := env.Save(it.SaveIn)
 		if err != nil {
 			failedSave[it.SaveIn] = fmt.Sprintf("/tickets:save failed (%v); see %s", err, log)

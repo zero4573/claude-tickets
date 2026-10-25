@@ -75,17 +75,28 @@ func Related(ix *vindex.Index, emb embed.Embedder, n int, o RelatedOptions) (*Re
 	cen := centroid(ix, n)
 	useSem := semantic(ix, emb) && cen != nil
 	resp.KeywordOnly = !useSem
+	q := self.Name
+	for _, c := range ix.Chunks[self.First : self.First+self.Count] {
+		q += " " + strings.Join(c.Heading, " ")
+	}
+	// noVec marks chunks with no embedding (zero rows): "unknown", so they are
+	// ranked by BM25 instead of scoring as dissimilar (W3 S02).
+	noVec := map[int]bool{}
 	if useSem {
 		for i := range ix.Chunks {
-			if v := ix.Vector(i); v != nil {
+			if v := ix.Vector(i); v == nil || zero(v) {
+				noVec[i] = true
+			} else {
 				chunkScore[i] = dot(cen, v)
 			}
 		}
-	} else {
-		q := self.Name
-		for _, c := range ix.Chunks[self.First : self.First+self.Count] {
-			q += " " + strings.Join(c.Heading, " ")
+		if len(noVec) > 0 {
+			kw := normalise(bm25(ix, q), nil)
+			for i := range noVec {
+				chunkScore[i] = kw[i]
+			}
 		}
+	} else {
 		chunkScore = normalise(bm25(ix, q), nil)
 	}
 
@@ -108,6 +119,17 @@ func Related(ix *vindex.Index, emb embed.Embedder, n int, o RelatedOptions) (*Re
 			if c := centroid(ix, m); c != nil {
 				if s := dot(cen, c); s > 0 {
 					items = append(items, item{-1, m, s})
+				}
+			} else {
+				// No centroid: all rows unembedded, rank by BM25.
+				best := -1
+				for i := ix.Notes[m].First; i < ix.Notes[m].First+ix.Notes[m].Count; i++ {
+					if chunkScore[i] > 0 && (best < 0 || chunkScore[i] > chunkScore[best]) {
+						best = i
+					}
+				}
+				if best >= 0 {
+					items = append(items, item{-1, m, chunkScore[best]})
 				}
 			}
 		}

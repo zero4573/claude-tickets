@@ -37,6 +37,9 @@ func TestWholeH1Refused(t *testing.T) {
 	if !refused(err) {
 		t.Fatalf("want refusal, got %v", err)
 	}
+	if !strings.Contains(err.Error(), "H1") || !strings.Contains(err.Error(), "Description") {
+		t.Fatalf("message does not name the protected sections: %v", err)
+	}
 	if b, _ := os.ReadFile(f); string(b) != ticket {
 		t.Fatalf("file changed: %q", b)
 	}
@@ -114,5 +117,19 @@ func TestSymlinks(t *testing.T) {
 	})
 	if !refused(err) {
 		t.Fatalf("outside the vault: want refusal, got %v", err)
+	}
+}
+
+// W3 C01: RealRel gives the path a symlinked note resolves to.
+func TestRealRel(t *testing.T) {
+	c, _ := ticketVault(t)
+	if err := os.WriteFile(filepath.Join(c.Vault, "real.md"), []byte("# R\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(c.Vault, "real.md"), filepath.Join(c.Vault, "tickets", "P-1", "l.md")); err != nil {
+		t.Skip(err)
+	}
+	if r, err := RealRel(c.Vault, "tickets/P-1/l.md"); err != nil || r != "real.md" {
+		t.Fatalf("%q %v", r, err)
 	}
 }

@@ -28,6 +28,9 @@ func checkWrite(c Ctx, rel string, src, out []byte, t Target) error {
 		if covered {
 			what = "anything but the work sections and status"
 		}
+		if t.Level == 1 {
+			return refuse("refusing to rewrite the H1 of %s with its subsections: that reaches %s of a ticket note, which agents never write (AGENTS.md, \"Who writes what\")", rel, what)
+		}
 		return refuse("refusing to write %s: the change reaches %s of a ticket note, which agents never write (AGENTS.md, \"Who writes what\")", rel, what)
 	}
 	return nil
@@ -46,6 +49,9 @@ func checkContent(rel string, t Target) error {
 			continue
 		}
 		if t.Level > 0 && s.Level <= t.Level {
+			if t.Level == 1 {
+				return refuse("refusing to rewrite the H1 of %s: the content has a level-%d heading %q, and a rewrite of the H1 with its subsections would have to carry the note's protected sections (Description, Acceptance criteria, Context / links), which agents never write", rel, s.Level, s.Title)
+			}
 			return refuse("refusing to write section %q of %s: the content has a level-%d heading %q, at or above the section's level %d", strings.Join(t.Section, " > "), rel, s.Level, s.Title, t.Level)
 		}
 		if contentSections[strings.ToLower(strings.TrimSpace(s.Title))] {
