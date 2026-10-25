@@ -82,11 +82,12 @@ Each event gets one short action; never forward report bodies.
   whole transcript, so wake it **once per wave**. Take the notice's first line and move the agent
   from `po: agents:` to `po: finished:` (`"w<N> · task NN · done|partial"`, `"w<N> · review <slug>"`).
   A task reporting `blocked` or failed (or dying) goes to the lead **at once** instead ("task 03
-  blocked, report in its task file; wave 2 still running: 04"), not into `finished:`. When **no
-  entry of the same wave and kind** (tasks, or reviews) is left in `agents:`, SendMessage one line,
-  "wave 2 finished: tasks 04 done, 05 partial, reports in their task files" or "wave 2 reviews
-  written: <slug>, <slug>", and drop them from `finished:`. Until then send nothing: the lead
-  waits for stragglers (no early merge, no timeout). A finished analyst: its answer to the user.
+  blocked, report in its task file; wave 2 still running: 04; finished, unsent: 05"), not into
+  `finished:`. When **no entry of the same wave and kind** (tasks, or reviews) is left in
+  `agents:`, also right after such a notice, SendMessage one line, "wave 2 finished: tasks 04
+  done, 05 partial, reports in their task files" or "wave 2 reviews written: <slug>, <slug>", and
+  drop them from `finished:`. Until then send nothing: the lead waits for stragglers (no early
+  merge, no timeout). A finished analyst: its answer to the user.
 - **User input:**
   - new requirement, feature or feedback: append a `relay.md` entry (`request`, `feature` or
     `feedback`, `user→lead`, `open`) and SendMessage the lead "new request R-09". No lead

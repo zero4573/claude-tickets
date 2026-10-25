@@ -256,10 +256,12 @@ func TestWaveBatchedWakeups(t *testing.T) {
 	texts := pluginTexts(t)
 	po, lead := texts["plugin/skills/work-ticket/SKILL.md"], texts["plugin/skills/lead/SKILL.md"]
 	refresh := texts["plugin/skills/po-refresh/SKILL.md"]
+	// Whitespace-insensitive, so a reflow of the skill text does not break it.
+	norm := func(s string) string { return strings.Join(strings.Fields(s), " ") }
 	has := func(name, text string, want ...string) {
 		t.Helper()
 		for _, s := range want {
-			if !strings.Contains(text, s) {
+			if !strings.Contains(norm(text), norm(s)) {
 				t.Errorf("%s: missing %q", name, s)
 			}
 		}
@@ -277,7 +279,9 @@ func TestWaveBatchedWakeups(t *testing.T) {
 	has("PO", po, "batch it per wave", "wake it **once per wave**", "**no\n  entry of the same wave and kind**",
 		"\"wave 2 finished: tasks 04 done, 05 partial,", "\"wave 2 reviews\n  written: <slug>, <slug>\"",
 		"A task reporting `blocked` or failed (or dying) goes to the lead **at once**", "no early merge, no timeout",
-		"at once,\n  never batched", "with its `wave:`", "  finished:\n", "`finished: []`")
+		"at once,\n  never batched", "with its `wave:`", "  finished:\n", "`finished: []`",
+		// Review W1 S01/S02: a blocked notice names the unsent finished tasks and can close the wave.
+		"finished, unsent: 05", "also right after such a notice")
 	for _, s := range []string{"SendMessage the lead one line: \"task 03 finished", "forward it like any finished task"} {
 		if strings.Contains(po, s) {
 			t.Errorf("PO still wakes the lead per task: %q", s)
@@ -287,7 +291,9 @@ func TestWaveBatchedWakeups(t *testing.T) {
 	// The lead tags spawns with their wave and merges the whole wave in one run.
 	has("lead", lead, "carries `wave: <N>`", "  wave: 3\n  prompt: Task 03:", "The PO wakes you **once per wave**",
 		"Merge **all** of them in this run", "never\nexpect one message per task", "go on merging the rest of the wave",
-		"all the wave's reviews are written")
+		"all the wave's reviews are written",
+		// Review W1 S02/S03: merge only from the wave line; fix tasks get a defined wave.
+		"merge the finished ones only from the wave line", "A fix or follow-up task takes the wave of the work it fixes")
 	if strings.Contains(lead, "When the PO tells you a task finished") {
 		t.Error("lead still expects one message per finished task")
 	}

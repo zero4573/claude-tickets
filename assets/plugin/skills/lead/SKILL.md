@@ -93,7 +93,8 @@ never changes while an agent that uses it runs: have it stopped, update the cont
   <NN: owns, …|none>. New since the task file: <…|none>.` The brief comes from the
   `tickets:task-agent` skill; don't paste rules. The PO adds `Lead: <your agentId>`. Every
   `Spawn:` entry (tasks and reviewers) carries `wave: <N>`: the PO batches completion notices
-  by it.
+  by it. A fix or follow-up task takes the wave of the work it fixes while that wave still has
+  agents running, else the next wave's number.
 - A task agent may message you a blocking question mid-task: answer it with SendMessage to its
   id if the files and decisions already settle it, else put it through the gate.
 - Never ask for `general-purpose` agents (every tool, the big model, no brief).
@@ -102,10 +103,10 @@ never changes while an agent that uses it runs: have it stopped, update the cont
 The PO wakes you **once per wave**, when none of its tasks is still running: "wave 2 finished:
 tasks 04 done, 05 partial, reports in their task files". Merge **all** of them in this run; never
 expect one message per task. Only a `blocked` or failed task reaches you at once ("task 03
-blocked; wave 2 still running: 04, 05"): set its row, ask or re-plan, and end with
-`Next: wait-tasks` for the rest (no early merge, no timeout). For each finished task read only
-its `## Report` (`sed -n '/^## Report/,$p' <task file>`). Per finished task, in task order, one
-chain with filtered output in `<ws>/<slug>`:
+blocked; wave 2 still running: 04; finished, unsent: 05"): set its row, ask or re-plan, end with
+`Next: wait-tasks`, and merge the finished ones only from the wave line (no early merge, no
+timeout). For each finished task read only its `## Report` (`sed -n '/^## Report/,$p' <task
+file>`). Per finished task, in task order, one chain with filtered output in `<ws>/<slug>`:
 `git merge --no-ff -q task/<ID>-NN-<task-slug> -m "<ID> merge task NN: <title>"`, then the repo's
 lint and tests from its `AGENTS.md` "Checking" (`<cmd> > <log> 2>&1; rc=$?;
 rg -n 'FAIL|panic|error' <log> | head -20; echo exit=$rc`). A nonzero `exit` blocks the merge,
