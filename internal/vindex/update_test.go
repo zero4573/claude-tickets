@@ -472,3 +472,55 @@ func TestFilesVaultBehindSymlink(t *testing.T) {
 		t.Fatalf("not indexed through the symlinked vault: %v", err)
 	}
 }
+
+// W5 S02: replacing any one index file with another valid generation is a torn
+// index; a touch-only update (same content) keeps the index loadable.
+func TestMixedGenerationsRefused(t *testing.T) {
+	for _, name := range []string{"notes.jsonl", "chunks.jsonl", "vectors.f32"} {
+		t.Run(name, func(t *testing.T) {
+			v := setup(t, "stub")
+			if _, err := Update(v, UpdateOptions{}); err != nil {
+				t.Fatal(err)
+			}
+			old, err := os.ReadFile(filepath.Join(Dir(v), name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			put(t, v, "sub/b.md", "# B\n\nChanged text for a new generation.\n\n## More\n\nand more\n")
+			put(t, v, "c.md", "# C\n\nBrand new note.\n")
+			if _, err := Update(v, UpdateOptions{}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Load(v); err != nil {
+				t.Fatal(err)
+			}
+			cur, _ := os.ReadFile(filepath.Join(Dir(v), name))
+			if string(cur) == string(old) {
+				t.Fatalf("%s did not change between generations", name)
+			}
+			if err := os.WriteFile(filepath.Join(Dir(v), name), old, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Load(v); !errors.Is(err, ErrNoIndex) {
+				t.Fatalf("mixed generation loaded: %v", err)
+			}
+		})
+	}
+}
+
+func TestTouchOnlyUpdateStaysLoadable(t *testing.T) {
+	v := setup(t, "stub")
+	if _, err := Update(v, UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	later := time.Now().Add(time.Hour)
+	if err := os.Chtimes(filepath.Join(v, "a.md"), later, later); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Update(v, UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(v); err != nil {
+		t.Fatalf("touch-only update broke the index: %v", err)
+	}
+}

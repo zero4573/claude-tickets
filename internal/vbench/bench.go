@@ -84,6 +84,11 @@ func Distinctive(f Fact) []string {
 			out = append(out, k)
 		}
 	}
+	if len(out) == 0 {
+		for _, k := range f.Keywords {
+			out = append(out, strings.ToLower(k))
+		}
+	}
 	return out
 }
 
@@ -140,7 +145,7 @@ func Old(vault string, files []string, f Fact) Outcome {
 				}
 			case strings.HasPrefix(rel, "tickets/") && strings.Count(rel, "/") == 2 && !strings.Contains(rel, "-board.md") && !strings.Contains(rel, "-plan.md"):
 				// a ticket's own note: open tickets that list the project
-				if b := read(vault, rel); strings.Contains(b, "projects: ["+f.Project+"]") {
+				if b := read(vault, rel); listsProject(b, f.Project) {
 					ctx.WriteString(b)
 				}
 			}
@@ -213,4 +218,21 @@ func Percentile(d []time.Duration, p float64) time.Duration {
 	sort.Slice(s, func(i, j int) bool { return s[i] < s[j] })
 	i := int(p * float64(len(s)-1))
 	return s[i]
+}
+
+// listsProject reports whether a note's frontmatter has a `projects:` list that
+// holds the slug, among any number of entries.
+func listsProject(note, slug string) bool {
+	for _, line := range strings.Split(note, "\n") {
+		rest, ok := strings.CutPrefix(strings.TrimSpace(line), "projects:")
+		if !ok {
+			continue
+		}
+		for _, e := range strings.Split(strings.Trim(strings.TrimSpace(rest), "[]"), ",") {
+			if strings.Trim(strings.TrimSpace(e), `"'`) == slug {
+				return true
+			}
+		}
+	}
+	return false
 }

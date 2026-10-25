@@ -95,15 +95,15 @@ func Related(ix *vindex.Index, emb embed.Embedder, n int, o RelatedOptions) (*Re
 			// the mean cosine of the embedded chunks, so an unembedded chunk can't
 			// outrank a clearly similar embedded one.
 			var mean float64
-			var n int
+			var cnt int
 			for i, s := range chunkScore {
-				if !noVec[i] && s > 0 {
+				if !noVec[i] && s > 0 && !skip(ix.Chunks[i].Note) {
 					mean += s
-					n++
+					cnt++
 				}
 			}
-			if n > 0 {
-				mean /= float64(n)
+			if cnt > 0 {
+				mean /= float64(cnt)
 			} else {
 				mean = 1
 			}

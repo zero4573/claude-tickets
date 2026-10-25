@@ -322,3 +322,43 @@ func TestStrongSemanticBeatsMediocreZeroRow(t *testing.T) {
 		t.Fatalf("%v %v", err, paths(r))
 	}
 }
+
+// W5 S01: score == ws*semantic + wk*keyword + link for zero and embedded rows.
+func TestScoreEqualsComponentsForZeroRow(t *testing.T) {
+	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "stub")
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	v := t.TempDir()
+	put(t, v, "a.md", "# A\n\nGiraffe savanna migration.\n")
+	put(t, v, "a2.md", "# Pangolin armor\n\nScales.\n")
+	if _, err := vindex.Update(v, vindex.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	put(t, v, "z.md", "# Pangolin armor\n\nPangolin scales armor.\n")
+	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
+	if _, err := vindex.Update(v, vindex.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	ix, err := vindex.Load(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := Search(ix, embed.Stub(64), "pangolin armor", Options{Mode: ModeHybrid})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sawZero, sawEmbedded bool
+	for _, x := range r.Results {
+		want := WeightSemantic*x.Scores.Semantic + WeightKeyword*x.Scores.Keyword + x.Scores.Link
+		if d := x.Score - want; d > 1e-9 || d < -1e-9 {
+			t.Errorf("%s: score %v != %v (%+v)", x.Path, x.Score, want, x.Scores)
+		}
+		if x.Path == "z.md" {
+			sawZero = x.Scores.Semantic > 0
+		} else {
+			sawEmbedded = true
+		}
+	}
+	if !sawZero || !sawEmbedded {
+		t.Fatalf("need a zero row with imputed semantic and an embedded row: %v", paths(r))
+	}
+}
