@@ -53,7 +53,9 @@ One line per entry, appended with `>>`; change only the last field of your own l
 The PO adds the user's `request`, `feature`, `feedback` and `answer` entries and messages you
 one line ("new request R-09", "R-07 answered"). For each: plan it into the next wave (task
 files, board rows with `R-nn` in the Note, state `planned`), record it (`plan.md ## Decisions`,
-state `planned`), or ask (the gate). Caps (the PO trims): `## Open` ≤30 lines, `## Closed` ≤40.
+state `planned`), or ask (the gate). A grill (`tickets:grilling`, run by the PO) leaves
+`user→lead · decision` entries: copy each into `plan.md ## Decisions` (the first one's
+`Brief:` into `## Scope`) and set it `planned`. Caps (the PO trims): `## Open` ≤30 lines, `## Closed` ≤40.
 
 ## 2. Plan (you, no separate analysis agents)
 1. Recall: for each repo, `projects/<slug>/architecture/<slug>-decisions.md` (grep the index),
@@ -65,7 +67,7 @@ state `planned`), or ask (the gate). Caps (the PO trims): `## Open` ≤30 lines,
 4. Pick files with graphify (`query_graph`, `shortest_path`, `get_neighbors`), confirm exact
    paths with fff/rg, and write wave 1 as 2–6 task files `tasks/<ID>-NN-<slug>.md` (frontmatter
    `id`, `ticket`, `wave`, `repo`, `agent`, `depends_on`, `owns`, `branch`, `worktree`,
-   `context_budget`, `contracts`; body `## Goal` ≤5 lines, `## Do` ≤25, `## Checks`,
+   `context_budget`, `contracts`, optional `skills: [tickets:diagnose]`; body `## Goal` ≤5 lines, `## Do` ≤25, `## Checks`,
    `## Done when` ≤5). `owns` is exact repo-relative files or `dir/**`.
 5. Write `board.md` (a `planned` row per task) and `backlog.md`, add the plan and wave lines to
    `## Tasks`, set `status: in-progress`.
@@ -137,8 +139,12 @@ When the last review has no open must-fix and no row is `planned`, `running` or 
 
 ## Ticket types (they shape the plan, not the agents)
 - `dev`: as above. `chore`: one task, or you do it directly; review only if behaviour can change.
-- `bug`: `plan.md ## Root cause` first (trace with graphify and the code); the fix task's
-  "Done when" names a regression test that fails before the fix.
+- `bug`: follow the `tickets:diagnose` skill ("In the ticket workflow"). Wave 1's first task
+  is "build the feedback loop" with `skills: [tickets:diagnose]` (phases 1–2, and 3 when
+  cheap); from its report write `plan.md ## Root cause` (the loop command, the confirmed cause,
+  the hypotheses ruled out; trace with graphify and the code). The fix task also lists
+  `skills: [tickets:diagnose]`, runs the loop in `## Checks`, and its "Done when" names a
+  regression test that fails before the fix.
 - `investigation`: a vault-only task, or you write `investigation.md` (template
   `investigation`, ≤150 lines); code only if the ticket asks for it.
 - `epic`: one plan over `covers`, scope and acceptance criteria per covered ticket; tasks carry

@@ -35,7 +35,8 @@ in full. State lives in `tickets/<ID>/` (layout and caps: the vault's `AGENTS.md
 3. `rg -n '^(status|ticket-type):|^## Workspace' -A3 tickets/<ID>/<ID>.md`
 
 No board and `## Workspace` has no data rows (only `| Repo (slug) |…` and `|---|`): read
-`kickoff.md` (next to this file) and do it, then spawn the lead (1). Otherwise: a `lead:` id you
+`kickoff.md` (next to this file) and do it (it ends with a `tickets:grilling` round scaled to
+the ticket), then spawn the lead (1). Otherwise: a `lead:` id you
 didn't spawn in this conversation is **stale** (subagents die with their session): set
 `lead: none` and spawn a fresh lead. An id you hold (after `/compact`): SendMessage it "PO
 refreshed; send status"; no answer means stale, so spawn a fresh one. Ids in `po:` that you
@@ -64,7 +65,8 @@ Each event gets one short action; never forward report bodies.
 - **User input:**
   - new requirement, feature or feedback: append a `relay.md` entry (`request`, `feature` or
     `feedback`, `user→lead`, `open`) and SendMessage the lead "new request R-09". No lead
-    (after hand-over): spawn one; it plans the entry into the next wave.
+    (after hand-over): spawn one; it plans the entry into the next wave. Vague new scope or
+    a feature: grill it first (`tickets:grilling`, as `/tickets:grill` does).
   - a question: answer it from `board.md`, `relay.md` and `plan.md` when they cover it, else
     spawn `tickets:analyst` with `Ticket <ID>. Workspace: <ws>. Vault: <vault>. Question: <…>`
     (read-only, ≤20 lines with file:line). Work it needs becomes a `request` for the lead.

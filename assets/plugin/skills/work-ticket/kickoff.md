@@ -2,8 +2,8 @@
 
 Read by the PO (`/tickets:work-ticket <ID>`) when the ticket note's `## Workspace` is
 empty, and again for a repo that turns out to be needed later (the lead asks for it through
-`relay.md`). It ends with the worktrees created and `## Workspace` written; then spawn the
-lead ("1. Spawn the lead" in `SKILL.md`).
+`relay.md`). It ends with the worktrees created, `## Workspace` written and the grill (4) done;
+then spawn the lead ("1. Spawn the lead" in `SKILL.md`). A repo added later skips the grill.
 
 ## 1. Load context
 
@@ -47,6 +47,9 @@ every ticket in its `covers` list. Those are the children assigned to the user, 
      `- [ ] Follow up with <assignee> on [[<ID>]] (<status>): <what this ticket needs from
      it> #follow-up ➕ <today>`. The user tracks these in the Tasks views. Mark one `[x]` with
      `✅` once it's no longer blocking.
+   - **Owned by someone else and needs answers from them:** offer the user a questionnaire
+     for that person (the `tickets:questionnaire` skill). It writes
+     `tickets/<ID>/<ID>-questionnaire-<slug>.md` and links it from the `#follow-up` line.
    - **If an open blocker stops real progress**, ask the user with AskUserQuestion:
      - **wait:** keep the ticket's `status` (`blocked` means waiting on the user;
        `blocked: true` already says it waits on another ticket), note the wait under
@@ -109,3 +112,13 @@ every ticket in its `covers` list. Those are the children assigned to the user, 
    - the kickoff line in `## Tasks` marked `[x]` with `✅ <today>`.
 6. If a repo turns out to be needed later, local or not, run this same gate for it before
    adding it (and before any task names it as `repo`).
+
+## 4. Grill (always on a new ticket, before the lead)
+
+Load the `tickets:grilling` skill and grill the user on the ticket's scope, scaled to it: one
+round for a clear `chore` or a well-specified bug, several for a vague `dev` ticket or an
+epic. Start from what the ticket, the linked tickets and the kickoff left open (behaviour,
+edge cases, acceptance criteria, compatibility, what's out of scope); never re-ask the repos,
+branches or versions. Facts go to a background `tickets:analyst`. The user can say "skip" at
+any round. Record the results as grilling's "In a ticket" says (`relay.md` decision entries,
+the first carrying the `Brief:`, and `## Questions`); the lead copies them into `plan.md`.

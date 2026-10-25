@@ -13,8 +13,10 @@ worktree) names the vault and the ticket.
 
 ## Read (in this order, and only this)
 1. Your task file. Its frontmatter (`repo`, `owns`, `branch`, `worktree`, `context_budget`,
-   `contracts`, `depends_on`) and its `## Goal`, `## Do`, `## Checks`, `## Done when`.
-   `owns` is the only set of paths you may write (plus your own `## Report`).
+   `contracts`, `depends_on`, optional `skills`) and its `## Goal`, `## Do`, `## Checks`,
+   `## Done when`. `owns` is the only set of paths you may write (plus your own `## Report`).
+   If `skills` lists any (e.g. `skills: [tickets:diagnose]` for a bug's feedback-loop or fix
+   task), load each with the Skill tool now and follow it within the task's `owns`.
 2. The repo's `AGENTS.md` in your worktree: `rg -n '^## ' AGENTS.md`, then only the sections
    your task needs (`sed -n a,bp`), always including its conventions and its checking
    commands. A repo without one: its README, Makefile or package.json scripts.

@@ -265,3 +265,112 @@ func TestPOAndLeadSkills(t *testing.T) {
 		t.Error("po-refresh: /clear guard missing")
 	}
 }
+
+// The skills adapted from mattpocock/skills (MIT; MAN-16 addendum): each
+// ships with its name, a description, the attribution footer and a size
+// cap; grill, retro and teach are user-invoked only; the notices file
+// carries the license; the PO, the lead and the task brief hook into them.
+func TestAdaptedSkills(t *testing.T) {
+	read := func(p string) string {
+		data, err := fs.ReadFile(Files, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+	const footer = "Adapted from mattpocock/skills (MIT); see THIRD_PARTY_NOTICES.md"
+	notices := read("plugin/THIRD_PARTY_NOTICES.md")
+	for _, s := range []string{"MIT License", "Copyright (c) 2026 Matt Pocock",
+		"THE SOFTWARE IS PROVIDED \"AS IS\"", "mattpocock/skills"} {
+		if !strings.Contains(notices, s) {
+			t.Errorf("THIRD_PARTY_NOTICES.md: missing %q", s)
+		}
+	}
+	for _, sk := range []struct {
+		name        string
+		cap         int
+		userInvoked bool
+	}{
+		{"grilling", 40, false}, {"grill", 30, true}, {"diagnose", 90, false},
+		{"retro", 45, true}, {"questionnaire", 50, false}, {"teach", 120, true},
+	} {
+		s := read("plugin/skills/" + sk.name + "/SKILL.md")
+		fm := frontmatter(t, s)
+		if v, _, _ := field(fm, "name"); v != sk.name {
+			t.Errorf("%s: name %q", sk.name, v)
+		}
+		if v, _, _ := field(fm, "description"); len(v) < 40 {
+			t.Errorf("%s: description too short: %q", sk.name, v)
+		}
+		v, _, ok := field(fm, "disable-model-invocation")
+		if sk.userInvoked != (ok && v == "true") {
+			t.Errorf("%s: disable-model-invocation %q, want user-invoked=%v", sk.name, v, sk.userInvoked)
+		}
+		if n := strings.Count(s, "\n"); n > sk.cap {
+			t.Errorf("%s is %d lines, cap %d", sk.name, n, sk.cap)
+		}
+		if !strings.Contains(s, footer) {
+			t.Errorf("%s: no attribution footer", sk.name)
+		}
+		if !strings.Contains(notices, "`skills/"+sk.name+"`") {
+			t.Errorf("THIRD_PARTY_NOTICES.md doesn't list skills/%s", sk.name)
+		}
+	}
+
+	grilling := read("plugin/skills/grilling/SKILL.md")
+	for _, s := range []string{"AskUserQuestion", "**≤4 questions**", "(Recommended)", "`tickets:analyst`",
+		"frontier", "skip", "user→lead · decision", "## Questions", "Brief:"} {
+		if !strings.Contains(grilling, s) {
+			t.Errorf("grilling: missing %q", s)
+		}
+	}
+	if !strings.Contains(read("plugin/skills/grill/SKILL.md"), "`tickets:grilling`") {
+		t.Error("grill: doesn't load tickets:grilling")
+	}
+	po := read("plugin/skills/work-ticket/SKILL.md") + read("plugin/skills/work-ticket/kickoff.md")
+	for _, s := range []string{"`tickets:grilling`", "`tickets:questionnaire`", "<ID>-questionnaire-<slug>.md", "#follow-up"} {
+		if !strings.Contains(po, s) {
+			t.Errorf("PO (work-ticket, kickoff): missing %q", s)
+		}
+	}
+	if !strings.Contains(read("plugin/skills/questionnaire/SKILL.md"), "tickets/<ID>/<ID>-questionnaire-<slug>.md") {
+		t.Error("questionnaire: wrong file path")
+	}
+
+	diagnose := read("plugin/skills/diagnose/SKILL.md")
+	for _, s := range []string{"## 1. Build a feedback loop", "## 2. Reproduce", "## 3. Hypothesise",
+		"## 4. Fix", "## 5. Regression test", "<REDACTED>", "skills: [tickets:diagnose]"} {
+		if !strings.Contains(diagnose, s) {
+			t.Errorf("diagnose: missing %q", s)
+		}
+	}
+	lead := read("plugin/skills/lead/SKILL.md")
+	for _, s := range []string{"`tickets:diagnose`", "build the feedback loop", "`plan.md ## Root cause`", "`tickets:grilling`"} {
+		if !strings.Contains(lead, s) {
+			t.Errorf("lead: missing %q", s)
+		}
+	}
+	if !strings.Contains(read("plugin/skills/task-agent/SKILL.md"), "skills: [tickets:diagnose]") {
+		t.Error("task-agent: doesn't load the skills its task file lists")
+	}
+	handover := read("plugin/skills/lead/handover.md")
+	for _, s := range []string{"`/tickets:retro`", "**at most 8**", "B-nn · retro"} {
+		if !strings.Contains(handover, s) {
+			t.Errorf("handover: missing %q", s)
+		}
+	}
+
+	teach := read("plugin/skills/teach/SKILL.md")
+	for _, s := range []string{
+		"`learning/<topic>/`", "`<topic>.md`", "`<topic>-resources.md`", "`<topic>-glossary.md`",
+		"`<topic>-notes.md`", "`lessons/<topic>-NNNN-<name>.md`", "`reference/<topic>-<name>.md`",
+		"`records/<topic>-NNNN-<name>.md`", "`quizzes/<topic>-NNNN-<name>.html`",
+		"`learning-topic`", "`lesson`", "`learning-record`", "`learning-reference`",
+		"ct vault lock acquire <vault> teach-<topic>", "**WebSearch**", "**WebFetch**",
+		"zone of proximal development", "the same number of words", "## Wisdom",
+	} {
+		if !strings.Contains(teach, s) {
+			t.Errorf("teach: missing %q", s)
+		}
+	}
+}
