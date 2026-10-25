@@ -1,295 +1,166 @@
 ---
 name: work-ticket
-description: Lead playbook for working one ticket (Jira, manual, or any other source) end to end in a ticket workspace (~/work/<ID>), launched by ct start as /tickets:work-ticket <ID>. Confirms repos, base branches and target versions with the user, creates worktrees, keeps a task list in the ticket note, runs the product-owner / architect / developer / qa subagents in the order the ticket type calls for, stops to ask the user on ambiguity or major tradeoffs, and ends at review with the work committed on the ticket branches, never pushed.
+description: Lead playbook for working one ticket (Jira, manual, or any other source) end to end in a ticket workspace (~/work/<ID>), launched by ct start as /tickets:work-ticket <ID>. Confirms repos, base branches and target versions with the user, plans the work in waves of small task files with exact owned paths and contracts, runs lean task agents in per-task worktrees, merges them into the ticket branch, runs a capped review per wave, stops to ask the user on ambiguity or major tradeoffs, and ends at review with the work committed on the ticket branches, never pushed. Resumes from the ticket's board in a few calls.
 ---
 
 # work-ticket <ID>
 
-You are the **lead** for ticket `<ID>`. Your cwd is the ticket's workspace
-(`<workRoot>/<ID>`, by default `~/Projects/work-<vault>/<ID>`;
-`~/work/<ID>` in these skills means "the workspace", and `~/Projects`
-the vault's projectsRoot), and its
-`CLAUDE.md` gives the real path, the vault path, the ticket note, and the
-rules. You
-coordinate. The role subagents do the analysis and the code. The developer
-and qa subagents commit their work on the ticket branches; the user reviews
-everything at the end, then signs and pushes.
+You are the **lead** for ticket `<ID>`. Your cwd is the ticket workspace (`~/work/<ID>` in
+these skills; `~/Projects` is the vault's projectsRoot). Its `CLAUDE.md` gives the real
+paths, the vault and the rules. You plan, merge and talk to the user; `tickets:task` agents
+implement, `tickets:reviewer` agents review. All state lives in bounded files in
+`tickets/<ID>/` (layout and caps: the vault's `AGENTS.md`, "Workflow"), so a fresh session
+picks up where the last one stopped. Paths `tickets/<ID>/…` are in the vault;
+`<ws>/<slug>` is a ticket worktree (`workspace.json`).
 
 ## Ground rules
+- In the vault, write only inside `tickets/<ID>/`. Shared notes (`projects/`,
+  `knowledge-base/`, `references/`) are written by `/tickets:save` only; draft anything worth
+  keeping in `tickets/<ID>/kb-drafts/`. A lead ticket (epic) may also write the work sections
+  (`## Workspace`, `## Tasks`, `## Questions`, `## Follow-ups`, `## Review`) and `status` of
+  the tickets it covers.
+- In the ticket note, never touch the identity and source fields (`source`, `source-*`), the
+  `ignore*` fields, or the ticket's content (the `<!-- source:start -->` block of a synced
+  ticket; `## Description`, `## Acceptance criteria`, `## Context / links` of a manual one).
+- Follow the vault's `AGENTS.md`: frontmatter, kebab-case, wikilinks by bare note name,
+  templates from `templates/` (`plan`, `board`, `task`, `review`, `backlog`). No `- [ ]`
+  checkboxes in plan, board, task, review or backlog files: plain bullets.
+- Commits are unsigned (the user runs `ct ws sign <ID>` on the host). Never push, rewrite
+  pushed commits, `reset --hard`, `branch -D`, or remove the ticket worktrees. You add and
+  remove only task worktrees under `<ws>/.tasks/`, and delete only merged task branches
+  (`git branch -d`).
+- **No paid Rovo calls** (the vault's `AGENTS.md`, "Cost guard"): never `search` or the
+  Teamwork Graph tools, not even through `executeRead`.
+- **Graph first for structure:** the `graphify` MCP server holds every repo, with this
+  ticket's worktrees in place of their main clones (ids prefixed `<slug>::`). Task worktrees
+  aren't in it. For files and content, use the fff MCP tools when available, else `rg` (or
+  the Grep tool). Read files by section or line range, never the board or task files whole.
 
-- In the vault, write only inside `<vault>/tickets/<ID>/`. Shared notes
-  (`projects/`, `knowledge-base/`, `references/`) are written by `/tickets:save`
-  only, after the user's review. Draft anything worth keeping in
-  `tickets/<ID>/kb-drafts/` instead. **A lead ticket** (below) may also
-  write the work sections (`## Workspace`, `## Tasks`, `## Questions`,
-  `## Follow-ups`, `## Review`) and `status` of the tickets it covers.
-  They have no session of their own, so that's still one writer per note.
-- In the ticket note, never touch the identity and source fields (`source`,
-  `source-*`), the `ignore*` fields, or the ticket's content: the
-  `<!-- source:start -->`…`<!-- source:end -->` block of a synced ticket,
-  owned by ct sync, or `## Description` / `## Acceptance criteria` /
-  `## Context / links` of a manual ticket (`source: manual`), owned by the
-  user. Manual tickets go through exactly the same flow.
-- Follow the vault's `AGENTS.md`: frontmatter, kebab-case, wikilinks by bare
-  note name, templates from `templates/`.
-- Commits go on the ticket branches, unsigned (the sandbox has no SSH
-  agent; the user signs them on the host with `ct ws sign <ID>`).
-  Never push, rewrite commits already on a remote, reset, or remove
-  worktrees (push, `reset --hard` and worktree removal are also denied in
-  `.claude/settings.json`).
-- **No paid Rovo calls** (the vault's `AGENTS.md`, "Cost guard"): never
-  `search` or the Teamwork Graph tools, not even through `executeRead`.
-- **Code graph first.** The `graphify` MCP server holds every repo, with
-  this ticket's worktrees in place of their main clones. Node ids are
-  prefixed with the repo's **slug**, `<provider>-<owner>-<repo>`
-  (`bitbucket-acme-billing-service::…`), the same name the vault
-  uses for the repo (`projects/<slug>/`, `projects: [<slug>]`). New
-  worktrees join the graph within about 15 seconds, so there's no need to
-  restart.
-- **Resuming.** This skill also runs when a session restarts (with
-  `--continue`). Read the ticket note's `## Tasks`, `## Questions` and
-  `## Workspace`, and the hand-off files, then pick up from the first
-  unfinished task instead of starting over.
+## 0. Resume (always first; ≤3 calls)
+1. `rg -n '^\||^(status|wave|last-reviewed):' tickets/<ID>/board.md tickets/<ID>/<ID>.md`
+2. `tail -n 25 tickets/<ID>/backlog.md`
+3. `for r in <ws>/*/; do git -C "$r" worktree list; done 2>/dev/null` (stray task worktrees)
 
-## 1. Load context
+No board: a new ticket. If call 1 shows no `## Workspace` table rows, read `kickoff.md`
+(next to this file) and do it, then go to 2. Don't read task files whole to resume. Otherwise the next action is the first that applies:
+`status: blocked` → the open question in `## Questions`; `running` rows → check the task
+branch (`git log --oneline <ticket-branch>..task/<ID>-NN-*`) and merge it (5) or re-spawn it
+with "New since: resumed, commits so far …"; a merged wave without a review row → 6; open
+must-fix tasks → 7; `planned` rows → 4; nothing left → hand-over (8).
 
-1. Read `CLAUDE.md`, `workspace.json`, the vault's `AGENTS.md`, and the
-   ticket note `tickets/<ID>/<ID>.md` (its content is the source block, or
-   the description sections for a manual ticket). Read linked
-   tickets that exist in the vault, especially its `parent`, `blocked-by`,
-   `blocks` and, for a lead, every ticket in `covers` and `children`.
-2. For each repo in the workspace, or clearly named by the ticket, read
-   `projects/<slug>/architecture/<slug>-decisions.md` and the 3 latest
-   `projects/<slug>/logs/` notes if they exist. Then run
-   `ct vault groups <vault> <slug>...` for those repos (read-only; a repo
-   without a project note yet shows as `<slug>: no note (standalone)`): read
-   the index notes of their direct neighbours (`depends-on`, used-by), and
-   for each group they belong to its index (interactions),
-   `<group>-decisions`, and the relevant `sequences/` and
-   `<group>-compatibility` rows. A standalone repo has none of these.
-   This is the `/tickets:recall` step.
-3. If the ticket note's `status` is `new`, set it to `triage`.
-4. A manual ticket whose `## Description` is empty or too thin to act on:
-   ask the user to fill it in (or to answer your questions) before going
-   on. Don't invent requirements.
+## 1. Kickoff
+Only when `## Workspace` is empty: `kickoff.md` (load context, classify, epic rules,
+dependencies and follow-ups, repos incl. Bitbucket discovery, base/version questions,
+`ct ws add`). Never create a worktree before it.
 
-## 2. Classify
+## 2. Plan (you, no separate analysis agents)
+1. Recall: for each repo, `projects/<slug>/architecture/<slug>-decisions.md` (grep the
+   index), the 3 latest `projects/<slug>/logs/` notes by name and first lines, and
+   `ct vault groups <vault> <slug>...` (neighbours and groups; read only what matters).
+2. Clarify scope yourself. Product or UX questions go in **one** batched AskUserQuestion.
+3. Write `plan.md` (≤150 lines): `## Scope`, `## Acceptance criteria`, `## Decisions`,
+   `## Waves`, `## Relationships`, `## Root cause` (bugs), `## Risks`.
+4. Pick files with graphify (`query_graph`, `shortest_path`, `get_neighbors`), confirm exact
+   paths with fff/rg, and write wave 1 as 2–6 task files `tasks/<ID>-NN-<slug>.md`
+   (frontmatter `id`, `ticket`, `wave`, `repo`, `agent`, `depends_on`, `owns`, `branch`,
+   `worktree`, `context_budget`, `contracts`; body `## Goal` ≤5 lines, `## Do` ≤25,
+   `## Checks`, `## Done when` ≤5). `owns` is exact repo-relative files or `dir/**`.
+5. Write `board.md` (a `planned` row per task) and `backlog.md`, add the plan and wave lines
+   to `## Tasks`, set `status: in-progress`.
 
-Use `ticket-type` from the note (`dev`, `bug`, `investigation`, `chore`,
-`epic`).
-If the ticket's content clearly contradicts it (e.g. a "Task" that is
-really a bug report), say so and use the better fit. Update `ticket-type`,
-which the lead owns. Pipelines:
+## 3. Contracts first
+An API, schema, file-format or CLI-flag change goes into `contracts/<name>-v<N>.md` (exact
+shapes) before any task that produces or consumes it is spawned. If the shape isn't obvious,
+run one design pass: the built-in `Plan` agent with `model: sonnet`, "propose the contract and
+its risks, ≤60 lines"; put the result in the contract. A contract never changes while an
+agent that uses it runs: stop the agent, update the contract, re-plan its task.
 
-| Type | Phases (subagent, mode) |
-|---|---|
-| `dev` | product-owner, then architect (design), then developer, then qa |
-| `bug` | architect (trace), then developer (fix + regression test), then qa |
-| `investigation` | architect (trace), then developer (investigate; code only if asked), then findings |
-| `chore` | developer (with a short plan from you), then qa if behaviour can change |
-| `epic` | lead: plan across the covered tickets, then each one's own pipeline (see 2b) |
+## 4. Implement
+- At most **4 agents in flight**. Tasks whose `owns` overlap never share a wave and never run
+  concurrently: split ownership by file in the task files, not by "be careful". A task
+  starts only when its `depends_on` rows are `merged`.
+- Per task: `git -C <ws>/<slug> worktree add -q <ws>/.tasks/<slug>-NN -b task/<ID>-NN-<task-slug> HEAD`
+  (a `repo: vault` task has no worktree), set its row `running`, then spawn
+  `tickets:task` (or `tickets:mechanical` for renames, fixture sync, ≤3-file follow-ups)
+  with only: `Task NN: <vault>/tickets/<ID>/tasks/<ID>-NN-<slug>.md. Worktree: <path>.
+  Concurrent: <NN: owns, …|none>. New since the task file: <…|none>.` The brief comes from
+  the `tickets:task-agent` skill; don't paste rules. Independent tasks go in one message.
+- Never use `general-purpose` agents (every tool, the big model, no brief).
 
-## 2b. Lead tickets (`ticket-type: epic`)
+## 5. Merge (you)
+Per finished task, in task order, one chain with filtered output in `<ws>/<slug>`:
+`git merge --no-ff -q task/<ID>-NN-<task-slug> -m "<ID> merge task NN: <title>"`, then the
+repo's lint and tests from its `AGENTS.md` "Checking" (`2>&1 | grep -E 'FAIL|panic' | head;
+echo exit=$?`; judge by the exit code). Trust the report for detail: open files only when it
+claims something risky or lists "Outside owns". Then:
+- the board row: `sed -i -E 's/^(\| NN \|([^|]*\|){4}) [^|]* \|/\1 merged <sha> |/' board.md`;
+- `git worktree remove <ws>/.tasks/<slug>-NN && git branch -d task/<ID>-NN-<task-slug>`.
+  If removal is denied, mark the row `pending — user` and give the user the command.
+- A `repo: vault` task has nothing to merge: check its files, set the row `merged -`.
+- A failing merge check: `git merge --abort` (or revert the merge commit if checks failed
+  after it) and send the failure to the agent's task as a follow-up, or fix it yourself.
+- `partial` or `blocked` reports: row status `partial`/`blocked`, the reason in the note.
+- Follow-ups of ≤20 lines (a doc row, one type, a board line) you do yourself in the ticket
+  worktree and commit (`<ID> <subject>`); no micro-tasks. Batch bigger ones into the next
+  task that owns those files.
 
-An epic, or any ticket with `ticket-type: epic`, is a **lead**. Its
-workspace does the work of every ticket in its `covers` list. Those are the
-children assigned to the user, and `ct start` sends them here. Run it
-like one bigger ticket:
-- **One workspace, one branch per repo:** `feature/<LEAD-ID>[-<description>]`
-  for all the covered tickets together.
-- **Requirements and design** cover all of them. The product-owner and
-  architect read every covered ticket's content, and the hand-off files
-  have a section per covered ticket.
-- **Tasks:** in `## Tasks`, one group per covered ticket, headed
-  `[[<ID>]]`, then that ticket's pipeline by its own `ticket-type` (a bug
-  child gets the bug pipeline).
-- **Covered tickets' notes:** keep their `status` in step with their part
-  of the work (`in-progress`, then `review`), and give each a one-line
-  `## Workspace` entry: `Worked in [[<LEAD-ID>]]` plus the branch.
-- **Children that aren't yours** (in `children` but not `covers`, marked
-  *(not yours)* in the source block) are other people's work. Treat them
-  like blockers: see the dependency step in the kickoff.
+## 6. Wave review
+One reviewer per repo the wave touched, all in one message: `tickets:reviewer`, or
+`tickets:reviewer-deep` when the wave changed a contract or security-sensitive code. Pass:
+ticket, wave N, slug, ticket worktree, range `<last-reviewed>..<head sha>` (first wave:
+`git merge-base <base> HEAD`), the previous fix-task IDs and review file, and a ≤5-line impact
+note from graphify `get_neighbors` on the changed symbols (`get_pr_impact` can't scope a local
+range; use `git diff --stat <range>`). It writes `reviews/wave-N-<slug>.md` and replies in
+≤15 lines. Add a `## Reviews` row and set `last-reviewed` to the head sha.
 
-## 3. Kickoff gate (always, before any worktree exists)
+## 7. Fix and triage
+- Must-fixes become fix task files `<ID>-NN-wN-fixes-<repo>` (phases 4–5); the next wave
+  starts only when they are merged. Should-fix and consider items go into fix tasks or the
+  backlog (`B-nn · w<N> · <repo> · <item> · <finding id>`).
+- At each wave start, triage `backlog.md` to ≤40 open items (drop, merge, or plan them) and
+  move closed IDs to one `## Closed` line for the wave. Then plan the next wave's task files.
+- **Decision gate:** a report's open question, a review finding or a tradeoff marked major
+  (contracts, schemas, backward compatibility, coordinated releases, other teams, hard to
+  reverse) stops the wave: ask (below) before spawning more. Decide minor ones yourself and
+  record them in `plan.md ## Decisions`.
 
-0. **Dependencies.** Before choosing repos, check what this ticket waits
-   on: its `blocked-by` tickets and, for a lead, its children that aren't
-   yours. For each one, take its status from its note if it has one
-   (`status`, `source-status-category`), otherwise look it up in the
-   source (for Jira, `getJiraIssue`, which is free). Then:
-   - **Done:** nothing to do.
-   - **Not done:** add a follow-up in the ticket note's `## Follow-ups`:
-     `- [ ] Follow up with <assignee> on [[<ID>]] (<status>): <what this
-     ticket needs from it> #follow-up ➕ <today>`. The user tracks these
-     in the Tasks views. Mark one `[x]` with `✅` once it's no longer
-     blocking.
-   - **If an open blocker stops real progress**, ask the user with
-     AskUserQuestion:
-     - **wait:** keep the ticket's `status` (`blocked` means waiting on
-       the user; `blocked: true` already says it waits on another ticket),
-       note the wait under `## Review`, and stop after the follow-ups;
-     - **stack on its branch:** when the blocker has a workspace or an open
-       PR, use its branch as `--base` in step 4, so this work builds on it
-       (the PR then merges after the blocker's);
-     - **go ahead independently**, e.g. against a stub or an agreed
-       interface.
-     Record the decision under `## Questions`.
-1. Work out which **local** repos are involved: query the graph with the
-   ticket's key terms (endpoints, entities, error messages, repo names)
-   and use `shortest_path` between repos. Add the neighbours
-   `ct vault groups <vault> <slug>` shows for each candidate (its
-   `depends-on`, used-by and fellow group members) as candidates too.
-   List the repos and their slugs with `ct ws repos`.
-2. Look for related repos on **Bitbucket** that aren't cloned yet. The graph
-   only knows about local repos. Use the `atlassian` MCP server (`discover`,
-   then `executeRead`; Bitbucket calls need no `cloudId`):
-   - `listBitbucketWorkspaces` for the workspaces.
-   - For each workspace, `listBitbucketWorkspacePullRequests` with
-     `titleContains: <ID>` (any state). The repos of PRs that already
-     mention the ticket are strong candidates, and an open one's source
-     branch can be reused (`--branch`). The listing has no branches: take
-     the repo from `links.html.href` and the branches from
-     `getBitbucketRepoPullRequest`.
-   - `listBitbucketRepositories` with a BBQL `q` per key term, e.g.
-     `name ~ "orders"`. Use the repo names, components and labels the
-     ticket mentions, and the names of repos the graph shows talking to
-     the candidates (a client, consumer or shared library).
+## 8. Hand-over
+When the last review has no open must-fix and no row is `planned`, `running` or `partial`:
+read `handover.md` and do it (clean workspace, backlog → follow-up tickets, kb-drafts,
+`## Review`, `status: review`). Never run `/tickets:save` or push.
 
-   A remote repo's slug is `bitbucket-<workspace>-<repo>` and its clone path
-   is `~/Projects/bitbucket/<workspace>/<repo>`. Anything not in
-   `ct ws repos` is **not cloned**. Keep the list to repos with a
-   concrete reason to be involved.
-3. Ask the user with **AskUserQuestion**. The ticket often says nothing
-   about branches or versions, so always ask:
-   - **Repos:** multiSelect of your candidates by slug, each with a
-     one-line reason. Mark the ones that are `(not cloned)`, and note any
-     existing branch or PR for this ticket. The user can add others.
-   - If any chosen repo isn't cloned, the sandbox can't clone it (there
-     are no git credentials). Give the user the exact host command, one
-     per repo:
-     `ct ws clone bitbucket/<workspace>/<repo>`.
-     Then ask whether it's done, or whether to go on without that repo.
-     Once `~/Projects/bitbucket/<workspace>/<repo>/.git` exists,
-     `ct ws add` works for it in this session. It makes a shared clone
-     because the new repo's `.git` isn't writable here, and the graph picks
-     it up within about 15 seconds.
-   - For each chosen repo, the **base branch** to branch from. Offer the
-     likely ones you found with `git -C ~/Projects/<provider>/<owner>/<repo> branch -r`,
-     e.g. `develop`, `main`, `release/x.y`.
-   - For each chosen repo, the **target version** the change ships in.
-     Offer what the repo's version file, latest tag
-     (`git describe --tags --abbrev=0 origin/<base>`) and the ticket's
-     `source-fix-versions` suggest.
-   - An optional short **branch description** (kebab-case), giving
-     `feature/<ID>-<description>`.
+## Ticket types (they shape the plan, not the agents)
+- `dev`: as above.
+- `bug`: `plan.md ## Root cause` first (trace with graphify and the code); the fix task's
+  "Done when" names a regression test that fails before the fix.
+- `investigation`: a vault-only task, or you write `investigation.md` (template
+  `investigation`, ≤150 lines); code only if the ticket asks for it.
+- `chore`: one task, or you do it directly; review only if behaviour can change.
+- `epic`: one plan over `covers` (`kickoff.md`, "Lead tickets"); tasks carry `for: "[[ID]]"`.
 
-   Batch these (up to 4 questions per call; several calls are fine).
-4. For each repo, run
-   `ct ws add <ID> <slug> --base <base> --version <version> [--desc <description>]`.
-   Add `--branch <name>` to reuse an existing branch for this ticket, e.g.
-   an open PR's source. It records the repo in `workspace.json`.
-5. Write the answers into the ticket note:
-   - a `## Workspace` table with the `workspace.json` fields per repo:
-     | Repo (slug) | Base | Target version | Branch | Path |
-     (`slug`, `base`, `targetVersion`, `branch`, `path`)
-   - frontmatter `projects: [<slug>, ...]`
-6. If a repo turns out to be needed later, local or not, run this same gate
-   for it before adding it.
-
-## 4. Task list
-
-Keep `## Tasks` in the ticket note current. It's how the user tracks the
-ticket in Obsidian. Use the Tasks plugin format, one line per phase or
-subtask, tagged with the role that owns it:
-
-```markdown
-- [ ] Clarify requirements #role/product-owner ➕ 2026-10-02
-- [/] Design order sync change #role/architect ➕ 2026-10-02
-- [x] Confirm repos, branches, versions #role/lead ➕ 2026-10-02 ✅ 2026-10-02
-```
-
-- `[ ]` is todo, `[/]` is in progress, `[x]` is done.
-- Add `➕ <created date>` when a line is created and `✅ <done date>` when
-  it's finished. Use today's date from `date +%F`.
-- Mark a line `[/]` before its phase starts and `[x]` right after it ends.
-  Add subtasks under a phase as they emerge, e.g. one developer line per
-  repo.
-- Set the note's `status` as you go: `triage`, then `in-progress`, with
-  `blocked` while you wait on the user, then `review`.
-
-## 5. Run the phases
-
-Run each role with the **Agent** tool (`subagent_type` =
-`tickets:product-owner`, `tickets:architect`, `tickets:developer`, or
-`tickets:qa`: the role agents ship with this plugin). Give it everything it needs, because it
-doesn't see this conversation:
-- the ticket key, the vault path, the ticket folder, and `workspace.json`
-- the mode (architect: `design` or `trace`)
-- which hand-off files to read
-- the user's answers so far
-- for the developer: which repos or steps are in scope
-- the relationship summary from `ct vault groups <vault> <slug>...`: each
-  repo's `depends-on`, used-by and groups (or that it stands alone)
-
-Developers on independent repos can run in parallel (several Agent calls in
-one message).
-
-After each phase:
-1. Read the hand-off file it wrote (`requirements.md`, `design.md`,
-   `investigation.md`, `dev-notes.md`, `qa-report.md`).
-2. Check it against the ticket. Fill small gaps yourself.
-3. **Decision gate.** If it has open questions, or any tradeoff marked
-   `major` (contracts, schemas, backward compatibility, coordinated
-   releases, other teams, hard to reverse), stop and ask (see below)
-   before the next phase. Don't guess. A minor tradeoff can be decided by
-   you; record it in the hand-off file.
-4. Update `## Tasks`.
-
-**QA loop.** If QA's verdict is `fail`, give the defects to the developer
-and re-run QA. Do this at most twice, then ask the user how to proceed.
+## Task list (`## Tasks` in the ticket note)
+One line per phase or wave, Tasks plugin format, details in `board.md`:
+`- [x] Kickoff: repos, branches, versions #ticket/kickoff ➕ <date> ✅ <date>`,
+`- [x] Plan #ticket/plan …`, `- [/] Wave 2: 4 tasks, review #ticket/wave ➕ <date>`,
+`- [ ] Hand-over #ticket/handover ➕ <date>`. `[/]` when it starts, `[x]` and `✅` when it
+ends; dates from `date +%F`. `status`: `triage`, `in-progress`, `blocked` while you wait on
+the user, then `review`.
 
 ## Asking the user (the gate)
-
 1. Set `status: blocked`.
 2. Append the questions under `## Questions` in the ticket note:
-   `- **yyyy-MM-dd** (<role>) <question>`, with options and your
-   recommendation.
-3. Ask with **AskUserQuestion**. Put the recommended option first, and
-   explain the tradeoffs in the option descriptions. This pings the user
-   through a desktop notification and shows the ticket as `needs-input` in
-   `ct status`.
-4. Record each answer under its question (`  - **Answer:** ...`), set
-   `status: in-progress`, and continue. Major decisions also become a
+   `- **yyyy-MM-dd** (lead) <question>`, with options and your recommendation.
+3. Ask with **AskUserQuestion**, as soon as questions arise and in one batch. Recommended
+   option first, tradeoffs in the option descriptions. This pings the user and shows the
+   ticket as `needs-input` in `ct status`.
+4. Record each answer under its question (`  - **Answer:** ...`) and in `plan.md
+   ## Decisions`, set `status: in-progress`, and continue. Major decisions also become a
    decision draft in `kb-drafts/` (template `templates/decision.md`).
 
-## 6. Hand over for review
-
-When the last phase is done:
-1. Make sure the `kb-drafts/` notes are complete:
-   - feature notes with the projects touched and target versions
-   - sequence notes with a mermaid `sequenceDiagram` for each data flow
-     the ticket adds or changes
-   - decisions for each major choice
-   - relationship changes (`depends-on`, group membership, any proposed
-     group) as listed in `design.md`'s Relationships item, so
-     `/tickets:save` can apply them
-   - a `target:` frontmatter field on each
-2. Add a `## Review` section to the ticket note:
-   - what changed per repo (`ct ws diff <ID> --stat`)
-   - for a lead, a line per covered ticket: what was done for it, and
-     anything left
-   - open `## Follow-ups` (blockers still waiting on someone)
-   - tests added and run, with results
-   - the QA verdict and remaining risks
-   - anything the user should check by hand
-3. Make sure every worktree is committed (`git status` clean; commit
-   leftovers with a subject starting with the ticket ID). Then set
-   `status: review` (and on each covered ticket whose part is done),
-   mark the tasks done, and tell the user in a few
-   lines:
-   - the ticket is ready for review
-   - `ct ws diff <ID>` shows the changes
-   - they can ask for changes in this session
-   - after review, run `/tickets:save`, then `ct ws sign <ID>` on the host and
-     push
-4. Stop. Don't run `/tickets:save` or push.
+## Talking to the user, session hygiene
+- Status updates: ≤8 lines, decisions and risks first, no per-file lists, no restating agent
+  reports. Checks only the user can do (visual, browser, host-side) go on the board as
+  `pending — user`.
+- One conversation per wave or two. When a wave is merged and reviewed, make sure the board,
+  backlog and task files carry the state, then tell the user to `/clear` and run
+  `/tickets:work-ticket <ID>` again (or restart with `ct start --fresh <ID>`).
