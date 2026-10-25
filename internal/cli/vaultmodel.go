@@ -29,8 +29,8 @@ get that directory read-only. Without them, search is keyword-only.
   ct vault model fetch [<id>]             download and verify (on the host)
   ct vault model list [--json]            the pinned model ids`,
 	}
-	cmd.AddCommand(vaultModelStatusCmd(), vaultModelFetchCmd(), vaultModelListCmd())
-	return cmd
+	cmd.AddCommand(usageExit(vaultModelStatusCmd()), usageExit(vaultModelFetchCmd()), usageExit(vaultModelListCmd()))
+	return usageExit(cmd)
 }
 
 func modelID(args []string) string {
@@ -49,7 +49,7 @@ func vaultModelStatusCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := modelID(args)
 			if _, ok := modelcache.Lookup(id); !ok {
-				return fmt.Errorf("unknown model %q (ct vault model list)", id)
+				return exitWith(2, fmt.Errorf("unknown model %q (ct vault model list)", id))
 			}
 			st := modelcache.StatusOf(id)
 			if asJSON {
@@ -97,7 +97,7 @@ on the host, sessions then get the directory read-only.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := modelID(args)
 			if _, ok := modelcache.Lookup(id); !ok {
-				return fmt.Errorf("unknown model %q (ct vault model list)", id)
+				return exitWith(2, fmt.Errorf("unknown model %q (ct vault model list)", id))
 			}
 			if gitx.InContainer() {
 				return errors.New("ct vault model fetch writes the host cache: run it on the host")

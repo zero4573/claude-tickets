@@ -226,6 +226,16 @@ type llama struct {
 	closed     bool
 }
 
+// checkLayout compares llama_context_default_params() with the b11871
+// defaults: a header change that moves fields would show up here instead of
+// as silently wrong params or memory corruption.
+func checkLayout(cp llamaContextParams) error {
+	if cp.NCtx != 512 || cp.NBatch != 2048 || cp.NUbatch != 512 || cp.NSeqMax != 1 || cp.Embeddings {
+		return unavailable("llama.h layout mismatch")
+	}
+	return nil
+}
+
 // OpenLlama loads the llama.cpp libraries from libDir and the GGUF model at
 // modelPath. It returns an error wrapping ErrUnavailable when either is
 // missing or can't be loaded.
@@ -243,13 +253,16 @@ func OpenLlama(libDir, modelPath string, o LlamaOptions) (Embedder, error) {
 		o.Threads = min(runtime.NumCPU(), 4)
 	}
 	mp := fns.modelDefault()
+	cp := fns.ctxDefault()
+	if err := checkLayout(cp); err != nil {
+		return nil, err
+	}
 	mp.NGPULayers = 0
 	model := fns.modelLoad(modelPath, mp)
 	if model == nil {
 		return nil, unavailable("loading model %s failed", modelPath)
 	}
 	nBatch := o.Ctx * maxSeqs
-	cp := fns.ctxDefault()
 	cp.NCtx = uint32(nBatch)
 	cp.NBatch = uint32(nBatch)
 	cp.NUbatch = uint32(nBatch)

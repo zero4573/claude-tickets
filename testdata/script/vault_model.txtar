@@ -18,6 +18,12 @@ stdout '"problem":"[^"]'
 
 ! exec ct vault model status no-such-model
 stderr 'unknown model "no-such-model"'
+exec sh -c 'ct vault model status no-such-model 2>/dev/null; echo $?'
+stdout '^2$'
+exec sh -c 'ct vault model status a b 2>/dev/null; echo $?'
+stdout '^2$'
+exec sh -c 'ct vault model list --bogus 2>/dev/null; echo $?'
+stdout '^2$'
 
 # list marks the default.
 exec ct vault model list
@@ -29,6 +35,8 @@ stdout '"default":true'
 # fetch refuses an unknown id, and inside a container it refuses to run.
 ! exec ct vault model fetch no-such-model
 stderr 'unknown model "no-such-model"'
+exec sh -c 'ct vault model fetch no-such-model 2>/dev/null; echo $?'
+stdout '^2$'
 [container] ! exec ct vault model fetch
 [container] stderr 'run it on the host'
 

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/zero4573/claude-tickets/internal/embed"
 )
@@ -169,6 +170,11 @@ func TestFetch(t *testing.T) {
 	if hits.Load() != 2 || strings.Count(out.String(), "present") != 2 {
 		t.Fatalf("second fetch hit the network (%d): %s", hits.Load(), out.String())
 	}
+	if runtime.GOOS != "windows" {
+		if fi, err := os.Stat(st.LibDir); err != nil || fi.Mode().Perm() != 0o755 {
+			t.Errorf("lib dir mode: %v %v", fi, err)
+		}
+	}
 	// No temp files left behind.
 	entries, _ := os.ReadDir(filepath.Dir(st.LibDir))
 	for _, e := range entries {
@@ -202,5 +208,56 @@ func TestFetchBadHash(t *testing.T) {
 	}
 	if err := fetch(context.Background(), p, srv.Client(), "nope", nil); err == nil {
 		t.Fatal("unknown id")
+	}
+}
+
+func TestFetchRemovesStale(t *testing.T) {
+	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", os.Getenv("CLAUDE_TICKETS_CACHE"))
+	model := []byte("model")
+	arc := tgz(t, "llama-b1", map[string]string{"libllama.so.0.1": "L", "libx.so": "X"})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/m" {
+			w.Write(model)
+			return
+		}
+		w.Write(arc)
+	}))
+	defer srv.Close()
+	p := testPins(t, srv, arc, model)
+	m, _ := modelOf(p, "m")
+	libDir, _ := libDirFor(p)
+	mdir := filepath.Dir(ModelPath(m))
+	os.MkdirAll(mdir, 0o755)
+	os.MkdirAll(filepath.Join(filepath.Dir(libDir), ".stage-old"), 0o755)
+	os.WriteFile(filepath.Join(filepath.Dir(libDir), ".download-x"), []byte("x"), 0o644)
+	os.WriteFile(filepath.Join(mdir, ".download-y"), []byte("y"), 0o644)
+	if err := fetch(context.Background(), p, srv.Client(), "m", nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []string{mdir, filepath.Dir(libDir)} {
+		entries, _ := os.ReadDir(d)
+		for _, e := range entries {
+			if strings.HasPrefix(e.Name(), ".") {
+				t.Errorf("leftover %s in %s", e.Name(), d)
+			}
+		}
+	}
+}
+
+func TestFetchIdleTimeout(t *testing.T) {
+	old := idleTimeout
+	idleTimeout = 100 * time.Millisecond
+	defer func() { idleTimeout = old }()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("part"))
+		w.(http.Flusher).Flush()
+		<-r.Context().Done()
+	}))
+	defer srv.Close()
+	f, _ := os.CreateTemp(t.TempDir(), "d")
+	defer f.Close()
+	if err := download(context.Background(), srv.Client(), srv.URL, "00", f); err == nil {
+		t.Fatal("a stalled body was not cut")
 	}
 }
