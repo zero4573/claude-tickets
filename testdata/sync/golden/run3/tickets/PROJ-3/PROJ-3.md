@@ -58,7 +58,7 @@ Remove noisy logs.
 |---|---|---|---|---|
 
 ## Tasks
-<!-- Kept current by the ticket's agents (Tasks plugin format, #role/<role> tags) -->
+<!-- Kept current by the lead (Tasks plugin format, #ticket/<phase> tags): one line per phase or wave; details in board.md -->
 
 ## Questions
 <!-- Questions the agents asked, with your answers -->

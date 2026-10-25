@@ -8,6 +8,16 @@ exists home/Documents/Obsidian/demo/.scaffold.json
 stderr 'the Tasks plugin wasn.t installed'
 ! stderr 'programs.claude-tickets.obsidian.vaults'
 stdout '^  \+ templates/group.md$'
+# the wave workflow's ticket-folder templates, without checkboxes
+stdout '^  \+ templates/task.md$'
+stdout '^  \+ templates/board.md$'
+stdout '^  \+ templates/plan.md$'
+stdout '^  \+ templates/review.md$'
+stdout '^  \+ templates/backlog.md$'
+! grep '- \[ \]' home/Documents/Obsidian/demo/templates/task.md
+! grep '#role/' home/Documents/Obsidian/demo/templates/ticket-manual.md
+grep '#ticket/<phase>' home/Documents/Obsidian/demo/templates/ticket-synced.md
+grep '^### Workflow$' home/Documents/Obsidian/demo/AGENTS.md
 stdout '^  \+ projects.base$'
 ! stdout 'projects/system'
 exists home/Documents/Obsidian/demo/projects
@@ -18,6 +28,7 @@ grep '"bases": true' home/Documents/Obsidian/demo/.obsidian/core-plugins.json
 grep '"covered-by": "text"' home/Documents/Obsidian/demo/.obsidian/types.json
 grep '"depends-on": "multitext"' home/Documents/Obsidian/demo/.obsidian/types.json
 grep '"groups": "multitext"' home/Documents/Obsidian/demo/.obsidian/types.json
+grep '"owns": "multitext"' home/Documents/Obsidian/demo/.obsidian/types.json
 ! grep '"services"' home/Documents/Obsidian/demo/.obsidian/types.json
 grep '"workRoot": "~/Projects/work-demo"' home/Documents/Obsidian/demo/.workflow.json
 grep '"projectsRoot": "~/Projects/repo-demo"' home/Documents/Obsidian/demo/.workflow.json

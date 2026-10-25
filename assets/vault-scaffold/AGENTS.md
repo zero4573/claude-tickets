@@ -21,8 +21,13 @@ ROOT
 │   ├── .sync-state.json   #   last ct sync run, per source
 │   └── PROJ-12/          #   one ticket, named by its ID
 │       ├── PROJ-12.md    #     ticket note: content, workspace, tasks, questions, review, summaries
-│       ├── requirements.md, design.md, investigation.md, dev-notes.md, qa-report.md
-│       │                  #     role hand-off files (created as needed)
+│       ├── plan.md        #     the lead's plan: scope, criteria, decisions, waves, relationships
+│       ├── board.md       #     task and review tables, one row each (see "Workflow")
+│       ├── backlog.md     #     leftovers and review findings not fixed yet (≤40 open)
+│       ├── tasks/         #     PROJ-12-NN-<slug>.md: one task each, with the agent's ## Report
+│       ├── contracts/     #     <name>-v<N>.md: exact shapes that tasks share
+│       ├── reviews/       #     wave-N-<slug>.md: one capped review per wave and repo
+│       ├── investigation.md #   investigation tickets only
 │       ├── pr-feedback.md #     PR review threads: outcome + draft reply each (/tickets:pr-feedback)
 │       ├── kb-drafts/     #     knowledge notes drafted during the ticket; promoted by /tickets:save
 │       └── logs/          #     ticket session logs
@@ -132,6 +137,11 @@ Note: `{{date}}`, should be replaced with the date in `yyyy-MM-dd` format, and `
 | `sequence.md` | data flows (mermaid `sequenceDiagram`) |
 | `decision.md` | decisions with their tradeoffs |
 | `investigation.md` | bug traces and investigations |
+| `plan.md` | `tickets/<ID>/plan.md`, the lead's plan |
+| `board.md` | `tickets/<ID>/board.md`: task and review tables |
+| `task.md` | `tickets/<ID>/tasks/<ID>-NN-<slug>.md`: one task for an agent |
+| `review.md` | `tickets/<ID>/reviews/wave-N-<slug>.md`: one wave's review of one repo |
+| `backlog.md` | `tickets/<ID>/backlog.md`: open leftovers and findings |
 | `knowledge.md` | `knowledge-base/<topic>/` |
 | `reference.md` | `references/` |
 | `pr-feedback.md` | `tickets/<ID>/pr-feedback.md`, written by `/tickets:pr-feedback` |
@@ -163,18 +173,21 @@ When creating task lists, use the following task list options to track work:
 - `- [x]` - Completed task
 
 Each of the above options should be followed by the task name, `➕ yyyy-MM-dd` when the task was created, and `✅ yyyy-MM-dd` when the task is completed.
-In ticket notes, tag each task with the role that owns it (`#role/architect`).
+A ticket note's `## Tasks` has one line per phase or wave, tagged
+`#ticket/<phase>` (`kickoff`, `plan`, `wave`, `handover`); the details live in
+`board.md`. Task, board, plan, review and backlog files never use checkboxes,
+only plain bullets (`pending.md` would list every one).
 
 examples:
 - `- [ ] task name here ➕ yyyy-MM-dd` - TODO task
-- `- [/] task name here #role/developer ➕ yyyy-MM-dd` - In Progress task
+- `- [/] Wave 2: 4 tasks, review #ticket/wave ➕ yyyy-MM-dd` - In Progress task
 - `- [x] task name here ➕ yyyy-MM-dd ✅ yyyy-MM-dd` - Completed task
 
 ## Ticket workflow
 
 The tools come from claude-tickets: the commands below, and a Claude Code
-plugin (`tickets`) with the skills (`/tickets:<skill>`), the role agents
-and the hooks. Sessions run your `claude` command (which may be sandboxed).
+plugin (`tickets`) with the skills (`/tickets:<skill>`), the task and
+review agents, and the hooks. Sessions run your `claude` command (which may be sandboxed).
 
 | Command | What it does |
 |---|---|
@@ -249,7 +262,7 @@ ct sync uses.
 A ticket note `tickets/<ID>/<ID>.md` has three parts:
 1. **Identity:** `source` (`jira`, `manual`, …), `source-id`, `summary`,
    `ticket-type` (`dev` | `bug` | `investigation` | `chore` | `epic`, which
-   picks the agents' pipeline), `status`, `ignore*`, `projects` (slugs),
+   shapes the lead's plan, see "Workflow"), `status`, `ignore*`, `projects` (slugs),
    `versions`, and the dependency fields below.
 2. **Content, which agents never edit:**
    - a **synced** ticket has the `source-*` fields and the block between
@@ -320,8 +333,13 @@ Several agents work at once, so each part of the vault has one writer:
 2. **You** own a manual ticket's content, `ignore*`, `.sources.json`, `raw/`,
    the task views (`pending.md`, `done.md`, `follow-ups.md`), and everything
    not listed here.
-3. A **ticket's agents** write only inside `tickets/<ID>/` (task list,
-   questions, hand-off files, `kb-drafts/`) until `/tickets:save`.
+3. A **ticket's agents** write only inside `tickets/<ID>/` until
+   `/tickets:save`: the lead writes the work sections, `plan.md`,
+   `board.md`, `backlog.md`, the task files, `contracts/` and `kb-drafts/`;
+   a task agent only its own task file's `## Report` (plus the code in its
+   `owns`); a reviewer only its `reviews/` file.
+   At hand-over the lead may also create follow-up tickets for backlog items
+   you choose (`ct new`, tag `from-ticket`), writing their initial content.
    **Exception, lead tickets:** a lead's session also writes the work
    sections (`## Workspace`, `## Tasks`, `## Questions`, `## Follow-ups`,
    `## Review`) and the `status` of the tickets it `covers`, never their
@@ -331,8 +349,8 @@ Several agents work at once, so each part of the vault has one writer:
    Sessions outside tickets (a repo session, `kb`) write only new drafts in
    `inbox/`, each under its own name, until `/tickets:save`.
    A `kb` session may also create a manual ticket (`ct new`, tag `from-kb`)
-   for an issue it finds, writing its initial content. From then on the
-   ticket is yours, like any manual ticket.
+   for an issue it finds, writing its initial content. From then on such a
+   ticket (`from-kb` or `from-ticket`) is yours, like any manual ticket.
    **Unattended commands** (`ct sync`, `ct graph index`, `ct ws gc`)
    write a new `inbox/<date>-<time>-<command>-follow-ups.md` note
    (`type: follow-ups`) when a run leaves something for you: one task per
@@ -354,60 +372,68 @@ Several agents work at once, so each part of the vault has one writer:
    check` doesn't count it). Tickets it skips leave tasks in
    `inbox/<date>-<time>-ct-clean-follow-ups.md`.
 
-### Roles
-The `/tickets:work-ticket` lead runs role subagents, chosen by `ticket-type`:
-- `dev`: product-owner → architect (design) → developer → qa
-- `bug`: architect (trace) → developer (fix + regression test) → qa
-- `investigation`: architect (trace) → developer (dig in; fix only if asked)
-- `chore`: developer → qa if behaviour can change
-- `epic`: lead: plan across the covered tickets, then each one's own pipeline
+### Workflow
+`/tickets:work-ticket` runs one **lead** per ticket. Its state lives in the
+bounded files of `tickets/<ID>/`, so a fresh session (`/clear`, or
+`ct start --fresh <ID>`) resumes from the board in a few calls.
+1. **Kickoff:** you pick the repos (from the code graph, or Bitbucket repos
+   you clone with `ct ws clone`), the base branch and target version of each.
+2. **Plan:** `plan.md` (≤150 lines), each wave 2–6 task files with exact
+   `owns`. `ticket-type` shapes it: a `bug` gets `## Root cause` and a
+   regression test, an `investigation` an `investigation.md` (code only if
+   asked), a `chore` one task, an `epic` one plan over `covers`.
+3. **Contracts first:** API, schema, file-format or CLI-flag changes go into
+   `contracts/<name>-v<N>.md` before a task using them starts.
+4. **Waves:** ≤4 task agents at once, each in a worktree
+   `<workRoot>/<ID>/.tasks/<slug>-NN` (branch `task/<ID>-NN-<slug>`), none
+   sharing `owns`. The lead merges each `--no-ff` and runs the repo's checks.
+5. **Review:** one reviewer per repo and wave (≤3 must-fix, ≤6 should-fix,
+   ≤5 consider). Must-fixes become fix tasks before the next wave; the rest
+   go to fix tasks or `backlog.md` (≤40 open, triaged each wave).
+6. **Hand-over:** backlog items you pick become follow-up tickets (≤5);
+   then `## Review` and status `review`.
 
-It always asks you for the repos (local ones from the code graph, plus related
-Bitbucket repos that aren't cloned yet, which you clone with `ct ws clone`),
-the base branch and the target version per repo at
-kickoff. It stops to ask (status `blocked`, desktop notification) on open
-questions or major tradeoffs, and stops at `review` with the work committed
-(unsigned) on the ticket branches, never pushed: you review, run `/tickets:save`,
-then `ct ws sign <ID>` and push yourself. Manual and synced
-tickets go through the same flow.
+Agents: `tickets:task`, `tickets:mechanical` and `tickets:reviewer` (sonnet),
+`tickets:reviewer-deep` (opus, for contract or security waves); none has
+subagent, graph or Atlassian tools. Search: graphify for structure, the fff
+tools (`mcp__fff__find_files`, `mcp__fff__grep`, `mcp__fff__multi_grep`) for
+files and content, else `rg`. Older tickets may hold other files: plain notes.
+The lead stops to ask (status `blocked`, desktop notification) on open
+questions or major tradeoffs, and at `review` with the work committed
+(unsigned) on the ticket branches, never pushed: you review, run
+`/tickets:save`, then `ct ws sign <ID>` and push. Manual and synced tickets
+work the same way.
 
 ## Session Commands (skills of the claude-tickets plugin)
 
 ### /tickets:recall `[project|ticket]`
-(Called `/resume` before. Renamed so it doesn't shadow Claude Code's built-in
-`/resume`, which reopens past conversations.)
-When you receive this command:
-1. Read the 3 most recent session logs in projects/`<slug>`/logs/ (or for a ticket: its logs, task list, and each of its projects)
-2. Read architecture/`<slug>`-decisions.md for the current project, and `<group>`-decisions.md of each group it belongs to (`ct vault groups <vault> <slug>`)
-3. Summarize current state and what's left to do
+Read-only (named so it doesn't shadow Claude Code's built-in `/resume`).
+For a project: its 3 latest session logs, `<slug>-decisions.md` and the
+decisions of its groups (`ct vault groups <vault> <slug>`). For a ticket:
+its note and logs, the board rows, the backlog's tail and the open
+must-fixes, then each of its projects. It sums up the state and what's left.
 
 ### /tickets:save
-When you receive this command:
-1. Create a session log in projects/`<slug>`/logs/yyyy-MM-dd-description.md (in a ticket workspace, also `tickets/<ID>/logs/`)
-2. Record: what was done, decisions made, pending items
-3. Add wikilinks to created/modified notes
-
-In a ticket workspace (`~/work/<ID>`), `/tickets:save` also does what `/summarize`
-did:
-4. Promotes `tickets/<ID>/kb-drafts/` into `projects/<slug>/…`,
-   `projects/<group>/…`, `knowledge-base/` and `references/`. This covers the
-   projects touched by the feature, the versions it shipped in, the
-   dependencies between projects (`depends-on`), and the flows across
-   projects as mermaid diagrams. It asks you before creating a group, and
-   runs `ct vault links check` and `ct vault groups --check` on the notes
-   it wrote (problems elsewhere are reported, not fixed). Links stay
-   intact.
-5. Tags and links all documentation updated in the session with the ticket.
-6. Adds tags `[slug]-[release-version]` to tickets/`ticket` for every
-   project modified (dots as dashes, e.g. `bitbucket-sops-orders-service-2-4-0`,
-   plus the exact `versions: [bitbucket-sops-orders-service@2.4.0]` field).
-7. Appends a summary of the changes at the end of tickets/`ticket`:
+Writes a session log (`projects/<slug>/logs/yyyy-MM-dd-description.md`; in a
+ticket workspace also `tickets/<ID>/logs/`): what was done, decisions made
+(linked), pending items. In a ticket workspace it also (it replaces the old
+`/summarize`):
+1. Reads `plan.md`, the board rows, each review's summary, the backlog's
+   open items, `investigation.md` and `pr-feedback.md`.
+2. Promotes `kb-drafts/` into `projects/<slug>/…`, `projects/<group>/…`,
+   `knowledge-base/` and `references/`: projects touched, versions shipped,
+   `depends-on` (from `plan.md`'s `## Relationships`), flows across projects
+   as mermaid diagrams. It asks you before creating a group, and runs
+   `ct vault links check` and `ct vault groups --check` on the notes it
+   wrote (problems elsewhere are reported, not fixed). Links stay intact.
+3. Tags and links the documentation it updated with the ticket, and tags the
+   ticket `<slug>-<release-version>` per project modified (dots as dashes,
+   e.g. `bitbucket-sops-orders-service-2-4-0`, plus the exact
+   `versions: [bitbucket-sops-orders-service@2.4.0]` field).
+4. Appends a summary of the changes at the end of the ticket note:
 ```
 ---
 created: *yyyy-MM-ddTHH:mm:ss*
 
 summary here
 ```
-
-### /summarize `ticket`
-Folded into `/tickets:save`, which runs it automatically in a ticket workspace.

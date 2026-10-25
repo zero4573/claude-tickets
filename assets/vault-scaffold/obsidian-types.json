@@ -20,5 +20,9 @@
   "blocked-by": "multitext",
   "blocks": "multitext",
   "related": "multitext",
-  "blocked": "checkbox"
+  "blocked": "checkbox",
+  "wave": "number",
+  "depends_on": "multitext",
+  "owns": "multitext",
+  "contracts": "multitext"
 }
