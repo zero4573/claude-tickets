@@ -362,3 +362,20 @@ func TestScoreEqualsComponentsForZeroRow(t *testing.T) {
 		t.Fatalf("need a zero row with imputed semantic and an embedded row: %v", paths(r))
 	}
 }
+
+// W6 S01: negative cosines count as 0 in the mean, noVec rows are left out, and
+// no embedded candidate gives 0.
+func TestMeanSemanticClampsNegatives(t *testing.T) {
+	sem := []float64{0.6, -0.9, 0.0, 0.5, 0.3}
+	noVec := func(i int) bool { return i == 3 }
+	// Candidates 0,1,2,4 are embedded: (0.6 + 0 + 0 + 0.3) / 4.
+	if got, want := meanSemantic([]int{0, 1, 2, 3, 4}, sem, noVec), 0.225; got < want-1e-9 || got > want+1e-9 {
+		t.Fatalf("mean %v, want %v", got, want)
+	}
+	if got := meanSemantic([]int{3}, sem, noVec); got != 0 {
+		t.Fatalf("no embedded candidate: %v", got)
+	}
+	if _, n := meanSemanticN([]int{1}, sem, noVec); n != 1 {
+		t.Fatalf("a negative-cosine candidate must count: n=%d", n)
+	}
+}

@@ -95,19 +95,18 @@ func Related(ix *vindex.Index, emb embed.Embedder, n int, o RelatedOptions) (*Re
 			// the mean cosine of the embedded chunks, so an unembedded chunk can't
 			// outrank a clearly similar embedded one.
 			// Related has no candidate set like Search: every unskipped chunk is
-			// ranked, so the mean is over all of them (W6 S01, intentional).
-			var mean float64
-			var cnt int
-			for i, s := range chunkScore {
-				if !noVec[i] && s > 0 && !skip(ix.Chunks[i].Note) {
-					mean += s
-					cnt++
+			// ranked, so the mean is over all of them, by the same helper as
+			// Search (W6 S01, contract v1.4): negative cosines count as 0.
+			cand := make([]int, 0, len(ix.Chunks))
+			for i := range ix.Chunks {
+				if !skip(ix.Chunks[i].Note) {
+					cand = append(cand, i)
 				}
 			}
-			if cnt > 0 {
-				mean /= float64(cnt)
-			} else {
-				// Nothing embedded to compare with: rank by BM25 alone, as in
+			mean, cnt := meanSemanticN(cand, chunkScore, func(i int) bool { return noVec[i] })
+			if cnt == 0 || mean == 0 {
+				// Nothing embedded to compare with (or nothing similar: every cosine
+				// clamps to 0): rank by BM25 alone, as in
 				// keyword-only mode (W6 S02, intentional; Search instead gives such
 				// zero rows their keyword part only, as meanSem is 0 there).
 				mean = 1
