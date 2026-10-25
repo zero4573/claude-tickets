@@ -22,7 +22,6 @@ import (
 	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/platform"
 	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/vindex"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
 
@@ -121,7 +120,7 @@ through the same agent workflow as synced ones.`,
 			if err != nil {
 				return err
 			}
-			vindex.Refresh(ctx.Vault, relTo(ctx.Vault, path))
+			refreshIndex(ctx.Vault, relTo(ctx.Vault, path))
 			fmt.Println(path)
 			if open {
 				link := "obsidian://open?path=" + strings.ReplaceAll(url.PathEscape(path), "/", "%2F")

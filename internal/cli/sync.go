@@ -21,7 +21,6 @@ import (
 	"github.com/zero4573/claude-tickets/internal/repo"
 	"github.com/zero4573/claude-tickets/internal/session"
 	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/vindex"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
 
@@ -136,7 +135,7 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 	wrote := false
 	defer func() {
 		if wrote {
-			vindex.Refresh(ctx.Vault)
+			refreshIndex(ctx.Vault)
 		}
 	}()
 	cfgFile := filepath.Join(ctx.Vault, "tickets", ".sources.json")

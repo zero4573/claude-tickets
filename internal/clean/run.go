@@ -21,6 +21,10 @@ import (
 
 const lockOwner = "ct-clean"
 
+// refreshIndex is vindex.Refresh; tests swap it to record the paths a run
+// passes (none: the whole vault).
+var refreshIndex = vindex.Refresh
+
 // Env is what a run does outside the vault, and where it reports.
 type Env struct {
 	Out io.Writer
@@ -109,7 +113,7 @@ func Run(o Options, items []Item, env Env) Result {
 	saveRan, wrote := false, false // wrote: an item may have changed a note, even if it then failed (W4 S05)
 	defer func() {
 		if wrote || res.Cleaned > 0 || res.FollowUp != "" || saveRan {
-			vindex.Refresh(o.Vault)
+			refreshIndex(o.Vault)
 		}
 	}()
 	var tasks []string
