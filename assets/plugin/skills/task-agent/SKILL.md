@@ -21,6 +21,8 @@ worktree) names the vault and the ticket.
    your task needs (`sed -n a,bp`), always including its conventions and its checking
    commands. A repo without one: its README, Makefile or package.json scripts.
 3. The contracts your task names: `tickets/<ID>/contracts/<name>.md` in the vault.
+3b. Other vault context (decisions, how a feature works): `ct vault search "<topic>" --project <slug>
+   --budget 1500`, then `ct vault note get <note> "<section>"`, not whole notes.
 4. Code by excerpt: find files and symbols with the fff tools (`mcp__fff__find_files`,
    `mcp__fff__grep`, `mcp__fff__multi_grep`) when available, else `rg` (or the Grep tool),
    always scoped to your worktree path (fff indexes the whole workspace, so unscoped searches

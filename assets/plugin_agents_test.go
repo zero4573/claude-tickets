@@ -421,6 +421,15 @@ func TestScaffoldForPOAndTeach(t *testing.T) {
 			}
 		}
 	}
+	for _, sk := range []string{"kb", "recall", "save", "teach", "work-ticket", "lead", "task-agent", "wave-review"} {
+		b, err := fs.ReadFile(Files, "plugin/skills/"+sk+"/SKILL.md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(b), "ct vault search") {
+			t.Errorf("skill %s does not mention ct vault search", sk)
+		}
+	}
 	data, _ := fs.ReadFile(Scaffold, "vault-scaffold/AGENTS.md")
 	agents := string(data)
 	for _, s := range []string{"relay.md", "`tickets:lead`", "`tickets:analyst`", "`tickets:grilling`",

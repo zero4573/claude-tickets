@@ -106,13 +106,16 @@ Re-read each shared note right before editing it.
 For each `kb-drafts/` note, use its `target:` frontmatter (default: infer
 from its type):
 
-- **New note** (no note with that name exists): move it with
+- **New note** (no note with that name exists; first
+  `ct vault search "<topic>" --project <slug>` for one on the same subject, and
+  update that instead of duplicating it): move it with
   `ct vault links move <vault> tickets/<ID>/kb-drafts/<note>.md <target-folder>/`.
   Never move notes with mv, because `ct vault links` keeps links working.
   After moving, remove the `target:` field and set
   `status: active`, `updated: <today>`.
 - **Update to an existing note** (a frontmatter `update-of: <note>`, or the
-  same subject as one): edit the existing note to include the new facts.
+  same subject as one): edit the existing note to include the new facts
+  (`ct vault note append|set-section <note> "<section>" --save`, not a whole-file rewrite).
   Keep its history: a feature note gets a new row in its versions table, it
   doesn't lose the old one. Then mark the draft `status: merged`, linking
   the note it went into. Don't delete drafts.

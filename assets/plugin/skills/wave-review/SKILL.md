@@ -13,7 +13,8 @@ fix-task IDs, the previous review file (if any), and a ≤5-line graph impact no
 ## Scope it before reading anything
 1. `git -C <worktree> log --oneline --merges <range>`: the wave's merges.
 2. `git -C <worktree> diff --stat <range>`: only these files are in scope.
-3. Previous findings: grep only the IDs still open in the previous review
+3. Vault decisions the diff touches: `ct vault search "<topic>" --project <slug> --budget 1500`.
+   Previous findings: grep only the IDs still open in the previous review
    (`rg -n '^W[0-9]+-.*-[MS][0-9]+' <prev review>`), and check them against the fix tasks the
    lead named. Don't re-review unchanged code.
 4. Read by hunk (`git diff <range> -- <file>`); open full files only where a hunk needs
