@@ -2,10 +2,10 @@ package cli
 
 import (
 	"errors"
+	"github.com/zero4573/claude-tickets/internal/links"
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"testing"
 )
 
@@ -67,9 +67,6 @@ func TestLinksMoveRefusedDoesNotRefresh(t *testing.T) {
 }
 
 func TestLinksMoveWriteErrorStillRefreshes(t *testing.T) {
-	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
-		t.Skip("permissions not enforced")
-	}
 	v := linksMoveVault(t)
 	for rel, body := range map[string]string{"a/ok.md": "[[inbox/a]]\n", "z/ro/stuck.md": "[[inbox/a]]\n"} {
 		p := filepath.Join(v, rel)
@@ -80,11 +77,16 @@ func TestLinksMoveWriteErrorStillRefreshes(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	ro := filepath.Join(v, "z/ro")
-	if err := os.Chmod(ro, 0o555); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Chmod(ro, 0o755)
+	bad := filepath.Join(v, "z/ro/stuck.md")
+	restore := links.WrapWriteNoteForTest(func(next func(string, []byte) error) func(string, []byte) error {
+		return func(f string, data []byte) error {
+			if f == bad {
+				return errors.New("injected write error")
+			}
+			return next(f, data)
+		}
+	})
+	defer restore()
 	old := refreshIndex
 	var calls [][]string
 	refreshIndex = func(_ string, paths ...string) { calls = append(calls, paths) }

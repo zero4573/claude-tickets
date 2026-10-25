@@ -117,18 +117,13 @@ func TestMoveTreeLast(t *testing.T) {
 }
 
 func TestMoveTreePartialResultAfterWriteError(t *testing.T) {
-	skipIfCanWriteReadOnly(t)
 	v := t.TempDir()
 	write(t, v, ".obsidian/app.json", "{}")
 	write(t, v, "tickets/T/T.md", "")
 	write(t, v, "tickets/T/r.md", "")
 	write(t, v, "a/ok.md", "[[T/r]]\n")
 	write(t, v, "b/ro/stuck.md", "[[T/r]]\n")
-	ro := filepath.Join(v, "b/ro")
-	if err := os.Chmod(ro, 0o555); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Chmod(ro, 0o755)
+	failWriteOn(t, v, "b/ro/stuck.md")
 	res, err := MoveTree(v, filepath.Join(v, "tickets/T"), filepath.Join(v, "archive/T"), nil, "T.md")
 	if err == nil {
 		t.Fatal("expected a write error")

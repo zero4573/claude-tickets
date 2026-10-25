@@ -114,7 +114,7 @@ func MoveTree(vault, srcDir, dstDir string, files []string, last string) (res Mo
 			return m[0]
 		})
 		if out != text {
-			if err := fsx.WriteFileAtomic(f, []byte(out), 0o644); err != nil {
+			if err := writeNote(f, []byte(out)); err != nil {
 				return res, err
 			}
 			changed[rel(f)] = true
