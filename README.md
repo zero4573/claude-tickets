@@ -717,6 +717,19 @@ Tick the tasks off and delete the note when done. `/tickets:save` and the agents
 leave these notes alone.
 
 
+## Documentation
+
+Architecture and flows, with diagrams, under `docs/`:
+
+- [Architecture](docs/architecture.md): `ct`'s packages, the plugin, the layout on disk.
+- [The ticket workflow](docs/ticket-workflow.md): PO, lead, waves, tasks and reviews as a
+  sequence; sandbox-safe checks; manual and synced tickets.
+- [Finishing a ticket](docs/finishing-a-ticket.md): docs, tidy, save and sign, the marks
+  and the sign gate.
+- [Workspaces and the vault](docs/workspace-and-vault.md): the vault, worktrees, branch
+  names and `.tool-versions`.
+- [Knowledge base and vault search](docs/knowledge-base.md): search, `ct kb`, drafts.
+
 ## Troubleshooting
 
 - **`ct sync` fails for a source.** Check that the source's `mcp` name
