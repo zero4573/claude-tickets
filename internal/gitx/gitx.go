@@ -214,7 +214,15 @@ func RefreshSharedClone(main, dest string) error {
 		"+refs/remotes/origin/*:refs/remotes/origin/*", "+refs/tags/*:refs/tags/*").Run()
 }
 
+// ContainerOverride, when set, replaces the container check. Only test
+// code sets it (the CLI testscripts, which can't tell a sandbox from the
+// host); the shipped binary never does.
+var ContainerOverride func() bool
+
 func InContainer() bool {
+	if ContainerOverride != nil {
+		return ContainerOverride()
+	}
 	for _, f := range []string{"/run/.containerenv", "/.dockerenv"} {
 		if _, err := os.Stat(f); err == nil {
 			return true

@@ -596,8 +596,10 @@ func namesPath(t string, forms []string) bool {
 // (a note's without .md).
 func linkPath(rel string) string { return strings.TrimSuffix(rel, ".md") }
 
-// moveFile renames, or copies and removes across filesystems.
-func moveFile(src, dst string) error {
+// moveFile renames, or copies and removes across filesystems. A var: test seam.
+var moveFile = osMoveFile
+
+func osMoveFile(src, dst string) error {
 	if os.Rename(src, dst) == nil {
 		return nil
 	}

@@ -2,7 +2,6 @@
 # the merge commit and both its parents are re-signed, the history keeps
 # its shape
 [!exec:ssh-keygen] skip 'needs ssh-keygen'
-[container] skip 'ct ws sign runs on the host, where the signing key is'
 mkdir home/Documents/Obsidian/a/.obsidian
 exec ssh-keygen -q -t ed25519 -N '' -C jane -f key
 exec sh -c 'echo "jane@example.com $(cat key.pub)" > allowed'

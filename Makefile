@@ -42,10 +42,15 @@ test:
 bench:
 	CT_BENCH=1 $(GO) test ./internal/vbench -run TestReport -v -timeout 30m
 
+# go test runs one process per package, each with many threads; unbounded on a 24-CPU box under
+# the sandbox pids limit (pids.max 2048) it can hit pthread_create/fork "resource temporarily
+# unavailable". -p 4 stays well under it. Override: make check TESTFLAGS="-p 8"
+TESTFLAGS ?= -p 4
+
 check:
 	$(GO) vet ./...
 	@out=$$(gofmt -l .); if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi
-	$(GO) test ./...
+	$(GO) test $(TESTFLAGS) ./...
 
 install: ct
 	install -d '$(DESTDIR)$(BINDIR)' '$(DESTDIR)$(ZSHDIR)' '$(DESTDIR)$(BASHDIR)' '$(DESTDIR)$(FISHDIR)'

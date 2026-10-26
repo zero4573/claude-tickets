@@ -46,6 +46,12 @@ stdout 'drop the caches of MAN-3'
 ! exists home/Projects/work-a/MAN-3/.cache
 ! exists home/Projects/work-a/MAN-3/graphify-out
 
+# the guards still refuse inside a container
+env CT_TEST_CONTAINER=1
+! exec ct ws gc
+stderr 'gc: run it on the host, not inside a container'
+! exec ct clean --yes
+stderr 'clean: run it on the host, not inside a container'
 -- done.md --
 ---
 summary: Done

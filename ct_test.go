@@ -24,11 +24,23 @@ import (
 
 func TestMain(m *testing.M) {
 	testscript.Main(m, map[string]func(){
-		"ct": cli.Main,
+		"ct": func() { overrideContainer(); cli.Main() },
 		// ct-tty is ct with stdin and stdout taken for a terminal (testscript
 		// gives it pipes), for the sessions that run in this terminal
-		"ct-tty": func() { cli.AssumeTerminal(); cli.Main() },
+		"ct-tty": func() { overrideContainer(); cli.AssumeTerminal(); cli.Main() },
 	})
+}
+
+// overrideContainer makes ct's container check follow $CT_TEST_CONTAINER,
+// which only Setup sets ("0" by default: the host; a script sets "1" to see
+// ct refuse in a container). The shipped binary never reads it.
+func overrideContainer() {
+	switch os.Getenv("CT_TEST_CONTAINER") {
+	case "0":
+		gitx.ContainerOverride = func() bool { return false }
+	case "1":
+		gitx.ContainerOverride = func() bool { return true }
+	}
 }
 
 // stubs are fake tools on PATH: tmux, claude, podman, notify-send and editor
@@ -65,7 +77,7 @@ esac
 case " $* " in
   *" -p "*)
     echo '{"type":"system","subtype":"init"}'
-    echo '{"type":"assistant","message":{"content":[{"type":"text","text":"Looking."},{"type":"tool_use","name":"mcp__graphify__query_graph","input":{"query":"billing\nflow"}}]}}'
+    printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"Looking."},{"type":"tool_use","name":"mcp__graphify__query_graph","input":{"query":"billing\nflow"}}]}}'
     echo '{"type":"result","is_error":false,"result":"It flows."}' ;;
 esac
 `,
@@ -191,10 +203,11 @@ func TestScripts(t *testing.T) {
 			},
 		},
 		Condition: func(cond string) (bool, error) {
-			// [container]: inside a container, where ct ws gc refuses to run
-			// and recorded PIDs can't be checked
+			// [container]: the scripts run as on the host (CT_TEST_CONTAINER=0), so
+			// it is false; it stays so a script's own `env CT_TEST_CONTAINER=1`
+			// (a ct that thinks it is in a container) doesn't change what runs
 			if cond == "container" {
-				return gitx.InContainer(), nil
+				return false, nil
 			}
 			return false, fmt.Errorf("unknown condition %q", cond)
 		},
@@ -254,6 +267,7 @@ func TestScripts(t *testing.T) {
 				env.Setenv("GIT_"+who+"_NAME", "Jane Doe")
 				env.Setenv("GIT_"+who+"_EMAIL", "jane@example.com")
 			}
+			env.Setenv("CT_TEST_CONTAINER", "0")
 			env.Setenv("CLAUDE_TICKETS_CONTAINER", "podman")
 			env.Setenv("CLAUDE_TICKETS_GRAPH_DIR", graphDir)
 			// ct vault init never reaches the real Tasks releases: this

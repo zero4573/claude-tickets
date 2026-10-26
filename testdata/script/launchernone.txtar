@@ -32,10 +32,10 @@ expand ws2.json
 cp ws2.json home/Projects/work-a/MAN-2/workspace.json
 cp state-idle.json home/Projects/work-a/MAN-2/.agent-state
 exec touch -d '3 days ago' home/Projects/work-a/MAN-2/.agent-state
-[!container] live-session home/Projects/work-a/MAN-2
-[!container] exec ct status
-[!container] stdout '^MAN-2 +manual +idle +- +in-progress '
-[!container] ! stdout 'stale'
+live-session home/Projects/work-a/MAN-2
+exec ct status
+stdout '^MAN-2 +manual +idle +- +in-progress '
+! stdout 'stale'
 
 # gc keeps a finished workspace whose recorded process is alive, even
 # without any hook state
@@ -43,16 +43,16 @@ mkdir home/Projects/work-a/MAN-3/graphify-out
 expand ws3.json
 cp ws3.json home/Projects/work-a/MAN-3/workspace.json
 exec touch -d '20 days ago' home/Projects/work-a/MAN-3/workspace.json
-[!container] live-session home/Projects/work-a/MAN-3
-[!container] exec ct ws gc
-[!container] ! stdout 'MAN-3'
-[!container] exists home/Projects/work-a/MAN-3/graphify-out
+live-session home/Projects/work-a/MAN-3
+exec ct ws gc
+! stdout 'MAN-3'
+exists home/Projects/work-a/MAN-3/graphify-out
 # ... and so does tmux mode (the setting hides windows, not processes)
-[!container] env CLAUDE_TICKETS_LAUNCHER=tmux
-[!container] exec ct ws gc
-[!container] ! stdout 'MAN-3'
-[!container] exists home/Projects/work-a/MAN-3/workspace.json
-[!container] env CLAUDE_TICKETS_LAUNCHER=none
+env CLAUDE_TICKETS_LAUNCHER=tmux
+exec ct ws gc
+! stdout 'MAN-3'
+exists home/Projects/work-a/MAN-3/workspace.json
+env CLAUDE_TICKETS_LAUNCHER=none
 
 # tmux mode drops the record of an ended foreground session before it
 # opens a window (so it can't make that window's session look dead)
@@ -61,8 +61,7 @@ grep '"pid": ' home/Projects/work-a/MAN-1/.sessions.json
 env CLAUDE_TICKETS_LAUNCHER=tmux
 exec ct start --no-fetch --no-attach MAN-1
 stdout 'MAN-1 started in tickets-a'
-[!container] ! grep '"pid": ' home/Projects/work-a/MAN-1/.sessions.json
-[container] grep '"pid": ' home/Projects/work-a/MAN-1/.sessions.json
+! grep '"pid": ' home/Projects/work-a/MAN-1/.sessions.json
 
 # a non-string launcher in config.json counts as unset, like container
 env CLAUDE_TICKETS_LAUNCHER=

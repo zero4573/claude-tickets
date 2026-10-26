@@ -89,13 +89,21 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
 
 ```sh
 go generate ./assets          # after changing assets/vault-scaffold/: its hash history
-make check                    # go vet, gofmt, go test (unit + CLI tests, golden ct sync runs)
-# inside a ct workspace its .tool-versions pins Go; elsewhere set ASDF_GOLANG_VERSION
+make check                    # the one command: go vet, gofmt, go test $(TESTFLAGS) (default -p 4)
+# inside a ct workspace its .tool-versions (asdf) pins Go and python; elsewhere set ASDF_GOLANG_VERSION
 make cross                    # every OS/arch into dist/
 nix build .#default           # builds ct (runs go test)
 nix flake check
 ./configure --prefix="$(mktemp -d)" && make install   # the non-Nix path
 ```
+
+`make check` bounds test parallelism with `TESTFLAGS` (default `-p 4`; override
+with `make check TESTFLAGS="-p 8"`) so it stays under the sandbox pids limit
+(pids.max 2048). Failure-injection tests use write seams (package-level func
+vars such as `links.writeNote` and `links.moveFile`, swapped in the test), never
+chmod: the sandbox runs as root, where permissions are not enforced. A test may
+skip as root only with a stated reason; none does now
+(`TestReadOnlyCache` has a seam).
 
 The CLI tests use `sh` stubs and skip on Windows; anything OS-specific
 gets a unit test that runs everywhere (e.g. `platform.DirsFor` for every

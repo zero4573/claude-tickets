@@ -1,6 +1,7 @@
 package links
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -101,12 +102,14 @@ func TestMoveTreeResumes(t *testing.T) {
 func TestMoveTreeLast(t *testing.T) {
 	v := treeVault(t)
 	src := filepath.Join(v, "tickets/MAN-4")
-	// A file that can't be moved (its folder is read-only) stops the move
-	// before the last one goes
-	os.Chmod(filepath.Join(src, "logs"), 0o555)
-	defer os.Chmod(filepath.Join(src, "logs"), 0o755)
-	if os.WriteFile(filepath.Join(src, "logs", "probe"), nil, 0o644) == nil {
-		t.Skip("running as root: permissions aren't enforced")
+	// A file that can't be moved stops the move before the last one goes
+	orig := moveFile
+	t.Cleanup(func() { moveFile = orig })
+	moveFile = func(from, to string) error {
+		if strings.HasSuffix(from, "x.md") {
+			return errors.New("injected move error")
+		}
+		return orig(from, to)
 	}
 	if _, err := MoveTree(v, src, filepath.Join(v, "archive/tickets/MAN-4"), nil, "MAN-4.md"); err == nil {
 		t.Fatal("no error")
