@@ -35,7 +35,10 @@ var isTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) && ter
 
 // AssumeTerminal makes ct treat stdin and stdout as a terminal. For tests
 // only: the ct-tty command of the CLI tests.
-func AssumeTerminal() { isTerminal = func() bool { return true } }
+func AssumeTerminal() {
+	isTerminal = func() bool { return true }
+	stdinIsTerminal = func() bool { return true }
+}
 
 const forceHelp = "start tickets marked ignore: true too, one covered by an open lead ticket on its own, or (without a multiplexer) one whose session only looks running from its .agent-state"
 const noAttachHelp = "with one ID, don't switch to its window (needs a terminal multiplexer)"

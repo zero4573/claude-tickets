@@ -2,6 +2,8 @@
 # git@github.com:acme/billing.git, through url.insteadOf) and the vault a
 mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/tickets/MAN-1
 cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+mkdir home/Documents/Obsidian/a/tickets/MAN-2
+cp man-2.md home/Documents/Obsidian/a/tickets/MAN-2/MAN-2.md
 expand gitconfig
 exec git init -q -b main seed
 exec git -C seed add -A
@@ -25,23 +27,31 @@ stdout '^github-acme-billing +github/acme/billing$'
 # add: a worktree on feature/<ID>-<desc>, with the .worktreeinclude files
 cp env home/Projects/repo-a/github/acme/billing/.env
 exec ct ws add MAN-1 github-acme-billing --base main --desc 'Fix the Thing' --version 2.1
-stdout 'created .*/work-a/MAN-1/github-acme-billing \(worktree\) on feature/MAN-1-fix-the-thing \(from origin/main\)'
+stdout 'created .*/work-a/MAN-1/github-acme-billing \(worktree\) on feature/fix-the-thing \(from origin/main\)'
 exists home/Projects/work-a/MAN-1/github-acme-billing/.env
-grep '"branch": "feature/MAN-1-fix-the-thing"' home/Projects/work-a/MAN-1/workspace.json
+grep '"branch": "feature/fix-the-thing"' home/Projects/work-a/MAN-1/workspace.json
 grep '"mode": "worktree"' home/Projects/work-a/MAN-1/workspace.json
 grep '"targetVersion": "2.1"' home/Projects/work-a/MAN-1/workspace.json
 grep '"id": "MAN-1"' home/Projects/work-a/MAN-1/workspace.json
 exec ct ws add MAN-1 github/acme/billing --base main
-stdout 'already exists \(branch feature/MAN-1-fix-the-thing\)'
+stdout 'already exists \(branch feature/fix-the-thing\)'
 # the version is kept when not given again
 grep '"targetVersion": "2.1"' home/Projects/work-a/MAN-1/workspace.json
+# a manual ticket's branch needs --desc (or --branch)
+! exec ct ws add MAN-5 github-acme-billing --base main
+stderr 'a manual ticket.s branch needs --desc \(or --branch\)'
+! exists home/Projects/work-a/MAN-5/github-acme-billing
+# two manual tickets can't share one branch name by accident
+! exec ct ws add MAN-5 github-acme-billing --base main --desc 'Fix the Thing'
+stderr 'branch .feature/fix-the-thing. is already used by MAN-1'
+! exists home/Projects/work-a/MAN-5/github-acme-billing
 ! exec ct ws add MAN-1 nope --base main
 stderr 'no main clone .nope.'
 ! exec ct ws add MAN-1 github-acme-billing
 stderr '--base <branch> is required'
 ! exec ct ws add man-1 github-acme-billing --base main
 stderr 'not a ticket ID'
-! exec ct ws add MAN-3 github-acme-billing --base nope
+! exec ct ws add MAN-3 github-acme-billing --base nope --desc x
 stderr 'base branch .nope. not found'
 
 # ls and diff: a commit and an untracked file
@@ -51,9 +61,9 @@ exec git -C home/Projects/work-a/MAN-1/github-acme-billing commit -q -m change
 cp change.txt home/Projects/work-a/MAN-1/github-acme-billing/untracked.txt
 exec ct ws ls
 stdout '^TICKET +REPO +BRANCH +BASE +CHANGED +AHEAD +BEHIND$'
-stdout '^MAN-1 +github-acme-billing +feature/MAN-1-fix-the-thing +main +1 +1 +0$'
+stdout '^MAN-1 +github-acme-billing +feature/fix-the-thing +main +1 +1 +0$'
 exec ct ws diff MAN-1 --stat
-stdout '^=== github-acme-billing \(feature/MAN-1-fix-the-thing vs main\) ===$'
+stdout '^=== github-acme-billing \(feature/fix-the-thing vs main\) ===$'
 stdout 'change.txt \| 1 \+'
 stdout '^--- untracked files:$'
 stdout '^untracked.txt$'
@@ -77,7 +87,7 @@ stderr 'fetching 1 repo\(s\)'
 exec git -C home/Projects/work-a/MAN-2/github-acme-billing log --format=%s origin/main
 stdout '^second$'
 exec ct ws ls MAN-1
-stdout '^MAN-1 +github-acme-billing +feature/MAN-1-fix-the-thing +main +1 +1 +1$'
+stdout '^MAN-1 +github-acme-billing +feature/fix-the-thing +main +1 +1 +1$'
 ! exec ct ws fetch nope
 stderr 'no main clone .nope.'
 
@@ -91,13 +101,13 @@ mkdir home/Projects/work-a/MAN-1/github-acme-billing/graphify-out
 mkdir home/Projects/work-a/MAN-1/.cache/go/pkg/mod/example.com/m@v1/sub
 chmod 0555 home/Projects/work-a/MAN-1/.cache/go/pkg/mod/example.com/m@v1
 exec ct ws rm MAN-1
-stdout 'removed .*/MAN-1/github-acme-billing \(branch feature/MAN-1-fix-the-thing kept\)'
+stdout 'removed .*/MAN-1/github-acme-billing \(branch feature/fix-the-thing kept\)'
 stdout 'removed workspace .*/work-a/MAN-1$'
 ! exists home/Projects/work-a/MAN-1
-exec git -C home/Projects/repo-a/github/acme/billing rev-parse --verify -q refs/heads/feature/MAN-1-fix-the-thing
+exec git -C home/Projects/repo-a/github/acme/billing rev-parse --verify -q refs/heads/feature/fix-the-thing
 # the branch is picked up again
-exec ct ws add MAN-1 github-acme-billing --base main
-stdout 'on existing branch feature/MAN-1-fix-the-thing'
+exec ct ws add MAN-1 github-acme-billing --base main --desc 'Fix the Thing'
+stdout 'on existing branch feature/fix-the-thing'
 
 # work on another branch counts too, not only the checked-out one
 exec git -C home/Projects/work-a/MAN-2/github-acme-billing checkout -q -b side
@@ -121,6 +131,11 @@ stdout 'removed .*/MAN-2/github-acme-billing \(shared clone\)'
 ! exec ct ws rm MAN-9
 stderr 'no workspace at'
 
+# once MAN-1's workspace is gone, its manual branch name is free again
+exec ct ws rm MAN-1
+exec ct ws add MAN-5 github-acme-billing --base main --desc 'Fix the Thing'
+grep '"branch": "feature/fix-the-thing"' home/Projects/work-a/MAN-5/workspace.json
+
 -- gitconfig --
 [url "$WORK/remote/"]
 	insteadOf = git@github.com:
@@ -129,6 +144,12 @@ stderr 'no workspace at'
 -- man-1.md --
 ---
 summary: First
+status: in-progress
+---
+-- man-2.md --
+---
+source: jira
+summary: Second
 status: in-progress
 ---
 -- env --

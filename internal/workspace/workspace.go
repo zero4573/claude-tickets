@@ -16,15 +16,16 @@ import (
 )
 
 type Repo struct {
-	Provider      string  `json:"provider"`
-	Owner         string  `json:"owner"`
-	Repo          string  `json:"repo"`
-	Slug          string  `json:"slug"`
-	Path          string  `json:"path"`
-	Base          string  `json:"base"`
-	Branch        string  `json:"branch"`
-	Mode          string  `json:"mode"` // worktree or clone
-	TargetVersion *string `json:"targetVersion"`
+	Provider      string          `json:"provider"`
+	Owner         string          `json:"owner"`
+	Repo          string          `json:"repo"`
+	Slug          string          `json:"slug"`
+	Path          string          `json:"path"`
+	Base          string          `json:"base"`
+	Branch        string          `json:"branch"`
+	Mode          string          `json:"mode"` // worktree or clone
+	TargetVersion *string         `json:"targetVersion"`
+	Marks         map[string]Mark `json:"marks,omitempty"`
 }
 
 // Clone is the repo's main clone under the projects root.
@@ -222,15 +223,17 @@ func List(workRoot string, withKB bool) []string {
 }
 
 // Put records r in a workspace.json, replacing the entry of the same slug.
-// An empty TargetVersion keeps the one already recorded.
+// An empty TargetVersion keeps the one already recorded, and so do the
+// marks unless r carries some.
 func Put(file string, r Repo) error {
 	return Update(file, func(doc map[string]any) error {
 		old, _ := doc["repos"].([]any)
 		var repos []any
-		var version any
+		var version, marks any
 		for _, e := range old {
 			if m, ok := e.(map[string]any); ok && m["slug"] == r.Slug {
 				version = m["targetVersion"]
+				marks = m["marks"]
 				continue
 			}
 			repos = append(repos, e)
@@ -238,11 +241,18 @@ func Put(file string, r Repo) error {
 		if r.TargetVersion != nil && *r.TargetVersion != "" {
 			version = *r.TargetVersion
 		}
-		repos = append(repos, map[string]any{
+		entry := map[string]any{
 			"provider": r.Provider, "owner": r.Owner, "repo": r.Repo, "slug": r.Slug,
 			"path": r.Path, "base": r.Base, "branch": r.Branch, "mode": r.Mode,
 			"targetVersion": version,
-		})
+		}
+		if len(r.Marks) > 0 {
+			marks = r.Marks
+		}
+		if marks != nil {
+			entry["marks"] = marks
+		}
+		repos = append(repos, entry)
 		doc["repos"] = repos
 		return nil
 	})

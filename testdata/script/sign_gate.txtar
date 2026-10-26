@@ -1,0 +1,59 @@
+# ct ws sign: the marks gate refuses without signing anything (no ssh key needed)
+mkdir home/Documents/Obsidian/a/.obsidian
+mkdir home/Documents/Obsidian/a/tickets/MAN-1
+cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+expand gitconfig
+exec git init -q -b main seed
+exec git -C seed add -A
+exec git -C seed commit -q -m init
+exec git clone -q --bare seed remote/acme/billing.git
+exec git clone -q git@github.com:acme/billing.git home/Projects/repo-a/github/acme/billing
+exec ct ws add MAN-1 github-acme-billing --base main
+
+# nothing to sign: --skip-marks is a no-op
+exec ct ws sign MAN-1 --skip-marks
+stdout 'no unpushed commits on feature/MAN-1'
+
+# not recorded: refused (no terminal here), nothing is signed
+cp seed/README.md home/Projects/work-a/MAN-1/github-acme-billing/one.txt
+exec git -C home/Projects/work-a/MAN-1/github-acme-billing add one.txt
+exec git -C home/Projects/work-a/MAN-1/github-acme-billing commit -q -m one
+! exec ct ws sign MAN-1
+stderr 'github-acme-billing: docs not recorded'
+stderr 'github-acme-billing: tidy not recorded'
+stderr 'sign: docs/tidy not done after the last commit; run them or pass --skip-marks'
+! stdout 'signed'
+exec git -C home/Projects/work-a/MAN-1/github-acme-billing log '--format=%G? %s' -n1
+stdout '^N one$'
+
+# stale: marked, then a commit after it
+exec ct ws mark MAN-1 docs
+exec ct ws mark MAN-1 tidy
+cp seed/README.md home/Projects/work-a/MAN-1/github-acme-billing/two.txt
+exec git -C home/Projects/work-a/MAN-1/github-acme-billing add two.txt
+exec git -C home/Projects/work-a/MAN-1/github-acme-billing commit -q -m two
+! exec ct ws sign MAN-1
+stderr 'github-acme-billing: docs stale: commits after [0-9a-f]+'
+stderr 'github-acme-billing: tidy stale: commits after [0-9a-f]+'
+stderr 'sign: docs/tidy not done'
+exec git -C home/Projects/work-a/MAN-1/github-acme-billing log '--format=%G? %s' -n1
+stdout '^N two$'
+
+# a missing worktree is warned about, not counted
+exec ct ws mark MAN-1 docs
+exec ct ws mark MAN-1 tidy
+exec sh -c 'mv home/Projects/work-a/MAN-1/github-acme-billing home/Projects/work-a/MAN-1/gone'
+exec ct ws sign MAN-1
+stderr 'ct ws: warning: github-acme-billing: worktree missing'
+
+-- man-1.md --
+---
+source: jira
+summary: First
+status: in-progress
+---
+-- gitconfig --
+[url "$WORK/remote/"]
+	insteadOf = git@github.com:
+-- seed/README.md --
+# billing

@@ -36,13 +36,13 @@ default ~/Projects/work-<vault> and ~/Projects/repo-<vault>). Main clones
 live at <projectsRoot>/<provider>/<owner>/<repo>, and each has a slug,
 <provider>-<owner>-<repo> (e.g. bitbucket-acme-billing-service), which is
 how the vault and the code graph name it. A ticket's worktree of a repo is
-<workRoot>/<ID>/<slug>, on branch feature/<ID>[-<description>]. Each
+<workRoot>/<ID>/<slug>, on branch feature/<ID>[-<description>] (a manual ticket's: feature/<description>). Each
 workspace's repos are recorded in <workRoot>/<ID>/workspace.json.
 
 A <repo> argument is a slug or <provider>/<owner>/<repo>.`,
 	}
 	cmd.AddCommand(wsReposCmd(), wsCloneCmd(), wsAddCmd(), wsLsCmd(), wsDiffCmd(),
-		wsRmCmd(), wsSignCmd(), wsFetchCmd(), wsGcCmd())
+		wsRmCmd(), wsSignCmd(), wsMarkCmd(), wsMarksCmd(), wsFetchCmd(), wsGcCmd())
 	return cmd
 }
 
@@ -193,10 +193,31 @@ it merges into.`,
 		},
 	}
 	cmd.Flags().StringVar(&base, "base", "", "the branch it starts from and merges into (required)")
-	cmd.Flags().StringVar(&desc, "desc", "", "description for the branch name (feature/<ID>-<description>)")
+	cmd.Flags().StringVar(&desc, "desc", "", "description for the branch name (feature/<ID>-<description>; feature/<description> for a manual ticket)")
 	cmd.Flags().StringVar(&version, "version", "", "the release the change targets (recorded in workspace.json)")
 	cmd.Flags().StringVar(&useBranch, "branch", "", "check out this existing branch instead")
 	return cmd
+}
+
+// branchTakenBy names another workspace whose workspace.json records branch
+// for repo slug ("" when none does). A manual ticket's branch carries no key,
+// so two tickets with the same --desc would otherwise share it silently.
+func branchTakenBy(workRoot, key, slug, branch string) string {
+	for _, dir := range workspace.List(workRoot, false) {
+		if filepath.Base(dir) == key {
+			continue
+		}
+		info, err := workspace.Read(dir)
+		if err != nil {
+			continue
+		}
+		for _, r := range info.Repos {
+			if r.Slug == slug && r.Branch == branch {
+				return filepath.Base(dir)
+			}
+		}
+	}
+	return ""
 }
 
 func wsAdd(ctx vault.Context, key, spec, base, desc, version, useBranch string) error {
@@ -214,12 +235,28 @@ func wsAdd(ctx vault.Context, key, spec, base, desc, version, useBranch string) 
 	main := filepath.Join(ctx.ProjectsRoot, clone)
 	dir := filepath.Join(ctx.WorkRoot, key)
 	wt := filepath.Join(dir, slug)
-	branch := "feature/" + key
-	if desc != "" {
-		branch += "-" + repo.Kebab(desc)
-	}
-	if useBranch != "" {
+	_, statErr := os.Stat(filepath.Join(wt, ".git"))
+	synced := note.Synced(note.Frontmatter(note.TicketPath(ctx.Vault, key)))
+	var branch string
+	switch {
+	case useBranch != "":
 		branch = useBranch
+	case synced:
+		branch = "feature/" + key
+		if desc != "" {
+			branch += "-" + repo.Kebab(desc)
+		}
+	case desc != "":
+		branch = "feature/" + repo.Kebab(desc)
+	case statErr == nil:
+		// the checkout's own branch is used below
+	default:
+		return errors.New("add: a manual ticket's branch needs --desc (or --branch)")
+	}
+	if !synced && useBranch == "" && desc != "" && statErr != nil {
+		if other := branchTakenBy(ctx.WorkRoot, key, slug, branch); other != "" {
+			return fmt.Errorf("add: branch '%s' is already used by %s in %s; pick another --desc, or pass --branch %s to share it", branch, other, slug, branch)
+		}
 	}
 	if err := workspace.Ensure(dir, key, ""); err != nil {
 		return err
@@ -246,9 +283,9 @@ func wsAdd(ctx vault.Context, key, spec, base, desc, version, useBranch string) 
 			return err
 		}
 		if useBranch == "" && desc == "" {
-			existing, _ := gitx.Out(main, "for-each-ref", "--format=%(refname:short)",
+			found, _ := gitx.Out(main, "for-each-ref", "--format=%(refname:short)",
 				"refs/heads/feature/"+key, "refs/heads/feature/"+key+"-*")
-			if first, _, _ := strings.Cut(existing, "\n"); first != "" {
+			if first, _, _ := strings.Cut(found, "\n"); first != "" {
 				branch = first
 			}
 		}
@@ -542,7 +579,8 @@ func wsRemove(ctx vault.Context, key string, force, merged bool) error {
 }
 
 func wsSignCmd() *cobra.Command {
-	return &cobra.Command{
+	var skipMarks bool
+	cmd := &cobra.Command{
 		Use:   "sign <ID>",
 		Short: "On the host: sign a ticket's unpushed commits",
 		Long: `On the host: signs the ticket's commits. Sessions commit on the ticket
@@ -550,7 +588,11 @@ branches but may not be able to sign (no SSH agent in a sandbox), so this
 replays each worktree's unpushed commits onto the same parent with
 --gpg-sign (the key the repo's git identity sets). Same changes and
 authors, new hashes; commits already on a remote are left alone. Run it
-before pushing.`,
+before pushing.
+
+Before signing it checks the docs and tidy marks (ct ws marks): when a repo
+has commits after them, it asks (on a terminal) or refuses; --skip-marks
+goes on without asking.`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeWorkspaceID,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -568,6 +610,11 @@ before pushing.`,
 			if _, err := os.Stat(workspace.File(filepath.Join(ctx.WorkRoot, key))); err != nil {
 				return fmt.Errorf("sign: %s has no workspace (%s)", key, filepath.Join(ctx.WorkRoot, key))
 			}
+			if !skipMarks {
+				if err := wsSignMarksOK(ctx, key); err != nil {
+					return err
+				}
+			}
 			failed := false
 			for _, r := range wsRepos(ctx, key) {
 				if !signRepo(r) {
@@ -580,6 +627,8 @@ before pushing.`,
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&skipMarks, "skip-marks", false, "sign even when docs or tidy were not done after the last commit")
+	return cmd
 }
 
 // signRepo re-signs one checkout's unpushed commits; false on failure.

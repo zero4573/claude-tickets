@@ -5,6 +5,8 @@
 mkdir home/Documents/Obsidian/a/.obsidian
 exec ssh-keygen -q -t ed25519 -N '' -C jane -f key
 exec sh -c 'echo "jane@example.com $(cat key.pub)" > allowed'
+mkdir home/Documents/Obsidian/a/tickets/MAN-1
+cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
 expand gitconfig
 exec git init -q -b main seed
 exec git -C seed add -A
@@ -28,7 +30,7 @@ exec git -C $R branch -d task/MAN-1-01-two
 exec git -C $R log '--format=%G? %s' -n4
 stdout '^N MAN-1 merge task 01: two$'
 
-exec ct ws sign MAN-1
+exec ct ws sign MAN-1 --skip-marks
 stdout 'github-acme-billing: signed 3 commit\(s\) on feature/MAN-1'
 exec git -C $R log --topo-order '--format=%G? %p %s' -n4
 stdout '^G [0-9a-f]+ [0-9a-f]+ MAN-1 merge task 01: two$'
@@ -40,9 +42,15 @@ stdout '^1$'
 exec git -C $R ls-files
 stdout '^one.txt$'
 stdout '^two.txt$'
-exec ct ws sign MAN-1
+exec ct ws sign MAN-1 --skip-marks
 stdout 'unpushed commits on feature/MAN-1 are already signed'
 
+-- man-1.md --
+---
+source: jira
+summary: First
+status: in-progress
+---
 -- gitconfig --
 [url "$WORK/remote/"]
 	insteadOf = git@github.com:
