@@ -121,7 +121,7 @@ func platformKey() string { return runtime.GOOS + "-" + runtime.GOARCH }
 
 func libDirFor(p *pinFile) (string, error) {
 	if _, ok := p.Llama.Assets[platformKey()]; !ok {
-		return "", fmt.Errorf("no llama.cpp build is pinned for %s", platformKey())
+		return "", fmt.Errorf("no prebuilt llama.cpp is pinned for %s (semantic search is unavailable here; keyword search still works)", platformKey())
 	}
 	return filepath.Join(Dir(), "llama-"+p.Llama.Version, platformKey()), nil
 }
@@ -149,6 +149,7 @@ func statusOf(p *pinFile, id string) Status {
 	}
 	st := Status{Model: m, ModelPath: ModelPath(m)}
 	var problems []string
+	unpinned := false
 	if fileOK(st.ModelPath) {
 		st.ModelOK = true
 	} else {
@@ -156,6 +157,7 @@ func statusOf(p *pinFile, id string) Status {
 	}
 	dir, err := libDirFor(p)
 	if err != nil {
+		unpinned = true
 		problems = append(problems, err.Error())
 	} else {
 		st.LibDir = dir
@@ -171,7 +173,7 @@ func statusOf(p *pinFile, id string) Status {
 		}
 	}
 	if len(problems) > 0 {
-		st.Problem = strings.Join(problems, "; ") + " (on the host: ct vault model fetch)"
+		st.Problem = strings.Join(problems, "; ") + hostHint(unpinned)
 	}
 	return st
 }
@@ -200,4 +202,13 @@ func Open(id string) (embed.Embedder, error) {
 		return nil, fmt.Errorf("%w: %s", embed.ErrUnavailable, st.Problem)
 	}
 	return embed.OpenLlama(st.LibDir, st.ModelPath, embed.LlamaOptions{ID: st.Model.ID, QueryPrefix: st.Model.QueryPrefix})
+}
+
+// hostHint is the suffix of a Problem: fetching helps unless this platform has
+// no pinned llama.cpp build.
+func hostHint(unpinned bool) string {
+	if unpinned {
+		return ""
+	}
+	return " (on the host: ct vault model fetch)"
 }

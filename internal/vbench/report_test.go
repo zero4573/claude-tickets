@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/zero4573/claude-tickets/internal/chunk"
+	"github.com/zero4573/claude-tickets/internal/embed"
 	"github.com/zero4573/claude-tickets/internal/modelcache"
 	"github.com/zero4573/claude-tickets/internal/vindex"
 	"github.com/zero4573/claude-tickets/internal/vsearch"
@@ -22,6 +23,11 @@ func TestReport(t *testing.T) {
 	}
 	embedder := "stub"
 	if os.Getenv("CT_EMBED_REAL") == "1" {
+		if d, err := embed.RuntimeLibDir(); err != nil {
+			t.Fatalf("runtime libraries: %v", err)
+		} else if d != "" {
+			t.Setenv("CLAUDE_TICKETS_LIB_PATH", d)
+		}
 		st := modelcache.StatusOf(modelcache.Default().ID)
 		if st.ModelOK && st.LibOK {
 			embedder = st.Model.ID

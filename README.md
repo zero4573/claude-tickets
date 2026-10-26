@@ -96,9 +96,10 @@ For zsh completion, put `<prefix>/share/zsh/site-functions` on `fpath`
 
 | Platform | Status |
 |---|---|
-| Linux | everything |
-| macOS | everything (tmux from Homebrew, optional); the code graph uses the image only (no unpacked filesystem: the runtime runs in a VM) |
-| Windows | the commands build and run natively; without tmux, `ct start` runs one ticket at a time in the console (no WSL needed). Untested |
+| Linux (amd64) | everything, including semantic vault search (`ct vault model fetch` installs the pinned llama.cpp build and model) |
+| Linux (arm64) | everything except semantic search: no verified prebuilt llama.cpp is pinned, so `ct vault model fetch` says so and `ct vault search` uses keyword search only |
+| macOS | everything (tmux from Homebrew, optional) except semantic search, for the same reason (no pinned llama.cpp for darwin); the code graph uses the image only (no unpacked filesystem: the runtime runs in a VM) |
+| Windows | the commands build and run natively; without tmux, `ct start` runs one ticket at a time in the console (no WSL needed). Untested; no semantic search either (no embedding build: keyword search only) |
 
 Where `ct` keeps its own files (`ct vault` shows them):
 
@@ -144,7 +145,7 @@ Without the module, export them.
 | `CLAUDE_TICKETS_STATE_DIR` | log dir (default: per OS) |
 | `CLAUDE_TICKETS_PLUGIN`, `CLAUDE_TICKETS_GRAPH_DIR` | use this copy of the plugin / graph image sources instead of the built-in one (the Nix package sets them) |
 | `CLAUDE_TICKETS_EMBEDDER` | `none` turns the embedding model off (search is keyword-only); `stub` is for tests |
-| `CLAUDE_TICKETS_LIB_PATH` | extra absolute directories (PATH style) searched for the llama.cpp library and its runtime libraries; the Nix package sets it |
+| `CLAUDE_TICKETS_LIB_PATH` | extra absolute directories (PATH style) searched for the llama.cpp library and its runtime libraries; the Nix package sets it. `go test` and `make bench` with `CT_EMBED_REAL=1` need no value on NixOS: they build `.#llamaRuntimeLibs` (libgomp, libstdc++) through nix when it is unset |
 | `OBSIDIAN_ROOT` | where the vaults live (default `~/Documents/Obsidian`) |
 | `CLAUDE_TICKETS_TASKS_URL` | where `ct vault init` downloads the Tasks plugin release from: a mirror holding `<version>/<file>` (default: the GitHub releases); the checksums are always the pinned ones |
 

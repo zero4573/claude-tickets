@@ -72,9 +72,16 @@ let
     ${lib.getExe ctBin} completion bash > $out/share/bash-completion/completions/ct
     ${lib.getExe ctBin} completion fish > $out/share/fish/vendor_completions.d/ct.fish
   '';
+  # libgomp and libstdc++ of the prebuilt llama.cpp in one directory (Linux): go test and make
+  # bench find them through embed.RuntimeLibDir when CLAUDE_TICKETS_LIB_PATH is unset
+  llamaRuntimeLibs = pkgs.runCommand "llama-runtime-libs" { } ''
+    mkdir -p $out
+    ln -s ${pkgs.stdenv.cc.cc.lib}/lib/libstdc++.so.6 $out/
+    ln -s ${lib.getLib pkgs.stdenv.cc.cc}/lib/libgomp.so.1 $out/
+  '';
 in
 {
-  inherit plugin graphSrc;
+  inherit plugin graphSrc llamaRuntimeLibs;
   default = ct;
   # What sessions run themselves (on PATH inside a sandbox, for instance)
   sessionTools = [ ct ];

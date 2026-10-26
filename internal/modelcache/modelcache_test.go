@@ -66,9 +66,13 @@ func TestPins(t *testing.T) {
 			t.Errorf("asset %s has no libllama", k)
 		}
 	}
-	for _, k := range []string{"linux-amd64", "linux-arm64", "darwin-arm64", "darwin-amd64"} {
-		if _, ok := p.Llama.Assets[k]; !ok {
-			t.Errorf("no pin for %s", k)
+	if _, ok := p.Llama.Assets["linux-amd64"]; !ok {
+		t.Error("no pin for linux-amd64")
+	}
+	// Dropped: no verified prebuilt asset for these.
+	for _, k := range []string{"linux-arm64", "darwin-arm64", "darwin-amd64"} {
+		if _, ok := p.Llama.Assets[k]; ok {
+			t.Errorf("%s should not be pinned", k)
 		}
 	}
 }
@@ -301,9 +305,6 @@ func TestFetchConcurrent(t *testing.T) {
 // Sessions mount the cache read-only: what they call (Status, path
 // resolution) must succeed and create nothing there.
 func TestReadOnlyCache(t *testing.T) {
-	if os.Geteuid() == 0 || runtime.GOOS == "windows" {
-		t.Skip("needs a non-root unix user")
-	}
 	cache := t.TempDir()
 	t.Setenv("CLAUDE_TICKETS_CACHE", cache)
 	t.Setenv("XDG_CACHE_HOME", cache)
@@ -323,20 +324,15 @@ func TestReadOnlyCache(t *testing.T) {
 		return
 	}
 	before := list()
-	var dirs []string
-	for _, d := range before {
-		if st, err := os.Stat(d); err == nil && st.IsDir() {
-			dirs = append(dirs, d)
-		}
+	mkdirAll = func(string, os.FileMode) error {
+		t.Error("read path called mkdirAll")
+		return errors.New("read-only cache")
 	}
-	for _, d := range dirs {
-		os.Chmod(d, 0o555)
+	createTemp = func(string, string) (*os.File, error) {
+		t.Error("read path called createTemp")
+		return nil, errors.New("read-only cache")
 	}
-	defer func() {
-		for _, d := range dirs {
-			os.Chmod(d, 0o755)
-		}
-	}()
+	t.Cleanup(func() { mkdirAll, createTemp = os.MkdirAll, os.CreateTemp })
 	st := StatusOf(m.ID)
 	if !st.ModelOK || !st.LibOK || st.Problem != "" {
 		t.Fatalf("status on a read-only cache: %+v", st)
@@ -346,6 +342,14 @@ func TestReadOnlyCache(t *testing.T) {
 	}
 	if got := strings.Join(list(), "\n"); got != strings.Join(before, "\n") {
 		t.Fatalf("read paths created files:\n%s", got)
+	}
+	// And the seam is live: a fetch fails on its first write.
+	mkdirAll = func(string, os.FileMode) error { return errors.New("read-only cache") }
+	if err := Fetch(context.Background(), m.ID, nil); err == nil || !strings.Contains(err.Error(), "read-only cache") {
+		t.Fatalf("fetch through the seam: %v", err)
+	}
+	if got := strings.Join(list(), "\n"); got != strings.Join(before, "\n") {
+		t.Fatalf("fetch created files:\n%s", got)
 	}
 }
 
@@ -377,5 +381,22 @@ func TestFetchLockWaitRespectsContext(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "waiting for another model fetch") {
 		t.Fatalf("no waiting notice: %q", out.String())
+	}
+}
+
+// A platform without a pinned llama.cpp build (linux-arm64, darwin, windows)
+// says so plainly, and does not suggest a fetch that cannot help.
+func TestUnpinnedPlatform(t *testing.T) {
+	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
+	p := pins()
+	q := *p
+	q.Llama.Assets = map[string]asset{}
+	st := statusOf(&q, Default().ID)
+	if st.LibOK || !strings.Contains(st.Problem, "no prebuilt llama.cpp is pinned for "+platformKey()) ||
+		!strings.Contains(st.Problem, "keyword search still works") || strings.Contains(st.Problem, "ct vault model fetch") {
+		t.Fatalf("problem: %q", st.Problem)
+	}
+	if err := fetch(context.Background(), &q, nil, Default().ID, nil); err == nil || !strings.Contains(err.Error(), "no prebuilt llama.cpp") {
+		t.Fatalf("fetch: %v", err)
 	}
 }

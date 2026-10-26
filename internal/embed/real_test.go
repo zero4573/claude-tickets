@@ -15,6 +15,11 @@ func TestRealLlama(t *testing.T) {
 	if os.Getenv("CT_EMBED_REAL") != "1" {
 		t.Skip("set CT_EMBED_REAL=1 (after ct vault model fetch) to run")
 	}
+	if d, err := embed.RuntimeLibDir(); err != nil {
+		t.Skipf("runtime libraries: %v (set CLAUDE_TICKETS_LIB_PATH to a directory holding them)", err)
+	} else if d != "" {
+		t.Setenv("CLAUDE_TICKETS_LIB_PATH", d)
+	}
 	m := modelcache.Default()
 	lib, model := os.Getenv("CT_EMBED_LIB"), os.Getenv("CT_EMBED_MODEL")
 	if lib == "" || model == "" {

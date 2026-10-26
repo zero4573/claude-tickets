@@ -26,6 +26,13 @@ var (
 	idleTimeout   = 60 * time.Second
 )
 
+// The write seam: every directory or temp file fetch creates goes through
+// these, so a test can prove the read paths (Status, LibDir) never write.
+var (
+	mkdirAll   = os.MkdirAll
+	createTemp = os.CreateTemp
+)
+
 func newClient() *http.Client {
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.ResponseHeaderTimeout = headerTimeout
@@ -80,7 +87,7 @@ func fetch(ctx context.Context, p *pinFile, c *http.Client, id string, w io.Writ
 	}
 	// One fetch at a time: a second one waits instead of deleting the first
 	// one's .download-* and .stage-* in removeStale.
-	if err := os.MkdirAll(Dir(), 0o755); err != nil {
+	if err := mkdirAll(Dir(), 0o755); err != nil {
 		return err
 	}
 	return lock.WithContext(ctx, filepath.Join(Dir(), ".fetch.lock"),
@@ -108,10 +115,10 @@ func fetchLocked(ctx context.Context, p *pinFile, c *http.Client, m Model, w io.
 	}
 	fmt.Fprintf(w, "model %s: downloading\n", id)
 	dst := ModelPath(m)
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := mkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(dst), ".download-*")
+	tmp, err := createTemp(filepath.Dir(dst), ".download-*")
 	if err != nil {
 		return err
 	}
@@ -159,10 +166,10 @@ func download(ctx context.Context, c *http.Client, url, want string, f *os.File)
 // listed files into a staging directory that is renamed to libDir.
 func fetchLib(ctx context.Context, c *http.Client, a asset, libDir string) error {
 	parent := filepath.Dir(libDir)
-	if err := os.MkdirAll(parent, 0o755); err != nil {
+	if err := mkdirAll(parent, 0o755); err != nil {
 		return err
 	}
-	arc, err := os.CreateTemp(parent, ".download-*")
+	arc, err := createTemp(parent, ".download-*")
 	if err != nil {
 		return err
 	}

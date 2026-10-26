@@ -14,6 +14,9 @@
       packages = forAll (pkgs: {
         default = (built pkgs).default;
         plugin = (built pkgs).plugin;
+      } // nixpkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+        # libgomp and libstdc++ for the prebuilt llama.cpp (tests and bench: embed.RuntimeLibDir)
+        llamaRuntimeLibs = (built pkgs).llamaRuntimeLibs;
       });
 
       # home-manager: programs.claude-tickets.* (and .obsidian.* for vaults)
