@@ -30,7 +30,8 @@ Read-only. Never write to the vault.
 ## Project
 
 0. `ct vault search "<what's open, decided, in progress>" --project <project>
-   --budget 1500` to find what matters before reading; then
+   --budget 1000` to find what matters before reading (a bigger budget only
+   adds tokens: recall reads the logs and notes below anyway); then
    `ct vault note get <note> "<section>"` rather than whole notes.
 1. The 3 most recent notes in `projects/<project>/logs/`, newest first by
    filename date.
@@ -46,6 +47,9 @@ Read-only. Never write to the vault.
 
 ## Ticket
 
+0. `ct vault search "<open tasks, status, blockers>" --path tickets/<ID>/
+   --type board --budget 1000` (the board holds the task state), then
+   `ct vault note get <note> "<section>"` rather than whole notes.
 1. The ticket note: its content (the source block, or a manual ticket's
    description sections), `## Workspace`, `## Tasks`, `## Questions`,
    `## Follow-ups`, `## Review`, and the summaries at the end. Also its

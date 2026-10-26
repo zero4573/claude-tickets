@@ -14,8 +14,13 @@ import (
 	"github.com/zero4573/claude-tickets/internal/vsearch"
 )
 
-// Budget is the `--budget` the NEW strategy searches with.
+// Budget is the `--budget` the NEW kb strategy searches with.
 const Budget = 2000
+
+// RecallBudget is the `--budget` the recall skill's step 0 searches with (its
+// SKILL.md says the same number): recall reads the logs and the project note
+// next, so the search only has to point at what matters.
+const RecallBudget = 1000
 
 // ReadN is how many whole notes the OLD kb strategy reads: the best-matching ones.
 const ReadN = 3
@@ -228,7 +233,15 @@ func New(vault string, r *vsearch.Response, f Fact) (o Outcome, followUp bool) {
 func SearchOptions(f Fact) vsearch.Options {
 	o := vsearch.Options{K: 30, Budget: Budget}
 	if f.Scenario == "recall" {
+		o.Budget = RecallBudget
 		o.Project = f.Project
+		if f.Ticket != "" {
+			// the skill's ticket step: search the ticket's own folder, and
+			// its board for what is open
+			o.Project = ""
+			o.Paths = []string{"tickets/" + f.Ticket + "/"}
+			o.Type = "board"
+		}
 	}
 	return o
 }
