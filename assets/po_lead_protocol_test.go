@@ -169,8 +169,9 @@ func TestPOLeadQAFixes(t *testing.T) {
 	has("workflow.md", texts["plugin/skills/work-ticket/workflow.md"], "`po: session:`", "`orphaned`")
 
 	// D3: decisions and answers close once copied; the trim can reach ≤30.
-	has("PO", po, "`copied`, `answered` and `planned` entries", "or that have no line",
-		"oldest first, until `## Open` is ≤30", "one entry per\ntheme")
+	has("workflow.md", texts["plugin/skills/work-ticket/workflow.md"], "`copied`, `answered` and `planned`", "or that have no line",
+		"first, until `## Open` is ≤30", "one entry per theme")
+	has("PO", po, "\"Trimming relay.md\"")
 	has("lead", lead, "set it `copied`", "set the answer entry `copied`", "change the state (last field) of any line")
 	states := regexp.MustCompile(`<open\|[a-z|]+>`)
 	want := "<open|planned|answered|copied>"
@@ -646,5 +647,116 @@ func TestHeadingCitationsResolve(t *testing.T) {
 	}
 	if n < 10 {
 		t.Errorf("only %d citations matched: the pattern is stale", n)
+	}
+}
+
+// The lead's merge-chain recipes, extracted from the skill text and run in a
+// temp git repo: merge plus board line, the merged-branch delete (refusing a
+// branch that is not an ancestor), the revert after a failed check, and the
+// resume detection (a fresh branch at its fork is not merged, a merged one is).
+func TestLeadGitRecipes(t *testing.T) {
+	requireTool(t, "sed", "--version")
+	requireTool(t, "rg", "--version")
+	requireTool(t, "git", "--version")
+	lead := pluginTexts(t)["plugin/skills/lead/SKILL.md"]
+	span := func(start, end string) string {
+		t.Helper()
+		i := strings.Index(lead, start)
+		if i < 0 {
+			t.Fatalf("no recipe starting %q", start)
+		}
+		j := strings.Index(lead[i:], end)
+		if j < 0 {
+			t.Fatalf("recipe %q has no end %q", start, end)
+		}
+		return lead[i : i+j+len(end)]
+	}
+	mergeCmd := span("git merge --no-ff -q ", `<title>"`)
+	deleteCmd := span("git worktree remove ", "<task-slug>`")
+	deleteCmd = strings.TrimSuffix(deleteCmd, "`")
+	resumeCmd := span("sha=$(", `echo merged`)
+	revertCmd := span("git revert -m 1 <merge-sha>", "<merge-sha>")
+	boardCmd := shBlock(t, lead, `sed -i -E "/^- \[.\] NN · `)
+
+	dir := t.TempDir()
+	env := append(os.Environ(), "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@x", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@x",
+		"GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null", "GIT_EDITOR=true")
+	sh := func(script string) (string, error) {
+		cmd := exec.Command("sh", "-c", script)
+		cmd.Dir = dir
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		return string(out), err
+	}
+	must := func(script string) string {
+		t.Helper()
+		out, err := sh(script)
+		if err != nil {
+			t.Fatalf("%s: %v\n%s", script, err, out)
+		}
+		return out
+	}
+	fill := func(s, nn, slug string) string {
+		return strings.NewReplacer("git -C <ws>/<slug> ", "git ", "<ws>/<slug>", dir, "<ws>/.tasks/<slug>-NN", ".tasks/repo-"+nn,
+			"<ID>", "T-1", "NN", nn, "<task-slug>", slug, "<title>", "title "+slug, "<base>", "main").Replace(s)
+	}
+	must("git init -q -b main . && git commit -q --allow-empty -m base && git checkout -q -b feature/T-1")
+	board := "- [ ] 01 · planned · [[T-1-01-api]] · repo · w1 · deps - · R-03 ➕ 2026-10-25\n"
+	must("printf '%s' " + "'" + board + "' > board.md")
+	branch := func(nn, slug, file string) {
+		t.Helper()
+		must("git branch task/T-1-" + nn + "-" + slug + " && git worktree add -q .tasks/repo-" + nn + " task/T-1-" + nn + "-" + slug)
+		if file != "" {
+			must("cd .tasks/repo-" + nn + " && echo x > " + file + " && git add " + file + " && git commit -q -m work-" + nn)
+		}
+	}
+	merged := func(nn, slug string) bool {
+		t.Helper()
+		out, err := sh(fill(resumeCmd, nn, slug))
+		return err == nil && strings.Contains(out, "merged")
+	}
+	branch("01", "api", "a.txt")
+	branch("02", "ui", "")      // fresh at its fork, no commits
+	branch("03", "db", "d.txt") // commits, never merged
+	if merged("02", "ui") {
+		t.Error("resume: a branch with no commits (an ancestor at its fork) counted as merged")
+	}
+	if merged("03", "db") || merged("01", "api") {
+		t.Error("resume: an unmerged branch counted as merged")
+	}
+	// Merge chain: merge, then the board line.
+	must(fill(mergeCmd, "01", "api"))
+	status := strings.TrimSpace(must("git rev-parse --short HEAD"))
+	script := strings.NewReplacer("NN", "01", "<c>", "x", "<status>", "merged "+status, "<date>", " ✅ 2026-10-26").Replace(boardCmd)
+	must(script)
+	if b := must("cat board.md"); !strings.Contains(b, "- [x] 01 · merged "+status+" · [[T-1-01-api]]") || !strings.HasSuffix(strings.TrimSpace(b), "✅ 2026-10-26") {
+		t.Errorf("board after merge: %q", b)
+	}
+	if !merged("01", "api") {
+		t.Error("resume: a merged branch not detected")
+	}
+	if merged("02", "ui") || merged("03", "db") {
+		t.Error("resume: unmerged branches counted as merged after another merge")
+	}
+	// Delete: the merged branch goes, an unmerged one is refused and stays.
+	must(fill(deleteCmd, "01", "api"))
+	if out := must("git branch --list task/T-1-01-api"); strings.TrimSpace(out) != "" {
+		t.Errorf("merged branch not deleted: %q", out)
+	}
+	if out, err := sh(fill(deleteCmd, "03", "db")); err == nil {
+		t.Errorf("delete of an unmerged branch succeeded: %s", out)
+	}
+	if out := must("git branch --list task/T-1-03-db"); strings.TrimSpace(out) == "" {
+		t.Error("unmerged branch was deleted")
+	}
+	// A failed check after the merge: revert the merge commit, never reset.
+	must(fill(mergeCmd, "03", "db"))
+	sha := strings.TrimSpace(must("git rev-parse HEAD"))
+	must(strings.ReplaceAll(revertCmd, "<merge-sha>", sha))
+	if _, err := os.Stat(filepath.Join(dir, "d.txt")); err == nil {
+		t.Error("revert left the merged file")
+	}
+	if out := must("git log --merges --format=%s -1"); !strings.Contains(out, "merge task 03:") {
+		t.Errorf("merge commit gone after revert: %q", out)
 	}
 }

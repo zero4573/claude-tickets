@@ -90,3 +90,35 @@ vault, and leaves a `closed` status as it is.
 `ignore-until: yyyy-MM-dd` and `ignore-reason: ...`. It is still synced, but `ct start` skips it
 (unless `--force`) and the dashboard lists it under "Ignored". The user clears the flag by hand
 once `ignore-until` has passed.
+
+## The `po:` block
+Board.md frontmatter, the PO's:
+```
+lead: <agentId|none>
+lead-since: <yyyy-MM-dd HH:mm>
+po:
+  session: <$CLAUDE_CODE_SESSION_ID when the lead was spawned>
+  last-refresh: <yyyy-MM-dd>
+  exchanges-since: <n>
+  analyst-since: <n>
+  agents:
+    - "<agentId> · <agent> · w<N>|- · task NN|review <repo>|analyst · <since>"
+  finished:
+    - "w<N> · task NN · done|partial"
+```
+`agents`: the running ones (`w<N>` from the `Spawn:` entry's `wave:`, `-` for an analyst);
+`finished`: notices not yet sent to the lead (they survive `/compact`); `[]` when none.
+
+## A ticket that changes the plugin's own formats
+A ticket whose work changes the formats of `board.md`, `relay.md`, task files or reviews (this plugin's
+own protocol) keeps its **own** board, relay, tasks and reviews in the format of the plugin version
+that is running it, never the new one it is writing: the gates and recipes in the skills (the status
+sed, the Dispositions check) must keep reading them until the ticket is saved. The new format applies
+from the next ticket.
+
+## Trimming relay.md
+Whenever the PO writes it and a cap is exceeded, trim: move `copied`, `answered` and `planned`
+entries whose board line (note `R-nn`) is merged, or that have no line, to `## Closed`, oldest
+first, until `## Open` is ≤30; drop the oldest Closed lines. If more than 30 are still truly
+open, batch new user input into one entry per theme instead of one per message. The durable
+record is `plan.md ## Decisions`, `## Questions` and `board.md`.

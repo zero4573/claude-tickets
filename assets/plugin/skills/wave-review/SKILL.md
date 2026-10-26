@@ -28,7 +28,10 @@ fix-task IDs, the previous review file (if any), and a ≤5-line graph impact no
   whether the next planned tasks (the board's `planned` rows) fit without rework.
 - **Senior:** correctness, error handling, races and resource leaks, input limits, injection
   and authz, cross-platform and compatibility issues, test gaps on the changed behaviour.
-Run only cheap checks (the repo's vet or lint). Tests already ran at merge.
+Run cheap checks (the repo's vet or lint), then the **focused tests of the changed packages** within a
+**5-minute cap**: `timeout 300 <the repo's test command scoped to those packages>` (e.g. `timeout 300 go test -p 4
+./pkg/a/...`); a timeout or a failure you can't reproduce is a finding, never a hang. Mark each finding
+`confirmed` (a test fails or you reproduced it) or `unconfirmed` (reading only).
 
 ## Output (hard caps)
 Write `<vault>/tickets/<ID>/reviews/wave-<N>-<slug>.md`: the vault's frontmatter plus
@@ -36,7 +39,7 @@ Write `<vault>/tickets/<ID>/reviews/wave-<N>-<slug>.md`: the vault's frontmatter
 files. Then:
 - summary ≤5 lines;
 - at most **3 must-fix, 6 should-fix, 5 consider**, each ≤6 lines:
-  `W<N>-<repo>-<M|S|C><nn> · file:line · problem · fix · test to add`
+  `W<N>-<repo>-<M|S|C><nn> · file:line · problem · fix · test to add · confirmed|unconfirmed`
   (`<repo>` is the slug's repo part, e.g. `W2-billing-service-M01`);
 - "keep as pattern" ≤5 bullets;
 - previous findings: one line listing resolved and still-open IDs;

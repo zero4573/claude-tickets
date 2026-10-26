@@ -109,19 +109,13 @@ so `tail` reads it and new entries are appended with `>>`). One line per entry:
 Next free id: `rg -o 'R-[0-9]+' relay.md | sort -V | tail -1`. `## Open` holds **≤30** entries,
 `## Closed` **≤40** one-line summaries (`R-nn → T-NN merged`, `→ decision in plan.md`,
 `→ [[MAN-x]]`); the file stays about 100 lines. The lead marks `decision` and `answer` entries
-`copied` once they're in `plan.md ## Decisions`. Whenever you write it and a cap is exceeded,
-trim: move `copied`, `answered` and `planned` entries whose board line (note `R-nn`) is merged,
-or that have no line, to `## Closed`, oldest first, until `## Open` is ≤30; drop the oldest
-Closed lines. If more than 30 are still truly open, batch new user input into one entry per
-theme instead of one per message. The durable record is `plan.md ## Decisions`, `## Questions`
-and `board.md`. No checkboxes; read it by `tail` or `rg`.
+`copied` once they're in `plan.md ## Decisions`. Trimming: `workflow.md`, "Trimming relay.md".
+No checkboxes; read it by `tail` or `rg`.
 
 ## 5. Talking to the user
 - Status updates: ≤8 lines, decisions and risks first, no per-file lists, no restating agent
   reports. Checks only the user can do (visual, browser, host-side) are the board's
   `pending — user` lines.
-- Keep `po:` `exchanges-since` (exchanges with the user) and `analyst-since` (analyst
-  answers) current at each status update; a refresh resets both and sets `last-refresh`.
 
 ## 6. Refresh reminders
 Context heavy → `/tickets:po-refresh` (checkpoints `board.md` `po:`/`lead:` and `relay.md`, then
@@ -132,19 +126,6 @@ before hand-over; after about 15 exchanges or 3 or more analyst answers since `l
 At most once per wave or quiet point, never in the middle of a gate question; if the user says
 "later", wait for the next quiet point.
 
-## `po:` block (board.md frontmatter, yours)
-```
-lead: <agentId|none>
-lead-since: <yyyy-MM-dd HH:mm>
-po:
-  session: <$CLAUDE_CODE_SESSION_ID when the lead was spawned>
-  last-refresh: <yyyy-MM-dd>
-  exchanges-since: <n>
-  analyst-since: <n>
-  agents:
-    - "<agentId> · <agent> · w<N>|- · task NN|review <repo>|analyst · <since>"
-  finished:
-    - "w<N> · task NN · done|partial"
-```
-`agents`: the running ones (`w<N>` from the `Spawn:` entry's `wave:`, `-` for an analyst);
-`finished`: notices not yet sent to the lead (they survive `/compact`); `[]` when none.
+## `po:` block
+Format: `workflow.md`, "The `po:` block". Keep `exchanges-since` and `analyst-since` current at each
+status update (a refresh resets both, sets `last-refresh`).

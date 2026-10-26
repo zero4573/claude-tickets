@@ -218,8 +218,8 @@ func TestPOAndLeadSkills(t *testing.T) {
 	lines := func(s string) int { return strings.Count(s, "\n") }
 
 	po := read("plugin/skills/work-ticket/SKILL.md")
-	if n := lines(po); n > 150 {
-		t.Errorf("work-ticket (PO) is %d lines, cap 150", n)
+	if n := lines(po); n > 135 {
+		t.Errorf("work-ticket (PO) is %d lines, cap 135", n)
 	}
 	for _, s := range []string{
 		"`tickets:lead`", "`tickets:analyst`", "`relay.md`", "/tickets:po-refresh", "≤3 calls",
@@ -233,7 +233,11 @@ func TestPOAndLeadSkills(t *testing.T) {
 		}
 	}
 
-	lead := read("plugin/skills/lead/SKILL.md") + read("plugin/skills/lead/handover.md") + read("plugin/agents/lead.md")
+	leadSkill := read("plugin/skills/lead/SKILL.md")
+	if n := lines(leadSkill); n > 250 {
+		t.Errorf("lead/SKILL.md is %d lines, cap 250", n)
+	}
+	lead := leadSkill + read("plugin/skills/lead/handover.md") + read("plugin/agents/lead.md")
 	if strings.Contains(lead, "AskUserQuestion") {
 		t.Error("the lead must not ask the user directly (AskUserQuestion)")
 	}
@@ -489,5 +493,48 @@ func TestTemplateCommentsHaveNoCheckboxLines(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// MAN-12 plugin skills: the lead's merge chain and ancestor-based branch
+// deletion, the reviewer's capped focused tests, the task agent's report
+// heading and early commits, and the formats note in workflow.md.
+func TestMAN12PluginSkillRules(t *testing.T) {
+	read := func(p string) string {
+		data, err := fs.ReadFile(Files, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(strings.Fields(string(data)), " ")
+	}
+	lead := read("plugin/skills/lead/SKILL.md")
+	review := read("plugin/skills/wave-review/SKILL.md")
+	task := read("plugin/skills/task-agent/SKILL.md")
+	wf := read("plugin/skills/work-ticket/workflow.md")
+	for name, c := range map[string]struct {
+		text string
+		want []string
+	}{
+		"lead": {lead, []string{
+			"merge `&&` checks `&&` board line", "can never leave a merged task `running`",
+			"Ancestry is no proof", "--merges --grep \"merge task NN:\"", "test `orphaned` lines only", "recorded, not re-merged",
+			"`git revert -m 1 <merge-sha>` it (never reset) and mark the line `partial`", "leaves no reflog and any `branch.<name>.*` config",
+			"git merge-base --is-ancestor <b> HEAD && git update-ref -d refs/heads/<b>",
+		}},
+		"wave-review": {review, []string{"timeout 300", "focused tests of the changed packages", "`confirmed`", "`unconfirmed`", "**3 must-fix, 6 should-fix, 5 consider**"}},
+		"task-agent":  {task, []string{"existing `## Report` heading", "never append a second", "Commit early", "read `git diff` before committing", "git status --short", "build outputs", "never `git add -A` blindly"}},
+		"workflow":    {wf, []string{"A ticket that changes the plugin's own formats", "in the format of the plugin version"}},
+	} {
+		for _, s := range c.want {
+			if !strings.Contains(c.text, s) {
+				t.Errorf("%s: missing %q", name, s)
+			}
+		}
+	}
+	if strings.Contains(lead, "(`git branch -d`)") || strings.Contains(lead, "&& git branch -d") {
+		t.Error("lead: still deletes task branches with git branch -d")
+	}
+	if strings.Contains(task, "Append it to your task file") {
+		t.Error("task-agent: must not append a second ## Report")
 	}
 }

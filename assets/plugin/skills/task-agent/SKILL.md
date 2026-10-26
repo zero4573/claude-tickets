@@ -34,6 +34,12 @@ task's `context_budget` (about 4 characters per token); at ~80 % of it, commit w
 report `partial` with what's left instead of going on.
 
 ## Environment
+- **Commit early (B-05):** commit work in progress as soon as something works (a coherent step), then
+  again as you go; a dead agent leaves the commits, not the working tree.
+- **Before each commit** run `git status --short` and leave out build outputs (nix `result`/`result-*`
+  links, `dist/`, binaries, caches); stage files by name, never `git add -A` blindly.
+- **After scripted prose edits (B-08)** (`perl`, `sed`), read `git diff` before committing: a bad pattern
+  rewrites more than you meant.
 - You work only in your worktree (`<workspace>/.tasks/<slug>-NN`, on branch
   `task/<ID>-NN-<slug>`). Never touch the ticket worktree, other task worktrees, or the main
   clones under the projects root. A task with `repo: vault` has no worktree: it writes only
@@ -66,7 +72,7 @@ report `partial` with what's left instead of going on.
   commit what works and report `blocked`.
 
 ## Report (the only thing the lead reads; ≤40 lines, ≤15 for tickets:mechanical)
-Append it to your task file as `## Report`, then reply with the same text (the reply goes to
+Write it under the task file's existing `## Report` heading (task files already have one: fill it, never append a second), then reply with the same text (the reply goes to
 the PO, which tells the lead; the lead reads the task file):
 ```
 Task NN: done | partial | blocked
