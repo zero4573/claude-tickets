@@ -5,7 +5,7 @@ prints nothing and the board has no `planned`, `running`, `partial` or `orphaned
 Ends with the ticket at `status: review` and `Next: handover-done`. Never run `/tickets:save`, sign or push.
 
 ## 0. Disposition gate (precondition)
-Run the gate of `SKILL.md` section 7 from the vault root (including its `no Dispositions`
+Run the gate of `SKILL.md` section 7 (script: `reference.md`, "Gate script") from the vault root (including its `no Dispositions`
 line and the open-line and `#deferred` checks): its output must be empty. If it prints anything, go back to planning fix waves
 (or `kept:`/deferral dispositions); never hand over with an `open` or `fixing` finding.
 

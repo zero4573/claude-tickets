@@ -11,6 +11,11 @@ import (
 )
 
 // pluginTexts returns every Markdown file of the plugin's skills and agents.
+// leadWithRef is a pluginTexts key holding lead/SKILL.md and lead/reference.md
+// together: the lead's moved detail (recipes, scripts, formats) is checked
+// against the same strings as before.
+const leadWithRef = "plugin/skills/lead/SKILL.md+reference.md"
+
 func pluginTexts(t *testing.T) map[string]string {
 	t.Helper()
 	out := map[string]string{}
@@ -31,6 +36,7 @@ func pluginTexts(t *testing.T) map[string]string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	out[leadWithRef] = out["plugin/skills/lead/SKILL.md"] + "\n" + out["plugin/skills/lead/reference.md"]
 	return out
 }
 
@@ -223,7 +229,7 @@ done`
 
 func TestDispositionGateLoopMatches(t *testing.T) {
 	texts := pluginTexts(t)
-	for _, p := range []string{"plugin/skills/lead/SKILL.md", "plugin/skills/work-ticket/handover.md"} {
+	for _, p := range []string{leadWithRef, "plugin/skills/work-ticket/handover.md"} {
 		if !strings.Contains(texts[p], checklistGate) {
 			t.Errorf("%s: gate loop differs from the contract", p)
 		}
@@ -251,7 +257,7 @@ func TestDispositionGateLoopMatches(t *testing.T) {
 func TestChecklistLineForms(t *testing.T) {
 	texts := pluginTexts(t)
 	want := map[string][]string{
-		"plugin/skills/lead/SKILL.md": {
+		leadWithRef: {
 			"`vault-checklists-v1`", "rg -n '^- \\[.\\] [0-9]+ · |^(status|wave|last-reviewed):'",
 			"`rg -n '^- \\[x\\] [0-9]+ · (planned|running|orphaned|partial|blocked|pending)|^- \\[ \\] [0-9]+ · (running|orphaned|partial|blocked|pending)|^- \\[[ /]\\] [0-9]+ · merged '",
 			"rg -q \"^- \\[<c>\\] NN · <status> · \" board.md || echo \"NN not updated\"",
@@ -339,7 +345,7 @@ func requireTool(t *testing.T, name string, args ...string) {
 func TestBoardSedRecipe(t *testing.T) {
 	requireTool(t, "sed", "--version")
 	requireTool(t, "rg", "--version")
-	lead := pluginTexts(t)["plugin/skills/lead/SKILL.md"]
+	lead := pluginTexts(t)[leadWithRef]
 	recipe := shBlock(t, lead, `sed -i -E "/^- \[.\] NN · `)
 	run := func(board, nn, c, status, date string) string {
 		t.Helper()
@@ -396,7 +402,7 @@ func TestBoardSedRecipe(t *testing.T) {
 // reviews print nothing.
 func TestDispositionGateRuns(t *testing.T) {
 	requireTool(t, "rg", "--version")
-	lead := pluginTexts(t)["plugin/skills/lead/SKILL.md"]
+	lead := pluginTexts(t)[leadWithRef]
 	gate := strings.ReplaceAll(shBlock(t, lead, "for f in tickets/<ID>/reviews/*.md; do"), "<ID>", "T-1")
 	run := func(files map[string]string) string {
 		t.Helper()
@@ -658,7 +664,7 @@ func TestLeadGitRecipes(t *testing.T) {
 	requireTool(t, "sed", "--version")
 	requireTool(t, "rg", "--version")
 	requireTool(t, "git", "--version")
-	lead := pluginTexts(t)["plugin/skills/lead/SKILL.md"]
+	lead := pluginTexts(t)[leadWithRef]
 	span := func(start, end string) string {
 		t.Helper()
 		i := strings.Index(lead, start)

@@ -234,8 +234,11 @@ func TestPOAndLeadSkills(t *testing.T) {
 	}
 
 	leadSkill := read("plugin/skills/lead/SKILL.md")
-	if n := lines(leadSkill); n > 250 {
-		t.Errorf("lead/SKILL.md is %d lines, cap 250", n)
+	if n := lines(leadSkill); n > 228 {
+		t.Errorf("lead/SKILL.md is %d lines, cap 228", n)
+	}
+	if n := lines(read("plugin/skills/lead/reference.md")); n > 60 {
+		t.Errorf("lead/reference.md is %d lines, cap 60", n)
 	}
 	lead := leadSkill + read("plugin/skills/lead/handover.md") + read("plugin/agents/lead.md")
 	if strings.Contains(lead, "AskUserQuestion") {
@@ -378,7 +381,7 @@ func TestAdaptedSkills(t *testing.T) {
 			t.Errorf("diagnose: missing %q", s)
 		}
 	}
-	lead := read("plugin/skills/lead/SKILL.md")
+	lead := read("plugin/skills/lead/SKILL.md") + read("plugin/skills/lead/reference.md")
 	for _, s := range []string{"`tickets:diagnose`", "build the feedback loop", "`plan.md ## Root cause`", "`tickets:grilling`"} {
 		if !strings.Contains(lead, s) {
 			t.Errorf("lead: missing %q", s)
@@ -561,5 +564,33 @@ func TestPluginSkillRules(t *testing.T) {
 	}
 	if strings.Contains(task, "Append it to your task file") {
 		t.Error("task-agent: must not append a second ## Report")
+	}
+}
+
+// The lead's SKILL.md points at each part moved to reference.md by heading,
+// and the reference file has that heading, so no pointer dangles.
+func TestLeadRefPointers(t *testing.T) {
+	skill, err := Files.ReadFile("plugin/skills/lead/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, err := Files.ReadFile("plugin/skills/lead/reference.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	handover, err := Files.ReadFile("plugin/skills/lead/handover.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(handover), "`reference.md`, \"Gate script\"") {
+		t.Error("lead/handover.md: no pointer to reference.md \"Gate script\"")
+	}
+	for _, h := range []string{"Board line", "Disposition line formats", "Gate script", "Ticket types"} {
+		if !strings.Contains(string(skill), "`reference.md`, \""+h+"\"") {
+			t.Errorf("lead/SKILL.md: no pointer to reference.md %q", h)
+		}
+		if !strings.Contains(string(ref), "\n## "+h) {
+			t.Errorf("lead/reference.md: no heading %q", h)
+		}
 	}
 }

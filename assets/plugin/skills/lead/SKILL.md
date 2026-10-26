@@ -90,8 +90,9 @@ never changes while an agent that uses it runs: have it stopped, update the cont
 
 ## 4. Implement (through Spawn)
 - At most **4 agents in flight**. Tasks whose `owns` overlap never share a wave and never run
-  concurrently: split ownership by file in the task files, not by "be careful". A task starts
-  only when its `depends_on` lines are `merged`.
+  concurrently: split ownership by file in the task files, not by "be careful". Concurrent
+  tasks in one Go package get distinct name prefixes (in each task file) for their helpers and
+  `Test` functions, so names can't clash at merge. A task starts only when its `depends_on` lines are `merged`.
 - Per task: `git -C <ws>/<slug> worktree add -q <ws>/.tasks/<slug>-NN -b task/<ID>-NN-<task-slug> HEAD`
   (a `repo: vault` task has no worktree), set its line `running`, then add a `Spawn:` entry for
   `tickets:task` (or `tickets:mechanical` for renames, fixture sync, ≤3-file follow-ups) with
@@ -119,15 +120,7 @@ lint and tests from its `AGENTS.md` "Checking" (`<cmd> > <log> 2>&1; rc=$?;
 rg -n 'FAIL|panic|error' <log> | head -20; echo exit=$rc`). A nonzero `exit` blocks the merge,
 whatever the filtered output shows, and stops the chain before the board line; the merge commit is then already on HEAD: `git revert -m 1 <merge-sha>` it (never reset) and mark the line `partial`. Trust the report for detail: open files only when it claims
 something risky or lists "Outside owns". Then:
-- the board line, the last link of that chain (`... && sed ...`, with `merged $(git rev-parse --short HEAD)`), one recipe for every state (it drops an old `✅`/`❌` date, sets box, word and
-  new date, and fails loudly when the line didn't change); `<c>`/`<status>`/`<date>`: `' '`/`planned`/none ·
-  `\/`/`running`, `orphaned`, `partial`, `blocked`, `pending — user`/none · `x`/`merged <sha>`/` ✅ $(date +%F)` ·
-  `-`/`dropped`/` ❌ $(date +%F)`:
-```sh
-sed -i -E "/^- \[.\] NN · /{s/ (✅|❌) [0-9-]{10}$//; s/^- \[.\] (NN) · [^·]* · (.*)$/- [<c>] \1 · <status> · \2<date>/}" board.md
-rg -q "^- \[<c>\] NN · <status> · " board.md || echo "NN not updated"
-```
-  Status words never contain `·` (nor does a note ` · `); the `[/]` box is written `\/` in `<c>` because `/` is the sed delimiter;
+- the board line, the last link of that chain: one sed recipe for every state, with `merged $(git rev-parse --short HEAD)` (recipe: `reference.md`, "Board line");
 - `git worktree remove <ws>/.tasks/<slug>-NN && git merge-base --is-ancestor task/<ID>-NN-<task-slug> HEAD && git update-ref -d refs/heads/task/<ID>-NN-<task-slug>`. It leaves no reflog and any `branch.<name>.*` config (harmless).
   If removal is denied, mark the line `pending — user` and put the command in `Status:`.
 - A `repo: vault` task has nothing to merge: check its files, set the line `merged -`.
@@ -158,12 +151,7 @@ Every finding ends resolved, kept or deferred in the file's `## Dispositions` (c
   (`- [ ] B-nn · w<N> · <repo> · <item> · <finding id> ➕ <date>`; next free ID:
   `rg -o 'B-[0-9]+' backlog.md | sort -V | tail -1`).
 - **No review item stays open.** Keep exactly one `## Dispositions` line per finding ID, box, word and date together
-  (the reviewer wrote `- [ ] <ID> · open`; `✅`/`❌` dates from `date +%F`):
-  `- [/] <ID> · fixing · task NN` while a fix task runs;
-  `- [x] <ID> · resolved · task NN (<merge sha>) ✅ <date>` (or a commit sha) once a fix is merged;
-  `- [-] <ID> · kept: <reason ≤150 chars> (<sha if a comment or doc was added>) ❌ <date>` for
-  dropped, intended or not-applicable items (the reason is mandatory);
-  `- [x] <ID> · deferred → [[<ticket>]] · <why> #deferred ✅ <date>` when it goes to a follow-up ticket.
+  Line formats per state (`fixing`, `resolved`, `kept`, `deferred`): `reference.md`, "Disposition line formats".
   **Never file a ticket on your own.** The ask covers only items you would not fix in this
   ticket: deferral candidates at triage, and the open backlog at hand-over. Fix tasks and
   `kept:` stay your call, with no question. Ask through the gate in one `Ask user:`.
@@ -176,17 +164,7 @@ Every finding ends resolved, kept or deferred in the file's `## Dispositions` (c
   fix waves until the gate prints nothing. The gate runs at hand-over (8); between waves only
   an open must-fix blocks the next wave (a review just written is all `open`). The gate, from
   the vault root, for every review of the ticket:
-```sh
-for f in tickets/<ID>/reviews/*.md; do
-  [ -e "$f" ] || continue
-  rg -q '^## Dispositions' "$f" || echo "$f: no Dispositions"
-  for id in $(rg -o '^- (W[0-9]+-[a-z0-9-]+-[MSC][0-9]+) · ' -r '$1' "$f" | sort -u); do
-    rg -q "^- \[x\] $id · (resolved · |deferred → \[\[.*#deferred)|^- \[-\] $id · kept: " "$f" || echo "$f: $id"
-    rg -q "^- \[.\] $id · (open|fixing)" "$f" && echo "$f: $id open line"
-  done
-done
-```
-  Each printed `<file>: <ID>` (or `open line`: a leftover `open`/`fixing` line) needs a fix task in the next wave, a `kept:` reason or a deferral.
+  Gate script and how to read its output: `reference.md`, "Gate script".
 - At each wave start, triage `backlog.md` to ≤40 open items (drop, merge, or plan them) and move
   closed lines (box, word, date changed, nothing else) under `## Closed` in a `### w<N>` heading. Then plan the next wave's task files,
   including the `relay.md` entries that are `open` for you.
@@ -199,18 +177,8 @@ done
 When the gate (7) prints nothing and no line is `planned`, `running`, `partial` or
 `orphaned`: read `handover.md` (next to this file) and do it. Never run `/tickets:save` or push.
 
-## Ticket types (they shape the plan, not the agents)
-- `dev`: as above. `chore`: one task, or you do it directly; review only if behaviour can change.
-- `bug`: follow the `tickets:diagnose` skill ("In the ticket workflow"). Wave 1's first task
-  is "build the feedback loop" with `skills: [tickets:diagnose]` (phases 1–2, and 3 when
-  cheap); from its report write `plan.md ## Root cause` (the loop command, the confirmed cause,
-  the hypotheses ruled out; trace with graphify and the code). The fix task also lists
-  `skills: [tickets:diagnose]`, runs the loop in `## Checks`, and its "Done when" names a
-  regression test that fails before the fix.
-- `investigation`: a vault-only task, or you write `investigation.md` (template
-  `investigation`, ≤150 lines); code only if the ticket asks for it.
-- `epic`: one plan over `covers`, scope and acceptance criteria per covered ticket; tasks carry
-  `for: "[[ID]]"`; keep each covered ticket's `status` in step with its part of the work.
+## Ticket types
+Types `dev`, `chore`, `bug`, `investigation`, `epic` shape the plan, not the agents: `reference.md`, "Ticket types".
 
 ## Task list (`## Tasks` in the ticket note)
 One line per phase or wave, Tasks plugin format, details in `board.md`:
