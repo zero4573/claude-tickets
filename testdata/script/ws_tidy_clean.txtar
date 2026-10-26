@@ -1,0 +1,106 @@
+# ct ws tidy-clean: removes the tidy skill's scratch clones under .tasks/
+mkdir home/Documents/Obsidian/a/.obsidian
+mkdir home/Documents/Obsidian/a/tickets/MAN-1
+cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+expand gitconfig
+exec git init -q -b main seed
+exec git -C seed add -A
+exec git -C seed commit -q -m init
+exec git clone -q --bare seed remote/acme/billing.git
+exec git clone -q git@github.com:acme/billing.git home/Projects/repo-a/github/acme/billing
+exec ct ws add MAN-1 github-acme-billing --base main --desc tidy
+env R=home/Projects/work-a/MAN-1/github-acme-billing
+env T=home/Projects/work-a/MAN-1/.tasks
+env C=home/Projects/work-a/MAN-1/.tasks/tidy-github-acme-billing
+
+# none
+exec ct ws tidy-clean MAN-1
+stdout 'ct ws: no tidy clones in .*[/\\]\.tasks$'
+
+# a merged clone (the same commits as the ticket branch): removed
+mkdir $T
+exec git clone -q $R $C
+exec ct ws tidy-clean MAN-1 --dry-run
+stdout 'ct ws: would remove .*tidy-github-acme-billing'
+exists $C
+exec ct ws tidy-clean MAN-1
+stdout 'ct ws: removed .*tidy-github-acme-billing'
+! exists $C
+
+# an unmerged clone: kept, exit 1
+exec git clone -q $R $C
+cp seed/README.md $C/new.txt
+exec git -C $C add new.txt
+exec git -C $C commit -q -m new
+! exec ct ws tidy-clean MAN-1
+stderr 'tidy-github-acme-billing: bookmark [0-9a-f]{7} isn.t on feature/tidy, not removing \(use --force\)'
+stderr 'tidy-clean: kept 1 clone\(s\)'
+! stdout 'removed'
+exists $C
+! exec ct ws tidy-clean MAN-1 --dry-run
+! stdout 'would remove'
+exists $C
+
+# --force removes it
+exec ct ws tidy-clean MAN-1 --force --dry-run
+stdout 'would remove'
+exists $C
+exec ct ws tidy-clean MAN-1 --force
+stdout 'ct ws: removed .*tidy-github-acme-billing'
+! exists $C
+
+# an unknown slug is kept, and a task worktree dir is never touched
+mkdir $T/tidy-github-acme-other
+mkdir $T/github-acme-billing-01
+! exec ct ws tidy-clean MAN-1
+stderr 'tidy-github-acme-other: no repo github-acme-other in the workspace, not removing'
+exists $T/tidy-github-acme-other
+exists $T/github-acme-billing-01
+exec ct ws tidy-clean MAN-1 --force
+exists $T/github-acme-billing-01
+! exists $T/tidy-github-acme-other
+
+# a clone without the bookmark
+exec git clone -q $R $C
+exec git -C $C branch -m feature/tidy other
+! exec ct ws tidy-clean MAN-1
+stderr 'no bookmark feature/tidy, not removing'
+exec ct ws tidy-clean MAN-1 --force
+! exists $C
+
+# a tidy dir that isn't a clone: kept (git must not read a parent repository)
+mkdir $C
+! exec ct ws tidy-clean MAN-1
+stderr 'no bookmark feature/tidy, not removing'
+exec ct ws tidy-clean MAN-1 --force
+! exists $C
+
+# a corrupt workspace.json is reported, nothing removed
+mkdir $C
+cp home/Projects/work-a/MAN-1/workspace.json ws.json
+cp bad.json home/Projects/work-a/MAN-1/workspace.json
+! exec ct ws tidy-clean MAN-1 --force
+stderr 'tidy-clean: '
+exists $C
+cp ws.json home/Projects/work-a/MAN-1/workspace.json
+exec ct ws tidy-clean MAN-1 --force
+! exists $C
+
+# errors
+! exec ct ws tidy-clean MAN-9
+stderr 'tidy-clean: no workspace at'
+! exec ct ws tidy-clean nope
+stderr 'tidy-clean: not a ticket ID'
+
+-- man-1.md --
+---
+summary: First
+status: in-progress
+---
+-- gitconfig --
+[url "$WORK/remote/"]
+	insteadOf = git@github.com:
+-- bad.json --
+{
+-- seed/README.md --
+# billing

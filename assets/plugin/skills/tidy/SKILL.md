@@ -19,8 +19,8 @@ lead (SendMessage "new request R-nn"; no live lead: planned when the next one is
 ## The lead's part
 
 1. One task per repo with unpushed commits on the ticket branch
-   (`git rev-list HEAD --not --remotes`; none: skip the repo). Scratch clone dir under
-   `<ws>/.tasks/`. Give the task the immutable boundary, from the ticket worktree: the
+   (`git rev-list HEAD --not --remotes`; none: skip the repo). The scratch clone dir is
+   `<ws>/.tasks/tidy-<slug>`. Give the task the immutable boundary, from the ticket worktree: the
    full ids on the `-` lines of `git rev-list --boundary HEAD --not --remotes`, plus the
    base tip when `git merge-base --is-ancestor <base tip> HEAD` holds.
 2. After the task, in the ticket worktree: `git fetch <scratch clone> <bookmark>` (the new
@@ -34,7 +34,8 @@ lead (SendMessage "new request R-nn"; no live lead: planned when the next one is
    tree is the same, so `git status --short` must stay empty: check.
 3. Run the repo's checks, then `ct ws mark <ID> tidy`.
 4. Record the old→new mapping (old range, new commit list) in the ticket note's
-   `## Review`, and delete the scratch clone (if `rm -rf` is denied, give the user the command).
+   `## Review`, and delete the scratch clones with `ct ws tidy-clean <ID>` (the sandbox denies `rm -rf`;
+   it keeps an unmerged clone, `--force` only after the user agrees).
 
 Never touch pushed commits, never `reset --hard`.
 
