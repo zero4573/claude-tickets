@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/zero4573/claude-tickets/internal/config"
@@ -241,4 +242,44 @@ func Optional() Context {
 // the same as anything.
 func PathsSame(a, b string) bool {
 	return a != "" && b != "" && canonical(a) == canonical(b)
+}
+
+// ToolVersionsOf reads the toolVersions object of <vault>/.workflow.json
+// (asdf plugin name to a version or "latest") and merges it over the
+// defaults golang and python at latest, per key; a key set to "" or "none"
+// leaves that tool out and lists it in the opted-out names, so a caller can
+// tell it from an absent key. A malformed file or a non-string value gives the
+// defaults and a warning naming the file.
+func ToolVersionsOf(vault string) (map[string]string, []string, string) {
+	out := map[string]string{"golang": "latest", "python": "latest"}
+	file := filepath.Join(vault, ".workflow.json")
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return out, nil, ""
+	}
+	var wf struct {
+		ToolVersions map[string]any `json:"toolVersions"`
+	}
+	if err := json.Unmarshal(data, &wf); err != nil {
+		return out, nil, fmt.Sprintf("ct: %s: %v; using the default tool versions", file, err)
+	}
+	set := map[string]string{}
+	for k, v := range wf.ToolVersions {
+		str, ok := v.(string)
+		if !ok {
+			return out, nil, fmt.Sprintf("ct: %s: toolVersions.%s isn't a string; using the default tool versions", file, k)
+		}
+		set[k] = str
+	}
+	var opted []string
+	for k, v := range set {
+		if v == "" || v == "none" {
+			delete(out, k)
+			opted = append(opted, k)
+		} else {
+			out[k] = v
+		}
+	}
+	sort.Strings(opted)
+	return out, opted, ""
 }

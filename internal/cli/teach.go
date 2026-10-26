@@ -178,6 +178,7 @@ func teach(ctx vault.Context, topic string, cont bool) error {
 	if err := session.WriteSettings(dir, ctx.ProjectsRoot, "Bash(git commit:*)", "Bash(git push:*)"); err != nil {
 		return err
 	}
+	writeToolVersions(ctx, dir)
 	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(teachClaudeMD(ctx, topic)), 0o644); err != nil {
 		return err
 	}

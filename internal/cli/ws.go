@@ -311,10 +311,29 @@ func wsAdd(ctx vault.Context, key, spec, base, desc, version, useBranch string) 
 		graph.Seed(main, wt)
 	}
 	parts := strings.SplitN(clone, "/", 3)
-	return workspace.Put(workspace.File(dir), workspace.Repo{
+	if err := workspace.Put(workspace.File(dir), workspace.Repo{
 		Provider: parts[0], Owner: parts[1], Repo: parts[2], Slug: slug,
 		Path: wt, Base: base, Branch: branch, Mode: mode, TargetVersion: &version,
-	})
+	}); err != nil {
+		return err
+	}
+	writeToolVersions(ctx, dir)
+	return nil
+}
+
+// writeToolVersions writes the workspace's .tool-versions for the repos in
+// its workspace.json (slug to path); a missing tool or a failed write is a
+// warning, not an error.
+func writeToolVersions(ctx vault.Context, dir string) {
+	repos := map[string]string{}
+	if info, err := workspace.Read(dir); err == nil {
+		for _, r := range info.Repos {
+			repos[r.Slug] = r.Path
+		}
+	}
+	if err := session.WriteToolVersions(dir, ctx.Vault, repos, func(m string) { fmt.Fprintln(os.Stderr, m) }); err != nil {
+		warnf("couldn't write %s: %v", filepath.Join(dir, ".tool-versions"), err)
+	}
 }
 
 // copyWorktreeIncludes copies the untracked, ignored files a checkout
@@ -510,7 +529,7 @@ func wsRemove(ctx vault.Context, key string, force, merged bool) error {
 		return fmt.Errorf("rm: some worktrees were kept; workspace %s left in place", dir)
 	}
 	for _, f := range []string{"graphify-out", ".claude", "workspace.json", "workspace.json.lock",
-		"CLAUDE.md", ".ignore", ".cache", ".agent-state", ".sessions.json", ".sessions.json.lock", key + ".code-workspace"} {
+		"CLAUDE.md", ".ignore", ".tool-versions", ".cache", ".agent-state", ".sessions.json", ".sessions.json.lock", key + ".code-workspace"} {
 		_ = fsx.RemoveAll(filepath.Join(dir, f))
 	}
 	fsx.RemoveEmptyDirs(dir)

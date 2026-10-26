@@ -90,6 +90,7 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
 ```sh
 go generate ./assets          # after changing assets/vault-scaffold/: its hash history
 make check                    # go vet, gofmt, go test (unit + CLI tests, golden ct sync runs)
+# inside a ct workspace its .tool-versions pins Go; elsewhere set ASDF_GOLANG_VERSION
 make cross                    # every OS/arch into dist/
 nix build .#default           # builds ct (runs go test)
 nix flake check

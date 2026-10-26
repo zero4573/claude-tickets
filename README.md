@@ -290,6 +290,29 @@ what it overlaps, and kept only when you type `yes`. Sharing `projectsRoot`
 is the common case (the vaults share main clones); sharing `workRoot` mixes
 the vaults' workspaces.
 
+### Tool versions
+
+ct writes `<workspace>/.tool-versions` at every `ct start`, `ct ws add`,
+`ct kb` and `ct teach`, so `go`, `gofmt` and `python3` work through the asdf
+shims without `ASDF_*_VERSION` exports. The vault's `.workflow.json` sets the
+other tools:
+
+```json
+{ "toolVersions": { "python": "3.13.7", "golang": "latest" } }
+```
+
+Each key is an asdf plugin name with a version or `latest` (the newest
+installed). The setting merges over the defaults per key: setting only `python`
+still gives golang at `latest`; a key set to `""` or `"none"` leaves that tool
+out. A malformed `.workflow.json` or a non-string value gives the defaults and a
+warning. ct owns the root file: it overwrites it on every write (a hand-written
+one included) and `ct ws rm` removes it; a failed write is a warning. golang
+comes from the `go.mod` of the workspace's repos (the `toolchain` line, else
+the `go` line: the newest installed version of the same X.Y that satisfies it,
+else the newest installed above it); the setting is its fallback for a workspace
+without a `go.mod`. A tool with no installed version gets a warning
+(`asdf install <tool> <version>`) and is left out. `ct ws rm` removes the file.
+
 `ct ws fetch` and `gc` work on the current vault's workspaces only.
 `ct layout` lays out the current vault's `projectsRoot`, but won't move a
 main clone that any vault's workspace borrows objects from.

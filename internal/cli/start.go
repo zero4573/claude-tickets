@@ -324,6 +324,7 @@ func prepareTicketSession(ctx vault.Context, key string, dirs []string) (string,
 	if err := session.WriteSettings(dir, ctx.ProjectsRoot); err != nil {
 		return "", nil, err
 	}
+	writeToolVersions(ctx, dir)
 	if err := session.Trust(dir); err != nil {
 		warnf("couldn't mark %s as trusted in %s: %v", dir, session.ClaudeConfig(), err)
 	}
@@ -458,7 +459,9 @@ func ticketClaudeMD(ctx vault.Context, key, dir string) string {
 		"- Go: `GOPATH`, `GOMODCACHE` and `GOCACHE` are under `%[5]s/.cache/go`\n"+
 		"  (set in `.claude/settings.json`), so modules are fetched into this\n"+
 		"  workspace. graphify never scans `.cache/`, and `.ignore` keeps it out of\n"+
-		"  fff and Grep searches: name the path to search it.\n\n"+
+		"  fff and Grep searches: name the path to search it.\n"+
+		"- Tools: `go`, `gofmt` and `python3` come from `.tool-versions` (asdf), pinned\n"+
+		"  by ct, so don't export `ASDF_*_VERSION`.\n\n"+
 		"- Git: commit your work on the ticket branch in coherent steps (subject\n"+
 		"  starting with `%[1]s`, unless the repo's own convention says otherwise).\n"+
 		"  Commits are unsigned here; the user signs them on the host with\n"+

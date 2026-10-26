@@ -93,6 +93,7 @@ func kb(ctx vault.Context, question string, cont, print, fetch bool) error {
 	if err := session.WriteSettings(dir, ctx.ProjectsRoot, "Bash(git commit:*)", "Bash(git push:*)"); err != nil {
 		return err
 	}
+	writeToolVersions(ctx, dir)
 	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(kbClaudeMD(ctx, dir, sessionID)), 0o644); err != nil {
 		return err
 	}
