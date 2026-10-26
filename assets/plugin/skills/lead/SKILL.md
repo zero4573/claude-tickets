@@ -18,7 +18,7 @@ the vault; `<ws>/<slug>` is a ticket worktree (`workspace.json`).
 - In the vault, write only inside `tickets/<ID>/` (a lead ticket, `ticket-type: epic`, also the
   work sections and `status` of the tickets it covers). Shared notes are `/tickets:save`'s; draft
   in `tickets/<ID>/kb-drafts/`. In the ticket note never touch the identity and source fields,
-  the `ignore*` fields, the ticket's content, or `## Questions` (the PO's). In `board.md` the
+  the `ignore*` fields, a synced ticket's source block, a covered ticket's content, or `## Questions` (the PO's); a manual ticket's content only to record a user decision (cite its R-nn) or tick met criteria. In `board.md` the
   frontmatter `lead:`, `lead-since:` and `po:` are the PO's; you write everything else.
 - Follow the vault's `AGENTS.md`: frontmatter, kebab-case, wikilinks by bare note name,
   templates from `templates/` (`plan`, `board`, `task`, `review`, `backlog`). Checkboxes

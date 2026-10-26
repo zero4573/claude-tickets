@@ -199,8 +199,8 @@ func vault(t *testing.T) string {
 		os.MkdirAll(filepath.Join(v, d), 0o755)
 	}
 	w := func(rel, s string) { os.WriteFile(filepath.Join(v, rel), []byte(s), 0o644) }
-	w("tickets/PROJ-1/PROJ-1.md", "---\ntitle: E\nticket-type: epic\ncovers: [\"[[PROJ-2]]\"]\nstatus: open\n---\n# E\n\n## Description\n\nd\n\n## Tasks\n\nt\n")
-	w("tickets/PROJ-2/PROJ-2.md", "---\ntitle: C\nstatus: open\n---\n# C\n\n## Description\n\nd\n\n## Tasks\n\nt\n\n## Notes\n\nn\n")
+	w("tickets/PROJ-1/PROJ-1.md", "---\ntitle: E\nsource: jira\nticket-type: epic\ncovers: [\"[[PROJ-2]]\"]\nstatus: open\n---\n# E\n\n## Description\n\nd\n\n## Tasks\n\nt\n")
+	w("tickets/PROJ-2/PROJ-2.md", "---\ntitle: C\nsource: jira\nstatus: open\n---\n# C\n\n## Description\n\nd\n\n## Tasks\n\nt\n\n## Notes\n\nn\n")
 	return v
 }
 

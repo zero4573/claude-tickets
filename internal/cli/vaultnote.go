@@ -42,7 +42,9 @@ vault-relative path (resolved like a wikilink); <section> is "Title",
 
 Content for writes comes from --file or stdin. Writes follow the vault's write
 rules: in a ticket workspace only tickets/<ID>/ (never a ticket's identity
-fields or content sections), outside one only inbox/; /tickets:save passes
+fields or a synced ticket's source block; a manual ticket's own workspace may
+write its Description, Acceptance criteria and Context / links, a synced
+ticket's content sections never), outside one only inbox/; /tickets:save passes
 --save for the shared notes. Exit codes: 0 ok, 1 error, 2 usage / not found /
 ambiguous, 3 refused by a write rule.`,
 	}

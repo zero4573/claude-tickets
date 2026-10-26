@@ -106,13 +106,46 @@ func covers(vault, id string) map[string]bool {
 const whoWrites = `(AGENTS.md, "Who writes what" 3); /tickets:save passes --save`
 
 // Check applies the write rules to a write of rel (vault-relative, with
-// slashes) touching target. A nil result means it is allowed.
+// slashes) touching target. A nil result means it is allowed. Check reads
+// the ticket note from disk itself, while Apply passes the src it already
+// read; both reach the same manual decision (isManual) from those bytes.
 func Check(c Ctx, rel string, t Target) error {
-	_, err := check(c, rel, t)
+	var src []byte
+	if tid, ok := ticketOf(path.Clean(filepath.ToSlash(rel))); ok {
+		src, _ = os.ReadFile(filepath.Join(c.Vault, "tickets", tid, tid+".md"))
+	}
+	_, err := check(c, rel, src, t)
 	return err
 }
 
-func check(c Ctx, rel string, t Target) (coveredOnly bool, err error) {
+// sourceOf is the note's frontmatter source, unquoted and trimmed ("" when
+// the note has none).
+func sourceOf(src []byte) string {
+	v, _ := Field(src, "source")
+	return strings.TrimSpace(unquote(v))
+}
+
+// isManual says whether the note, as it is on disk before a write, is a
+// manual ticket: its source is manual. Anything else fails closed.
+// A note with more than one source key, or frontmatter that does not parse,
+// is not manual.
+func isManual(src []byte) bool {
+	n := 0
+	for _, kv := range Fields(src) {
+		if kv.Key == "source" {
+			n++
+		}
+	}
+	if n != 1 {
+		return false
+	}
+	if _, err := FieldsJSON(src); err != nil {
+		return false
+	}
+	return strings.EqualFold(sourceOf(src), "manual")
+}
+
+func check(c Ctx, rel string, src []byte, t Target) (coveredOnly bool, err error) {
 	rel = path.Clean(filepath.ToSlash(rel))
 	if rel == ".." || strings.HasPrefix(rel, "../") || path.IsAbs(rel) {
 		return false, refuse("refusing to write %s: outside the vault", rel)
@@ -158,7 +191,16 @@ func check(c Ctx, rel string, t Target) (coveredOnly bool, err error) {
 	}
 	if len(t.Section) > 0 {
 		if inSet(contentSections, t.Section) {
-			return false, refuse("refusing to write section %q of %s: the Description, Acceptance criteria and Context / links of a ticket note are never written by agents (AGENTS.md, \"Who writes what\")", strings.Join(t.Section, " > "), rel)
+			if coveredOnly {
+				return false, refuse("refusing to write section %q of %s: an epic writes only the work sections and status of the tickets it covers; the covered ticket's own workspace edits its Description, Acceptance criteria and Context / links (AGENTS.md, \"Who writes what\")", strings.Join(t.Section, " > "), rel)
+			}
+			if !isManual(src) {
+				v := sourceOf(src)
+				if v == "" {
+					v = "none"
+				}
+				return false, refuse("refusing to write section %q of %s: the Description, Acceptance criteria and Context / links of a ticket note whose source is not manual (source: %s) are never written by agents (AGENTS.md, \"Who writes what\")", strings.Join(t.Section, " > "), rel, v)
+			}
 		}
 		if coveredOnly && !inSet(workSections, t.Section) {
 			return false, refuse("refusing to write section %q of %s: an epic writes only the work sections and status of the tickets it covers", strings.Join(t.Section, " > "), rel)

@@ -20,8 +20,8 @@ in full. State lives in `tickets/<ID>/` (layout and caps: `work-ticket/workflow.
   lines only) and its `orphaned` marks (0); the kickoff also writes `## Workspace`, `projects:`,
   `ticket-type`, the kickoff line and the first `relay.md`/`board.md` and `<ID>-status.md`. The lead writes the rest.
 - In the ticket note, never touch the identity and source fields (`source`, `source-*`), the
-  `ignore*` fields, or the ticket's content (the `<!-- source:start -->` block of a synced
-  ticket; `## Description`, `## Acceptance criteria`, `## Context / links` of a manual one).
+  `ignore*` fields, a synced ticket's `<!-- source:start -->` block or a covered ticket's content;
+  a manual ticket's content sections only to record a user decision (cite its R-nn) or tick met criteria.
 - Follow the vault's `AGENTS.md`: frontmatter, kebab-case, wikilinks by bare note name.
   Checkboxes only where `vault-checklists-v1` puts them (`board.md ## Tasks`, `## Dispositions`,
   `backlog.md`, the note's `## Tasks`/`## Follow-ups`); relay, plan, task files and `## Reviews`: plain bullets.

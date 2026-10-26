@@ -62,6 +62,12 @@ Make sure `tickets/<ID>/kb-drafts/` is complete, each note with a `target:` fiel
 - open `## Follow-ups` (blockers still waiting on someone) and the new tickets filed after the user's answers (B);
 - remaining risks, and the board's `pending — user` lines: what the user checks by hand.
 
+## 5b. Acceptance criteria (manual ticket)
+If the ticket note has `source: manual`: tick the `## Acceptance criteria` items the merged work
+meets: read the section with `ct vault note get` first, then write it back with
+`ct vault note set-section` changing only `[ ]` to `[x]` (text unchanged). Unmet ones stay open and
+are named in `## Review`. Never edit a covered ticket's criteria or a synced ticket's source block.
+
 ## 6. Finish
 1. Set `status: review` (and on each covered ticket whose part is done). Mark the
    hand-over line in `## Tasks` `[x]` with `✅ <today>`.

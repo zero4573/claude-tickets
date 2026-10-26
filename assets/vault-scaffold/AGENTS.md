@@ -138,9 +138,10 @@ A ticket note `tickets/<ID>/<ID>.md` has three parts:
    | `chore` | `epic`), `status` (`new`, `triage`, `in-progress`, `blocked` = waiting on you,
    `review`, `done`, `closed`), `ignore*`, `projects` (slugs), `versions`, and the dependency
    fields (`parent`, `children`, `blocked-by`, `blocks`, `related`, `blocked`, `covers`, `covered-by`).
-2. **Content, which agents never edit:** a synced ticket's `source-*` fields and source block
-   (`<!-- source:start -->` to `<!-- source:end -->`); a manual ticket's `## Description`,
-   `## Acceptance criteria` and `## Context / links`.
+2. **Content:** a synced ticket's `source-*` fields and source block (`<!-- source:start -->` to
+   `<!-- source:end -->`): agents never edit. A manual ticket's `## Description`, `## Acceptance
+   criteria`, `## Context / links`: yours; its own agents may record your decisions or tick
+   met criteria (enforced: `source: manual` only, never a covered ticket).
 3. **Work, owned by the ticket's agents:** `## Workspace`, `## Tasks`, `## Questions`,
    `## Follow-ups`, `## Review`, `## Knowledge`, and the summaries `/tickets:save` appends.
 
@@ -155,15 +156,14 @@ Search before reading: `ct vault search "<question>" --budget 2000` (add `--proj
 
 ### Who writes what
 Several agents work at once, so each part of the vault has one writer. `ct vault note` enforces
-these rules (it refuses a write outside the session's area with exit 3; `/tickets:save` passes
-`--save`):
+these rules (a write outside the session's area is refused, exit 3; `/tickets:save` passes `--save`):
 1. **ct sync** owns a synced ticket's `source-*` fields and source block, `status: new` on new
    tickets and `closed` when the source closes one, `.sync-state.json`, and the dependency fields
    it reads from the source (incl. `covers` / `covered-by` between a synced epic and its
    children; it never clears a `covered-by` pointing at a manual lead). It never touches manual
    tickets or the work sections.
-2. **You** own a manual ticket's content, `ignore*`, `.sources.json`, `raw/`, `inbox.md`, and
-   everything not listed here.
+2. **You** own a manual ticket's content (see Ticket structure 2), `ignore*`, `.sources.json`,
+   `raw/`, `inbox.md`, and everything not listed here.
 3. A **ticket's agents** write only inside `tickets/<ID>/` until `/tickets:save`. The **PO**
    writes the note's `## Questions`, `status` (it runs the gate; the lead also sets it as it
    plans) and kickoff fields (`## Workspace`, `projects:`, `ticket-type`), `relay.md` (the lead

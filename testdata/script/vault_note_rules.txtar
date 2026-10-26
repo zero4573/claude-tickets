@@ -77,6 +77,25 @@ exec sh ../code.sh ct vault note set-section PROJ-1 Tasks --file ../add.txt
 stdout '^code=3$'
 exec ct vault note set-section PROJ-2 Notes --file ../add.txt
 
+# a manual ticket's own workspace writes its content sections; a synced one never
+cd $WORK
+mkdir v/tickets/PROJ-3 v/tickets/PROJ-4 ws3 ws4
+cp man.md v/tickets/PROJ-3/PROJ-3.md
+cp syn.md v/tickets/PROJ-4/PROJ-4.md
+cp ws3.json ws3/workspace.json
+cp ws4.json ws4/workspace.json
+cd ws3
+exec ct vault note set-section PROJ-3 Description --file ../add.txt
+exec ct vault note append PROJ-3 'Acceptance criteria' --file ../add.txt
+grep '^added$' ../v/tickets/PROJ-3/PROJ-3.md
+exec sh ../code.sh ct vault note frontmatter PROJ-3 source --set jira
+stdout '^code=3$'
+cd ../ws4
+! exec ct vault note set-section PROJ-4 Description --file ../add.txt
+stderr 'source is not manual \(source: jira\)'
+! exec ct vault note set-section PROJ-4 'Source (Jira)' --file ../add.txt
+stderr 'source block'
+
 # no workspace: inbox only
 cd $WORK
 exec ct vault note append inbox/i.md Log --file add.txt
@@ -191,6 +210,42 @@ added
 ## Notes
 
 n
+-- man.md --
+---
+title: Man
+source: manual
+status: open
+---
+# Man
+
+## Description
+
+d
+
+## Acceptance criteria
+
+a
+-- syn.md --
+---
+title: Syn
+source: jira
+status: open
+---
+# Syn
+
+## Description
+
+d
+
+## Source (Jira)
+
+<!-- source:start -->
+s
+<!-- source:end -->
+-- ws3.json --
+{"id": "PROJ-3", "repos": []}
+-- ws4.json --
+{"id": "PROJ-4", "repos": []}
 -- scratch.md --
 # Scratch
 

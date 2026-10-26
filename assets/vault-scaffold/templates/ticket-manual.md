@@ -31,8 +31,8 @@ tags: [ticket, manual]
 touches it. Name the note after its ID (MAN-<n>, the next free number;
 `ct new "<summary>"` does it for you), set `summary` and `ticket-type`
 (dev | bug | investigation | chore | epic), fill in the three sections
-below, then run `ct start <ID>`. Agents read these sections but never
-edit them. Set `status: closed` yourself when it's finished.
+below, then run `ct start <ID>`. The ticket's own agents may update
+these sections (record what you decided with them, tick met criteria). Set `status: closed` yourself when it's finished.
 Dependencies: list tickets as "[[ID]]" in parent, blocked-by, blocks and
 related, and set blocked: true while a blocker is open. To work several
 tickets as one, make this a lead: ticket-type: epic, the tickets in covers,

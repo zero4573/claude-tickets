@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const ticket = "---\ntitle: T\nstatus: open\n---\n# T\n\n## Description\n\nd\n\n## Tasks\n\nt\n"
+const ticket = "---\ntitle: T\nsource: jira\nstatus: open\n---\n# T\n\n## Description\n\nd\n\n## Tasks\n\nt\n"
 
 func ticketVault(t *testing.T) (Ctx, string) {
 	t.Helper()
