@@ -42,6 +42,17 @@ sequenceDiagram
 - Reviewers write one file per repo under `reviews/`, with capped must-fix, should-fix and
   consider lists.
 
+## Parallel tasks and the lead skill
+
+At most 4 agents run at once. Tasks whose `owns` overlap never share a wave. Concurrent
+tasks in one Go package get distinct name prefixes for their helpers and `Test` functions
+(set in each task file), so the names cannot clash when the lead merges the branches.
+
+The lead's `SKILL.md` keeps the playbook short. Detail read at one moment sits in
+`reference.md` next to it, under headings `SKILL.md` points to: the board-line recipe, the
+review disposition formats, the gate script that checks every review finding has a
+disposition, and how each ticket type shapes the plan.
+
 ## Checks that run in the sandbox
 
 Sessions often run sandboxed, as root, with no network and no signing key.

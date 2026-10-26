@@ -36,10 +36,14 @@ quoted.
 ## Tidy
 
 `/tickets:tidy` rewrites the ticket branch's unpushed commits into coherent ones with
-Jujutsu, in a scratch clone under `.tasks/`, never in the ticket worktree. The result must
+Jujutsu, in a scratch clone `.tasks/tidy-<slug>`, never in the ticket worktree. The result must
 have exactly the same tree. Before moving the branch, the lead saves the old tip as
 `refs/tidy-backup/<branch>` and updates the branch with the old value as a guard. Pushed
-commits are never touched.
+commits are never touched. The lead deletes the scratch clones with `ct ws tidy-clean <ID>`
+(it keeps a clone it cannot show is merged: its bookmark is not yet on the ticket branch, or
+the clone has no repo in the workspace, no bookmark or no `.git` of its own; it then exits
+nonzero with a warning; `--force` drops it, `--dry-run` only lists). It works in the sandbox, where
+`rm -rf` is denied, and touches nothing else under `.tasks/`.
 
 ## Marks
 
