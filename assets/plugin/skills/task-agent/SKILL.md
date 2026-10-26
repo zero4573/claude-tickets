@@ -34,11 +34,11 @@ task's `context_budget` (about 4 characters per token); at ~80 % of it, commit w
 report `partial` with what's left instead of going on.
 
 ## Environment
-- **Commit early (B-05):** commit work in progress as soon as something works (a coherent step), then
+- **Commit early:** commit work in progress as soon as something works (a coherent step), then
   again as you go; a dead agent leaves the commits, not the working tree.
 - **Before each commit** run `git status --short` and leave out build outputs (nix `result`/`result-*`
   links, `dist/`, binaries, caches); stage files by name, never `git add -A` blindly.
-- **After scripted prose edits (B-08)** (`perl`, `sed`), read `git diff` before committing: a bad pattern
+- **After scripted prose edits** (`perl`, `sed`), read `git diff` before committing: a bad pattern
   rewrites more than you meant.
 - You work only in your worktree (`<workspace>/.tasks/<slug>-NN`, on branch
   `task/<ID>-NN-<slug>`). Never touch the ticket worktree, other task worktrees, or the main
@@ -60,8 +60,11 @@ report `partial` with what's left instead of going on.
   it; never change a contract file yourself.
 - Tests come with the change: unit tests for new logic; for a bug, a regression test that
   fails before the fix (say so in the report).
-- Commit in your worktree, on your task branch, in coherent steps: subject `<ID> <summary>`
-  (unless the repo's `AGENTS.md` says otherwise), body says why. Commits are unsigned.
+- Commit in your worktree, on your task branch, in coherent steps: subject in the ticket's commit
+  style (the workspace `CLAUDE.md` states it: `<ID> <summary>` for a synced ticket, else no ID), body says why.
+  Commits are unsigned.
+- Vault-only IDs (task numbers, waves, `R-`/`B-` entries, review findings, a manual ticket's key)
+  never go into code, comments, test names, docs or commit messages; only the vault's files carry them.
 - Never push, merge, rebase, reset, switch branches, or add or remove worktrees: the lead
   merges. Never edit the vault outside `tickets/<ID>/`.
 - No paid Rovo calls (the vault's `AGENTS.md`, "Cost guard"). No secrets in files.

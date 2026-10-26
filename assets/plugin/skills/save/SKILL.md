@@ -264,9 +264,13 @@ Run `ct vault lock release <vault> <ID>`. Then, in the ticket's frontmatter
   closed it), which stays: `/tickets:save` ends the lead's work, and
   signing and pushing are the user's steps.
 
+Before the final status, in a ticket workspace run `ct ws marks <ID>`. On exit 3 ask with
+AskUserQuestion: stop and run `/tickets:docs` and `/tickets:tidy` first (recommended), or save
+anyway; go on only on the second.
+
 Tell them:
 - what was written, as wikilinks
-- that the code is committed, unsigned, on `feature/<ID>…` in each
+- that the code is committed, unsigned, on `feature/<ID>…` (a manual ticket: `feature/<description>`) in each
   worktree (plus anything `ct ws diff <ID>` still shows uncommitted):
   `ct ws sign <ID>` on the host, then push
 - that `ct ws rm <ID>` cleans up the worktrees after merge, and `ct clean`

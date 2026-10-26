@@ -21,5 +21,5 @@ of accepting. Each printed `<file>: <ID>` needs a fix task, a `kept:` reason or 
 
 ## 2. Accept
 If it prints nothing, set `lead: none`, tell the user the ticket is ready for review
-(`ct ws diff <ID>`, changes can be asked for here, then `/tickets:save`, `ct ws sign <ID>` on
-the host, push), and suggest a refresh (`SKILL.md` 6).
+(`ct ws diff <ID>`, changes can be asked for here; then, in the user's order, docs, tidy,
+`/tickets:save`, `ct ws sign <ID>` on the host (`--skip-marks` if they chose to skip docs or tidy), push), and suggest a refresh (`SKILL.md` 6).

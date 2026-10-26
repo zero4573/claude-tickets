@@ -50,7 +50,7 @@ applies: `relay.md` entries to you that are `open` (answers and decisions →
 → plan them, below); `status: blocked` with no answer yet → end with `Next: wait-user`;
 `orphaned` lines (the PO's prompt names them; their agents died with an old session) → check
 the task branch (name from call 3 or `git branch --list 'task/<ID>-*'`, then
-`git log --oneline <ticket-branch>..<task-branch>`, and its `## Report`). A branch already merged (the lead died between merge and board line) is recorded, not re-merged; test `orphaned` lines only (`running` agents are alive). Ancestry is no proof (a branch with no commits is an ancestor at its fork point), the merge commit is: `sha=$(git -C <ws>/<slug> log --merges --grep "merge task NN:" --format=%h -1 <base>..HEAD); test -n "$sha" && echo merged` (`<base>` from `workspace.json`), and on `merged` run the board recipe of 5 with `<c>`=`x`, `<status>`=`merged $(git -C <ws>/<slug> rev-parse --short HEAD)`, `<date>`=` ✅ $(date +%F)`. Otherwise merge it (5), ask for
+`git log --oneline <ticket-branch>..<task-branch>`, and its `## Report`). A branch already merged (the lead died between merge and board line) is recorded, not re-merged; test `orphaned` lines only (`running` agents are alive). Ancestry is no proof (a branch with no commits is an ancestor at its fork point), the merge commit is: `t=$(git -C <ws>/<slug> rev-parse -q --verify task/<ID>-NN-<task-slug>) && sha=$(git -C <ws>/<slug> log --merges --format='%h %P' <base>..HEAD | awk -v t="$t" 'index($3,t)==1||index(t,$3)==1{print $1; exit}'); test -n "$sha" && echo merged` (`%P` gives full hashes; the merge commit's second parent is the task branch tip; `<base>` from `workspace.json`), and on `merged` run the board recipe of 5 with `<c>`=`x`, `<status>`=`merged $(git -C <ws>/<slug> rev-parse --short HEAD)`, `<date>`=` ✅ $(date +%F)`. Otherwise merge it (5), ask for
 it again with "New since: resumed, commits so far …", or re-plan it; `running` lines → their
 agents live, `Next: wait-tasks`; a merged wave without a `## Reviews` line → 6; open must-fixes
 (by word: `rg -n '^- \[.\] W[0-9]+-[a-z0-9-]+-M[0-9]+ · (open|fixing)' tickets/<ID>/reviews/`) →
@@ -114,7 +114,7 @@ blocked; wave 2 still running: 04; finished, unsent: 05"): set its line, ask or 
 timeout). For each finished task read only its `## Report` (`sed -n '/^## Report/,$p' <task
 file>`). Per finished task, in task order, one chain in `<ws>/<slug>` (merge `&&` checks `&&` board line, so a
 dead lead can never leave a merged task `running`; filtered output):
-`git merge --no-ff -q task/<ID>-NN-<task-slug> -m "<ID> merge task NN: <title>"`, then the repo's
+`git merge --no-ff -q task/<ID>-NN-<task-slug> -m "<subject>"` (`<subject>`: the task's title as a summary, in the ticket's commit style from `board.md` `commit-style:`; never `merge task NN`, and no ID unless the style is `ticket`), then the repo's
 lint and tests from its `AGENTS.md` "Checking" (`<cmd> > <log> 2>&1; rc=$?;
 rg -n 'FAIL|panic|error' <log> | head -20; echo exit=$rc`). A nonzero `exit` blocks the merge,
 whatever the filtered output shows, and stops the chain before the board line; the merge commit is then already on HEAD: `git revert -m 1 <merge-sha>` it (never reset) and mark the line `partial`. Trust the report for detail: open files only when it claims
@@ -135,7 +135,7 @@ rg -q "^- \[<c>\] NN · <status> · " board.md || echo "NN not updated"
   reason, and go on merging the rest of the wave; then ask for a follow-up of the task with the
   failure, or fix it yourself.
 - `partial` or `blocked` reports: status `partial`/`blocked`, the reason in the note.
-- Follow-ups of ≤20 lines you do yourself in the ticket worktree and commit (`<ID> <subject>`);
+- Follow-ups of ≤20 lines you do yourself in the ticket worktree and commit (subject in the ticket's commit style);
   no micro-tasks. Batch bigger ones into the next task that owns those files.
 
 ## 6. Wave review (through Spawn)

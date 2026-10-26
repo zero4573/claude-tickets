@@ -275,6 +275,31 @@ func TestPOAndLeadSkills(t *testing.T) {
 	}
 }
 
+// The ticket docs and tidy skills: model-invocable, at most 100 lines.
+func TestDocsTidySkillFrontmatter(t *testing.T) {
+	for _, name := range []string{"docs", "tidy"} {
+		data, err := fs.ReadFile(Files, "plugin/skills/"+name+"/SKILL.md")
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
+		s := string(data)
+		fm := frontmatter(t, s)
+		if v, _, _ := field(fm, "name"); v != name {
+			t.Errorf("%s: name %q", name, v)
+		}
+		if v, _, _ := field(fm, "description"); len(v) < 40 {
+			t.Errorf("%s: description too short: %q", name, v)
+		}
+		if v, _, ok := field(fm, "disable-model-invocation"); ok && v == "true" {
+			t.Errorf("%s: must be model-invocable", name)
+		}
+		if n := strings.Count(s, "\n"); n > 100 {
+			t.Errorf("%s is %d lines, cap 100", name, n)
+		}
+	}
+}
+
 // The skills adapted from mattpocock/skills (MIT; MAN-16 addendum): each
 // ships with its name, a description, the attribution footer and a size
 // cap; grill, retro and teach are user-invoked only; the notices file
@@ -496,10 +521,10 @@ func TestTemplateCommentsHaveNoCheckboxLines(t *testing.T) {
 	}
 }
 
-// MAN-12 plugin skills: the lead's merge chain and ancestor-based branch
+// Plugin skill rules: the lead's merge chain and ancestor-based branch
 // deletion, the reviewer's capped focused tests, the task agent's report
 // heading and early commits, and the formats note in workflow.md.
-func TestMAN12PluginSkillRules(t *testing.T) {
+func TestPluginSkillRules(t *testing.T) {
 	read := func(p string) string {
 		data, err := fs.ReadFile(Files, p)
 		if err != nil {
@@ -517,7 +542,7 @@ func TestMAN12PluginSkillRules(t *testing.T) {
 	}{
 		"lead": {lead, []string{
 			"merge `&&` checks `&&` board line", "can never leave a merged task `running`",
-			"Ancestry is no proof", "--merges --grep \"merge task NN:\"", "test `orphaned` lines only", "recorded, not re-merged",
+			"Ancestry is no proof", "index($3,t)==1||index(t,$3)==1", "-m \"<subject>\"", "test `orphaned` lines only", "recorded, not re-merged",
 			"`git revert -m 1 <merge-sha>` it (never reset) and mark the line `partial`", "leaves no reflog and any `branch.<name>.*` config",
 			"git merge-base --is-ancestor <b> HEAD && git update-ref -d refs/heads/<b>",
 		}},

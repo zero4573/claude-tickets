@@ -7,6 +7,7 @@ type: board
 ticket: "[[TICKET-ID]]"
 wave: 1
 last-reviewed: {}
+commit-style: ""
 lead: none
 lead-since: ""
 po:
@@ -23,7 +24,7 @@ tags: [board]
 Tasks and wave reviews of [[TICKET-ID]] in [[provider-owner-repo]], kept by the lead; one line
 each, updated in place.
 Task files: `tasks/<ID>-NN-<slug>.md`, linked as `[[<ID>-NN-<slug>]]`. `last-reviewed` maps each
-repo slug to the last reviewed commit. `lead:`, `lead-since:` and `po:` (its session, the
+repo slug to the last reviewed commit. `commit-style:` (`ticket`, `conventional` or `repo`, set at kickoff), `lead:`, `lead-since:` and `po:` (its session, the
 running agents with their wave, finished notices not yet sent to the lead, refresh counters)
 are the PO's, and so is marking `running` lines `orphaned`
 when that session has ended; the lead writes the rest.

@@ -15,11 +15,12 @@ The ground rules of `work-ticket` apply:
 - **Vault writes:** only inside `tickets/<ID>/` (a lead ticket also writes the
   work sections and `status` of the tickets it `covers`).
 - **Git:** commit the applied feedback on the PR's branch (one commit per
-  thread or coherent group, subject starting with the ticket ID), unsigned.
+  thread or coherent group, subject in the ticket's commit style: `board.md` `commit-style:`, `<ID> …` only for a synced ticket), unsigned.
+  Replies and PR text never carry vault-only IDs (task numbers, waves, `R-`/`B-` entries, findings, a manual ticket's key).
   Never push, rewrite commits already on a remote (the PR's existing
   commits), reset, or remove the ticket worktrees (task worktrees under
   `<ws>/.tasks/` come and go as in `lead/SKILL.md` §4–5). The user reviews, signs
-  (`ct ws sign <ID>`), pushes, and posts the replies.
+  (`ct ws sign <ID> --skip-marks`), pushes, and posts the replies.
 - **Bitbucket is read-only:** the token has no write scopes; never post,
   resolve, approve or edit anything there. Replies are drafted in the vault.
 - **No paid Rovo calls** (the vault's `AGENTS.md`, "Cost guard"): never
@@ -177,4 +178,5 @@ Then:
 3. Tell the user, in ≤8 lines: how many threads were applied, answered, or
    need them; that `pr-feedback.md` has the replies to post; that the
    changes are committed, not pushed, on the PR branches (review them, run
-   `ct ws sign <ID>` on the host, then push to update the PRs).
+   `ct ws sign <ID> --skip-marks` on the host, since feedback on a pushed PR makes the docs
+   and tidy marks stale and tidy can't rewrite pushed commits, then push to update the PRs).

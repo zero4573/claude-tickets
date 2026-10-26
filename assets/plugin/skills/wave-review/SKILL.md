@@ -17,6 +17,9 @@ fix-task IDs, the previous review file (if any), and a ≤5-line graph impact no
    Previous findings: read the previous review's `## Dispositions`; any ID whose line says `open` or `fixing`
    is still open (`rg -n '^- \[.\] W[0-9]+-.* · (open|fixing)' <prev review>`). Check
    those against the fix tasks the lead named. Don't re-review unchanged code.
+3b. Vault-only IDs (contract `commit-rules-v1`): `git -C <worktree> diff <range> | rg '^\+' | rg
+   'task [0-9]+|wave [0-9]|\bw[0-9]\b|\b[RB]-[0-9]+|W[0-9]+-[a-z0-9-]+-[MSC][0-9]+|<the manual ticket key>'`
+   (fixtures modelling tickets excepted). A hit is a must-fix.
 4. Read by hunk (`git diff <range> -- <file>`); open full files only where a hunk needs
    context. Find callers with the fff tools (`mcp__fff__grep`, `mcp__fff__multi_grep`) when
    available, else `rg`, scoped to `<worktree>` (fff indexes the whole workspace, `.tasks/`

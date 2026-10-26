@@ -25,6 +25,9 @@ in full. State lives in `tickets/<ID>/` (layout and caps: `work-ticket/workflow.
 - Follow the vault's `AGENTS.md`: frontmatter, kebab-case, wikilinks by bare note name.
   Checkboxes only where `vault-checklists-v1` puts them (`board.md ## Tasks`, `## Dispositions`,
   `backlog.md`, the note's `## Tasks`/`## Follow-ups`); relay, plan, task files and `## Reviews`: plain bullets.
+- Commit subjects follow the ticket's commit style (`board.md` `commit-style:`); vault-only IDs
+  (task numbers, waves, `R-`/`B-` entries, findings, a manual ticket's key) never go into code,
+  docs or commits.
 - Commits are unsigned (the user runs `ct ws sign <ID>`). Never push, rewrite pushed commits,
   `reset --hard`, or remove the ticket worktrees.
 - **Find vault context with `ct vault search "<topic>" --project <slug> --budget 2000`** (kickoff

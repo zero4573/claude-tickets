@@ -13,8 +13,7 @@ line and the open-line and `#deferred` checks): its output must be empty. If it 
 In one chain per repo:
 `git -C <ws>/<slug> worktree list` (only the ticket worktree is left),
 `git -C <ws>/<slug> branch --list 'task/<ID>-*'` (empty), and
-`git -C <ws>/<slug> status --short` (empty; commit leftovers with a subject starting with the
-ticket ID). A task worktree or branch you couldn't remove stays on the board as
+`git -C <ws>/<slug> status --short` (empty; commit leftovers with a subject in the ticket's commit style). A task worktree or branch you couldn't remove stays on the board as
 `pending — user`, with the exact command in `## Review`.
 
 ## 2. Retro (short; the method of the user-invoked `/tickets:retro`)
@@ -67,6 +66,13 @@ If the ticket note has `source: manual`: tick the `## Acceptance criteria` items
 meets: read the section with `ct vault note get` first, then write it back with
 `ct vault note set-section` changing only `[ ]` to `[x]` (text unchanged). Unmet ones stay open and
 are named in `## Review`. Never edit a covered ticket's criteria or a synced ticket's source block.
+
+## 5c. Docs and tidy marks
+Run `ct ws marks <ID>`. Exit 0 (every repo `ok` for `docs` and `tidy`): go on. Otherwise ask
+through the gate (`SKILL.md`): run the docs wave and tidy now? A (recommended): docs, then tidy;
+B: tidy only; C: neither (`/tickets:save` and `ct ws sign` will warn). End with `Next: wait-user`,
+and on the answer run what was chosen per `tickets:docs` and `tickets:tidy` (the lead marks them
+with `ct ws mark`) before Finish.
 
 ## 6. Finish
 1. Set `status: review` (and on each covered ticket whose part is done). Mark the

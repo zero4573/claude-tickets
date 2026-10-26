@@ -671,10 +671,10 @@ func TestLeadGitRecipes(t *testing.T) {
 		}
 		return lead[i : i+j+len(end)]
 	}
-	mergeCmd := span("git merge --no-ff -q ", `<title>"`)
+	mergeCmd := span("git merge --no-ff -q ", `<subject>"`)
 	deleteCmd := span("git worktree remove ", "<task-slug>`")
 	deleteCmd = strings.TrimSuffix(deleteCmd, "`")
-	resumeCmd := span("sha=$(", `echo merged`)
+	resumeCmd := span("t=$(git -C <ws>/<slug> rev-parse", `echo merged`)
 	revertCmd := span("git revert -m 1 <merge-sha>", "<merge-sha>")
 	boardCmd := shBlock(t, lead, `sed -i -E "/^- \[.\] NN · `)
 
@@ -698,7 +698,7 @@ func TestLeadGitRecipes(t *testing.T) {
 	}
 	fill := func(s, nn, slug string) string {
 		return strings.NewReplacer("git -C <ws>/<slug> ", "git ", "<ws>/<slug>", dir, "<ws>/.tasks/<slug>-NN", ".tasks/repo-"+nn,
-			"<ID>", "T-1", "NN", nn, "<task-slug>", slug, "<title>", "title "+slug, "<base>", "main").Replace(s)
+			"<ID>", "T-1", "NN", nn, "<task-slug>", slug, "<subject>", "title "+slug, "<base>", "main").Replace(s)
 	}
 	must("git init -q -b main . && git commit -q --allow-empty -m base && git checkout -q -b feature/T-1")
 	board := "- [ ] 01 · planned · [[T-1-01-api]] · repo · w1 · deps - · R-03 ➕ 2026-10-25\n"
@@ -756,7 +756,7 @@ func TestLeadGitRecipes(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "d.txt")); err == nil {
 		t.Error("revert left the merged file")
 	}
-	if out := must("git log --merges --format=%s -1"); !strings.Contains(out, "merge task 03:") {
+	if out := must("git log --merges --format=%s -1"); !strings.Contains(out, "title db") {
 		t.Errorf("merge commit gone after revert: %q", out)
 	}
 }

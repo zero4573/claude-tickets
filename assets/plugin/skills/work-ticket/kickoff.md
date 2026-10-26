@@ -27,7 +27,7 @@ repo added later skips the grill.
 An epic, or any ticket with `ticket-type: epic`, is a **lead**. Its workspace does the work of
 every ticket in its `covers` list. Those are the children assigned to the user, and
 `ct start` sends them here. The lead agent runs it like one bigger ticket:
-- **One workspace, one branch per repo:** `feature/<LEAD-ID>[-<description>]` for all the
+- **One workspace, one branch per repo:** `feature/<LEAD-ID>[-<description>]` (manual: `feature/<description>`) for all the
   covered tickets together.
 - **One plan** over all of them: `plan.md` has scope and acceptance criteria per covered
   ticket, and each task file names the ticket it serves with `for: "[[<ID>]]"`.
@@ -97,12 +97,16 @@ every ticket in its `covers` list. Those are the children assigned to the user, 
    - For each chosen repo, the **target version** the change ships in. Offer what the repo's
      version file, latest tag (`git describe --tags --abbrev=0 origin/<base>`) and the
      ticket's `source-fix-versions` suggest.
-   - An optional short **branch description** (kebab-case), giving
-     `feature/<ID>-<description>`.
+   - A short **branch description** (kebab-case): `feature/<ID>-<description>` for a synced
+     ticket (optional), `feature/<description>` for a manual one (required).
+   - **Commit style** (manual ticket only): AskUserQuestion with `repo` (recommended: the repo's
+     own convention, no ID) and `conventional` (Conventional Commits, no ID). Write it as
+     `commit-style:` in `board.md` (step 7). A synced ticket: `commit-style: ticket`, no question.
 
    Batch these (up to 4 questions per call; several calls are fine).
 4. For each repo, run
-   `ct ws add <ID> <slug> --base <base> --version <version> [--desc <description>]`.
+   `ct ws add <ID> <slug> --base <base> --version <version> --desc <description>` (always pass
+   `--desc`; a synced ticket may omit it).
    Add `--branch <name>` to reuse an existing branch for this ticket, e.g. an open PR's
    source. It records the repo in `workspace.json`.
 5. Write the answers into the ticket note:

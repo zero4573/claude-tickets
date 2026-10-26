@@ -73,19 +73,23 @@ Every repo is a **project**, `projects/<slug>/`, and stands alone unless its not
 
 ### Templates
 `templates/<type>.md`, one per note type: `base`, `session-log`, `ticket-synced`, `ticket-manual`,
-`project`, `group`, `feature`, `sequence` (mermaid flows), `decision`, `investigation`,
-`knowledge`, `reference`, `pr-feedback`, `learning-topic`, `lesson`, `learning-record`,
-`learning-reference`, and for `tickets/<ID>/` `plan`, `board`, `relay`, `backlog`, `status`
-(`<ID>-status.md`), `task` and `review`.
+`project`, `group`, `feature`, `sequence` (mermaid), `decision`, `investigation`, `knowledge`,
+`reference`, `pr-feedback`, `learning-topic`, `lesson`, `learning-record`, `learning-reference`,
+and for `tickets/<ID>/` `plan`, `board`, `relay`, `backlog`, `status`, `task` and `review`.
 
 ### Standard frontmatter
 `title`, `created`, `updated` (`yyyy-MM-dd`), `status: active`, `type: permanent`,
 `tags: [project, topic1, ...]`; the template of the note's type has the rest.
 
+### Vault-only IDs
+Task numbers, waves, relay `R-nn`, backlog `B-nn`, review finding IDs and a manual ticket's key
+(`MAN-<n>`) live only in this vault: never in code, comments, test names, docs, commit messages,
+pushed branch names or PR text. Only a synced ticket's key (`PROJ-12`) may appear there.
+
 ### Never do
-Don't delete notes without asking (`ct clean`, run by you, is the only way ticket notes leave the
-vault), use markdown links for internal notes, create notes without frontmatter, change the
-folder structure without documenting it, or move notes with `mv` (use `ct vault links move`).
+Don't delete notes without asking (only `ct clean`, run by you, removes ticket notes), use markdown
+links for internal notes, create notes without frontmatter, change the folder structure without
+documenting it, or move notes with `mv` (use `ct vault links move`).
 
 ### Task lists
 Task states (Tasks plugin): `- [ ]` todo, `- [/]` in progress, `- [x]` done, `- [-]` cancelled,
@@ -109,20 +113,16 @@ to) with one **lead** agent that plans and merges in waves of task agents, each 
 state lives in `tickets/<ID>/`. How it works (kickoff, plan, contracts, waves, review,
 hand-over, `relay.md`, the agents), the dependency fields, lead tickets and the status
 lifecycle: `work-ticket/workflow.md`, "Workflow", and the skills `work-ticket`, `lead`,
-`task-agent` and `wave-review`. The skills ship with the plugin, not in the vault; in a session
-they run as `/tickets:<skill>` (e.g. `/tickets:work-ticket`). Session commands: `/tickets:save` (session log, promotes drafts,
-appends the summary), `/tickets:recall` (read-only recap), `/tickets:kb` (answers from the vault,
-drafts into `inbox/`) and `/tickets:teach` (learning topics).
-Paths: `workRoot` (in `.workflow.json`) holds the ticket workspaces `<workRoot>/<ID>`, `projectsRoot` the
+`task-agent` and `wave-review`. The skills ship with the plugin, not in the vault. Session
+commands: `/tickets:save` (session log, promotes drafts, appends the summary), `/tickets:recall` (read-only recap), `/tickets:kb` (answers from the vault,
+drafts into `inbox/`) and `/tickets:teach` (learning topics). Paths: `workRoot` (in `.workflow.json`) holds the ticket workspaces `<workRoot>/<ID>`, `projectsRoot` the
 main clones; `~/work/<ID>` in skills stands for the former, `~/Projects` for the latter (a session's
 `CLAUDE.md` gives the real paths).
 
 ### Cost guard: no paid Rovo calls
-Use only the single-product Atlassian tools (JQL search, `getJiraIssue`, Bitbucket reads), which
-are free. Never call `search` (unified search) or the Teamwork Graph tools (`getGraphContext`,
+Use only the single-product Atlassian tools (JQL search, `getJiraIssue`, Bitbucket reads; free). Never call `search` (unified search) or the Teamwork Graph tools (`getGraphContext`,
 `getGraphObject`, `addGraphContext`, `getTeamworkGraphContext`), nor run their operations through
-`executeRead`: they cost Rovo credits. The tools are denied in settings, but only this rule
-holds back `executeRead`.
+`executeRead`: they cost Rovo credits. Settings deny the tools; only this rule holds back `executeRead`.
 
 ### Ticket sources
 `tickets/.sources.json` lists where tickets come from. Each source has `enabled`, `idPrefix`,
@@ -169,8 +169,8 @@ these rules (a write outside the session's area is refused, exit 3; `/tickets:sa
    plans) and kickoff fields (`## Workspace`, `projects:`, `ticket-type`), `relay.md` (the lead
    appends its own questions and sets any entry's state), the questionnaires, the first
    `board.md`, `relay.md` and `<ID>-status.md` from their templates (never overwriting one),
-   `board.md`'s `lead:`, `lead-since:` and `po:`, and the `orphaned` mark on lines of an ended
-   session. The **lead** writes the rest of the folder: the other work sections, `plan.md`,
+   `board.md`'s `commit-style:`, `lead:`, `lead-since:` and `po:`, and the `orphaned` mark on
+   lines of an ended session. The **lead** writes the rest of the folder: the other work sections, `plan.md`,
    `board.md`, `backlog.md`, the task files, `contracts/` and `kb-drafts/`. A task agent writes
    only its own task file's `## Report` (plus the code in its `owns`); a reviewer only its
    `reviews/` file; an analyst nothing.
