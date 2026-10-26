@@ -1,0 +1,29 @@
+# ct start: a manual ticket's CLAUDE.md names its commit style, never the ID in subjects
+mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a/github/acme/x/.git
+mkdir home/Documents/Obsidian/a/tickets/MAN-1
+cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+cp board.md home/Documents/Obsidian/a/tickets/MAN-1/board.md
+expand user-settings.json
+env CLAUDE_TICKETS_SESSION_SETTINGS=$WORK/user-settings.json
+
+exec ct start --no-fetch MAN-1
+grep 'subjects never carry the ticket ID' home/Projects/work-a/MAN-1/CLAUDE.md
+grep 'style: conventional commits' home/Projects/work-a/MAN-1/CLAUDE.md
+grep 'normally on .feature/<description>.' home/Projects/work-a/MAN-1/CLAUDE.md
+grep 'Vault-only IDs' home/Projects/work-a/MAN-1/CLAUDE.md
+! grep 'starting with .MAN-1' home/Projects/work-a/MAN-1/CLAUDE.md
+
+-- man-1.md --
+---
+summary: First
+status: in-progress
+source: manual
+---
+-- board.md --
+---
+commit-style: conventional
+---
+-- user-settings.json --
+{"permissions": {"deny": ["Bash(git push:*)"], "defaultMode": "auto"}}
+-- home/.claude.json --
+{"keep": 1, "projects": {}}

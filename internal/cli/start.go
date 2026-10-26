@@ -435,6 +435,11 @@ func runForeground(l launcher.Resolved, w launcher.Window, resume bool, o startO
 func ticketClaudeMD(ctx vault.Context, key, dir string) string {
 	v, p := ctx.Vault, ctx.ProjectsRoot
 	ticket := note.TicketPath(v, key)
+	branchText, gitSubject := "feature/<description>", manualSubjectRule(ticketCommitStyle(ctx, key))
+	if ticketSynced(ctx, key) {
+		branchText = "feature/" + key + "[-<description>]"
+		gitSubject = "subject starting with `" + key + "`, unless the repo's own convention says otherwise"
+	}
 	return fmt.Sprintf("# Ticket workspace: %[1]s\n\n"+
 		"Written by ct start; regenerated on every start, so don't edit it.\n\n"+
 		"- Ticket: `%[1]s` (source: `%[2]s`)\n"+
@@ -446,7 +451,7 @@ func ticketClaudeMD(ctx vault.Context, key, dir string) string {
 		"  `covers`.\n"+
 		"- Repos in this workspace: `%[5]s/workspace.json` (each repo's path, base\n"+
 		"  and branch), kept current by `ct ws add`. Checkouts are at\n"+
-		"  `%[5]s/<slug>`, normally on `feature/%[1]s[-<description>]`.\n"+
+		"  `%[5]s/<slug>`, normally on `%[7]s`.\n"+
 		"- Main clones: `%[6]s/<provider>/<owner>/<repo>`. Never edit\n"+
 		"  them: their `.git` is only writable so `ct ws add` can create\n"+
 		"  worktrees. Each\n"+
@@ -462,8 +467,9 @@ func ticketClaudeMD(ctx vault.Context, key, dir string) string {
 		"  fff and Grep searches: name the path to search it.\n"+
 		"- Tools: `go`, `gofmt` and `python3` come from `.tool-versions` (asdf), pinned\n"+
 		"  by ct, so don't export `ASDF_*_VERSION`.\n\n"+
-		"- Git: commit your work on the ticket branch in coherent steps (subject\n"+
-		"  starting with `%[1]s`, unless the repo's own convention says otherwise).\n"+
+		"- Git: commit your work on the ticket branch in coherent steps (%[8]s).\n"+
+		"  Vault-only IDs (task numbers, waves, R-/B- entries, review findings) never\n"+
+		"  go into code, comments, docs or commit messages.\n"+
 		"  Commits are unsigned here; the user signs them on the host with\n"+
 		"  `ct ws sign %[1]s`. Never push, rewrite pushed commits, reset\n"+
 		"  --hard, or remove the ticket worktrees; the lead adds and removes task\n"+
@@ -479,5 +485,34 @@ func ticketClaudeMD(ctx vault.Context, key, dir string) string {
 		"opens a new conversation, which resumes from `board.md`; `ct start\n"+
 		"--continue %[1]s` reopens the last one), and `/tickets:save` once the user\n"+
 		"has reviewed the changes. The user signs and pushes.\n",
-		key, note.Get(ticket, "source"), v, ticket, dir, p)
+		key, note.Get(ticket, "source"), v, ticket, dir, p, branchText, gitSubject)
+}
+
+// ticketSynced reports whether the ticket's note is a synced ticket's (a
+// missing note is a manual ticket).
+func ticketSynced(ctx vault.Context, key string) bool {
+	return note.Synced(note.Frontmatter(note.TicketPath(ctx.Vault, key)))
+}
+
+// ticketCommitStyle is the commit-style the ticket's board.md names, "" when
+// the file or the field is missing or the value is not a style a manual
+// ticket may use.
+func ticketCommitStyle(ctx vault.Context, key string) string {
+	st := note.Frontmatter(filepath.Join(ctx.Vault, "tickets", key, "board.md"))["commit-style"]
+	if st == "conventional" || st == "repo" {
+		return st
+	}
+	return ""
+}
+
+// manualSubjectRule is the commit-subject rule of a manual ticket in style.
+func manualSubjectRule(style string) string {
+	rule := "not chosen yet (the kickoff asks): a plain imperative summary"
+	switch style {
+	case "conventional":
+		rule = "conventional commits"
+	case "repo":
+		rule = "the repo's own convention, without an ID"
+	}
+	return "subjects never carry the ticket ID or any vault-only ID; style: " + rule
 }
