@@ -23,10 +23,12 @@ few calls; `ct start --continue <ID>` reopens the last one.
    a regression test), an `investigation` gets an `investigation.md` (code only if asked), a
    `chore` one task, an `epic` one plan over `covers`.
 3. **Contracts first:** API, schema, file-format or CLI-flag changes go into
-   `contracts/<name>-v<N>.md` before a task using them starts.
+   `contracts/<name>-v<N>.md` before a task using them starts. Rules binding on every task that
+   aren't the repo's own (local stack, test data, env a check needs) go into `conventions.md`.
 4. **Waves:** ≤4 task agents at once, each in a worktree `<workRoot>/<ID>/tasks/<slug>-NN`
-   (branch `task/<ID>-NN-<slug>`), none sharing `owns`. The lead merges each `--no-ff` and runs
-   the repo's checks.
+   (branch `task/<ID>-NN-<slug>`), none sharing `owns` (nor a test database, port or container).
+   The lead merges each `--no-ff` and runs the repo's checks. Past ~40 task lines, the lead moves
+   the finished lines of older reviewed waves to `board-archive.md`.
 5. **Review:** one reviewer per repo and wave (≤3 must-fix, ≤6 should-fix, ≤5 consider).
    Must-fixes become fix tasks before the next wave; the rest go to fix tasks or `backlog.md`
    (≤40 open, triaged each wave). No finding stays open: each gets a line in the review's

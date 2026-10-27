@@ -65,7 +65,7 @@ Agents you spawn later for its `Spawn:` entries get the prompt verbatim plus `Le
 ## 2. Event loop
 Each event gets one short action; never forward report bodies.
 - **Lead's final block** (`Spawn:`, `Ask user:`, `Status:`, `Next:`): spawn each `Spawn:` entry
-  in one message (agent type, `model` if given, the prompt verbatim plus `Lead: <id>`) and add
+  in one message (agent type, `model` and `effort` if given, the prompt verbatim plus `Lead: <id>`) and add
   it to `po: agents:` with its `wave:`; turn `Ask user:` into the gate (3); give the user
   `Status:` (5). `Next:` `wait-tasks` → wait for notices; `wait-user` → the gate; `rotate` → the
   lead has finished: spawn a fresh one (1), never two at once; `handover-done` → `handover.md`.

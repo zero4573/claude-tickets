@@ -22,7 +22,7 @@ the vault; `<ws>/<slug>` is a ticket worktree (`workspace.json`).
   frontmatter `lead:`, `lead-since:` and `po:` are the PO's; you write everything else.
 - Follow the vault's `AGENTS.md`: frontmatter, kebab-case, wikilinks by bare note name,
   templates from `templates/` (`plan`, `board`, `task`, `review`, `backlog`). Checkboxes
-  (contract `vault-checklists-v1`) only in `board.md ## Tasks`, a review's `## Dispositions`,
+  (contract `vault-checklists-v1`) only in `board.md ## Tasks` (and `board-archive.md ## Tasks`), a review's `## Dispositions`,
   `backlog.md` and the ticket note's `## Tasks`/`## Follow-ups`; never in plan, task files, relay,
   contracts, finding sections or `board.md ## Reviews`: plain bullets. The word (task status,
   disposition) is authoritative; the box follows it.
@@ -73,6 +73,8 @@ state `copied`), or ask (the gate). A grill (`tickets:grilling`, run by the PO) 
 2. Clarify scope yourself. Product or UX questions go through the gate, in **one** batch.
 3. Write `plan.md` (≤150 lines): `## Scope`, `## Acceptance criteria`, `## Decisions`,
    `## Waves`, `## Relationships`, `## Root cause` (bugs), `## Risks`.
+   Ticket-wide rules that aren't the repo's own (local stack, test DBs and the env a check
+   needs, data never to touch) go in `conventions.md` (`##` per topic); task files cite sections.
 4. Pick files with graphify (`query_graph`, `shortest_path`, `get_neighbors`), confirm exact
    paths with fff/rg, and write wave 1 as 2–6 task files `tasks/<ID>-NN-<slug>.md` (frontmatter
    `id`, `ticket`, `wave`, `repo`, `agent`, `depends_on`, `owns`, `branch`, `worktree`,
@@ -93,6 +95,9 @@ never changes while an agent that uses it runs: have it stopped, update the cont
   concurrently: split ownership by file in the task files, not by "be careful". Concurrent
   tasks in one Go package get distinct name prefixes (in each task file) for their helpers and
   `Test` functions, so names can't clash at merge. A task starts only when its `depends_on` lines are `merged`.
+  Nor do they share a writable test DB, fixed port or container (give each its own).
+- `Spawn:` entries may add `model:`/`effort:`: `effort: low` for `tickets:mechanical` work,
+  `model: opus` for engine, contract, transaction or concurrency design.
 - Per task: `git -C <ws>/<slug> worktree add -q <ws>/tasks/<slug>-NN -b task/<ID>-NN-<task-slug> HEAD`
   (a `repo: vault` task has no worktree), set its line `running`, then add a `Spawn:` entry for
   `tickets:task` (or `tickets:mechanical` for renames, fixture sync, ≤3-file follow-ups) with
@@ -113,10 +118,12 @@ expect one message per task. Only a `blocked` or failed task reaches you at once
 blocked; wave 2 still running: 04; finished, unsent: 05"): set its line, ask or re-plan, end with
 `Next: wait-tasks`, and merge the finished ones only from the wave line (no early merge, no
 timeout). For each finished task read only its `## Report` (`sed -n '/^## Report/,$p' <task
-file>`). Per finished task, in task order, one chain in `<ws>/<slug>` (merge `&&` checks `&&` board line, so a
+file>`). First check it was committed: the task worktree's `git status --short` is empty and
+`git diff --stat HEAD...<task branch>` shows only `owns` (+ "Outside owns"), not empty for `done`;
+else mark it `partial` and ask again (never force-remove a dirty task worktree). Per finished task, in task order, one chain in `<ws>/<slug>` (merge `&&` checks `&&` board line, so a
 dead lead can never leave a merged task `running`; filtered output):
 `git merge --no-ff -q task/<ID>-NN-<task-slug> -m "<subject>"` (`<subject>`: the task's title as a summary, in the ticket's commit style from `board.md` `commit-style:`; never `merge task NN`, and no ID unless the style is `ticket`), then the repo's
-lint and tests from its `AGENTS.md` "Checking" (`<cmd> > <log> 2>&1; rc=$?;
+lint and tests from its `AGENTS.md` "Checking", with the env it or `conventions.md` names (DB tests skip silently without it) (`<cmd> > <log> 2>&1; rc=$?;
 rg -n 'FAIL|panic|error' <log> | head -20; echo exit=$rc`). A nonzero `exit` blocks the merge,
 whatever the filtered output shows, and stops the chain before the board line; the merge commit is then already on HEAD: `git revert -m 1 <merge-sha>` it (never reset) and mark the line `partial`. Trust the report for detail: open files only when it claims
 something risky or lists "Outside owns". Then:
@@ -130,6 +137,7 @@ something risky or lists "Outside owns". Then:
 - `partial` or `blocked` reports: status `partial`/`blocked`, the reason in the note.
 - Follow-ups of ≤20 lines you do yourself in the ticket worktree and commit (subject in the ticket's commit style);
   no micro-tasks. Batch bigger ones into the next task that owns those files.
+- `features-and-deviations.md`, if the ticket keeps one: update its rows and change log after the wave's merges.
 
 ## 6. Wave review (through Spawn)
 One reviewer per repo the wave touched, all in one `Spawn:` block: `tickets:reviewer`, or
@@ -166,7 +174,9 @@ Every finding ends resolved, kept or deferred in the file's `## Dispositions` (c
   the vault root, for every review of the ticket:
   Gate script and how to read its output: `reference.md`, "Gate script".
 - At each wave start, triage `backlog.md` to ≤40 open items (drop, merge, or plan them) and move
-  closed lines (box, word, date changed, nothing else) under `## Closed` in a `### w<N>` heading. Then plan the next wave's task files,
+  closed lines (box, word, date changed, nothing else) under `## Closed` in a `### w<N>` heading.
+  Past ~40 task lines, move the finished lines and `## Reviews` bullets of reviewed waves but the
+  last two to `board-archive.md` (`reference.md`, "Board archive"; never read to plan). Then plan the next wave's task files,
   including the `relay.md` entries that are `open` for you.
 - **Decision gate:** a report's open question, a review finding or a tradeoff marked major
   (contracts, schemas, backward compatibility, coordinated releases, other teams, hard to
@@ -208,7 +218,7 @@ Ask user: none | R-07: <question> · options: A (recommended): …; B: …
 Status: <≤3 lines: what changed this run, what's running, risks>
 Next: wait-tasks | wait-user | rotate | handover-done
 ```
-`Spawn: none` when there's nothing to start; the PO uses each prompt verbatim. `wait-tasks`:
+`Spawn: none` when there's nothing to start; the PO uses each prompt verbatim, with the entry's `model` and `effort` when given. `wait-tasks`:
 agents are running; `wait-user`: an `Ask user` is pending; `rotate`: a wave is merged and
 reviewed (or your context is heavy), board, backlog, plan and relay carry the state, no line is
 `running`, and `Spawn: none`; the PO then starts a fresh lead. `handover-done`: hand-over is

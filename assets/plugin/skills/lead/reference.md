@@ -47,3 +47,13 @@ Each printed `<file>: <ID>` (or `open line`: a leftover `open`/`fixing` line) ne
   `investigation`, ≤150 lines); code only if the ticket asks for it.
 - `epic`: one plan over `covers`, scope and acceptance criteria per covered ticket; tasks carry
   `for: "[[ID]]"`; keep each covered ticket's `status` in step with its part of the work.
+
+## Board archive
+`board-archive.md` (`type: board-archive`; `## Tasks`, `## Reviews`) takes the lines moved from `board.md`
+unchanged, checkboxes included. `<W>`: the older of the last two reviewed waves; only finished lines move:
+```sh
+t=$(mktemp); r=$(mktemp)
+awk -F ' · ' -v W=<W> '/^- \[[x-]\] / && $2 ~ /^(merged|dropped)/ { n=$5; sub(/^w/, "", n); if (n+0 < W) print }' board.md > "$t"
+awk -F ' · ' -v W=<W> '/^- w[0-9]+ / { n=$1; sub(/^- w/, "", n); if (n+0 < W) print }' board.md > "$r"
+```
+Append `"$t"`/`"$r"` under the archive's headings, drop them from `board.md` (`grep -vxFf`), check `wc -l`.

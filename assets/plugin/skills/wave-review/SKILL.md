@@ -27,7 +27,8 @@ fix-task IDs, the previous review file (if any), and a ≤5-line graph impact no
 
 ## What to look for (both hats)
 - **Architect:** boundaries and dependency direction, the ticket's contracts
-  (`tickets/<ID>/contracts/`) kept exactly, the repo's conventions in its `AGENTS.md`, and
+  (`tickets/<ID>/contracts/`) kept exactly, the repo's conventions in its `AGENTS.md` and the
+  ticket's `tickets/<ID>/conventions.md` if it exists (by section), and
   whether the next planned tasks (the board's `planned` rows) fit without rework.
 - **Senior:** correctness, error handling, races and resource leaks, input limits, injection
   and authz, cross-platform and compatibility issues, test gaps on the changed behaviour.

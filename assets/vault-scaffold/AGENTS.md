@@ -19,13 +19,13 @@ ROOT
 │       ├── PROJ-12.md     #     ticket note: content, workspace, tasks, questions, review, summaries
 │       ├── PROJ-12-status.md # live task views of the folder (Tasks plugin; never edited)
 │       ├── plan.md        #     the lead's plan: scope, criteria, decisions, waves, relationships
-│       ├── board.md       #     one line per task and review; the PO's lead: and po:
+│       ├── board.md       #     one line per task and review (older: board-archive.md); the PO's lead: and po:
 │       ├── relay.md       #     you <-> PO <-> lead: requests, questions, answers, decisions (capped)
 │       ├── backlog.md     #     leftovers and review findings not fixed yet (≤40 open)
 │       ├── tasks/         #     PROJ-12-NN-<slug>.md: one task each, with the agent's ## Report
 │       ├── contracts/     #     <name>-v<N>.md: exact shapes that tasks share
 │       ├── reviews/       #     wave-N-<slug>.md: one capped review per wave and repo, ending in `## Dispositions`
-│       └── kb-drafts/, logs/, investigation.md, pr-feedback.md, PROJ-12-questionnaire-<slug>.md
+│       └── kb-drafts/, logs/, conventions.md, features-and-deviations.md, investigation.md, pr-feedback.md, PROJ-12-questionnaire-<slug>.md
 ├── learning/<topic>/      # one folder per topic you learn (ct teach; see "Learning topics and finding context")
 ├── inbox/                 # knowledge drafts from non-ticket sessions (promoted by /tickets:save),
 │                          #   and follow-up notes (type: follow-ups) unattended commands leave for you
@@ -97,7 +97,7 @@ each followed by the task name, `➕ yyyy-MM-dd` when created and `✅ yyyy-MM-d
 (`❌ yyyy-MM-dd` when cancelled), e.g. `- [x] task name ➕ 2026-10-25 ✅ 2026-10-26`.
 - **Checkboxes go only in:** the ticket note's `## Tasks` (one line per phase or wave, tagged
   `#ticket/<phase>`: `kickoff`, `plan`, `wave`, `handover`) and `## Follow-ups`, `board.md
-  ## Tasks`, a review's `## Dispositions`, and `backlog.md`.
+  ## Tasks` (and `board-archive.md ## Tasks`), a review's `## Dispositions`, and `backlog.md`.
 - **Everywhere else** in `tickets/<ID>/` (plan, task files, relay, contracts, kb-drafts,
   investigation, logs, review finding sections, `board.md ## Reviews`) **plain bullets only**:
   the status file lists every checkbox in the folder. No line inside an HTML comment starts

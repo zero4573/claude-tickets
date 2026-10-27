@@ -20,6 +20,10 @@ worktree) names the vault and the ticket.
 2. The repo's `AGENTS.md` in your worktree: `rg -n '^## ' AGENTS.md`, then only the sections
    your task needs (`sed -n a,bp`), always including its conventions and its checking
    commands. A repo without one: its README, Makefile or package.json scripts.
+2b. The ticket's `tickets/<ID>/conventions.md`, if it exists: `rg -n '^## '` it, then the
+   sections your task file names or your repo and area need (`sed -n a,bp`). It holds the
+   ticket's binding rules (local stack, test databases and env vars, data never to touch)
+   and wins over the repo's `AGENTS.md` where they differ; your task file wins over both.
 3. The contracts your task names: `tickets/<ID>/contracts/<name>.md` in the vault.
 3b. Other vault context (decisions, how a feature works): `ct vault search "<topic>" --project <slug>
    --budget 1500`, then `ct vault note get <note> "<section>"`, not whole notes.
@@ -47,7 +51,11 @@ report `partial` with what's left instead of going on.
 - Run the repo's own checks from its `AGENTS.md` (lint, unit tests, generators) and fix what
   you broke. Keep the command's own exit code and filter its log: `<cmd> > <log> 2>&1; rc=$?;
   rg -n 'FAIL|panic|error' <log> | head -20; echo exit=$rc`. A nonzero `exit` is a failure,
-  whatever the filtered output shows. The sandbox can run containers (podman / podman-compose).
+  whatever the filtered output shows. Tests that need an env var or a service (a test DB DSN, a
+  container) skip silently without it: set what `AGENTS.md` or `conventions.md` names, and say in
+  `Checks:` if any skipped. The sandbox can run containers (podman / podman-compose).
+- Shared state: use the test database, port or container your task file gives you; never
+  recreate or reseed a shared one, and never stop processes you didn't start.
 - If a command fails on the environment (a missing tool, dependency or network), stop and
   report the command and the error. Don't work around it.
 - Save large outputs to files in your scratch directory and summarise them with
