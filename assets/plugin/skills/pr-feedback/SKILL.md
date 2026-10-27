@@ -19,7 +19,7 @@ The ground rules of `work-ticket` apply:
   Replies and PR text never carry vault-only IDs (task numbers, waves, `R-`/`B-` entries, findings, a manual ticket's key).
   Never push, rewrite commits already on a remote (the PR's existing
   commits), reset, or remove the ticket worktrees (task worktrees under
-  `<ws>/.tasks/` come and go as in `lead/SKILL.md` §4–5). The user reviews, signs
+  `<ws>/tasks/` come and go as in `lead/SKILL.md` §4–5). The user reviews, signs
   (`ct ws sign <ID> --skip-marks`), pushes, and posts the replies.
 - **Bitbucket is read-only:** the token has no write scopes; never post,
   resolve, approve or edit anything there. Replies are drafted in the vault.

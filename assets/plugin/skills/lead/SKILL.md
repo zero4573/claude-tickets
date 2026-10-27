@@ -27,14 +27,14 @@ the vault; `<ws>/<slug>` is a ticket worktree (`workspace.json`).
   contracts, finding sections or `board.md ## Reviews`: plain bullets. The word (task status,
   disposition) is authoritative; the box follows it.
 - Commits are unsigned. Never push, rewrite pushed commits, `reset --hard`, `branch -D`, or remove
-  the ticket worktrees. You add and remove only task worktrees under `<ws>/.tasks/`, and delete
+  the ticket worktrees. You add and remove only task worktrees under `<ws>/tasks/`, and delete
   only merged task branches, with `git merge-base --is-ancestor <b> HEAD && git update-ref -d refs/heads/<b>` (never `git branch -d`: a sandboxed main clone's `.git/config` is read-only).
 - **No paid Rovo calls** (the vault's `AGENTS.md`, "Cost guard").
 - **Graph first for structure:** the `graphify` tools hold every repo, with this ticket's
   worktrees in place of their main clones (ids prefixed `<slug>::`); task worktrees aren't in
   it. For files and content, the fff tools (`mcp__fff__find_files`, `mcp__fff__grep`,
   `mcp__fff__multi_grep`) when available, else `rg`, scoped to the ticket worktree's path (fff
-  indexes all of `<ws>`, `.tasks/` included). Read files by section or line range.
+  indexes all of `<ws>`, `tasks/` included). Read files by section or line range.
 
 ## 0. Resume (always first; ≤3 calls)
 1. `rg -n '^- \[.\] [0-9]+ · |^(status|wave|last-reviewed):' tickets/<ID>/board.md tickets/<ID>/<ID>.md`
@@ -93,7 +93,7 @@ never changes while an agent that uses it runs: have it stopped, update the cont
   concurrently: split ownership by file in the task files, not by "be careful". Concurrent
   tasks in one Go package get distinct name prefixes (in each task file) for their helpers and
   `Test` functions, so names can't clash at merge. A task starts only when its `depends_on` lines are `merged`.
-- Per task: `git -C <ws>/<slug> worktree add -q <ws>/.tasks/<slug>-NN -b task/<ID>-NN-<task-slug> HEAD`
+- Per task: `git -C <ws>/<slug> worktree add -q <ws>/tasks/<slug>-NN -b task/<ID>-NN-<task-slug> HEAD`
   (a `repo: vault` task has no worktree), set its line `running`, then add a `Spawn:` entry for
   `tickets:task` (or `tickets:mechanical` for renames, fixture sync, ≤3-file follow-ups) with
   only: `Task NN: <vault>/tickets/<ID>/tasks/<ID>-NN-<slug>.md. Worktree: <path>. Concurrent:
@@ -121,7 +121,7 @@ rg -n 'FAIL|panic|error' <log> | head -20; echo exit=$rc`). A nonzero `exit` blo
 whatever the filtered output shows, and stops the chain before the board line; the merge commit is then already on HEAD: `git revert -m 1 <merge-sha>` it (never reset) and mark the line `partial`. Trust the report for detail: open files only when it claims
 something risky or lists "Outside owns". Then:
 - the board line, the last link of that chain: one sed recipe for every state, with `merged $(git rev-parse --short HEAD)` (recipe: `reference.md`, "Board line");
-- `git worktree remove <ws>/.tasks/<slug>-NN && git merge-base --is-ancestor task/<ID>-NN-<task-slug> HEAD && git update-ref -d refs/heads/task/<ID>-NN-<task-slug>`. It leaves no reflog and any `branch.<name>.*` config (harmless).
+- `git worktree remove <ws>/tasks/<slug>-NN && git merge-base --is-ancestor task/<ID>-NN-<task-slug> HEAD && git update-ref -d refs/heads/task/<ID>-NN-<task-slug>`. It leaves no reflog and any `branch.<name>.*` config (harmless).
   If removal is denied, mark the line `pending — user` and put the command in `Status:`.
 - A `repo: vault` task has nothing to merge: check its files, set the line `merged -`.
 - A conflicting branch (`git merge --abort`) or a failing merge check (revert, above): mark its line `partial` with the

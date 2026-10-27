@@ -3,7 +3,7 @@
 `ct start <ID>` opens a session that runs `/tickets:work-ticket <ID>`. That session is the
 product owner (PO). It talks to you, runs one lead agent, and spawns every agent the lead
 asks for, because subagents cannot spawn agents. The lead plans in waves of small tasks.
-Each task runs in its own worktree under `.tasks/` on its own branch, and the lead merges
+Each task runs in its own worktree under `tasks/` on its own branch, and the lead merges
 the finished branches into the ticket branch.
 
 ```mermaid

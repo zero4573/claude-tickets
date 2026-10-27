@@ -20,7 +20,7 @@ lead (SendMessage "new request R-nn"; no live lead: planned when the next one is
 
 1. One task per repo with unpushed commits on the ticket branch
    (`git rev-list HEAD --not --remotes`; none: skip the repo). The scratch clone dir is
-   `<ws>/.tasks/tidy-<slug>`. Give the task the immutable boundary, from the ticket worktree: the
+   `<ws>/tasks/tidy-<slug>`. Give the task the immutable boundary, from the ticket worktree: the
    full ids on the `-` lines of `git rev-list --boundary HEAD --not --remotes`, plus the
    base tip when `git merge-base --is-ancestor <base tip> HEAD` holds.
 2. After the task, in the ticket worktree: `git fetch <scratch clone> <bookmark>` (the new

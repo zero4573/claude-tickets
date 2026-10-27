@@ -39,10 +39,10 @@ Each `ct start`, `ct ws add`, `ct kb` and `ct teach` writes `<workRoot>/<ID>/.to
 workspace's `CLAUDE.md` is regenerated on every start and names the vault, the repos, the
 code graph and the Git rules.
 
-Task worktrees live under `<ID>/.tasks/<slug>-<n>`, are created and removed by the lead,
+Task worktrees live under `<ID>/tasks/<slug>-<n>`, are created and removed by the lead,
 and are merged into the ticket branch. `ct ws rm` removes a workspace (refusing dirty or
 unpushed work without `--force`), `ct ws gc` frees disk, `ct ws fetch` refreshes the main
-clones on the host. The tidy skill's scratch clones (`.tasks/tidy-<slug>`) are removed with
+clones on the host. The tidy skill's scratch clones (`tasks/tidy-<slug>`) are removed with
 `ct ws tidy-clean <ID>`.
 
 ## Repo slugs

@@ -53,7 +53,7 @@ flowchart TB
 - The vault: `tickets/<ID>/` (note, plan, board, relay, tasks, contracts, reviews),
   `projects/<slug>/`, `knowledge-base/`, `references/`, `inbox/`, `learning/`.
 - The workspace: `<workRoot>/<ID>/` with `CLAUDE.md`, `workspace.json`, `.tool-versions`,
-  one worktree per repo at `<ID>/<slug>` and task worktrees under `.tasks/`.
+  one worktree per repo at `<ID>/<slug>` and task worktrees under `tasks/`.
 - Main clones: `<projectsRoot>/<provider>/<owner>/<repo>`; never edited, only their `.git`
   is written so worktrees can be created.
 

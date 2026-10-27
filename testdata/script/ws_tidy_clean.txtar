@@ -1,4 +1,4 @@
-# ct ws tidy-clean: removes the tidy skill's scratch clones under .tasks/
+# ct ws tidy-clean: removes the tidy skill's scratch clones under tasks/
 mkdir home/Documents/Obsidian/a/.obsidian
 mkdir home/Documents/Obsidian/a/tickets/MAN-1
 cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
@@ -10,12 +10,12 @@ exec git clone -q --bare seed remote/acme/billing.git
 exec git clone -q git@github.com:acme/billing.git home/Projects/repo-a/github/acme/billing
 exec ct ws add MAN-1 github-acme-billing --base main --desc tidy
 env R=home/Projects/work-a/MAN-1/github-acme-billing
-env T=home/Projects/work-a/MAN-1/.tasks
-env C=home/Projects/work-a/MAN-1/.tasks/tidy-github-acme-billing
+env T=home/Projects/work-a/MAN-1/tasks
+env C=home/Projects/work-a/MAN-1/tasks/tidy-github-acme-billing
 
 # none
 exec ct ws tidy-clean MAN-1
-stdout 'ct ws: no tidy clones in .*[/\\]\.tasks$'
+stdout 'ct ws: no tidy clones in .*[/\\]tasks$'
 
 # a merged clone (the same commits as the ticket branch): removed
 mkdir $T

@@ -20,11 +20,11 @@ env R=home/Projects/work-a/MAN-1/github-acme-billing
 cp seed/README.md $R/one.txt
 exec git -C $R add one.txt
 exec git -C $R commit -q -m 'MAN-1 one'
-exec git -C $R worktree add -q $WORK/home/Projects/work-a/MAN-1/.tasks/github-acme-billing-01 -b task/MAN-1-01-two HEAD
-cp seed/README.md home/Projects/work-a/MAN-1/.tasks/github-acme-billing-01/two.txt
-exec git -C home/Projects/work-a/MAN-1/.tasks/github-acme-billing-01 add two.txt
-exec git -C home/Projects/work-a/MAN-1/.tasks/github-acme-billing-01 commit -q -m 'MAN-1 two'
-exec git -C $R worktree remove $WORK/home/Projects/work-a/MAN-1/.tasks/github-acme-billing-01
+exec git -C $R worktree add -q $WORK/home/Projects/work-a/MAN-1/tasks/github-acme-billing-01 -b task/MAN-1-01-two HEAD
+cp seed/README.md home/Projects/work-a/MAN-1/tasks/github-acme-billing-01/two.txt
+exec git -C home/Projects/work-a/MAN-1/tasks/github-acme-billing-01 add two.txt
+exec git -C home/Projects/work-a/MAN-1/tasks/github-acme-billing-01 commit -q -m 'MAN-1 two'
+exec git -C $R worktree remove $WORK/home/Projects/work-a/MAN-1/tasks/github-acme-billing-01
 exec git -C $R merge --no-ff -q task/MAN-1-01-two -m 'MAN-1 merge task 01: two'
 exec git -C $R branch -d task/MAN-1-01-two
 exec git -C $R log '--format=%G? %s' -n4

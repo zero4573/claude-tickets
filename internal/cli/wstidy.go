@@ -19,12 +19,12 @@ func wsTidyCleanCmd() *cobra.Command {
 	var force, dry bool
 	cmd := &cobra.Command{
 		Use:   "tidy-clean <ID> [--force] [--dry-run]",
-		Short: "Remove the tidy skill's scratch clones under <ws>/.tasks/",
-		Long: `Removes the scratch clones the tidy skill leaves in <workRoot>/<ID>/.tasks/tidy-<slug>
+		Short: "Remove the tidy skill's scratch clones under <ws>/tasks/",
+		Long: `Removes the scratch clones the tidy skill leaves in <workRoot>/<ID>/tasks/tidy-<slug>
 (the sandbox denies rm -rf, so nobody there can). A clone goes when its
 bookmark (the ticket branch) is a commit already on the ticket worktree's
 branch; an unmerged one is kept with a warning unless --force. Nothing else
-under .tasks/ is touched, task worktrees included.`,
+under tasks/ is touched, task worktrees included.`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeWorkspaceID,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -48,7 +48,7 @@ func wsTidyClean(ctx vault.Context, key string, force, dry bool) error {
 	if !fsx.IsDir(dir) {
 		return fmt.Errorf("tidy-clean: no workspace at %s", dir)
 	}
-	tasks := filepath.Join(dir, ".tasks")
+	tasks := filepath.Join(dir, "tasks")
 	entries, _ := os.ReadDir(tasks)
 	var names []string
 	for _, e := range entries {

@@ -127,10 +127,14 @@ func GoEnv(dir string) map[string]string {
 }
 
 // ignoreFile is <dir>/.ignore, read by fff and rg (the ignore-file format
-// both share, honoured outside a git repo too).
+// both share, honoured outside a git repo too): the Go caches, and every
+// graphify-out (the merged graph and each worktree's), whose JSON and HTML
+// would swamp searches. Unanchored: a worktree's graphify-out is only
+// git-ignored by the user's global excludes, which a sandbox may not have.
 const ignoreFile = "# Written by ct; regenerated on every start, so don't edit it.\n" +
 	"# fff and rg (Claude's Grep) skip these unless a search names them.\n" +
-	"/.cache/\n"
+	"/.cache/\n" +
+	"graphify-out/\n"
 
 // WriteIgnore writes <dir>/.ignore.
 func WriteIgnore(dir string) error {

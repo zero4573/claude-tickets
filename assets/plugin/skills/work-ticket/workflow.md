@@ -24,7 +24,7 @@ few calls; `ct start --continue <ID>` reopens the last one.
    `chore` one task, an `epic` one plan over `covers`.
 3. **Contracts first:** API, schema, file-format or CLI-flag changes go into
    `contracts/<name>-v<N>.md` before a task using them starts.
-4. **Waves:** ≤4 task agents at once, each in a worktree `<workRoot>/<ID>/.tasks/<slug>-NN`
+4. **Waves:** ≤4 task agents at once, each in a worktree `<workRoot>/<ID>/tasks/<slug>-NN`
    (branch `task/<ID>-NN-<slug>`), none sharing `owns`. The lead merges each `--no-ff` and runs
    the repo's checks.
 5. **Review:** one reviewer per repo and wave (≤3 must-fix, ≤6 should-fix, ≤5 consider).

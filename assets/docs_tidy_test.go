@@ -12,7 +12,7 @@ func TestDocsTidySkills(t *testing.T) {
 		"docs": {"ct ws mark <ID> docs", "sequenceDiagram", "flowchart", "## Documentation", "without `;` or `#`", order},
 		"tidy": {"ct ws mark <ID> tidy", "^{tree}", "update-ref", "--not --remotes",
 			"immutable_heads()", "jj absorb --from", "jj abandon", "jj git clone --colocate",
-			"--boundary", "--is-ancestor", "--allow-backwards", "ct ws tidy-clean <ID>", ".tasks/tidy-<slug>", order},
+			"--boundary", "--is-ancestor", "--allow-backwards", "ct ws tidy-clean <ID>", "tasks/tidy-<slug>", order},
 	}
 	for name, strs := range want {
 		b, err := fs.ReadFile(Files, "plugin/skills/"+name+"/SKILL.md")
@@ -78,7 +78,7 @@ func TestTidyCleanNamed(t *testing.T) {
 	if strings.Contains(text, "rm -rf` is denied, give") {
 		t.Error("tidy still tells the user to delete the clone by hand")
 	}
-	dir, cmd := strings.Index(text, ".tasks/tidy-<slug>"), strings.Index(text, "ct ws tidy-clean <ID>")
+	dir, cmd := strings.Index(text, "tasks/tidy-<slug>"), strings.Index(text, "ct ws tidy-clean <ID>")
 	if dir < 0 || cmd < 0 {
 		t.Fatal("tidy must name the clone dir and the command that deletes it")
 	}

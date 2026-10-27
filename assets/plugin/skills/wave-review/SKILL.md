@@ -22,7 +22,7 @@ fix-task IDs, the previous review file (if any), and a ≤5-line graph impact no
    (fixtures modelling tickets excepted). A hit is a must-fix.
 4. Read by hunk (`git diff <range> -- <file>`); open full files only where a hunk needs
    context. Find callers with the fff tools (`mcp__fff__grep`, `mcp__fff__multi_grep`) when
-   available, else `rg`, scoped to `<worktree>` (fff indexes the whole workspace, `.tasks/`
+   available, else `rg`, scoped to `<worktree>` (fff indexes the whole workspace, `tasks/`
    included). Read the repo's `AGENTS.md` by section (`rg -n '^## '`), not whole.
 
 ## What to look for (both hats)

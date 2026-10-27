@@ -703,7 +703,7 @@ func TestLeadGitRecipes(t *testing.T) {
 		return out
 	}
 	fill := func(s, nn, slug string) string {
-		return strings.NewReplacer("git -C <ws>/<slug> ", "git ", "<ws>/<slug>", dir, "<ws>/.tasks/<slug>-NN", ".tasks/repo-"+nn,
+		return strings.NewReplacer("git -C <ws>/<slug> ", "git ", "<ws>/<slug>", dir, "<ws>/tasks/<slug>-NN", "tasks/repo-"+nn,
 			"<ID>", "T-1", "NN", nn, "<task-slug>", slug, "<subject>", "title "+slug, "<base>", "main").Replace(s)
 	}
 	must("git init -q -b main . && git commit -q --allow-empty -m base && git checkout -q -b feature/T-1")
@@ -711,9 +711,9 @@ func TestLeadGitRecipes(t *testing.T) {
 	must("printf '%s' " + "'" + board + "' > board.md")
 	branch := func(nn, slug, file string) {
 		t.Helper()
-		must("git branch task/T-1-" + nn + "-" + slug + " && git worktree add -q .tasks/repo-" + nn + " task/T-1-" + nn + "-" + slug)
+		must("git branch task/T-1-" + nn + "-" + slug + " && git worktree add -q tasks/repo-" + nn + " task/T-1-" + nn + "-" + slug)
 		if file != "" {
-			must("cd .tasks/repo-" + nn + " && echo x > " + file + " && git add " + file + " && git commit -q -m work-" + nn)
+			must("cd tasks/repo-" + nn + " && echo x > " + file + " && git add " + file + " && git commit -q -m work-" + nn)
 		}
 	}
 	merged := func(nn, slug string) bool {

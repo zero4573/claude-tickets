@@ -40,7 +40,7 @@ report `partial` with what's left instead of going on.
   links, `dist/`, binaries, caches); stage files by name, never `git add -A` blindly.
 - **After scripted prose edits** (`perl`, `sed`), read `git diff` before committing: a bad pattern
   rewrites more than you meant.
-- You work only in your worktree (`<workspace>/.tasks/<slug>-NN`, on branch
+- You work only in your worktree (`<workspace>/tasks/<slug>-NN`, on branch
   `task/<ID>-NN-<slug>`). Never touch the ticket worktree, other task worktrees, or the main
   clones under the projects root. A task with `repo: vault` has no worktree: it writes only
   the `tickets/<ID>/` files in its `owns`.
