@@ -68,6 +68,8 @@ func Command(dirs ...string) ([]string, error) {
 //     extraDeny
 //   - the workspace's own Go caches (GoEnv), so a session (in its
 //     container) fetches and builds Go modules there
+//   - a 10-minute MCP_TIMEOUT, so a slow code graph server comes up late
+//     rather than not at all
 //   - merged with $CLAUDE_TICKETS_SESSION_SETTINGS, the user's own rules
 //     (objects merge, arrays are joined)
 //
@@ -82,7 +84,11 @@ func WriteSettings(dir, projectsRoot string, extraDeny ...string) error {
 	for _, r := range extraDeny {
 		deny = append(deny, r)
 	}
-	env := map[string]any{}
+	// Claude gives an MCP server MCP_TIMEOUT (default 30s) to start, then
+	// goes on without it; a session waits for a server still starting when
+	// it needs its tools, so give the code graph's (which loads every main
+	// clone's graph) 10 minutes rather than lose it
+	env := map[string]any{"MCP_TIMEOUT": "600000"}
 	for k, v := range GoEnv(dir) {
 		env[k] = v
 	}

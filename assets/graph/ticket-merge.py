@@ -18,11 +18,14 @@ resolving symlinks. Worktrees already live in folders named by slug
 slug, <provider>-<owner>-<repo>, the name the vault uses too. graphify.serve reloads that file
 when its mtime changes.
 
-  --initial  one pass (build worktree graphs, merge) and exit
+  --initial  one pass (build worktree graphs, merge unless the merged graph
+             was made of the same inputs, by sha256) and exit, non-zero
+             when the merge failed
   (default)  loop: start watchers for new worktrees, re-merge whenever an
              input graph or workspace.json changes (debounced)
 """
 
+import hashlib
 import json
 import os
 import re
@@ -42,6 +45,8 @@ MAIN_ONLY_DEBOUNCE_SECONDS = 120
 workspace = Path(os.environ["PROJECT_ROOT"])
 projects = Path(os.environ.get("PROJECTS_ROOT", str(Path.home() / "Projects")))
 out = workspace / "graphify-out" / "graph.json"
+# What the merged graph was made of (stamp_of), so --initial can tell it's current
+stamp_file = workspace / "graphify-out" / ".merged-inputs.json"
 workspace_file = workspace / "workspace.json"
 
 # graphify records source_file relative to its working directory, so builds
@@ -140,8 +145,34 @@ def signature(paths: list[Path]) -> tuple:
     return tuple(sig)
 
 
-def merge(paths: list[Path]) -> None:
+def stamp_of(paths: list[Path]) -> list[list[str]]:
+    """sha256 of workspace.json and each input graph: what a merge was made of."""
+    stamp = []
+    for p in [workspace_file, *paths]:
+        h = hashlib.sha256()
+        try:
+            with open(p, "rb") as f:
+                for chunk in iter(lambda: f.read(1 << 20), b""):
+                    h.update(chunk)
+        except OSError:
+            continue
+        stamp.append([str(p), h.hexdigest()])
+    return stamp
+
+
+def is_current(paths: list[Path]) -> bool:
+    """Whether the merged graph was made of exactly these inputs, unchanged."""
+    try:
+        return out.exists() and json.loads(stamp_file.read_text(encoding="utf-8")) == stamp_of(paths)
+    except (OSError, ValueError):
+        return False
+
+
+def merge(paths: list[Path]) -> bool:
     tmp = out.with_name("graph.json.merging")
+    # Hashed before merging: an input that changes during the merge then
+    # makes the next check see a stale graph, not a current one
+    stamp = stamp_of(paths)
     if len(paths) >= 2:
         result = subprocess.run(
             ["graphify", "merge-graphs", *map(str, paths), "--out", str(tmp)],
@@ -150,7 +181,7 @@ def merge(paths: list[Path]) -> None:
         )
         if result.returncode != 0 or not tmp.exists():
             log(f"merge failed, keeping the previous graph:\n{result.stdout}{result.stderr}")
-            return
+            return False
     elif len(paths) == 1:
         shutil.copyfile(paths[0], tmp)
     else:
@@ -159,13 +190,19 @@ def merge(paths: list[Path]) -> None:
             encoding="utf-8",
         )
     os.replace(tmp, out)
+    stamp_file.write_text(json.dumps(stamp), encoding="utf-8")
     log(f"merged {len(paths)} graph(s) into {out}")
+    return True
 
 
-def initial() -> None:
+def initial() -> bool:
     for _, path in worktrees():
         build_worktree(path)
-    merge(inputs())
+    paths = inputs()
+    if is_current(paths):
+        log(f"{out} is current ({len(paths)} graph(s) unchanged since its merge)")
+        return True
+    return merge(paths)
 
 
 def worktree_changed(old_sig: tuple | None, sig: tuple) -> bool:
@@ -196,13 +233,16 @@ def loop() -> None:
             continue
         wait = DEBOUNCE_SECONDS if worktree_changed(merged_sig, sig) else MAIN_ONLY_DEBOUNCE_SECONDS
         if time.monotonic() - pending_since >= wait:
-            merge(paths)
+            # (a touched but unchanged input, or the first pass after
+            # --initial, needs no new merge)
+            if not is_current(paths):
+                merge(paths)
             merged_sig, pending_since = sig, None
 
 
 if __name__ == "__main__":
     out.parent.mkdir(parents=True, exist_ok=True)
     if "--initial" in sys.argv[1:]:
-        initial()
+        sys.exit(0 if initial() else 1)
     else:
         loop()

@@ -32,6 +32,10 @@ grep '"defaultMode": "auto"' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"GOMODCACHE": ".*/home/Projects/work-a/MAN-1/.cache/go/pkg/mod"' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"GOCACHE": ".*/home/Projects/work-a/MAN-1/.cache/go/build"' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"GOPATH": ".*/home/Projects/work-a/MAN-1/.cache/go"' home/Projects/work-a/MAN-1/.claude/settings.json
+grep '"MCP_TIMEOUT": "600000"' home/Projects/work-a/MAN-1/.claude/settings.json
+# the merged code graph is brought up to date before the session starts
+stderr 'MAN-1: bringing the merged code graph up to date'
+grep '^run --rm --security-opt label=disable -v .*/home/Projects/work-a/MAN-1:.* localhost/claude-tickets-graphify:[0-9a-f]+ /opt/graphify/serve.sh --merge$' calls/podman
 grep '^/.cache/$' home/Projects/work-a/MAN-1/.ignore
 grep '^graphify-out/$' home/Projects/work-a/MAN-1/.ignore
 grep '^- Go: `GOPATH`' home/Projects/work-a/MAN-1/CLAUDE.md
@@ -58,6 +62,14 @@ exec ct start --no-fetch MAN-1
 exec ct start --no-fetch --continue MAN-1
 stdout 'started in tickets-a \(continuing its last session\)'
 grep 'new-session .* --permission-mode auto --continue ./tickets:work-ticket MAN-1.' calls/tmux
+
+# a failed merge stops the start: no session without the graph
+rm calls/tmux
+cp man-1.md index-fail
+! exec ct start --no-fetch MAN-1
+stderr 'merging the code graph of .*/MAN-1 failed'
+! exists calls/tmux
+rm index-fail
 
 # ignored, covered by an open lead, unknown
 ! exec ct start --no-fetch MAN-2

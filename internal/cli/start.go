@@ -352,6 +352,13 @@ func prepareSession(ctx vault.Context, key, skill string, dirs []string, graphOK
 		return launcher.Window{}, false, err
 	}
 	if graphOK {
+		// Merged now, however long it takes: the session's server then only
+		// loads it. A failed merge stops here, rather than a session without
+		// the graph
+		fmt.Fprintf(os.Stderr, "ct start: %s: bringing the merged code graph up to date\n", key)
+		if err := graph.Merge(dir, ctx.ProjectsRoot); err != nil {
+			return launcher.Window{}, false, fmt.Errorf("%w (ct graph mcp %s shows the server's own run)", err, dir)
+		}
 		mcp, err := session.WriteGraphMCP(dir, ctx.Vault)
 		if err != nil {
 			return launcher.Window{}, false, err

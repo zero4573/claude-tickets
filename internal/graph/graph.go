@@ -226,8 +226,37 @@ func Status(w io.Writer) error {
 // `podman run --rootfs` (which works where the runtime starts with no
 // images, e.g. podman inside a container).
 func MCPCommand(ws, projectsRoot string) ([]string, error) {
+	return serveCommand(ws, projectsRoot, "-i")
+}
+
+// Merge brings workspace ws's merged graph up to date (serve.sh --merge),
+// reporting progress on stderr, so the MCP server that a session starts
+// next finds it current and comes up within Claude's MCP startup timeout.
+// It has no time limit: merging every main clone's graph can take a while.
+func Merge(ws, projectsRoot string) error {
+	argv, err := serveCommand(ws, projectsRoot, "")
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("merging the code graph of %s failed: %w", ws, err)
+	}
+	return nil
+}
+
+// serveCommand runs serve.sh for workspace ws: as the MCP server (stdin
+// flag "-i"), or with --merge (no stdin flag).
+func serveCommand(ws, projectsRoot, stdin string) ([]string, error) {
 	if _, err := os.Stat(filepath.Join(ws, "workspace.json")); ws == "" || err != nil {
 		return nil, errors.New("mcp: <workspace> must be a ticket or kb workspace (with workspace.json)")
+	}
+	var pre, post []string
+	if stdin != "" {
+		pre = []string{stdin}
+	} else {
+		post = []string{"--merge"}
 	}
 	ws, err := filepath.Abs(ws)
 	if err != nil {
@@ -245,13 +274,15 @@ func MCPCommand(ws, projectsRoot string) ([]string, error) {
 		mounts = append(mounts, container.Mount(projectsRoot, true)...)
 	}
 	if rt, err := container.Runtime(); err == nil && container.ImageExists(rt, tag) {
-		return container.RunArgs(rt, append(append([]string{"-i"}, mounts...), tag, "/opt/graphify/serve.sh")...), nil
+		args := append(append(append(pre, mounts...), tag, "/opt/graphify/serve.sh"), post...)
+		return container.RunArgs(rt, args...), nil
 	}
 	if rootfs := RootFS(hash); RootFSSupported && unpacked(rootfs) {
 		if _, err := exec.LookPath("podman"); err == nil {
 			// --rootfs takes the path where the image would go: options before it
-			args := append([]string{"podman", "run", "--rm", "-i", "--security-opt", "label=disable"}, mounts...)
-			return append(args, "--rootfs", rootfs+":O", "/opt/graphify/serve.sh"), nil
+			args := append(append([]string{"podman", "run", "--rm"}, pre...), "--security-opt", "label=disable")
+			args = append(append(args, mounts...), "--rootfs", rootfs+":O", "/opt/graphify/serve.sh")
+			return append(args, post...), nil
 		}
 	}
 	return nil, errors.New("mcp: the graphify image isn't built (run ct graph build on the host)")
