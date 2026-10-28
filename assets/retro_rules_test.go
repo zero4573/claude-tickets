@@ -28,6 +28,8 @@ func TestRetroRulesPinned(t *testing.T) {
 			"Small waves get no reviewer",
 			"a `vault-id` hit on a line kept from the base, or in a fixture that models a ticket, is noted on the board line",
 			"Ask user: none | R-9093:",
+			"record the pass in `plan.md ## Decisions`",
+			"Task subjects off the commit style",
 		},
 		"plugin/skills/work-ticket/SKILL.md": {
 			"`NO REPORT: NN, …`",
@@ -37,6 +39,8 @@ func TestRetroRulesPinned(t *testing.T) {
 		"plugin/skills/task-agent/SKILL.md": {
 			"never \"see git log\"",
 			"no subsets",
+			"`REPORT NOT WRITTEN: <reason>`",
+			"follows the commit style",
 			"get `</dev/null`",
 			"Commits: <sha> <subject>",
 			"`ct ws diff-check -C <worktree> --ticket <ID> <ticket-branch>..HEAD` exits 0",

@@ -87,7 +87,7 @@ report `partial` with what's left instead of going on.
   commit what works and report `blocked`.
 
 ## Report (the only thing the lead reads; ≤40 lines, ≤15 for tickets:mechanical)
-Write it under the task file's existing `## Report` heading (task files already have one: fill it, never append a second), then reply with the same text (the reply goes to
+Write it under the task file's existing `## Report` heading (task files already have one: fill it, never append a second), then re-read it (`sed -n '/^## Report/,$p' <task file>`) and reply with the same text; if the write failed or the section is still empty, start the reply with `REPORT NOT WRITTEN: <reason>` (the reply goes to
 the PO, which tells the lead; the lead reads the task file):
 ```
 Task NN: done | partial | blocked
@@ -104,5 +104,6 @@ checkboxes anywhere in the ticket folder.
 ## Before you report
 - `git -C <worktree> status --short` is empty (everything committed), and the full check ran after the last commit.
 - `ct ws diff-check -C <worktree> --ticket <ID> <ticket-branch>..HEAD` exits 0: drop any binary or large file it flags from your branch (or name it in the report if it belongs there), and reword any `vault-id` line (the ticket's own vault-only IDs in code or commit messages), except a hit on a line kept from the base or in a fixture that models a ticket: note that one in the report, don't reword it.
+- Every subject of `git -C <worktree> log --format=%s <ticket-branch>..HEAD` follows the commit style (`conventional`: `type(scope): summary`, e.g. `fix(ws): …`); reword any that doesn't before reporting (your branch is unpushed).
 - Nothing left running: no background poll loops (`until … sleep`), watchers, dev servers or
   containers you started. Wait for a command in the foreground with a timeout instead.

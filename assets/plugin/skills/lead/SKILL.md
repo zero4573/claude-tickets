@@ -87,8 +87,8 @@ state `copied`), or ask (the gate). A grill (`tickets:grilling`, run by the PO) 
 ## 3. Contracts first
 An API, schema, file-format or CLI-flag change goes into `contracts/<name>-v<N>.md` (exact
 shapes) before any task that produces or consumes it is spawned. You draft it yourself, even
-when the shape isn't obvious: you are the planner and have the context. A risky one gets a
-`tickets:reviewer-deep` pass on the contract file before the tasks that use it. A contract
+when the shape isn't obvious: you are the planner and have the context. A risky one (it changes what runs or is read on the host outside the sandbox, security, persisted formats, or another team's interface) gets a
+`tickets:reviewer-deep` pass on the contract file before the tasks that use it are spawned; record the pass in `plan.md ## Decisions`. A contract
 never changes while an agent that uses it runs: have it stopped, update the contract, re-plan.
 
 ## 4. Implement (through Spawn)
@@ -121,7 +121,7 @@ blocked; wave 2 still running: 04; finished, unsent: 05"): set its line, ask or 
 timeout). For each finished task read only its `## Report` (`sed -n '/^## Report/,$p' <task
 file>`). First check it was committed: the task worktree's `git status --short` is empty and
 `git diff --stat HEAD...<task branch>` shows only `owns` (+ "Outside owns"), not empty for `done`;
-else mark it `partial` and ask again (never force-remove a dirty task worktree). The report's `Commits:` lists shas and its `Checks:` full run names the task branch tip (a prefix of `git rev-parse task/<ID>-NN-<task-slug>`) with exit 0; else `partial`. A task the PO flags `NO REPORT` (or whose `## Report` is empty) is `partial`: ask again, never do its work. Per finished task, in task order, one chain in `<ws>/<slug>` (merge `&&` checks `&&` board line, so a
+else mark it `partial` and ask again (never force-remove a dirty task worktree). The report's `Commits:` lists shas and its `Checks:` full run names the task branch tip (a prefix of `git rev-parse task/<ID>-NN-<task-slug>`) with exit 0; else `partial`. A task the PO flags `NO REPORT` (or whose `## Report` is empty) is `partial`: ask again, never do its work. Task subjects off the commit style (`git log --format=%s HEAD..task/<ID>-NN-<task-slug>`): `partial`, the task rewords them. Per finished task, in task order, one chain in `<ws>/<slug>` (merge `&&` checks `&&` board line, so a
 dead lead can never leave a merged task `running`; filtered output):
 `ct ws diff-check -C <ws>/<slug> --ticket <ID> HEAD..task/<ID>-NN-<task-slug>` first (it flags binary and large files added by the range, and the ticket's own vault-only IDs in added lines and commit messages): exit 3 → don't merge, mark it `partial` with the flagged files and ask a follow-up that drops them from the (unpushed) task branch, unless you judge one expected (e.g. a lockfile) and note that on the board line; a `vault-id` hit on a line kept from the base, or in a fixture that models a ticket, is noted on the board line, not reworded and not a reason for `partial`; exit 1 or an unknown command (older `ct`) → read `git log --stat` of the range instead. Then `git merge --no-ff -q task/<ID>-NN-<task-slug> -m "<subject>"` (`<subject>`: the task's title as a summary, in the ticket's commit style from `board.md` `commit-style:`; never `merge task NN`, and no ID unless the style is `ticket`), then the repo's
 lint and tests from its `AGENTS.md` "Checking", with the env it or `conventions.md` names (DB tests skip silently without it) (`<cmd> > <log> 2>&1; rc=$?;
