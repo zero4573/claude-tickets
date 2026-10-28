@@ -37,7 +37,6 @@ var isTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) && ter
 // only: the ct-tty command of the CLI tests.
 func AssumeTerminal() {
 	isTerminal = func() bool { return true }
-	stdinIsTerminal = func() bool { return true }
 }
 
 const forceHelp = "start tickets marked ignore: true too, one covered by an open lead ticket on its own, or (without a multiplexer) one whose session only looks running from its .agent-state"
@@ -63,7 +62,7 @@ func startCmd() *cobra.Command {
 current vault (ct vault default), each in its own window of the vault's tmux
 session (tickets-<vault>), running /tickets:work-ticket <ID> in the workspace
 <workRoot>/<ID> (by default ~/Projects/work-<vault>/<ID>; see ct vault).
-Each must be a ticket of the vault: tickets/<ID>/<ID>.md, synced by ct sync or a manual
+Each must be a ticket of the vault: tickets/<source>/<ID>/<ID>.md, synced by ct sync or a manual
 ticket from ct new. If any isn't, none start.
 
 Each session is a new conversation, even in a workspace that already ran
@@ -168,7 +167,7 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("not a ticket of the %s vault: %s (no tickets/<ID>/<ID>.md; ct sync, or ct new for a manual ticket; ct start --list shows them); nothing started",
+		return fmt.Errorf("not a ticket of the %s vault: %s (no tickets/<source>/<ID>/<ID>.md; ct sync, or ct new for a manual ticket; ct start --list shows them); nothing started",
 			filepath.Base(ctx.Vault), strings.Join(missing, " "))
 	}
 	skill := "work-ticket"
@@ -456,7 +455,7 @@ func ticketClaudeMD(ctx vault.Context, key, dir string) string {
 		"- Vault: `%[3]s` (read its `AGENTS.md` for note rules)\n"+
 		"- Ticket note: `%[4]s`\n"+
 		"- Ticket folder (the only place in the vault this session writes to before\n"+
-		"  `/tickets:save`): `%[3]s/tickets/%[1]s/`. A lead ticket (`ticket-type: epic`)\n"+
+		"  `/tickets:save`): `%[9]s`. A lead ticket (`ticket-type: epic`)\n"+
 		"  may also write the work sections and `status` of the tickets in its\n"+
 		"  `covers`.\n"+
 		"- Repos in this workspace: `%[5]s/workspace.json` (each repo's path, base\n"+
@@ -480,10 +479,12 @@ func ticketClaudeMD(ctx vault.Context, key, dir string) string {
 		"- Git: commit your work on the ticket branch in coherent steps (%[8]s).\n"+
 		"  Vault-only IDs (task numbers, waves, R-/B- entries, review findings) never\n"+
 		"  go into code, comments, docs or commit messages.\n"+
-		"  Commits are unsigned here; the user signs them on the host with\n"+
-		"  `ct ws sign %[1]s`. Never push, rewrite pushed commits, reset\n"+
-		"  --hard, or remove the ticket worktrees; the lead adds and removes task\n"+
-		"  worktrees under `tasks/`.\n"+
+		"  Commits are signed with the session's signing key when one is set up\n"+
+		"  (unsigned ones are re-signed by the user on the host). Push only\n"+
+		"  through `/tickets:save`, which pushes each repo's ticket branch; never\n"+
+		"  force push, delete branches or tags, rewrite pushed commits, reset\n"+
+		"  --hard, or remove the ticket worktrees (those are the user's steps);\n"+
+		"  the lead adds and removes task worktrees under `tasks/`.\n"+
 		"- Workflow: this session is the PO, the one the user talks to. It runs one\n"+
 		"  `tickets:lead` subagent, which plans the ticket in waves of task agents\n"+
 		"  (each in its own task worktree and branch, merged into the ticket branch\n"+
@@ -494,8 +495,9 @@ func ticketClaudeMD(ctx vault.Context, key, dir string) string {
 		"Run `/tickets:work-ticket %[1]s` to (re)start the workflow (`ct start %[1]s`\n"+
 		"opens a new conversation, which resumes from `board.md`; `ct start\n"+
 		"--continue %[1]s` reopens the last one), and `/tickets:save` once the user\n"+
-		"has reviewed the changes. The user signs and pushes.\n",
-		key, note.Get(ticket, "source"), v, ticket, dir, p, branchText, gitSubject)
+		"has reviewed the changes: it pushes the ticket branches.\n",
+		key, note.Get(ticket, "source"), v, ticket, dir, p, branchText, gitSubject,
+		note.TicketDir(v, key)+string(filepath.Separator))
 }
 
 // ticketSynced reports whether the ticket's note is a synced ticket's (a
@@ -508,7 +510,7 @@ func ticketSynced(ctx vault.Context, key string) bool {
 // the file or the field is missing or the value is not a style a manual
 // ticket may use.
 func ticketCommitStyle(ctx vault.Context, key string) string {
-	st := note.Frontmatter(filepath.Join(ctx.Vault, "tickets", key, "board.md"))["commit-style"]
+	st := note.Frontmatter(filepath.Join(note.TicketDir(ctx.Vault, key), "board.md"))["commit-style"]
 	if st == "conventional" || st == "repo" {
 		return st
 	}

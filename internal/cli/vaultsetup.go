@@ -232,6 +232,15 @@ Settings (.obsidian/, .workflow.json, tickets/.sources.json) and your own
 notes are never touched. Writes happen under the vault lock (ct vault
 lock), and .scaffold.json records what was shipped.
 
+Ticket folders an older ct left straight under tickets/ (tickets/<ID>/,
+archive/tickets/<ID>/) move to tickets/<source>/<ID>/ and
+archive/tickets/<source>/<ID>/ (> lines), <source> being the note's
+source (jira, manual, ...) or, without one, the source tickets/.sources.json
+gives its ID; path-qualified links to their files are rewritten (bare
+[[name]] links don't change). A folder whose new place is taken stays,
+with a warning. Sessions started before the move name the old folder:
+start them again (ct start) afterwards.
+
 The old task views (pending.md, done.md, follow-ups.md) are removed when
 unedited; a ticket's tasks are now in its <ID>-status.md and the inbox's in
 inbox.md. Then every ticket that isn't closed is migrated: its
@@ -267,6 +276,10 @@ the converted files too. Run it with no ticket session working.`,
 
 // migrateTickets is the ticket migration of ct vault update: a test seam.
 var migrateTickets = ticketmigrate.Migrate
+
+// migrateLayout moves an old vault's ticket folders under their source: a
+// test seam.
+var migrateLayout = ticketmigrate.MigrateLayout
 
 func vaultUpdate(v string, o updateOpts) error {
 	dry := o.dryRun || o.diff
@@ -383,8 +396,31 @@ func vaultUpdate(v string, o updateOpts) error {
 		fmt.Println("ct vault update: files newer than this ct were shipped by a newer ct and are never downgraded; update ct, or replace one with --take <file>")
 	}
 
+	// The ticket folders under their source (tickets/<source>/<ID>/)
+	lay, layErr := migrateLayout(v, dry)
+	for _, w := range lay.Warnings {
+		warnf("%s", w)
+	}
+	if layErr != nil {
+		warnf("moving the ticket folders under their source stopped after %d file(s): %v; fix it and run ct vault update again, which finishes the move", len(lay.Files), layErr)
+	} else if len(lay.Moves) > 0 {
+		for _, m := range lay.Moves {
+			fmt.Printf("  > %s/ -> %s/ (%s)\n", m.From, m.To, verb("moved", "would move"))
+		}
+		fmt.Printf("ct vault update: %s %d ticket folder(s) under their source", verb("moved", "would move"), len(lay.Moves))
+		if !dry {
+			fmt.Printf(", rewrote %d link(s) in %d note(s)", lay.Rewritten, len(lay.Changed))
+		}
+		fmt.Println()
+	}
+
 	// The tickets: their status file, board, reviews and backlog
-	mig, migErr := migrateTickets(v, statusTpl, time.Now().Format("2006-01-02"), dry)
+	// (not after a failed move: the next run finishes it first)
+	var mig ticketmigrate.Result
+	migErr := layErr
+	if layErr == nil {
+		mig, migErr = migrateTickets(v, statusTpl, time.Now().Format("2006-01-02"), dry)
+	}
 	for _, w := range mig.Warnings {
 		warnf("%s", w)
 	}
@@ -396,11 +432,11 @@ func vaultUpdate(v string, o updateOpts) error {
 		if len(t.Files) > 0 {
 			var names []string
 			for _, f := range t.Files {
-				names = append(names, strings.TrimPrefix(f.Rel, "tickets/"+t.ID+"/"))
+				names = append(names, strings.TrimPrefix(f.Rel, t.Dir+"/"))
 			}
 			what = append(what, strings.Join(names, ", ")+" "+verb("converted", "would convert"))
 		}
-		fmt.Printf("  * tickets/%s/ (%s)\n", t.ID, strings.Join(what, "; "))
+		fmt.Printf("  * %s/ (%s)\n", t.Dir, strings.Join(what, "; "))
 		if o.diff {
 			for _, f := range t.Files {
 				fmt.Print(textdiff.Unified(f.Rel+" (vault)", f.Rel+" (ct "+version.Version+")",
@@ -408,7 +444,7 @@ func vaultUpdate(v string, o updateOpts) error {
 			}
 		}
 	}
-	if migErr == nil {
+	if layErr == nil && migErr == nil {
 		fmt.Printf("ct vault update: %s %d, already current %d, closed (skipped) %d\n",
 			verb("tickets migrated", "tickets that would be migrated"), mig.Migrated, mig.Current, mig.Closed)
 	}
@@ -419,6 +455,7 @@ func vaultUpdate(v string, o updateOpts) error {
 			written = append(written, rel)
 		}
 		sort.Strings(written)
+		written = append(written, lay.Rels()...)
 		for _, t := range mig.Tickets {
 			written = append(written, t.Rels()...)
 		}

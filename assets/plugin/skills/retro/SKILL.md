@@ -10,9 +10,9 @@ argument-hint: "[ticket ID; default: this session's ticket]"
 You improve the agents' **environment** for future runs, not the code that was written.
 
 ## 1. Sources (read by excerpt)
-In a ticket (the argument, or this session's `CLAUDE.md`): `tickets/<ID>/board.md` rows, each
+In a ticket (the argument, or this session's `CLAUDE.md`): `tickets/<source>/<ID>/board.md` rows, each
 review's `## Summary` and finding lines, the task files' `## Report` sections
-(`rg -n -A12 '^## Report' tickets/<ID>/tasks/`), `backlog.md`, `relay.md`, and the repos'
+(`rg -n -A12 '^## Report' tickets/<source>/<ID>/tasks/`), `backlog.md`, `relay.md`, and the repos'
 `AGENTS.md`. Outside a ticket: this session so far.
 
 ## 2. Candidates, by category

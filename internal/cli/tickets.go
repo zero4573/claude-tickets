@@ -101,7 +101,7 @@ func newCmd() *cobra.Command {
 		Long: `Creates a manual ticket in the current vault (ct vault default): one you
 write and manage in Obsidian, never synced from a remote source. It takes
 the next free ID (<prefix>-<n>, prefix from the manual source's idPrefix in
-tickets/.sources.json, MAN by default), creates tickets/<ID>/<ID>.md from
+tickets/.sources.json, MAN by default), creates tickets/manual/<ID>/<ID>.md from
 templates/ticket-manual.md, and prints its path. Fill in its Description
 and Acceptance criteria, then run ct start <ID>: manual tickets go
 through the same agent workflow as synced ones.`,
@@ -170,20 +170,18 @@ func newTicket(vaultDir, summary, typ, priority string) (string, error) {
 	if !note.ValidKey(prefix + "-1") {
 		return "", fmt.Errorf("manual idPrefix '%s' doesn't make valid ticket IDs", prefix)
 	}
-	tickets := filepath.Join(vaultDir, "tickets")
+	tickets := note.SourceDir(vaultDir, "manual")
 	if err := os.MkdirAll(tickets, 0o755); err != nil {
 		return "", err
 	}
-	// Next free number, past the archived tickets' too (ct clean): a reused
-	// ID would give two notes one name. mkdir is atomic, so two concurrent
-	// runs can't take the same ID
+	// Next free number, past every ticket folder's (any source, an old
+	// vault's tickets/<ID>/) and the archived tickets' too (ct clean): a
+	// reused ID would give two notes one name. mkdir is atomic, so two
+	// concurrent runs can't take the same ID
 	n := 0
-	entries, _ := os.ReadDir(tickets)
 	names := note.ArchivedIDs(vaultDir)
-	for _, e := range entries {
-		if e.IsDir() {
-			names = append(names, e.Name())
-		}
+	for _, l := range note.TicketDirs(vaultDir) {
+		names = append(names, l.ID)
 	}
 	for _, name := range names {
 		if num, ok := strings.CutPrefix(name, prefix+"-"); ok {
@@ -196,6 +194,9 @@ func newTicket(vaultDir, summary, typ, priority string) (string, error) {
 	for {
 		n++
 		id = fmt.Sprintf("%s-%d", prefix, n)
+		if note.Find(vaultDir, id) != "" {
+			continue
+		}
 		if err := os.Mkdir(filepath.Join(tickets, id), 0o755); err == nil {
 			break
 		} else if !errors.Is(err, os.ErrExist) {
@@ -227,7 +228,7 @@ func newTicket(vaultDir, summary, typ, priority string) (string, error) {
 		}
 		out.WriteString(line + nl)
 	}
-	path := note.TicketPath(vaultDir, id)
+	path := note.SourcePath(vaultDir, "manual", id)
 	return path, os.WriteFile(path, []byte(out.String()), 0o644)
 }
 
@@ -527,7 +528,7 @@ func openWorkspace(ctx vault.Context, key string) error {
 		for _, r := range info.Repos {
 			folders = append(folders, folder{fmt.Sprintf("%s (%s)", r.Slug, r.Branch), r.Path})
 		}
-		folders = append(folders, folder{key + " notes (vault)", filepath.Join(ctx.Vault, "tickets", key)})
+		folders = append(folders, folder{key + " notes (vault)", note.TicketDir(ctx.Vault, key)})
 		data, _ := json.MarshalIndent(map[string]any{"folders": folders}, "", "  ")
 		target = filepath.Join(dir, key+".code-workspace")
 		if err := os.WriteFile(target, append(data, '\n'), 0o644); err != nil {

@@ -67,7 +67,7 @@ func TestTicketSyncRefreshesWrittenNotes(t *testing.T) {
 	if err := ticketSync(ctx, "", false); err != nil {
 		t.Logf("ticketSync: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(ctx.Vault, "tickets/PROJ-1/PROJ-1.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(ctx.Vault, "tickets/jira/PROJ-1/PROJ-1.md")); err != nil {
 		t.Fatalf("the ticket note wasn't written: %v", err)
 	}
 	if len(*calls) != 1 {
@@ -79,12 +79,12 @@ func TestTicketSyncRefreshesWrittenNotes(t *testing.T) {
 		if filepath.IsAbs(p) || !strings.HasPrefix(p, "tickets/") && !strings.HasPrefix(p, "inbox/") {
 			t.Fatalf("unexpected path %q in %v", p, got)
 		}
-		found = found || p == "tickets/PROJ-1/PROJ-1.md"
+		found = found || p == "tickets/jira/PROJ-1/PROJ-1.md"
 	}
 	if !found {
 		t.Fatalf("PROJ-1 note missing from %v", got)
 	}
-	if want := "tickets/PROJ-1/PROJ-1.md"; strings.Join(got, " ") != want {
+	if want := "tickets/jira/PROJ-1/PROJ-1.md"; strings.Join(got, " ") != want {
 		t.Fatalf("want exactly %q, got %v", want, got)
 	}
 }

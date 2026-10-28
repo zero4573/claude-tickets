@@ -13,9 +13,9 @@ ROOT
 ├── raw/, templates/       # unorganized manual docs (agents: ignore); templates for the note types
 ├── inbox.md               # open tasks in inbox/ (Tasks plugin; agents: ignore)
 ├── tickets.base, projects.base # Bases dashboards of tickets and of projects/
-├── tickets/               # one folder per ticket, from any source
+├── tickets/               # a folder per source (its key in .sources.json: jira, manual, ...), a folder per ticket in it
 │   ├── .sources.json      #   ticket sources (see "Ticket sources")
-│   └── PROJ-12/           #   one ticket, named by its ID
+│   └── jira/PROJ-12/      #   one ticket: <source>/<ID>/ (the source is the note's `source:`)
 │       ├── PROJ-12.md     #     ticket note: content, workspace, tasks, questions, review, summaries
 │       ├── PROJ-12-status.md # live task views of the folder (Tasks plugin; never edited)
 │       ├── plan.md        #     the lead's plan: scope, criteria, decisions, waves, relationships
@@ -75,7 +75,7 @@ Every repo is a **project**, `projects/<slug>/`, and stands alone unless its not
 `templates/<type>.md`, one per note type: `base`, `session-log`, `ticket-synced`, `ticket-manual`,
 `project`, `group`, `feature`, `sequence` (mermaid), `decision`, `investigation`, `knowledge`,
 `reference`, `pr-feedback`, `learning-topic`, `lesson`, `learning-record`, `learning-reference`,
-and for `tickets/<ID>/` `plan`, `board`, `relay`, `backlog`, `status`, `task` and `review`.
+and for `tickets/<source>/<ID>/` `plan`, `board`, `relay`, `backlog`, `status`, `task` and `review`.
 
 ### Standard frontmatter
 `title`, `created`, `updated` (`yyyy-MM-dd`), `status: active`, `type: permanent`,
@@ -98,7 +98,7 @@ each followed by the task name, `➕ yyyy-MM-dd` when created and `✅ yyyy-MM-d
 - **Checkboxes go only in:** the ticket note's `## Tasks` (one line per phase or wave, tagged
   `#ticket/<phase>`: `kickoff`, `plan`, `wave`, `handover`) and `## Follow-ups`, `board.md
   ## Tasks` (and `board-archive.md ## Tasks`), a review's `## Dispositions`, and `backlog.md`.
-- **Everywhere else** in `tickets/<ID>/` (plan, task files, relay, contracts, kb-drafts,
+- **Everywhere else** in `tickets/<source>/<ID>/` (plan, task files, relay, contracts, kb-drafts,
   investigation, logs, review finding sections, `board.md ## Reviews`) **plain bullets only**:
   the status file lists every checkbox in the folder. No line inside an HTML comment starts
   with `- [`.
@@ -110,7 +110,7 @@ The tools come from claude-tickets: the `ct` commands (`ct --help`, `ct <command
 Claude Code plugin (`tickets`) with the skills (`/tickets:<skill>`), the task and review agents,
 and the hooks. A ticket runs as a **PO** session (`/tickets:work-ticket <ID>`, the one you talk
 to) with one **lead** agent that plans and merges in waves of task agents, each wave reviewed;
-state lives in `tickets/<ID>/`. How it works (kickoff, plan, contracts, waves, review,
+state lives in `tickets/<source>/<ID>/`. How it works (kickoff, plan, contracts, waves, review,
 hand-over, `relay.md`, the agents), the dependency fields, lead tickets and the status
 lifecycle: `work-ticket/workflow.md`, "Workflow", and the skills `work-ticket`, `lead`,
 `task-agent` and `wave-review`. The skills ship with the plugin, not in the vault. Session
@@ -133,7 +133,7 @@ and, unless it's manual, the `mcp` server and `query` ct sync uses.
 - Optional per source: `"model"` (default `sonnet`) and, for jira, `"textFields"`.
 
 ### Ticket structure (every source)
-A ticket note `tickets/<ID>/<ID>.md` has three parts:
+A ticket note `tickets/<source>/<ID>/<ID>.md` has three parts:
 1. **Identity:** `source`, `source-id`, `summary`, `ticket-type` (`dev` | `bug` | `investigation`
    | `chore` | `epic`), `status` (`new`, `triage`, `in-progress`, `blocked` = waiting on you,
    `review`, `done`, `closed`), `ignore*`, `projects` (slugs), `versions`, and the dependency
@@ -164,7 +164,7 @@ these rules (a write outside the session's area is refused, exit 3; `/tickets:sa
    tickets or the work sections.
 2. **You** own a manual ticket's content (see Ticket structure 2), `ignore*`, `.sources.json`,
    `raw/`, `inbox.md`, and everything not listed here.
-3. A **ticket's agents** write only inside `tickets/<ID>/` until `/tickets:save`. The **PO**
+3. A **ticket's agents** write only inside `tickets/<source>/<ID>/` until `/tickets:save`. The **PO**
    writes the note's `## Questions`, `status` (it runs the gate; the lead also sets it as it
    plans) and kickoff fields (`## Workspace`, `projects:`, `ticket-type`), `relay.md` (the lead
    appends its own questions and sets any entry's state), the questionnaires, the first
@@ -195,6 +195,6 @@ these rules (a write outside the session's area is refused, exit 3; `/tickets:sa
    drafts with `ct vault links move`. Its last step sets the ticket's `saved:` timestamp (and
    `status: done`, unless the ticket is `closed`).
 5. **`ct clean`** (run by you) moves the folders of the closed tickets it cleans (to `.trash/`
-   or `archive/tickets/`) and rewrites links to a removed ticket in any note to
+   or `archive/tickets/<source>/`) and rewrites links to a removed ticket in any note to
    `[ID](<source-url>)`, under the vault lock. It never edits the sync-owned parts of synced
    tickets. Tickets it skips leave tasks in `inbox/<date>-<time>-ct-clean-follow-ups.md`.

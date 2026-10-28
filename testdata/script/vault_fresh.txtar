@@ -38,7 +38,7 @@ stdout '"changed":0'
 exec ct new 'Fresh ticket'
 exec ct vault index --json
 stdout '"changed":0'
-grep 'tickets/MAN-1/MAN-1.md' v/.ct/index/notes.jsonl
+grep 'tickets/manual/MAN-1/MAN-1.md' v/.ct/index/notes.jsonl
 
 -- ticket-manual.md --
 ---

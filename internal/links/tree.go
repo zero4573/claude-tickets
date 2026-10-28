@@ -84,7 +84,74 @@ func MoveTree(vault, srcDir, dstDir string, files []string, last string) (res Mo
 		fsx.RemoveEmptyDirs(srcDir)
 		return MoveResult{}, nil
 	}
+	defer fsx.RemoveEmptyDirs(srcDir)
+	return applyMoves(vault, moves)
+}
 
+// Tree is one folder of a MoveTrees: every file of Src goes to the same
+// relative path under Dst; Last (relative to Src, e.g. the folder's note)
+// goes after the other folders' files.
+type Tree struct{ Src, Dst, Last string }
+
+// MoveTrees is MoveTree (every file) for several folders at once, with one
+// pass over the vault's notes for their links. Each Last file moves after
+// every other file. It fails, before changing anything, if a destination
+// exists, or a folder isn't inside the vault and apart from its
+// destination.
+func MoveTrees(vault string, trees []Tree) (MoveResult, error) {
+	vault = resolvePath(vault)
+	rel := func(p string) string {
+		r, _ := filepath.Rel(vault, p)
+		return filepath.ToSlash(r)
+	}
+	var moves, finals []move
+	var srcs []string
+	for _, t := range trees {
+		srcDir, dstDir := resolvePath(t.Src), resolvePath(t.Dst)
+		if !fsx.Inside(srcDir, vault) || !fsx.Inside(dstDir, vault) || fsx.Within(dstDir, srcDir) || fsx.Within(srcDir, dstDir) {
+			return MoveResult{}, errors.New("move: both folders must be inside the vault, and apart")
+		}
+		srcs = append(srcs, srcDir)
+		werr := filepath.WalkDir(srcDir, func(p string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			r, _ := filepath.Rel(srcDir, p)
+			dst := filepath.Join(dstDir, r)
+			m := move{p, dst, rel(p), rel(dst)}
+			if _, err := os.Lstat(dst); err == nil {
+				return fmt.Errorf("move: destination exists: %s", m.dstRel)
+			}
+			if t.Last != "" && p == filepath.Join(srcDir, t.Last) {
+				finals = append(finals, m)
+			} else {
+				moves = append(moves, m)
+			}
+			return nil
+		})
+		if werr != nil {
+			return MoveResult{}, werr
+		}
+	}
+	moves = append(moves, finals...)
+	defer func() {
+		for _, s := range srcs {
+			fsx.RemoveEmptyDirs(s)
+		}
+	}()
+	if len(moves) == 0 {
+		return MoveResult{}, nil
+	}
+	return applyMoves(vault, moves)
+}
+
+// applyMoves rewrites the path-qualified links to the files moves names,
+// then moves them, in order.
+func applyMoves(vault string, moves []move) (res MoveResult, err error) {
+	rel := func(p string) string {
+		r, _ := filepath.Rel(vault, p)
+		return filepath.ToSlash(r)
+	}
 	changed := map[string]bool{}
 	defer func() { res.Changed = sortedKeys(changed) }()
 	forms := make([][]string, len(moves))
@@ -129,7 +196,6 @@ func MoveTree(vault, srcDir, dstDir string, files []string, last string) (res Mo
 		}
 		res.Moves = append(res.Moves, Moved{m.srcRel, m.dstRel})
 	}
-	fsx.RemoveEmptyDirs(srcDir)
 	return res, nil
 }
 

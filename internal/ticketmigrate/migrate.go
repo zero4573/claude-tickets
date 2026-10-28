@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/zero4573/claude-tickets/internal/fsx"
+	tnote "github.com/zero4573/claude-tickets/internal/note"
 )
 
 // FileChange is a converted file: its vault-relative path (slash form), and
@@ -24,7 +25,8 @@ type FileChange struct {
 // TicketChange is what migrating one ticket did (or, dry, would do).
 type TicketChange struct {
 	ID          string
-	StatusAdded bool // <ID>-status.md written
+	Dir         string // the ticket's folder, vault-relative ("/"-separated)
+	StatusAdded bool   // <ID>-status.md written
 	StatusRel   string
 	Files       []FileChange // converted files, board.md first
 }
@@ -63,32 +65,22 @@ var beforeWrite func(abs string)
 // nothing. The caller holds the vault lock.
 func Migrate(vault string, statusTpl []byte, today string, dryRun bool) (Result, error) {
 	var res Result
-	root := filepath.Join(vault, "tickets")
-	entries, err := os.ReadDir(root)
-	if errors.Is(err, fs.ErrNotExist) {
-		return res, nil
-	}
-	if err != nil {
-		return res, err
-	}
-	for _, e := range entries { // sorted by name
-		id := e.Name()
-		if strings.HasPrefix(id, ".") || !isDir(filepath.Join(root, id)) {
-			continue
-		}
-		note, err := os.ReadFile(filepath.Join(root, id, id+".md"))
+	for _, l := range tnote.TicketDirs(vault) { // sorted by ID
+		id := l.ID
+		relDir := filepath.ToSlash(mustRel(vault, l.Dir))
+		note, err := os.ReadFile(l.Note())
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				continue
 			}
-			res.Warnings = append(res.Warnings, fmt.Sprintf("tickets/%s/%s.md: %v; skipped", id, id, err))
+			res.Warnings = append(res.Warnings, fmt.Sprintf("%s/%s.md: %v; skipped", relDir, id, err))
 			continue
 		}
 		if status(note) == "closed" {
 			res.Closed++
 			continue
 		}
-		tc, err := migrateTicket(vault, id, statusTpl, today, dryRun, &res)
+		tc, err := migrateTicket(vault, l.Dir, relDir, id, statusTpl, today, dryRun, &res)
 		if err != nil {
 			return res, err
 		}
@@ -102,9 +94,12 @@ func Migrate(vault string, statusTpl []byte, today string, dryRun bool) (Result,
 	return res, nil
 }
 
-func isDir(p string) bool {
-	st, err := os.Stat(p)
-	return err == nil && st.IsDir()
+func mustRel(base, p string) string {
+	r, err := filepath.Rel(base, p)
+	if err != nil {
+		return p
+	}
+	return r
 }
 
 // status is the note's frontmatter status ("" with no frontmatter).
@@ -126,9 +121,8 @@ func status(note []byte) string {
 	return ""
 }
 
-func migrateTicket(vault, id string, statusTpl []byte, today string, dryRun bool, res *Result) (TicketChange, error) {
-	dir := filepath.Join(vault, "tickets", id)
-	tc := TicketChange{ID: id, StatusRel: path.Join("tickets", id, id+"-status.md")}
+func migrateTicket(vault, dir, relDir, id string, statusTpl []byte, today string, dryRun bool, res *Result) (TicketChange, error) {
+	tc := TicketChange{ID: id, Dir: relDir, StatusRel: path.Join(relDir, id+"-status.md")}
 	warn := func(format string, a ...any) { res.Warnings = append(res.Warnings, fmt.Sprintf(format, a...)) }
 
 	statusFailed := false
@@ -148,7 +142,7 @@ func migrateTicket(vault, id string, statusTpl []byte, today string, dryRun bool
 
 	convert := func(rel string, conv func([]byte) Converted) {
 		abs := filepath.Join(dir, filepath.FromSlash(rel))
-		vrel := path.Join("tickets", id, rel)
+		vrel := path.Join(relDir, rel)
 		data, err := os.ReadFile(abs)
 		if err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {

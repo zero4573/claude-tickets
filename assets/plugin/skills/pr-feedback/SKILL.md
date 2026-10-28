@@ -1,6 +1,6 @@
 ---
 name: pr-feedback
-description: Review the feedback on the user's open Bitbucket pull requests for the current ticket workspace (~/work/<ID>) and apply it in the ticket's worktrees, committing it on the PR branches but never pushing, then record what was done and draft a reply per comment in the vault. Launched by ct feedback / ct start --feedback as /tickets:pr-feedback <ID>, or run in an open ticket session; use when asked to address, apply, or go through PR review comments.
+description: Review the feedback on the user's open Bitbucket pull requests for the current ticket workspace (~/work/<ID>) and apply it in the ticket's worktrees, committing it on the PR branches (pushed only by /tickets:save), then record what was done and draft a reply per comment in the vault. Launched by ct feedback / ct start --feedback as /tickets:pr-feedback <ID>, or run in an open ticket session; use when asked to address, apply, or go through PR review comments.
 ---
 
 # /tickets:pr-feedback [<ID>]
@@ -12,15 +12,16 @@ ticket. Outside a ticket workspace, say this only works in one (start it
 with `ct feedback <ID>`) and stop.
 
 The ground rules of `work-ticket` apply:
-- **Vault writes:** only inside `tickets/<ID>/` (a lead ticket also writes the
+- **Vault writes:** only inside `tickets/<source>/<ID>/` (a lead ticket also writes the
   work sections and `status` of the tickets it `covers`).
 - **Git:** commit the applied feedback on the PR's branch (one commit per
-  thread or coherent group, subject in the ticket's commit style: `board.md` `commit-style:`, `<ID> …` only for a synced ticket), unsigned.
+  thread or coherent group, subject in the ticket's commit style: `board.md` `commit-style:`, `<ID> …` only for a synced ticket), signed when the session has a signing key.
   Replies and PR text never carry vault-only IDs (task numbers, waves, `R-`/`B-` entries, findings, a manual ticket's key).
-  Never push, rewrite commits already on a remote (the PR's existing
+  Never push (only `/tickets:save` pushes), force push, delete branches or
+  tags, rewrite commits already on a remote (the PR's existing
   commits), reset, or remove the ticket worktrees (task worktrees under
-  `<ws>/tasks/` come and go as in `lead/SKILL.md` §4–5). The user reviews, signs
-  (`ct ws sign <ID> --skip-marks`), pushes, and posts the replies.
+  `<ws>/tasks/` come and go as in `lead/SKILL.md` §4–5). The user reviews,
+  runs `/tickets:save` to push, and posts the replies.
 - **Bitbucket is read-only:** the token has no write scopes; never post,
   resolve, approve or edit anything there. Replies are drafted in the vault.
 - **No paid Rovo calls** (the vault's `AGENTS.md`, "Cost guard"): never
@@ -99,7 +100,7 @@ Group comments into threads (a top-level comment plus its replies). Skip:
 - threads where the last word is the PR author's (the user's
   `account_id` is the PR's `author.account_id`), unless a reviewer wrote
   after it;
-- threads already recorded in `tickets/<ID>/pr-feedback.md` (below) whose
+- threads already recorded in `tickets/<source>/<ID>/pr-feedback.md` (below) whose
   newest `updated_on` hasn't changed since.
 
 Everything else is **open feedback**.
@@ -150,7 +151,7 @@ Record the questions and answers in the ticket note's `## Questions`, as
 
 ## 5. Record and hand over
 
-Write `tickets/<ID>/pr-feedback.md` (template `templates/pr-feedback.md`; on
+Write `tickets/<source>/<ID>/pr-feedback.md` (template `templates/pr-feedback.md`; on
 later runs, update it). Use one section per PR (`## PR #<n>: <title>`, with
 its link) and one table row per thread:
 
@@ -177,6 +178,7 @@ Then:
    need the user.
 3. Tell the user, in ≤8 lines: how many threads were applied, answered, or
    need them; that `pr-feedback.md` has the replies to post; that the
-   changes are committed, not pushed, on the PR branches (review them, run
-   `ct ws sign <ID> --skip-marks` on the host, since feedback on a pushed PR makes the docs
-   and tidy marks stale and tidy can't rewrite pushed commits, then push to update the PRs).
+   changes are committed, not pushed, on the PR branches (review them, then run
+   `/tickets:save` to push them and update the PRs: feedback on a pushed PR makes the docs
+   and tidy marks stale and tidy can't rewrite pushed commits, so choose to save and push
+   anyway at its marks gate).

@@ -41,7 +41,7 @@ vault-relative path (resolved like a wikilink); <section> is "Title",
   ct vault note frontmatter <note> <field> --set <v> | --add <item> | --remove <item>
 
 Content for writes comes from --file or stdin. Writes follow the vault's write
-rules: in a ticket workspace only tickets/<ID>/ (never a ticket's identity
+rules: in a ticket workspace only tickets/<source>/<ID>/ (never a ticket's identity
 fields or a synced ticket's source block; a manual ticket's own workspace may
 write its Description, Acceptance criteria and Context / links, a synced
 ticket's content sections never), outside one only inbox/; /tickets:save passes

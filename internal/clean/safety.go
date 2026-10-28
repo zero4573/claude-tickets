@@ -38,8 +38,8 @@ func safety(o Options, id, status string, dirs []string) (reason, task string) {
 			}
 			if lost, err := gitx.Lost(r.Path, r.Base); err != nil || lost {
 				return "commits on no remote in " + r.Slug, fmt.Sprintf(
-					"[[%s]] (%s): %s has commits that aren't on any remote (or a stash). Push them (ct ws sign %s first), then ct clean %s",
-					id, status, r.Path, ws, id)
+					"[[%s]] (%s): %s has commits that aren't on any remote (or a stash). Push them (/tickets:save in ct start %s, or git push on the host), then ct clean %s",
+					id, status, r.Path, id, id)
 			}
 		}
 	}

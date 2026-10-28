@@ -34,7 +34,7 @@ func TestCommitRulesInSkills(t *testing.T) {
 		"lead-handover": {read("plugin/skills/lead/handover.md"), []string{"subject in the ticket's commit style", "ct ws marks <ID>", "B: tidy only", "C: neither", "`tickets:docs`", "`tickets:tidy`"}},
 		"work-ticket":   {read("plugin/skills/work-ticket/SKILL.md"), []string{"`commit-style:`", "vault-only IDs"}},
 		"kickoff":       {read("plugin/skills/work-ticket/kickoff.md"), []string{"AskUserQuestion", "`repo` (recommended", "`conventional`", "commit-style: ticket", "`feature/<description>`", "always pass"}},
-		"po-handover":   {read("plugin/skills/work-ticket/handover.md"), []string{"docs, tidy", "/tickets:save", "ct ws sign <ID>", "--skip-marks"}},
+		"po-handover":   {read("plugin/skills/work-ticket/handover.md"), []string{"docs, tidy", "/tickets:save", "pushes the ticket branches"}},
 		"wave-review":   {read("plugin/skills/wave-review/SKILL.md"), []string{"Vault-only IDs", "rg '^\\+'", "A hit is a must-fix"}},
 		"pr-feedback":   {read("plugin/skills/pr-feedback/SKILL.md"), []string{"commit style", "never carry vault-only IDs"}},
 		"save":          {read("plugin/skills/save/SKILL.md"), []string{"ct ws marks <ID>", "exit 3", "/tickets:docs", "/tickets:tidy", "feature/<description>"}},

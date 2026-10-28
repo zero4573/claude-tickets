@@ -24,7 +24,7 @@ The reviewer writes `- [ ] <ID> · open`; you replace it with one line per state
 
 ## Gate script
 ```sh
-for f in tickets/<ID>/reviews/*.md; do
+for f in tickets/<source>/<ID>/reviews/*.md; do
   [ -e "$f" ] || continue
   rg -q '^## Dispositions' "$f" || echo "$f: no Dispositions"
   for id in $(rg -o '^- (W[0-9]+-[a-z0-9-]+-[MSC][0-9]+) · ' -r '$1' "$f" | sort -u); do

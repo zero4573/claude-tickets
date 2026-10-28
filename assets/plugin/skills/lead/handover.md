@@ -2,7 +2,7 @@
 
 Read by the lead (the `tickets:lead` agent) when the review-disposition gate (`SKILL.md` 7)
 prints nothing and the board has no `planned`, `running`, `partial` or `orphaned` line.
-Ends with the ticket at `status: review` and `Next: handover-done`. Never run `/tickets:save`, sign or push.
+Ends with the ticket at `status: review` and `Next: handover-done`. Never run `/tickets:save` or push.
 
 ## 0. Disposition gate (precondition)
 Run the gate of `SKILL.md` section 7 (script: `reference.md`, "Gate script") from the vault root (including its `no Dispositions`
@@ -18,7 +18,7 @@ In one chain per repo:
 
 ## 2. Retro (short; the method of the user-invoked `/tickets:retro`)
 Over the board lines, the reviews' `## Summary` and finding lines, and the task reports
-(`rg -n -A12 '^## Report' tickets/<ID>/tasks/`), find what would have made this ticket's agents
+(`rg -n -A12 '^## Report' tickets/<source>/<ID>/tasks/`), find what would have made this ticket's agents
 faster or safer: navigation pointers, missing or unwired automated checks, reviewer rules
 (mechanical violations get a check instead), `AGENTS.md` no-ops and bloat, tool economy,
 information access. Add **at most 8**, most severe first, to `backlog.md ## Open` as
@@ -44,7 +44,7 @@ into the per-item follow-up question (3) with the rest of the backlog.
 4. Close the items sent to tickets: change each line in `backlog.md` to `- [x] B-nn · … · deferred → [[<ticket>]] #deferred ✅ <date>` and move it under `## Closed` (`### w<N>`); a dropped one is `- [-] … · dropped: <reason> ❌ <date>`; the rest stays `[ ]` in `## Open`.
 
 ## 4. kb-drafts
-Make sure `tickets/<ID>/kb-drafts/` is complete, each note with a `target:` field:
+Make sure `tickets/<source>/<ID>/kb-drafts/` is complete, each note with a `target:` field:
 - feature notes with the projects touched and target versions;
 - sequence notes with a mermaid `sequenceDiagram` for each data flow the ticket adds or
   changes;
@@ -70,7 +70,7 @@ are named in `## Review`. Never edit a covered ticket's criteria or a synced tic
 ## 5c. Docs and tidy marks
 Run `ct ws marks <ID>`. Exit 0 (every repo `ok` for `docs` and `tidy`): go on. Otherwise ask
 through the gate (`SKILL.md`): run the docs wave and tidy now? A (recommended): docs, then tidy;
-B: tidy only; C: neither (`/tickets:save` and `ct ws sign` will warn). End with `Next: wait-user`,
+B: tidy only; C: neither (`/tickets:save` will warn and ask before pushing). End with `Next: wait-user`,
 and on the answer run what was chosen per `tickets:docs` and `tickets:tidy` (the lead marks them
 with `ct ws mark`) before Finish.
 
@@ -80,4 +80,4 @@ with `ct ws mark`) before Finish.
 2. End with the final block: `Spawn: none`, `Ask user: none`, `Status:` the ticket is ready
    for review (`ct ws diff <ID>` shows the changes) plus any `pending — user` command, and
    `Next: handover-done`. The PO tells the user the rest (changes in this session, then
-   `/tickets:save`, `ct ws sign <ID>` on the host, and push).
+   `/tickets:save`, which pushes the ticket branches).

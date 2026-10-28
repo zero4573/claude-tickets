@@ -1,5 +1,5 @@
 // Package note reads the vault's notes: frontmatter fields and the ticket
-// notes (tickets/<ID>/<ID>.md).
+// notes (tickets/<source>/<ID>/<ID>.md, layout.go).
 package note
 
 import (
@@ -20,30 +20,6 @@ var keyRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]*(-[A-Z0-9]+)+$`)
 // ValidKey reports whether s is a local ticket ID: the source's own key
 // (Jira PROJ-12), or <idPrefix>-<native id> (SNOW-INC0012345, MAN-7).
 func ValidKey(s string) bool { return keyRe.MatchString(s) }
-
-func TicketPath(vault, id string) string {
-	return filepath.Join(vault, "tickets", id, id+".md")
-}
-
-// TicketDir is a ticket's folder: its note, the lead's plan, board, task,
-// contract and review files, kb-drafts/ and logs/.
-func TicketDir(vault, id string) string { return filepath.Dir(TicketPath(vault, id)) }
-
-// ArchiveDir is where ct clean puts a ticket's folder it archives (manual
-// tickets), or the files other notes still link from a ticket it removes.
-func ArchiveDir(vault, id string) string { return filepath.Join(vault, "archive", "tickets", id) }
-
-// ArchivedIDs is the IDs of the tickets with a folder in the archive.
-func ArchivedIDs(vault string) []string {
-	dirs, _ := os.ReadDir(filepath.Dir(ArchiveDir(vault, "X")))
-	var out []string
-	for _, d := range dirs {
-		if d.IsDir() && ValidKey(d.Name()) {
-			out = append(out, d.Name())
-		}
-	}
-	return out
-}
 
 // IsTicketNote reports whether file is a ticket's note (<ID>/<ID>.md).
 func IsTicketNote(file string) bool {
@@ -163,17 +139,9 @@ type Ticket struct {
 // List returns the vault's tickets sorted by ID; done and closed ones only
 // with all. Status gets ", ignored" when the note sets ignore: true.
 func List(vault string, all bool) []Ticket {
-	dirs, _ := os.ReadDir(filepath.Join(vault, "tickets"))
 	var out []Ticket
-	for _, d := range dirs {
-		id := d.Name()
-		if !d.IsDir() || !ValidKey(id) {
-			continue
-		}
-		file := TicketPath(vault, id)
-		if _, err := os.Stat(file); err != nil {
-			continue
-		}
+	for _, l := range TicketNotes(vault) {
+		id, file := l.ID, l.Note()
 		fm := Frontmatter(file)
 		status := fm["status"]
 		if !all && (status == "done" || status == "closed") {

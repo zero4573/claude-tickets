@@ -1,16 +1,12 @@
 package cli
 
 import (
-	"bufio"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/zero4573/claude-tickets/internal/gitx"
 	"github.com/zero4573/claude-tickets/internal/vault"
@@ -24,7 +20,7 @@ func wsMarkCmd() *cobra.Command {
 		Long: `Records HEAD, its tree and the time as the ticket's docs or tidy mark of
 the named repos (default: all of the workspace). A repo with uncommitted
 changes is skipped with a warning, and the command exits 1. ct ws marks
-shows where the marks stand; ct ws sign checks them.`,
+shows where the marks stand; /tickets:save checks them before it pushes.`,
 		Args: cobra.MinimumNArgs(2),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, s string) ([]string, cobra.ShellCompDirective) {
 			switch len(args) {
@@ -186,59 +182,6 @@ else 3.`,
 	}
 }
 
-// stdinIsTerminal gates the sign prompt: only stdin has to be a terminal
-// (a piped stdout, as in `ct ws sign X | tee log`, still gets asked).
-var stdinIsTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
-
 func wsWarn(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, "ct ws: warning: "+format+"\n", a...)
-}
-
-// wsSignMarksOK runs the marks check before a sign: nil when the repos
-// are all ok or the user went on; an error otherwise (nothing is signed).
-func wsSignMarksOK(ctx vault.Context, key string) error {
-	bad := false
-	for _, st := range wsMarkStates(wsRepos(ctx, key)) {
-		if st.Missing {
-			wsWarn("%s: worktree missing", st.Repo.Slug)
-			continue
-		}
-		for _, k := range workspace.MarkKinds {
-			switch st.Status[k] {
-			case workspace.MarkOK:
-				continue
-			case workspace.MarkStale:
-				wsWarn("%s: %s stale: commits after %s", st.Repo.Slug, k, shortSHA(st.Repo.Marks[k].Commit))
-			default:
-				wsWarn("%s: %s not recorded", st.Repo.Slug, k)
-			}
-			bad = true
-		}
-	}
-	if !bad {
-		return nil
-	}
-	return signAsk(stdinIsTerminal, os.Stdin, os.Stderr)
-}
-
-// signAsk asks before signing over marks that are not ok: refuses without a
-// terminal on stdin, else needs a yes.
-func signAsk(stdinTTY func() bool, in, out *os.File) error {
-	if !stdinTTY() {
-		return errors.New("sign: docs/tidy not done after the last commit; run them or pass --skip-marks")
-	}
-	if !confirmSign(in, out) {
-		return exitError(1)
-	}
-	return nil
-}
-
-func confirmSign(in *os.File, out *os.File) bool {
-	fmt.Fprint(out, "Sign anyway? [y/N] ")
-	line, _ := bufio.NewReader(in).ReadString('\n')
-	switch strings.ToLower(strings.TrimSpace(line)) {
-	case "y", "yes":
-		return true
-	}
-	return false
 }

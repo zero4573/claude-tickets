@@ -1,7 +1,7 @@
 ---
 title: atlassian-rovo-mcp-setup
 created: 2026-10-02
-updated: 2026-10-03
+updated: 2026-10-27
 status: active
 type: reference
 source: https://developer.atlassian.com/cloud/rovo-mcp/guides/configuring-authentication-via-api-token/
@@ -32,8 +32,10 @@ the sessions. Used by `ct sync` to fill `tickets/`. See [[AGENTS]] and the [[tic
    (repos, pull requests, comments). The token screen offers only that and
    `write:bitbucket:agent-interface` for Bitbucket; leave the write one out.
 
-   No `write:`/`delete:`/`manage:`/`admin:` scopes. Tokens expire after at
-   most a year.
+   Optional, for `/tickets:new-ticket` (sessions filing tickets in Jira,
+   always after you confirm): `write:jira:agent-interface`, on the token
+   the sessions use only; `ct sync` needs none. No other `write:` and no
+   `delete:`/`manage:`/`admin:` scopes. Tokens expire after at most a year.
 3. **Store the token** where your MCP proxy reads it (e.g. a password
    manager item), or, without a proxy, in the MCP config itself (below).
 4. **Register** the server as `atlassian` (the `mcp` of the `jira` source in
@@ -55,7 +57,10 @@ the sessions. Used by `ct sync` to fill `tickets/`. See [[AGENTS]] and the [[tic
 
 ## Behaviour and gotchas
 - Rovo filters its tools by the token's scopes. With read scopes only, the
-  server is read-only, so agents can never change Jira or Bitbucket.
+  server is read-only, so agents can never change Jira or Bitbucket. With
+  `write:jira:agent-interface` it adds the create and edit tools
+  (`createJiraIssue`, ...); the skills only create tickets, through
+  `/tickets:new-ticket`, after you confirm.
 - A legacy (unscoped) API token only exposes Teamwork Graph tools, with no
   Jira tools at all.
 - Personal tokens use **Basic** auth (`base64(email:token)`). Bearer is only

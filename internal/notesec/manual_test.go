@@ -186,7 +186,7 @@ func TestH1GuardRefusals(t *testing.T) {
 }
 
 func TestCheckMissingNote(t *testing.T) {
-	err := Check(Ctx{Vault: t.TempDir(), Workspace: "P-9"}, "tickets/P-9/P-9.md", Target{Section: []string{"Description"}})
+	err := Check(Ctx{Vault: t.TempDir(), Workspace: "P-9"}, "tickets/manual/P-9/P-9.md", Target{Section: []string{"Description"}})
 	if !refused(err) || !strings.Contains(err.Error(), "source: none") {
 		t.Errorf("%v", err)
 	}

@@ -11,7 +11,7 @@ background agent; never two at once) plans, merges and triages, and asks the PO 
 for the user's answers. New requirements, feedback and questions go to the PO at any time: work
 becomes a `relay.md` entry the lead plans into the next wave; a question that needs no lead goes
 to `tickets:analyst` (read-only, ≤20-line answers). State lives in the bounded files of
-`tickets/<ID>/`, so a new session (`ct start <ID>`, a new conversation by default) resumes in a
+`tickets/<source>/<ID>/`, so a new session (`ct start <ID>`, a new conversation by default) resumes in a
 few calls; `ct start --continue <ID>` reopens the last one.
 1. **Kickoff:** the user picks the repos (from the code graph, or Bitbucket repos cloned with
    `ct ws clone`), the base branch and target version of each. Then the PO **grills** the user
@@ -56,9 +56,9 @@ session's model, no Agent tool). None has subagent or Atlassian tools; only the 
 analyst have the graph. Search: graphify for structure, the fff tools (`mcp__fff__find_files`,
 `mcp__fff__grep`, `mcp__fff__multi_grep`) for files and content, else `rg`. Older tickets may
 hold other files: plain notes. The PO asks the user (status `blocked`, desktop notification) on
-open questions or major tradeoffs, and at `review` with the work committed (unsigned) on the
-ticket branches, never pushed: the user reviews, runs `/tickets:save`, then `ct ws sign <ID>`
-and pushes. Manual and synced tickets work the same way.
+open questions or major tradeoffs, and at `review` with the work committed on the
+ticket branches, not pushed: the user reviews and runs `/tickets:save`, which pushes them
+(signed commits only, never forced). Manual and synced tickets work the same way.
 
 ## Dependencies and lead tickets
 Frontmatter, as wikilinks by ticket ID (`"[[PROJ-12]]"`). `ct sync` fills these for synced

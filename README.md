@@ -2,7 +2,8 @@
 
 Parallel Claude Code sessions that work tickets end to end, with an Obsidian
 vault as their long-term memory. You stay in charge of the final review:
-agents commit on the ticket branches, and you review, sign and push.
+agents commit on the ticket branches, and `/tickets:save` pushes them once
+you have reviewed the work.
 
 What it gives you:
 
@@ -37,7 +38,7 @@ so they work the same unsandboxed or inside a sandbox that wraps `claude`.
 |---|---|
 | `cmd/ct`, `internal/` | `ct`, the one command (Go): every subcommand below, its shell completion (`ct completion zsh\|bash\|fish`); OS specifics in `internal/platform` |
 | `assets/` | built into `ct`: `vault-scaffold/` (what `ct vault init` copies into a vault), `scaffold-history.json` (the hash of every version of those files ever shipped, so `ct vault update` knows an unedited old copy; `go generate ./assets`), `obsidian/` (the Tasks plugin pin and settings, shared with the Nix module), `plugin/` and `graph/` (below) |
-| `assets/plugin/` | the Claude Code plugin `tickets`: skills (`/tickets:work-ticket` (the PO), `/tickets:po-refresh`, `/tickets:grill`, `/tickets:retro`, `/tickets:teach`, `/tickets:pr-feedback`, `/tickets:ticket-sync`, `/tickets:kb`, `/tickets:save`, `/tickets:recall`; the playbooks and methods the agents load: `tickets:lead`, `tickets:task-agent`, `tickets:wave-review`, `tickets:grilling`, `tickets:diagnose`, `tickets:questionnaire`), the agents (`tickets:lead`, and the `tickets:task`, `tickets:mechanical`, `tickets:reviewer`, `tickets:reviewer-deep` and `tickets:analyst` agents the PO spawns), and the hooks that tell `ct status` what a session is doing. Some skills are adapted from mattpocock/skills (see Credits) |
+| `assets/plugin/` | the Claude Code plugin `tickets`: skills (`/tickets:work-ticket` (the PO), `/tickets:po-refresh`, `/tickets:grill`, `/tickets:retro`, `/tickets:teach`, `/tickets:pr-feedback`, `/tickets:ticket-sync`, `/tickets:kb`, `/tickets:save`, `/tickets:recall`, `/tickets:new-ticket`; the playbooks and methods the agents load: `tickets:lead`, `tickets:task-agent`, `tickets:wave-review`, `tickets:grilling`, `tickets:diagnose`, `tickets:questionnaire`), the agents (`tickets:lead`, and the `tickets:task`, `tickets:mechanical`, `tickets:reviewer`, `tickets:reviewer-deep` and `tickets:analyst` agents the PO spawns), and the hooks that tell `ct status` what a session is doing. Some skills are adapted from mattpocock/skills (see Credits) |
 | `assets/graph/` | the graphify image (`ct graph`) and the merger behind each session's code graph |
 | `testdata/`, `*_test.go` | the tests: `go test ./...` runs `ct` against a throwaway home with stub `tmux`, `podman`, `claude` and editor commands and real git, and `ct sync` against a fake Jira (`testdata/sync/`) |
 | `nix/`, `flake.nix` | the package, a home-manager module, and Obsidian modules (Linux, Flathub) |
@@ -134,7 +135,7 @@ Without the module, export them.
 |---|---|
 | `CLAUDE_TICKETS_CLAUDE` | the claude command sessions run, with any extra arguments (default `claude`) |
 | `CLAUDE_TICKETS_SESSION_SETTINGS` | a Claude settings JSON merged into every ticket, kb and teach session's `.claude/settings.json`: your own rules (see below) |
-| `CLAUDE_TICKETS_MCP_CONFIG` | a standard MCP config (`{"mcpServers": {"<name>": {"type": "http", "url": …, "headers": {…}}}}`) naming each server the ticket sources use; `ct sync` talks to them directly |
+| `CLAUDE_TICKETS_MCP_CONFIG` | a standard MCP config (`{"mcpServers": {"<name>": {"type": "http", "url": …, "headers": {…}}}}`) naming each server the ticket sources use; `ct sync` talks to them directly. Sessions get the same servers from their own `claude` command; a read-only token is enough for everything but `/tickets:new-ticket`, which files tickets at a source only when that token also has create scope (optional; Jira through Rovo: `write:jira:agent-interface`) |
 | `CLAUDE_TICKETS_MCP_PREPARE` | a command run before `ct sync` talks to them (e.g. starting a local proxy) |
 | `CLAUDE_TICKETS_CONTAINER` | `podman` or `docker` for the code graph (default: `ct vault configure --section runtime`, else detected; podman's docker alias counts as podman) |
 | `CLAUDE_TICKETS_LAUNCHER` | the terminal multiplexer ticket sessions run in: `tmux` or `none`, case-insensitive (default: `config.json`'s `launcher`, else tmux when it's installed, else none). With `none`, `ct start` runs one ticket in the current terminal. An explicit `tmux` that isn't installed is an error. The Nix package puts tmux on `ct`'s PATH, so it always detects tmux: set `programs.claude-tickets.launcher = "none"` (or `CLAUDE_TICKETS_LAUNCHER=none`) for foreground sessions |
@@ -189,16 +190,19 @@ the same flags and rules to decide what to mount, and how.
 
 ### Recommended session settings
 
-Not required, but what the workflow was built with: sessions commit, but
-never push, rewrite history, force-delete branches or remove workspaces,
-and can't relax their own rules. `git worktree remove` stays allowed: the
+Not required, but what the workflow was built with: sessions commit, and
+push only through `/tickets:save` (fast-forward pushes of the ticket
+branches), but never force push, delete branches or tags, rewrite history
+or remove workspaces, and can't relax their own rules. `git worktree remove` stays allowed: the
 lead removes its task worktrees (under `<workspace>/tasks/`) after
 merging them, and deletes their merged branches with `git branch -d`. For an Atlassian source, also deny the Rovo tools that cost credits
 (`<server>` is the source's `mcp` name):
 
 ```json
 { "permissions": { "deny": [
-  "Bash(git push:*)", "Bash(git reset --hard:*)", "Bash(git branch -D:*)", "Bash(git clean:*)", "Bash(ct ws rm:*)",
+  "Bash(git push --force:*)", "Bash(git push -f:*)", "Bash(git push --delete:*)",
+  "Bash(git push -d:*)", "Bash(git push --mirror:*)", "Bash(git push --prune:*)",
+  "Bash(git push --tags:*)", "Bash(git reset --hard:*)", "Bash(git branch -D:*)", "Bash(git clean:*)", "Bash(ct ws rm:*)",
   "Edit(.claude/settings.json)", "Write(.claude/settings.json)",
   "mcp__<server>__search", "mcp__<server>__getGraphContext",
   "mcp__<server>__getGraphObject", "mcp__<server>__addGraphContext",
@@ -206,9 +210,17 @@ merging them, and deletes their merged branches with `git branch -d`. For an Atl
 ] } }
 ```
 
+A deny rule matches the start of a command only (`git push origin
+--force` gets past it), so keep the real guard on the remote side: a push
+broker on the host, or branch protection, that refuses non-fast-forward
+pushes and branch or tag deletes and moves.
+
 Running sessions in a sandbox that keeps credentials out (no SSH agent, no
-tokens: MCP servers behind a proxy that adds them) is recommended too;
-`ct ws sign` then signs the sessions' commits on the host.
+tokens: MCP servers behind a proxy that adds them) is recommended too. Give
+it a signing-only key (an ssh-agent with just the commit-signing key, or
+`gpg` with no other secrets) so sessions sign their own commits, and push
+access through that broker; without them, sign and push from the host
+yourself.
 
 ## Repos and slugs
 
@@ -250,8 +262,8 @@ clusters, and the vault's `AGENTS.md` has the rules.
 | `ct status [-w] [--interval <d>]` | Every session: `needs-input` / `idle` / `working` / `exited`, window (`-` without a multiplexer), source, status, dirty repos. With `-w`, stays on screen and refreshes every 2s (`--interval`, at least 1s) and whenever a session changes state, until Ctrl-C; piped, it prints once. |
 | `ct attach <ID>` | Jump to a ticket's window (Tab completes the open ones). tmux only: without a multiplexer, a session is in the terminal where it was started. |
 | `ct open <ID>` | Open the ticket's workspace in `$CLAUDE_TICKETS_EDITOR` (default `code`). For VS Code and its forks it opens `<ID>.code-workspace`: one folder per worktree plus the ticket's vault notes, so each repo gets its own source control. |
-| `ct ws repos\|clone\|add\|ls\|diff\|mark\|marks\|sign\|rm\|fetch\|gc\|tidy-clean` | Worktrees per ticket, on `feature/<ID>[-<desc>]` (a manual ticket's branch has no ID: `feature/<desc>`, so `add` needs `--desc` or `--branch`). Sessions run it to create their own. `mark <ID> <docs\|tidy> [<slug>...]` records, per repo, the commit where docs or tidy were done and `marks <ID>` shows `ok`, `stale` (commits after it) or `none` per repo (exit 3 unless all are ok); `sign` signs the sessions' commits on the host after checking them (it asks on a terminal, refuses otherwise; `--skip-marks` goes on); `gc` frees disk (see below); `tidy-clean <ID> [--force] [--dry-run]` removes the tidy skill's scratch clones `<ws>/tasks/tidy-<slug>` (an unmerged one is kept unless `--force`). |
-| `ct clean [<ID>...] [--dry-run] [--yes] [--save] [--include-done] [--keep-manual] [--purge] [--days N]` | Clean up closed tickets: remove the workspace, then move a synced ticket's folder to the vault's `.trash/` (links to it become `[ID](<source-url>)`; files other notes link or embed move to `archive/tickets/<ID>/`) and a manual one's to `archive/tickets/<ID>/`. Skips open tickets, running sessions, uncommitted or unpushed work (commits already in `origin/<base>`, e.g. squash-merged, count as pushed) and unsaved sessions (`--save` runs `/tickets:save` headless first). Prints the plan and asks; `--yes` without a terminal. |
+| `ct ws repos\|clone\|add\|ls\|diff\|mark\|marks\|rm\|fetch\|gc\|tidy-clean` | Worktrees per ticket, on `feature/<ID>[-<desc>]` (a manual ticket's branch has no ID: `feature/<desc>`, so `add` needs `--desc` or `--branch`). Sessions run it to create their own. `mark <ID> <docs\|tidy> [<slug>...]` records, per repo, the commit where docs or tidy were done and `marks <ID>` shows `ok`, `stale` (commits after it) or `none` per repo (exit 3 unless all are ok; `/tickets:save` checks it before pushing); `gc` frees disk (see below); `tidy-clean <ID> [--force] [--dry-run]` removes the tidy skill's scratch clones `<ws>/tasks/tidy-<slug>` (an unmerged one is kept unless `--force`). |
+| `ct clean [<ID>...] [--dry-run] [--yes] [--save] [--include-done] [--keep-manual] [--purge] [--days N]` | Clean up closed tickets: remove the workspace, then move a synced ticket's folder to the vault's `.trash/` (links to it become `[ID](<source-url>)`; files other notes link or embed move to `archive/tickets/<source>/<ID>/`) and a manual one's to `archive/tickets/<source>/<ID>/`. Skips open tickets, running sessions, uncommitted or unpushed work (commits already in `origin/<base>`, e.g. squash-merged, count as pushed) and unsaved sessions (`--save` runs `/tickets:save` headless first). Prints the plan and asks; `--yes` without a terminal. |
 | `ct kb [--continue] [--print] ["<question>"]` | Ask about the vault's projects without a ticket: a session with the vault, every repo read-only, and a graph merged from every repo. |
 | `ct kb repo checkout\|fetch\|graph\|ls\|reset` | Inside a kb session: exploration clones of any branch, to build and test in (never committed). |
 | `ct teach [--continue] [<topic>] \| --list` | Learn a topic (kebab-case) over many sessions: a session running `/tickets:teach <topic>` in the window `teach-<topic>` (launcher `none`: this terminal), with the vault, every repo read-only and the merged graph. No topic: pick one of the vault's `learning/*/` or type a new one (without a terminal it prints them and fails). A new conversation each time; `--continue` (`-c`) reopens the topic's last one. `--list` prints the topics. See "Learning a topic". |
@@ -398,7 +410,7 @@ stateDiagram-v2
   in_progress --> blocked: question or major tradeoff (notification)
   blocked --> in_progress: you answer
   in_progress --> review: work done, committed, not pushed
-  review --> done: you review, run /tickets:save, ct ws sign, push
+  review --> done: you review, run /tickets:save (it pushes)
   new --> closed: source closed it (sync), or you (manual)
   done --> closed: source closed it (sync), or you (manual)
   closed --> cleaned: ct clean
@@ -411,7 +423,7 @@ and pushed: a synced one goes to the vault's `.trash/<ID>/` (Obsidian's
 trash; `--purge` deletes it), and every link to it becomes a link to its
 source page, `[ID](<source-url>)`, except in the parts of synced tickets
 ct sync writes (it would write them back). A manual ticket has no remote
-page, so it moves whole to `archive/tickets/<ID>/`, where links to it keep
+page, so it moves whole to `archive/tickets/<source>/<ID>/`, where links to it keep
 resolving (`--keep-manual` leaves it). `done` tickets need `--include-done`,
 and never synced ones: the source still has them open, so ct sync would
 re-create them. A lead goes with or after its covered tickets. It works
@@ -510,14 +522,23 @@ flowchart TB
   frontmatter. An `epic` is a lead ticket: it `covers` other tickets
   (which point back with `covered-by`) and works them from one session,
   including children assigned to others, so it can ask you to follow up.
-- **Committed, never pushed:** sessions commit on the ticket branches with
-  your git identity. Where they can't sign (e.g. sandboxed, without your
-  SSH agent), `ct ws sign <ID>` on the host re-signs the unpushed
-  commits (same changes and authors, new hashes; the lead's `--no-ff`
-  merges of task branches stay merges) before you push. It first checks
-  that docs and tidy were done after the last commit (`ct ws marks <ID>`;
-  `--skip-marks` skips the check). Never
-  pushing is your rule to set: see "Recommended session settings".
+- **Filing tickets:** ask a session (the PO, `kb`) for a new ticket, or
+  run `/tickets:new-ticket`: it drafts it at the current ticket's source
+  (under the current epic when the ticket is one), confirms the source and
+  the draft with you, files it through the source's MCP server, and links
+  it from the ticket's `## Follow-ups`; the next `ct sync` brings its note
+  in. Filing at a source needs a token with create scope (optional; for
+  Jira through Rovo, `write:jira:agent-interface`). Without it, or on a
+  refusal, it offers a manual ticket (`ct new`) instead.
+- **Committed, pushed by `/tickets:save`:** sessions commit on the ticket
+  branches with your git identity, signed when the session has a signing
+  key. Nothing is pushed until you run `/tickets:save` after your review:
+  it checks that docs and tidy were done after the last commit
+  (`ct ws marks <ID>`), that every commit to push is signed, then pushes
+  each repo's ticket branch (`git push -u`), never forced, never a task
+  branch. A rejected push, unsigned commits, a force push or a branch or
+  tag delete are yours to do on the host. Which pushes a session may run
+  is your rule to set: see "Recommended session settings".
 
 ### /tickets:save
 
@@ -531,7 +552,7 @@ sequenceDiagram
   participant V as vault
   S->>S: gather: ticket note, plan, board rows, review summaries,<br/>open backlog, kb-drafts, ct ws diff
   S->>L: acquire vault ID (waits for other saves)
-  S->>V: session logs: tickets/ID/logs, projects/slug/logs
+  S->>V: session logs: tickets/source/ID/logs, projects/slug/logs
   S->>V: promote kb-drafts (ct vault links move: links kept)
   S->>V: features, sequences (mermaid), decisions index,<br/>depends-on and group notes (asks before creating a group)
   S->>V: ct vault links check, ct vault groups --check
@@ -674,10 +695,14 @@ can't be checked, when its `.agent-state` is less than a day old and not
 writes what). The workflow itself lives in the plugin's skills, shared prose in
 `skills/work-ticket/workflow.md`.
 
+- **`tickets/<source>/<ID>/`** is a ticket's folder: its note `<ID>.md` and everything the
+  workflow keeps for it. `<source>` is the source's key in `tickets/.sources.json` (`jira`,
+  `manual`, ...), the same as the note's `source:`; ct sync, the `ticket-sync` skill and `ct new`
+  write there. Lookups by ID (`ct start PROJ-12`) find a ticket under any source folder.
 - **`inbox.md`** (vault root) lists the open tasks in `inbox/`: the follow-up notes unattended
   commands leave (`type: follow-ups`) and any draft with tasks. The old task views `pending.md`,
   `done.md` and `follow-ups.md` are gone.
-- **`tickets/<ID>/<ID>-status.md`** (from `templates/status.md`, created by the PO at kickoff and
+- **`tickets/<source>/<ID>/<ID>-status.md`** (from `templates/status.md`, created by the PO at kickoff and
   by `ct vault update` for existing tickets) shows the ticket's tasks live: Pending, Done and
   Deferred (`#deferred`), over its own folder. It carries no ID in its queries, so it keeps
   working after `ct clean` archives the folder.
@@ -691,6 +716,13 @@ writes what). The workflow itself lives in the plugin's skills, shared prose in
 
 Run it with no ticket session working (a running lead holds the old skills in context). It takes
 the vault lock, then:
+- **moves ticket folders** an older `ct` kept straight under `tickets/` (`tickets/<ID>/`,
+  `archive/tickets/<ID>/`) to `tickets/<source>/<ID>/` and `archive/tickets/<source>/<ID>/`:
+  the source is the note's `source:`, or, without one, the source whose `idPrefix` the ID
+  has (else the one with no `idPrefix`). Bare `[[name]]` links keep resolving; path-qualified
+  ones to the moved files are rewritten; the note moves last, so a run that stops is finished
+  by the next. A folder whose new place is taken stays, with a warning. Start running sessions
+  again afterwards (`ct start` rewrites the folder path in the workspace `CLAUDE.md`);
 - adds `inbox.md` and `templates/status.md`, and **removes** the retired `pending.md`, `done.md`
   and `follow-ups.md` when unedited (an edited one is kept with a warning: delete it by hand);
 - **migrates every ticket folder** whose note is not `status: closed`: writes a missing
@@ -726,8 +758,8 @@ Architecture and flows, with diagrams, under `docs/`:
 - [Architecture](docs/architecture.md): `ct`'s packages, the plugin, the layout on disk.
 - [The ticket workflow](docs/ticket-workflow.md): PO, lead, waves, tasks and reviews as a
   sequence; sandbox-safe checks; manual and synced tickets.
-- [Finishing a ticket](docs/finishing-a-ticket.md): docs, tidy, save and sign, the marks
-  and the sign gate.
+- [Finishing a ticket](docs/finishing-a-ticket.md): docs, tidy, then save, which pushes;
+  the marks and the push gate.
 - [Workspaces and the vault](docs/workspace-and-vault.md): the vault, worktrees, branch
   names and `.tool-versions`.
 - [Knowledge base and vault search](docs/knowledge-base.md): search, `ct kb`, drafts.

@@ -7,7 +7,7 @@ review, or with the lead woken again because a review finding is still open.
 ## 1. Review-disposition gate
 First `cd <vault>` (your cwd is the workspace) and run the review-disposition gate for <ID>:
 ```sh
-for f in tickets/<ID>/reviews/*.md; do
+for f in tickets/<source>/<ID>/reviews/*.md; do
   [ -e "$f" ] || continue
   rg -q '^## Dispositions' "$f" || echo "$f: no Dispositions"
   for id in $(rg -o '^- (W[0-9]+-[a-z0-9-]+-[MSC][0-9]+) · ' -r '$1' "$f" | sort -u); do
@@ -22,4 +22,4 @@ of accepting. Each printed `<file>: <ID>` needs a fix task, a `kept:` reason or 
 ## 2. Accept
 If it prints nothing, set `lead: none`, tell the user the ticket is ready for review
 (`ct ws diff <ID>`, changes can be asked for here; then, in the user's order, docs, tidy,
-`/tickets:save`, `ct ws sign <ID>` on the host (`--skip-marks` if they chose to skip docs or tidy), push), and suggest a refresh (`SKILL.md` 6).
+`/tickets:save`, which pushes the ticket branches (it asks again if they chose to skip docs or tidy)), and suggest a refresh (`SKILL.md` 6).

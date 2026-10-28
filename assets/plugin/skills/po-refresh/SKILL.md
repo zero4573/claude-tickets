@@ -6,7 +6,7 @@ description: Shrink the ticket PO session's own context (/tickets:work-ticket) w
 # po-refresh
 
 A skill can't run built-in commands like `/compact` itself: checkpoint the state, then tell
-the user what to type. Paths are in the vault, `tickets/<ID>/`.
+the user what to type. Paths are in the vault, `tickets/<source>/<ID>/`.
 
 ## 1. Checkpoint (one or two calls)
 Write what you hold only in this conversation:

@@ -68,14 +68,15 @@ When neither the vault nor a quick look settles it:
 ## Issues become tickets
 
 When you find something that should be investigated or fixed, file it as a
-**manual ticket**, so it enters the ticket workflow (`ct start <ID>`):
+**manual ticket**, so it enters the ticket workflow (`ct start <ID>`). When the user wants it
+at a ticket source instead (e.g. Jira), run `/tickets:new-ticket`.
 1. **Check first** that it isn't already tracked: search `tickets/` by repo
    slug and keywords, and Jira for synced tickets. If it is, add what you
    found to your answer and an `inbox/` draft instead.
 2. A kb session has no current ticket: ask the user first (AskUserQuestion, per issue): a new
    ticket, or no ticket. Never run `ct new` without that answer. If yes, run `ct new --type <bug|investigation|dev|chore> "<summary>"`. It
    files into this session's vault and prints the new note,
-   `tickets/MAN-<n>/MAN-<n>.md`.
+   `tickets/manual/MAN-<n>/MAN-<n>.md`.
 3. **Fill it in:**
    - `## Description`: what you found and why it matters, with the
      evidence (`<slug>:path:line`, graph paths, commits, how to reproduce).

@@ -1,12 +1,12 @@
 ---
 name: tidy
-description: Rewrite a ticket branch's unpushed commits into coherent ones with Jujutsu (/tickets:tidy), the tree unchanged byte for byte, in a scratch clone, then move the branch with a backup ref. Use when the user runs /tickets:tidy, asks to clean up or squash the ticket's history before saving and signing, or when a task agent has skills [tickets:tidy].
+description: Rewrite a ticket branch's unpushed commits into coherent ones with Jujutsu (/tickets:tidy), the tree unchanged byte for byte, in a scratch clone, then move the branch with a backup ref. Use when the user runs /tickets:tidy, asks to clean up or squash the ticket's history before saving and pushing, or when a task agent has skills [tickets:tidy].
 argument-hint: "[repo slug ...; default: every repo with unpushed commits]"
 ---
 
 # /tickets:tidy [repo ...]
 
-Order: docs → tidy → `/tickets:save` → `ct ws sign`. Run it after the docs wave: tidy
+Order: docs → tidy → `/tickets:save` (which pushes). Run it after the docs wave: tidy
 only rewrites history, never content.
 
 ## Started by the PO

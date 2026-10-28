@@ -7,6 +7,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	tnote "github.com/zero4573/claude-tickets/internal/note"
 )
 
 // Ctx is where a write comes from.
@@ -69,13 +71,14 @@ func inSet(set map[string]bool, p []string) bool {
 	return false
 }
 
-// ticketOf is the ID when rel is a ticket note, tickets/<ID>/<ID>.md.
-func ticketOf(rel string) (string, bool) {
-	p := strings.Split(rel, "/")
-	if len(p) == 3 && p[0] == "tickets" && p[2] == p[1]+".md" {
-		return p[1], true
-	}
-	return "", false
+// ticketOf is the ID when rel is a ticket note,
+// tickets/<source>/<ID>/<ID>.md (or an old vault's tickets/<ID>/<ID>.md).
+func ticketOf(rel string) (string, bool) { return tnote.RelNote(rel) }
+
+// inTicketDir reports whether rel is inside ticket id's folder, the one
+// the vault has (tickets/<source>/<ID>/), not another folder of that name.
+func inTicketDir(vault, id, rel string) bool {
+	return strings.HasPrefix(rel, tnote.RelDir(vault, id)+"/")
 }
 
 func idOf(item string) string {
@@ -89,7 +92,7 @@ func idOf(item string) string {
 
 // covers is the IDs the workspace ticket covers, when it is an epic.
 func covers(vault, id string) map[string]bool {
-	data, err := os.ReadFile(filepath.Join(vault, "tickets", id, id+".md"))
+	data, err := os.ReadFile(tnote.TicketPath(vault, id))
 	if err != nil {
 		return nil
 	}
@@ -111,8 +114,8 @@ const whoWrites = `(AGENTS.md, "Who writes what" 3); /tickets:save passes --save
 // read; both reach the same manual decision (isManual) from those bytes.
 func Check(c Ctx, rel string, t Target) error {
 	var src []byte
-	if tid, ok := ticketOf(path.Clean(filepath.ToSlash(rel))); ok {
-		src, _ = os.ReadFile(filepath.Join(c.Vault, "tickets", tid, tid+".md"))
+	if _, ok := ticketOf(path.Clean(filepath.ToSlash(rel))); ok {
+		src, _ = os.ReadFile(filepath.Join(c.Vault, filepath.FromSlash(path.Clean(filepath.ToSlash(rel)))))
 	}
 	_, err := check(c, rel, src, t)
 	return err
@@ -162,12 +165,12 @@ func check(c Ctx, rel string, src []byte, t Target) (coveredOnly bool, err error
 			return false, refuse("refusing to write %s: --save never writes raw/, templates/ or archive/", rel)
 		}
 	case c.Workspace != "":
-		if !strings.HasPrefix(rel, "tickets/"+c.Workspace+"/") {
-			if isTicket && tid != c.Workspace && covers(c.Vault, c.Workspace)[tid] {
+		if !inTicketDir(c.Vault, c.Workspace, rel) {
+			if isTicket && tid != c.Workspace && covers(c.Vault, c.Workspace)[tid] && inTicketDir(c.Vault, tid, rel) {
 				coveredOnly = true
 				break
 			}
-			return false, refuse("refusing to write %s: a ticket's agents write only inside tickets/%s/ until /tickets:save %s", rel, c.Workspace, whoWrites)
+			return false, refuse("refusing to write %s: a ticket's agents write only inside %s/ until /tickets:save %s", rel, tnote.RelDir(c.Vault, c.Workspace), whoWrites)
 		}
 	default:
 		if !strings.HasPrefix(rel, "inbox/") {

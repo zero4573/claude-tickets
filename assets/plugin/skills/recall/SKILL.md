@@ -39,7 +39,7 @@ Read-only. Never write to the vault.
    it links that the logs mention.
 3. The project's index note `projects/<project>/<project>.md`, if it
    exists, and open tickets that list the project in `projects:`
-   (`tickets/*/*.md` with `status` other than `closed` or `done`).
+   (`tickets/*/*/*.md` with `status` other than `closed` or `done`).
    Then `ct vault groups <vault> <project>` (read-only) for its groups,
    `depends-on` and used-by.
 4. For each group it belongs to, the latest lines of
@@ -47,14 +47,14 @@ Read-only. Never write to the vault.
 
 ## Ticket
 
-0. `ct vault search "<open tasks, status, blockers>" --path tickets/<ID>/
+0. `ct vault search "<open tasks, status, blockers>" --path tickets/<source>/<ID>/
    --type board --budget 1000` (the board holds the task state), then
    `ct vault note get <note> "<section>"` rather than whole notes.
 1. The ticket note: its content (the source block, or a manual ticket's
    description sections), `## Workspace`, `## Tasks`, `## Questions`,
    `## Follow-ups`, `## Review`, and the summaries at the end. Also its
    dependency fields (`blocked-by`, `blocked`, `parent`).
-2. The 3 most recent `tickets/<ID>/logs/` notes; the `board.md` task lines
+2. The 3 most recent `tickets/<source>/<ID>/logs/` notes; the `board.md` task lines
    (`rg -n '^- \[.\] [0-9]+ · '`; the ticket's live task views are in `<ID>-status.md`), `tail -n 25 backlog.md`, and the open must-fixes
    (by word: `rg -n '^- \[.\] W[0-9]+-[a-z0-9-]+-M[0-9]+ · (open|fixing)' reviews/`, their `[ ]`/`[/]` Dispositions lines; a review
    without `## Dispositions` predates the rule: check its must-fixes against

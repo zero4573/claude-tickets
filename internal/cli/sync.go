@@ -31,7 +31,7 @@ func syncCmd() *cobra.Command {
 		Use:   "sync [--source <name>] [--full]",
 		Short: "Pull your open tickets from each source into the vault",
 		Long: `Pulls your open tickets from every enabled, syncable source in the current
-vault's tickets/.sources.json (e.g. jira) into tickets/<ID>/<ID>.md, and
+vault's tickets/.sources.json (e.g. jira) into tickets/<source>/<ID>/<ID>.md, and
 keeps the local notes reconciled with the source: new and changed tickets
 are written, tickets the source closed are closed, reassigned or deleted
 ones are tagged unassigned, epics are refreshed when their children

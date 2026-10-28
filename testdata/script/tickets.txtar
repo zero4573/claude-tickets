@@ -4,15 +4,15 @@ cp ticket-manual.md home/Documents/Obsidian/a/templates/ticket-manual.md
 
 # ct new: next free ID, the template filled in
 exec ct new --type bug --priority high 'Fix "the" thing'
-stdout 'home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md$'
+stdout 'home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md$'
 exec ct new 'Second'
-stdout 'MAN-2/MAN-2.md$'
-grep '^title: MAN-1$' home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
-grep '^summary: "Fix \\"the\\" thing"$' home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
-grep '^created: 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]$' home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
-grep '^ticket-type: bug$' home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
-grep '^priority: "high"$' home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
-grep '^# MAN-1: Fix "the" thing$' home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+stdout 'tickets/manual/MAN-2/MAN-2.md$'
+grep '^title: MAN-1$' home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
+grep '^summary: "Fix \\"the\\" thing"$' home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
+grep '^created: 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]$' home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
+grep '^ticket-type: bug$' home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
+grep '^priority: "high"$' home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
+grep '^# MAN-1: Fix "the" thing$' home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
 ! exec ct new --type nope x
 stderr 'type must be dev, bug'
 
@@ -26,6 +26,13 @@ stdout 'OPS-1/OPS-1.md$'
 mkdir home/Documents/Obsidian/a/archive/tickets/OPS-5
 exec ct new 'Fourth'
 stdout 'OPS-6/OPS-6.md$'
+# nor one in a source's archive folder, or an old vault's tickets/<ID>/
+mkdir home/Documents/Obsidian/a/archive/tickets/manual/OPS-8
+exec ct new 'Fifth'
+stdout 'tickets/manual/OPS-9/OPS-9.md$'
+mkdir home/Documents/Obsidian/a/tickets/OPS-10
+exec ct new 'Sixth'
+stdout 'tickets/manual/OPS-11/OPS-11.md$'
 
 # ct start --list: open tickets; --all adds done and closed ones
 mkdir home/Documents/Obsidian/a/tickets/MAN-3

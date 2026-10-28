@@ -1,6 +1,6 @@
 ---
 name: wave-review
-description: Diff-scoped, capped wave review of one repo for a ticket (architect and senior developer in one pass), written to tickets/<ID>/reviews/wave-N-<slug>.md. Use when you are spawned as tickets:reviewer or tickets:reviewer-deep after a wave's tasks are merged.
+description: Diff-scoped, capped wave review of one repo for a ticket (architect and senior developer in one pass), written to tickets/<source>/<ID>/reviews/wave-N-<slug>.md. Use when you are spawned as tickets:reviewer or tickets:reviewer-deep after a wave's tasks are merged.
 ---
 
 # Wave review (one repo, one wave)
@@ -27,8 +27,8 @@ fix-task IDs, the previous review file (if any), and a ≤5-line graph impact no
 
 ## What to look for (both hats)
 - **Architect:** boundaries and dependency direction, the ticket's contracts
-  (`tickets/<ID>/contracts/`) kept exactly, the repo's conventions in its `AGENTS.md` and the
-  ticket's `tickets/<ID>/conventions.md` if it exists (by section), and
+  (`tickets/<source>/<ID>/contracts/`) kept exactly, the repo's conventions in its `AGENTS.md` and the
+  ticket's `tickets/<source>/<ID>/conventions.md` if it exists (by section), and
   whether the next planned tasks (the board's `planned` rows) fit without rework.
 - **Senior:** correctness, error handling, races and resource leaks, input limits, injection
   and authz, cross-platform and compatibility issues, test gaps on the changed behaviour.
@@ -38,7 +38,7 @@ Run cheap checks (the repo's vet or lint), then the **focused tests of the chang
 `confirmed` (a test fails or you reproduced it) or `unconfirmed` (reading only).
 
 ## Output (hard caps)
-Write `<vault>/tickets/<ID>/reviews/wave-<N>-<slug>.md`: the vault's frontmatter plus
+Write `<vault>/tickets/<source>/<ID>/reviews/wave-<N>-<slug>.md`: the vault's frontmatter plus
 `type: review`, `wave`, `repo` (slug), `range`, `model`; link `[[<ID>]]` and the wave's task
 files. Then:
 - summary ≤5 lines;

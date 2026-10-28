@@ -21,9 +21,10 @@ func put(t *testing.T, root, rel, body string) {
 	}
 }
 
-// ticket writes tickets/<id>/<id>.md with these frontmatter lines.
+// ticket writes tickets/<source>/<id>/<id>.md with these frontmatter lines
+// (manual for a MAN- ID, else jira).
 func ticket(t *testing.T, v, id string, fields ...string) {
-	put(t, v, "tickets/"+id+"/"+id+".md", "---\n"+strings.Join(fields, "\n")+"\n---\n# "+id+"\n")
+	put(t, v, "tickets/"+testSource(id)+"/"+id+"/"+id+".md", "---\n"+strings.Join(fields, "\n")+"\n---\n# "+id+"\n")
 }
 
 const jira = "source: jira\nsource-url: https://acme.atlassian.net/browse/"
@@ -137,7 +138,7 @@ func TestPlanLeads(t *testing.T) {
 		t.Errorf("covered with an open lead: %+v", got)
 	}
 	// A covered ticket whose lead is gone qualifies
-	os.RemoveAll(filepath.Join(o.Vault, "tickets", "MAN-1"))
+	os.RemoveAll(filepath.Join(o.Vault, "tickets", "manual", "MAN-1"))
 	if got := plan(o); got["MAN-2"].Action != Archive {
 		t.Errorf("lead gone: %+v", got)
 	}
@@ -146,9 +147,9 @@ func TestPlanLeads(t *testing.T) {
 func TestPlanSaved(t *testing.T) {
 	o := setup(t)
 	ticket(t, o.Vault, "PROJ-1", "status: closed", jira+"PROJ-1")
-	put(t, o.Vault, "tickets/PROJ-1/design.md", "x")
+	put(t, o.Vault, "tickets/jira/PROJ-1/design.md", "x")
 	ticket(t, o.Vault, "PROJ-2", "status: closed", jira+"PROJ-2", "saved: 2026-10-01T10:00:00")
-	put(t, o.Vault, "tickets/PROJ-2/design.md", "x")
+	put(t, o.Vault, "tickets/jira/PROJ-2/design.md", "x")
 	got := plan(o)
 	if got["PROJ-1"].Action != Skip || !strings.HasPrefix(got["PROJ-1"].Reason, "needs /tickets:save") ||
 		!strings.Contains(got["PROJ-1"].Task, "[[PROJ-1]] (closed) wasn't saved") || got["PROJ-2"].Action != Trash {
@@ -219,14 +220,14 @@ func TestRun(t *testing.T) {
 	o := setup(t)
 	v := o.Vault
 	ticket(t, v, "PROJ-12", "status: closed", jira+"PROJ-12", "saved: 2026-10-01T10:00:00")
-	put(t, v, "tickets/PROJ-12/logs/x.md", "log")
-	put(t, v, "tickets/PROJ-12/design.md", "design")
+	put(t, v, "tickets/jira/PROJ-12/logs/x.md", "log")
+	put(t, v, "tickets/jira/PROJ-12/design.md", "design")
 	ticket(t, v, "PROJ-13", "status: in-progress", "source: jira", `related: ["[[PROJ-12]]"]`)
-	put(t, v, "tickets/PROJ-13/PROJ-13.md", "---\nstatus: in-progress\nsource: jira\nrelated: [\"[[PROJ-12]]\"]\n---\n<!-- source:start -->\n[[PROJ-12]]\n<!-- source:end -->\nwork on [[PROJ-12|it]]\n")
+	put(t, v, "tickets/jira/PROJ-13/PROJ-13.md", "---\nstatus: in-progress\nsource: jira\nrelated: [\"[[PROJ-12]]\"]\n---\n<!-- source:start -->\n[[PROJ-12]]\n<!-- source:end -->\nwork on [[PROJ-12|it]]\n")
 	ticket(t, v, "MAN-4", "status: closed", "source: manual")
 	ticket(t, v, "MAN-5", "status: closed", "source: manual")
-	put(t, v, "tickets/MAN-5/requirements.md", "x")
-	put(t, v, "projects/p/p.md", "---\nrelated: [\"[[PROJ-12]]\"]\n---\n[[PROJ-12]] [[MAN-4]] ![[tickets/PROJ-12/logs/x]]\n")
+	put(t, v, "tickets/manual/MAN-5/requirements.md", "x")
+	put(t, v, "projects/p/p.md", "---\nrelated: [\"[[PROJ-12]]\"]\n---\n[[PROJ-12]] [[MAN-4]] ![[tickets/jira/PROJ-12/logs/x]]\n")
 	put(t, o.WorkRoot, "MAN-4/workspace.json", `{"id": "MAN-4", "repos": []}`)
 
 	items := Plan(o)
@@ -235,9 +236,9 @@ func TestRun(t *testing.T) {
 		desc = append(desc, Describe(o, items, it))
 	}
 	want := []string{
-		"MAN-4 (closed): remove the workspace; archive to archive/tickets/MAN-4",
+		"MAN-4 (closed): remove the workspace; archive to archive/tickets/manual/MAN-4",
 		"MAN-5 (closed): skip: needs /tickets:save (worked (requirements.md), not saved)",
-		"PROJ-12 (closed): move to .trash/PROJ-12; rewrite 3 link(s) in 2 note(s) to https://acme.atlassian.net/browse/PROJ-12; keep 1 file(s) in archive/tickets/PROJ-12",
+		"PROJ-12 (closed): move to .trash/PROJ-12; rewrite 3 link(s) in 2 note(s) to https://acme.atlassian.net/browse/PROJ-12; keep 1 file(s) in archive/tickets/jira/PROJ-12",
 	}
 	if strings.Join(desc, "\n") != strings.Join(want, "\n") {
 		t.Errorf("plan:\n%s\nwant\n%s", strings.Join(desc, "\n"), strings.Join(want, "\n"))
@@ -253,8 +254,8 @@ func TestRun(t *testing.T) {
 		t.Errorf("run: %+v %v\n%s", res, rmd, out.String())
 	}
 	for _, s := range []string{
-		"PROJ-12: moved to .trash/PROJ-12; rewrote 3 link(s) in 2 note(s); kept 1 file(s) in archive/tickets/PROJ-12",
-		"MAN-4: removed its workspace; archived 1 file(s) to archive/tickets/MAN-4",
+		"PROJ-12: moved to .trash/PROJ-12; rewrote 3 link(s) in 2 note(s); kept 1 file(s) in archive/tickets/jira/PROJ-12",
+		"MAN-4: removed its workspace; archived 1 file(s) to archive/tickets/manual/MAN-4",
 	} {
 		if !strings.Contains(out.String(), s) {
 			t.Errorf("missing %q in\n%s", s, out.String())
@@ -262,19 +263,19 @@ func TestRun(t *testing.T) {
 	}
 	url := "https://acme.atlassian.net/browse/PROJ-12"
 	read := func(rel string) string { data, _ := os.ReadFile(filepath.Join(v, rel)); return string(data) }
-	if got := read("projects/p/p.md"); got != "---\nrelated: [\"[PROJ-12]("+url+")\"]\n---\n[PROJ-12]("+url+") [[MAN-4]] ![[archive/tickets/PROJ-12/logs/x]]\n" {
+	if got := read("projects/p/p.md"); got != "---\nrelated: [\"[PROJ-12]("+url+")\"]\n---\n[PROJ-12]("+url+") [[MAN-4]] ![[archive/tickets/jira/PROJ-12/logs/x]]\n" {
 		t.Errorf("p.md: %q", got)
 	}
-	if got := read("tickets/PROJ-13/PROJ-13.md"); !strings.Contains(got, "related: [\"[[PROJ-12]]\"]") ||
+	if got := read("tickets/jira/PROJ-13/PROJ-13.md"); !strings.Contains(got, "related: [\"[[PROJ-12]]\"]") ||
 		!strings.Contains(got, "start -->\n[[PROJ-12]]\n") || !strings.Contains(got, "work on [it]("+url+")") {
 		t.Errorf("synced ticket: %q", got)
 	}
-	for _, p := range []string{".trash/PROJ-12/PROJ-12.md", ".trash/PROJ-12/design.md", "archive/tickets/PROJ-12/logs/x.md", "archive/tickets/MAN-4/MAN-4.md", "tickets/MAN-5/MAN-5.md"} {
+	for _, p := range []string{".trash/PROJ-12/PROJ-12.md", ".trash/PROJ-12/design.md", "archive/tickets/jira/PROJ-12/logs/x.md", "archive/tickets/manual/MAN-4/MAN-4.md", "tickets/manual/MAN-5/MAN-5.md"} {
 		if _, err := os.Stat(filepath.Join(v, p)); err != nil {
 			t.Errorf("missing %s", p)
 		}
 	}
-	for _, p := range []string{"tickets/PROJ-12", "tickets/MAN-4", ".vault.lock.d"} {
+	for _, p := range []string{"tickets/jira/PROJ-12", "tickets/manual/MAN-4", ".vault.lock.d"} {
 		if _, err := os.Stat(filepath.Join(v, p)); err == nil {
 			t.Errorf("%s still there", p)
 		}
@@ -292,9 +293,9 @@ func TestRunSave(t *testing.T) {
 	o := setup(t)
 	o.Save = true
 	ticket(t, o.Vault, "MAN-1", "status: closed", "source: manual")
-	put(t, o.Vault, "tickets/MAN-1/design.md", "x")
+	put(t, o.Vault, "tickets/manual/MAN-1/design.md", "x")
 	ticket(t, o.Vault, "MAN-2", "status: closed", "source: manual")
-	put(t, o.Vault, "tickets/MAN-2/design.md", "x")
+	put(t, o.Vault, "tickets/manual/MAN-2/design.md", "x")
 	put(t, o.WorkRoot, "MAN-1/workspace.json", `{"id": "MAN-1", "repos": []}`)
 	put(t, o.WorkRoot, "MAN-2/workspace.json", `{"id": "MAN-2", "repos": []}`)
 	put(t, o.WorkRoot, "MAN-2/notes.txt", "x")
@@ -303,7 +304,7 @@ func TestRunSave(t *testing.T) {
 	res := Run(o, items, Env{Out: &out,
 		Save: func(id string) (string, error) {
 			if id == "MAN-1" {
-				f := filepath.Join(o.Vault, "tickets/MAN-1/MAN-1.md")
+				f := filepath.Join(o.Vault, "tickets/manual/MAN-1/MAN-1.md")
 				data, _ := os.ReadFile(f)
 				os.WriteFile(f, []byte(strings.Replace(string(data), "---\n", "---\nsaved: "+time.Now().Format("2006-01-02T15:04:05")+"\n", 1)), 0o644)
 				return "log", nil
@@ -315,7 +316,7 @@ func TestRunSave(t *testing.T) {
 	if res.Cleaned != 1 || !strings.Contains(out.String(), "MAN-2: skipped: /tickets:save failed (invalid argument); see save.log") {
 		t.Errorf("%+v\n%s", res, out.String())
 	}
-	if _, err := os.Stat(filepath.Join(o.Vault, "archive/tickets/MAN-1/MAN-1.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(o.Vault, "archive/tickets/manual/MAN-1/MAN-1.md")); err != nil {
 		t.Error("saved ticket not archived")
 	}
 }
@@ -326,7 +327,7 @@ func TestPlanKeepIsNotSaved(t *testing.T) {
 	o := setup(t)
 	o.Save, o.KeepManual = true, true
 	ticket(t, o.Vault, "MAN-1", "status: closed", "source: manual")
-	put(t, o.Vault, "tickets/MAN-1/design.md", "x")
+	put(t, o.Vault, "tickets/manual/MAN-1/design.md", "x")
 	put(t, o.WorkRoot, "MAN-1/workspace.json", `{"id": "MAN-1", "repos": []}`)
 	it := plan(o)["MAN-1"]
 	if it.Action != Keep || it.Save || it.Acts() {
@@ -345,7 +346,7 @@ func TestRunLeavesNonWorkspaceFolder(t *testing.T) {
 	put(t, o.WorkRoot, "MAN-1/precious.txt", "x")
 	items := Plan(o)
 	ws := filepath.Join(o.WorkRoot, "MAN-1")
-	if d := Describe(o, items, items[0]); d != "MAN-1 (closed): leave "+ws+" (no workspace.json); archive to archive/tickets/MAN-1" {
+	if d := Describe(o, items, items[0]); d != "MAN-1 (closed): leave "+ws+" (no workspace.json); archive to archive/tickets/manual/MAN-1" {
 		t.Errorf("plan: %s", d)
 	}
 	var out bytes.Buffer
@@ -368,4 +369,11 @@ func TestRunLeavesNonWorkspaceFolder(t *testing.T) {
 	if !strings.Contains(out.String(), "MAN-2: removed its workspace, but left "+filepath.Join(o.WorkRoot, "MAN-2")+" in place: it still has other files") {
 		t.Errorf("run:\n%s", out.String())
 	}
+}
+
+func testSource(id string) string {
+	if strings.HasPrefix(id, "MAN-") {
+		return "manual"
+	}
+	return "jira"
 }

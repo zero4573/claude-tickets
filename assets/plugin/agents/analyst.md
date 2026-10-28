@@ -10,7 +10,7 @@ ticket, its workspace (`~/work/<ID>`, whose `CLAUDE.md` names the vault) and the
 - Structure first: the `graphify` tools (node ids are prefixed `<slug>::`; the ticket's
   worktrees stand in for their main clones). Then files and content with the fff tools
   (`mcp__fff__find_files`, `mcp__fff__grep`, `mcp__fff__multi_grep`), else `rg`.
-- The vault: `tickets/<ID>/` (`plan.md`, `board.md`, `relay.md`) and `projects/<slug>/`,
+- The vault: `tickets/<source>/<ID>/` (`plan.md`, `board.md`, `relay.md`) and `projects/<slug>/`,
   read by section or line range, never whole.
 - Bash only for read-only commands (`git log`, `git show`, `git diff`, `rg`, `sed -n`). Never
   edit, commit, switch branches, or write files, in the repos or the vault.

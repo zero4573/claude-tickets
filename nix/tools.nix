@@ -40,7 +40,7 @@ let
       # default search path: ct preloads them from here (CLAUDE_TICKETS_LIB_PATH goes first)
       ++ lib.optional isLinux "-X github.com/zero4573/claude-tickets/internal/embed.DefaultLibPath=${lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]}";
     # Every package, and the CLI tests (stub tmux, podman, editor; real
-    # git, with an SSH signing key for ct ws sign)
+    # git, openssh for the tests' SSH-signed commits)
     nativeCheckInputs = with pkgs; [ coreutils git gnutar openssh ];
     checkPhase = ''
       runHook preCheck

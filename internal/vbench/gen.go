@@ -231,12 +231,12 @@ func Generate(dir string, seed int64) (*Vault, error) {
 		id := fmt.Sprintf("PROJ-%d", 100+i)
 		p := projectSlugs[i%len(projectSlugs)]
 		front := fm("type", "ticket", "ticket-type", "story", "status", "active", "projects", "["+p+"]")
-		g.put("tickets/"+id+"/"+id+".md", id, front, id, g.section(2, "Description", 3)+g.section(2, "Acceptance criteria", 2)+g.section(2, "Tasks", 2))
-		g.put("tickets/"+id+"/"+id+"-plan.md", id+"-plan", fm("type", "plan", "projects", "["+p+"]"), id+" plan", g.body(4, 3))
-		g.put("tickets/"+id+"/"+id+"-board.md", id+"-board", fm("type", "board", "projects", "["+p+"]"), id+" board", g.section(2, "Status", 2)+g.section(2, "Waves", 2))
+		g.put(ticketDir(id)+"/"+id+".md", id, front, id, g.section(2, "Description", 3)+g.section(2, "Acceptance criteria", 2)+g.section(2, "Tasks", 2))
+		g.put(ticketDir(id)+"/"+id+"-plan.md", id+"-plan", fm("type", "plan", "projects", "["+p+"]"), id+" plan", g.body(4, 3))
+		g.put(ticketDir(id)+"/"+id+"-board.md", id+"-board", fm("type", "board", "projects", "["+p+"]"), id+" board", g.section(2, "Status", 2)+g.section(2, "Waves", 2))
 		for t := 1; t <= 8; t++ {
 			name := fmt.Sprintf("%s-%02d-task", id, t)
-			g.put("tickets/"+id+"/tasks/"+name+".md", name, fm("type", "task", "projects", "["+p+"]", "depends-on", "["+id+"]"), name, g.body(3, 3))
+			g.put(ticketDir(id)+"/tasks/"+name+".md", name, fm("type", "task", "projects", "["+p+"]", "depends-on", "["+id+"]"), name, g.body(3, 3))
 		}
 	}
 	for i := 0; i < 300; i++ {
@@ -269,7 +269,7 @@ func Generate(dir string, seed int64) (*Vault, error) {
 			f.Path = kbPaths[(kbIdx*37+11)%len(kbPaths)]
 			kbIdx++
 		case f.Ticket != "":
-			f.Path = "tickets/" + f.Ticket + "/" + f.Ticket + "-board.md"
+			f.Path = ticketDir(f.Ticket) + "/" + f.Ticket + "-board.md"
 		case strings.Contains(f.Sentence, "Decided") || strings.Contains(f.Sentence, "chose"):
 			f.Path = decisionsOf[f.Project][2]
 		default:
@@ -308,3 +308,6 @@ func sortedPaths(m map[string]string) []string {
 	sort.Strings(out)
 	return out
 }
+
+// ticketDir is a generated ticket's folder: they all come from Jira.
+func ticketDir(id string) string { return "tickets/jira/" + id }

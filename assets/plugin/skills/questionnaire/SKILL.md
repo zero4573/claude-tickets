@@ -1,6 +1,6 @@
 ---
 name: questionnaire
-description: Turn a question the user can't answer alone, typically an open blocker owned by someone else, into a short questionnaire for that person to fill in, written to tickets/<ID>/<ID>-questionnaire-<slug>.md and linked from the ticket's #follow-up task. Offered by the PO in the kickoff's dependency step; use when the user needs facts or decisions from another person.
+description: Turn a question the user can't answer alone, typically an open blocker owned by someone else, into a short questionnaire for that person to fill in, written to tickets/<source>/<ID>/<ID>-questionnaire-<slug>.md and linked from the ticket's #follow-up task. Offered by the PO in the kickoff's dependency step; use when the user needs facts or decisions from another person.
 ---
 
 # questionnaire
@@ -12,7 +12,7 @@ target the gap between what the recipient knows and what the user needs.
    relation to the user; offer the blocker's assignee first) and what's needed back (the
    decisions or facts this ticket waits on; offer what the `#follow-up` line says first).
    Facts you can look up (the blocker's status, its PR, the code) you look up yourself.
-2. **Write** `tickets/<ID>/<ID>-questionnaire-<slug>.md` (slug: kebab-case topic, e.g.
+2. **Write** `tickets/<source>/<ID>/<ID>-questionnaire-<slug>.md` (slug: kebab-case topic, e.g.
    `<ID>-questionnaire-auth-token-format`) in the layout below. Every item from step 1 has a
    question.
 3. **Link** it from the `#follow-up` line in the note's `## Follow-ups`: append

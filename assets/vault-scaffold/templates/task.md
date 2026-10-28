@@ -22,7 +22,7 @@ tags: [task]
 
 <!-- Written by the lead; name it <ID>-NN-<slug>.md. Body ≤60 lines before ## Report.
 repo: a slug, or vault for a vault-only task (no branch or worktree). agent: task | mechanical.
-owns: exact repo-relative files or dir/** (vault: tickets/<ID>/<file>); the only paths the agent
+owns: exact repo-relative files or dir/** (vault: tickets/<source>/<ID>/<file>); the only paths the agent
 writes. depends_on: task IDs. context_budget: 80k (60k for follow-ups). contracts: names in
 contracts/. skills: skills the agent loads, e.g. [tickets:diagnose]. Epic only: add for:
 "[[<covered ID>]]". Plain bullets only, no checkboxes. -->

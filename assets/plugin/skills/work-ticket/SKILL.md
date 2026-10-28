@@ -1,6 +1,6 @@
 ---
 name: work-ticket
-description: Technical product owner (PO) playbook for working one ticket (Jira, manual, or any other source) end to end in a ticket workspace (~/work/<ID>), launched by ct start as /tickets:work-ticket <ID>. The PO talks to the user, runs the kickoff (repos, base branches, target versions, worktrees), runs one tickets:lead agent that plans and merges the work in waves, spawns every task, review and analyst agent the lead asks for, relays questions, decisions, new requirements and feedback through relay.md, answers status from board.md, and ends at review with the work committed on the ticket branches, never pushed. Resumes from the board and relay in a few calls.
+description: Technical product owner (PO) playbook for working one ticket (Jira, manual, or any other source) end to end in a ticket workspace (~/work/<ID>), launched by ct start as /tickets:work-ticket <ID>. The PO talks to the user, runs the kickoff (repos, base branches, target versions, worktrees), runs one tickets:lead agent that plans and merges the work in waves, spawns every task, review and analyst agent the lead asks for, relays questions, decisions, new requirements and feedback through relay.md, answers status from board.md, and ends at review with the work committed on the ticket branches, pushed only by /tickets:save. Resumes from the board and relay in a few calls.
 ---
 
 # work-ticket <ID> (the PO)
@@ -11,10 +11,10 @@ and the rules). One **`tickets:lead`** agent plans, writes contracts, merges and
 playbook is the `tickets:lead` skill). Subagents can't spawn subagents, so **you spawn every
 agent** the lead asks for: `tickets:task`, `tickets:mechanical`, `tickets:reviewer(-deep)`, and
 `tickets:analyst` for the user's questions. You never plan tasks, merge, or read task reports
-in full. State lives in `tickets/<ID>/` (layout and caps: `work-ticket/workflow.md`, "Workflow").
+in full. State lives in `tickets/<source>/<ID>/` (`<source>`: the note's `source:`, e.g. `jira`; caps: `workflow.md`).
 
 ## Ground rules
-- In the vault, write only inside `tickets/<ID>/`; shared notes are `/tickets:save`'s. You
+- In the vault, write only inside `tickets/<source>/<ID>/`; shared notes are `/tickets:save`'s. You
   write the note's `## Questions` and `status` (the gate's; the lead sets it as it plans),
   `relay.md`, `board.md`'s frontmatter `lead:`, `lead-since:` and `po:` (with `sed -i` on those
   lines only) and its `orphaned` marks (0); the kickoff also writes `## Workspace`, `projects:`,
@@ -28,8 +28,9 @@ in full. State lives in `tickets/<ID>/` (layout and caps: `work-ticket/workflow.
 - Commit subjects follow the ticket's commit style (`board.md` `commit-style:`); vault-only IDs
   (task numbers, waves, `R-`/`B-` entries, findings, a manual ticket's key) never go into code,
   docs or commits.
-- Commits are unsigned (the user runs `ct ws sign <ID>`). Never push, rewrite pushed commits,
-  `reset --hard`, or remove the ticket worktrees.
+- Commits are signed when the session has a signing key. Push only through `/tickets:save`;
+  never force push, delete branches or tags, rewrite pushed commits, `reset --hard`, or remove
+  the ticket worktrees: those are the user's manual steps.
 - **Find vault context with `ct vault search "<topic>" --project <slug> --budget 2000`** (kickoff
   and status answers), then `ct vault note get <note> "<section>"`; whole notes only when needed.
 - **No paid Rovo calls** (the vault's `AGENTS.md`, "Cost guard").
@@ -37,10 +38,10 @@ in full. State lives in `tickets/<ID>/` (layout and caps: `work-ticket/workflow.
 
 ## 0. Resume (always first; ≤3 calls)
 `<vault>` is the absolute vault path from `CLAUDE.md`; your cwd is `~/work/<ID>`.
-1. `sed -n '2,/^---$/p' <vault>/tickets/<ID>/board.md; rg -n '^- \[.\] [0-9]+ · ' <vault>/tickets/<ID>/board.md`
+1. `sed -n '2,/^---$/p' <vault>/tickets/<source>/<ID>/board.md; rg -n '^- \[.\] [0-9]+ · ' <vault>/tickets/<source>/<ID>/board.md`
    (frontmatter `lead:`, `lead-since:`, `po:` and the task lines)
-2. `tail -n 32 <vault>/tickets/<ID>/relay.md; echo "$CLAUDE_CODE_SESSION_ID"` (`## Open` is last)
-3. `rg -n '^(status|ticket-type):|^## Workspace' -A3 <vault>/tickets/<ID>/<ID>.md`
+2. `tail -n 32 <vault>/tickets/<source>/<ID>/relay.md; echo "$CLAUDE_CODE_SESSION_ID"` (`## Open` is last)
+3. `rg -n '^(status|ticket-type):|^## Workspace' -A3 <vault>/tickets/<source>/<ID>/<ID>.md`
 
 `## Workspace` has no data rows (only `| Repo (slug) |…` and `|---|`): read `kickoff.md` (next
 to this file) and do it (it creates `relay.md` and `board.md` and ends with a grill), then
@@ -59,7 +60,7 @@ spawn the lead (1). Otherwise liveness goes by **session id**, never by a ping t
 Only when no lead runs in this conversation. Spawn `tickets:lead` with:
 `Lead for <ID>. Workspace: <ws>. Vault: <vault>. New since the last lead: <one line|none>.`
 At once record it: `sed -i -E 's/^lead:.*/lead: <agentId>/; s/^lead-since:.*/lead-since: <date
-time>/; s/^  session:.*/  session: <$CLAUDE_CODE_SESSION_ID>/' <vault>/tickets/<ID>/board.md`.
+time>/; s/^  session:.*/  session: <$CLAUDE_CODE_SESSION_ID>/' <vault>/tickets/<source>/<ID>/board.md`.
 Agents you spawn later for its `Spawn:` entries get the prompt verbatim plus `Lead: <agentId>`.
 
 ## 2. Event loop
@@ -103,7 +104,7 @@ Each event gets one short action; never forward report bodies.
    `answered`, append `R-mm · <date> · user→lead · answer · R-nn: <answer> · open`, and
    SendMessage the lead "R-nn answered (R-mm)". The lead records the decision in `plan.md` and
    sets `status: in-progress`.
-Kickoff questions (`kickoff.md`) are yours and are asked directly, without relay entries. Follow-up items (the lead's deferral candidates and open backlog; never fix tasks or `kept:`) are asked as the lead's `Ask user:` says (A, this ticket; B, a new ticket; C, an existing ticket (name it); D, leave it in the backlog (backlog items only)). Up to 4 items: one question each. More than 4: one question per repo or theme, listing each item with the lead's proposed option (A-D); the user accepts it or overrides it per item. Ask at most 4 questions per AskUserQuestion call and use more calls when needed. Rule: nothing is filed with `ct new` before the answer.
+Kickoff questions (`kickoff.md`) are yours and are asked directly, without relay entries. Follow-up items (the lead's deferral candidates and open backlog; never fix tasks or `kept:`) are asked as the lead's `Ask user:` says (A, this ticket; B, a new ticket; C, an existing ticket (name it); D, leave it in the backlog (backlog items only)). Up to 4 items: one question each. More than 4: one question per repo or theme, listing each item with the lead's proposed option (A-D); the user accepts it or overrides it per item. Ask at most 4 questions per AskUserQuestion call and use more calls when needed. Rule: nothing is filed with `ct new` before the answer. A ticket the user asks you to file (at the ticket's source, e.g. Jira, or manual): `/tickets:new-ticket`.
 
 ## 4. relay.md (capped)
 Frontmatter `type: relay`, `ticket: "[[<ID>]]"`; sections `## Closed`, then `## Open` (last,

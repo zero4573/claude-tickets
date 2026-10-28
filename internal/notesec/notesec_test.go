@@ -195,12 +195,12 @@ func TestFrontmatter(t *testing.T) {
 
 func vault(t *testing.T) string {
 	v := t.TempDir()
-	for _, d := range []string{".obsidian", "inbox", "projects/acme", "tickets/PROJ-1", "tickets/PROJ-2", "templates"} {
+	for _, d := range []string{".obsidian", "inbox", "projects/acme", "tickets/jira/PROJ-1", "tickets/jira/PROJ-2", "templates"} {
 		os.MkdirAll(filepath.Join(v, d), 0o755)
 	}
 	w := func(rel, s string) { os.WriteFile(filepath.Join(v, rel), []byte(s), 0o644) }
-	w("tickets/PROJ-1/PROJ-1.md", "---\ntitle: E\nsource: jira\nticket-type: epic\ncovers: [\"[[PROJ-2]]\"]\nstatus: open\n---\n# E\n\n## Description\n\nd\n\n## Tasks\n\nt\n")
-	w("tickets/PROJ-2/PROJ-2.md", "---\ntitle: C\nsource: jira\nstatus: open\n---\n# C\n\n## Description\n\nd\n\n## Tasks\n\nt\n\n## Notes\n\nn\n")
+	w("tickets/jira/PROJ-1/PROJ-1.md", "---\ntitle: E\nsource: jira\nticket-type: epic\ncovers: [\"[[PROJ-2]]\"]\nstatus: open\n---\n# E\n\n## Description\n\nd\n\n## Tasks\n\nt\n")
+	w("tickets/jira/PROJ-2/PROJ-2.md", "---\ntitle: C\nsource: jira\nstatus: open\n---\n# C\n\n## Description\n\nd\n\n## Tasks\n\nt\n\n## Notes\n\nn\n")
 	return v
 }
 
@@ -215,32 +215,34 @@ func TestRules(t *testing.T) {
 		tg   Target
 		want string // "" allowed, else a substring of the refusal
 	}{
-		{"own folder", Ctx{v, "PROJ-1", false}, "tickets/PROJ-1/notes.md", sec("x"), ""},
-		{"other folder", Ctx{v, "PROJ-1", false}, "projects/acme/a.md", sec("x"), "only inside tickets/PROJ-1/"},
-		{"other ticket", Ctx{v, "PROJ-2", false}, "tickets/PROJ-1/PROJ-1.md", sec("Tasks"), "only inside tickets/PROJ-2/"},
-		{"protected field", Ctx{v, "PROJ-2", false}, "tickets/PROJ-2/PROJ-2.md", fld("title"), "identity"},
-		{"source field", Ctx{v, "PROJ-2", false}, "tickets/PROJ-2/PROJ-2.md", fld("source-url"), "identity"},
-		{"status ok", Ctx{v, "PROJ-2", false}, "tickets/PROJ-2/PROJ-2.md", fld("status"), ""},
-		{"protected section", Ctx{v, "PROJ-2", false}, "tickets/PROJ-2/PROJ-2.md", sec("C", "Description"), "Description"},
-		{"work section", Ctx{v, "PROJ-2", false}, "tickets/PROJ-2/PROJ-2.md", sec("C", "Tasks"), ""},
-		{"epic covers tasks", Ctx{v, "PROJ-1", false}, "tickets/PROJ-2/PROJ-2.md", sec("C", "Tasks"), ""},
-		{"epic covers status", Ctx{v, "PROJ-1", false}, "tickets/PROJ-2/PROJ-2.md", fld("status"), ""},
-		{"epic covers notes", Ctx{v, "PROJ-1", false}, "tickets/PROJ-2/PROJ-2.md", sec("C", "Notes"), "work sections"},
-		{"epic covers tags", Ctx{v, "PROJ-1", false}, "tickets/PROJ-2/PROJ-2.md", fld("tags"), "work sections"},
-		{"epic covers description", Ctx{v, "PROJ-1", false}, "tickets/PROJ-2/PROJ-2.md", sec("C", "Description"), "Description"},
-		{"not epic", Ctx{v, "PROJ-2", false}, "tickets/PROJ-1/PROJ-1.md", sec("E", "Tasks"), "only inside"},
+		{"own folder", Ctx{v, "PROJ-1", false}, "tickets/jira/PROJ-1/notes.md", sec("x"), ""},
+		{"other folder", Ctx{v, "PROJ-1", false}, "projects/acme/a.md", sec("x"), "only inside tickets/jira/PROJ-1/"},
+		{"other ticket", Ctx{v, "PROJ-2", false}, "tickets/jira/PROJ-1/PROJ-1.md", sec("Tasks"), "only inside tickets/jira/PROJ-2/"},
+		{"protected field", Ctx{v, "PROJ-2", false}, "tickets/jira/PROJ-2/PROJ-2.md", fld("title"), "identity"},
+		{"source field", Ctx{v, "PROJ-2", false}, "tickets/jira/PROJ-2/PROJ-2.md", fld("source-url"), "identity"},
+		{"status ok", Ctx{v, "PROJ-2", false}, "tickets/jira/PROJ-2/PROJ-2.md", fld("status"), ""},
+		{"protected section", Ctx{v, "PROJ-2", false}, "tickets/jira/PROJ-2/PROJ-2.md", sec("C", "Description"), "Description"},
+		{"work section", Ctx{v, "PROJ-2", false}, "tickets/jira/PROJ-2/PROJ-2.md", sec("C", "Tasks"), ""},
+		{"epic covers tasks", Ctx{v, "PROJ-1", false}, "tickets/jira/PROJ-2/PROJ-2.md", sec("C", "Tasks"), ""},
+		{"epic covers status", Ctx{v, "PROJ-1", false}, "tickets/jira/PROJ-2/PROJ-2.md", fld("status"), ""},
+		{"epic covers notes", Ctx{v, "PROJ-1", false}, "tickets/jira/PROJ-2/PROJ-2.md", sec("C", "Notes"), "work sections"},
+		{"epic covers tags", Ctx{v, "PROJ-1", false}, "tickets/jira/PROJ-2/PROJ-2.md", fld("tags"), "work sections"},
+		{"epic covers description", Ctx{v, "PROJ-1", false}, "tickets/jira/PROJ-2/PROJ-2.md", sec("C", "Description"), "Description"},
+		{"own ID, other source folder", Ctx{v, "PROJ-1", false}, "tickets/manual/PROJ-1/notes.md", sec("x"), "only inside tickets/jira/PROJ-1/"},
+		{"epic covers, other source folder", Ctx{v, "PROJ-1", false}, "tickets/manual/PROJ-2/PROJ-2.md", sec("C", "Tasks"), "only inside tickets/jira/PROJ-1/"},
+		{"not epic", Ctx{v, "PROJ-2", false}, "tickets/jira/PROJ-1/PROJ-1.md", sec("E", "Tasks"), "only inside"},
 		{"inbox", Ctx{v, "", false}, "inbox/a.md", sec("x"), ""},
 		{"no workspace", Ctx{v, "", false}, "projects/acme/a.md", sec("x"), "only inside inbox/"},
-		{"no workspace tickets", Ctx{v, "", false}, "tickets/PROJ-2/PROJ-2.md", sec("x"), "only inside inbox/"},
+		{"no workspace tickets", Ctx{v, "", false}, "tickets/jira/PROJ-2/PROJ-2.md", sec("x"), "only inside inbox/"},
 		{"save projects", Ctx{v, "", true}, "projects/acme/a.md", sec("x"), ""},
 		{"save in workspace", Ctx{v, "PROJ-1", true}, "projects/acme/a.md", sec("x"), ""},
 		{"save raw", Ctx{v, "", true}, "raw/a.md", sec("x"), "raw/"},
 		{"save templates", Ctx{v, "", true}, "templates/a.md", sec("x"), "templates/"},
 		{"save archive", Ctx{v, "", true}, "archive/a.md", sec("x"), "archive/"},
 		{"save dot dir", Ctx{v, "", true}, ".obsidian/a.md", sec("x"), "dot-"},
-		{"save ticket field", Ctx{v, "", true}, "tickets/PROJ-2/PROJ-2.md", fld("covers"), "identity"},
-		{"save ticket section", Ctx{v, "", true}, "tickets/PROJ-2/PROJ-2.md", sec("C", "Acceptance criteria"), "Acceptance"},
-		{"save ticket status", Ctx{v, "", true}, "tickets/PROJ-2/PROJ-2.md", fld("status"), ""},
+		{"save ticket field", Ctx{v, "", true}, "tickets/jira/PROJ-2/PROJ-2.md", fld("covers"), "identity"},
+		{"save ticket section", Ctx{v, "", true}, "tickets/jira/PROJ-2/PROJ-2.md", sec("C", "Acceptance criteria"), "Acceptance"},
+		{"save ticket status", Ctx{v, "", true}, "tickets/jira/PROJ-2/PROJ-2.md", fld("status"), ""},
 		{"escape", Ctx{v, "", true}, "../x.md", sec("x"), "outside the vault"},
 	}
 	for _, c := range cases {

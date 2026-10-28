@@ -42,7 +42,7 @@ workspace's repos are recorded in <workRoot>/<ID>/workspace.json.
 A <repo> argument is a slug or <provider>/<owner>/<repo>.`,
 	}
 	cmd.AddCommand(wsReposCmd(), wsCloneCmd(), wsAddCmd(), wsLsCmd(), wsDiffCmd(),
-		wsRmCmd(), wsSignCmd(), wsMarkCmd(), wsMarksCmd(), wsFetchCmd(), wsGcCmd(), wsTidyCleanCmd())
+		wsRmCmd(), wsMarkCmd(), wsMarksCmd(), wsFetchCmd(), wsGcCmd(), wsTidyCleanCmd())
 	return cmd
 }
 
@@ -576,112 +576,6 @@ func wsRemove(ctx vault.Context, key string, force, merged bool) error {
 		fmt.Printf("ct ws: removed workspace %s\n", dir)
 	}
 	return nil
-}
-
-func wsSignCmd() *cobra.Command {
-	var skipMarks bool
-	cmd := &cobra.Command{
-		Use:   "sign <ID>",
-		Short: "On the host: sign a ticket's unpushed commits",
-		Long: `On the host: signs the ticket's commits. Sessions commit on the ticket
-branches but may not be able to sign (no SSH agent in a sandbox), so this
-replays each worktree's unpushed commits onto the same parent with
---gpg-sign (the key the repo's git identity sets). Same changes and
-authors, new hashes; commits already on a remote are left alone. Run it
-before pushing.
-
-Before signing it checks the docs and tidy marks (ct ws marks): when a repo
-has commits after them, it asks (on a terminal) or refuses; --skip-marks
-goes on without asking.`,
-		Args:              cobra.ExactArgs(1),
-		ValidArgsFunction: completeWorkspaceID,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, err := vault.Require()
-			if err != nil {
-				return err
-			}
-			key := args[0]
-			if err := requireKey("sign", key); err != nil {
-				return err
-			}
-			if gitx.InContainer() {
-				return errors.New("sign: run it on the host, where your signing key is")
-			}
-			if _, err := os.Stat(workspace.File(filepath.Join(ctx.WorkRoot, key))); err != nil {
-				return fmt.Errorf("sign: %s has no workspace (%s)", key, filepath.Join(ctx.WorkRoot, key))
-			}
-			if !skipMarks {
-				if err := wsSignMarksOK(ctx, key); err != nil {
-					return err
-				}
-			}
-			failed := false
-			for _, r := range wsRepos(ctx, key) {
-				if !signRepo(r) {
-					failed = true
-				}
-			}
-			if failed {
-				return exitError(1)
-			}
-			return nil
-		},
-	}
-	cmd.Flags().BoolVar(&skipMarks, "skip-marks", false, "sign even when docs or tidy were not done after the last commit")
-	return cmd
-}
-
-// signRepo re-signs one checkout's unpushed commits; false on failure.
-func signRepo(r workspace.Repo) bool {
-	p := r.Path
-	if _, err := os.Stat(filepath.Join(p, ".git")); err != nil {
-		warnf("sign: %s: worktree missing (%s)", r.Slug, p)
-		return true
-	}
-	if out, _ := gitx.Out(p, "rev-list", "-n1", "HEAD", "--not", "--remotes"); out == "" {
-		fmt.Printf("ct ws: %s: no unpushed commits on %s\n", r.Slug, r.Branch)
-		return true
-	}
-	// From the oldest unpushed commit without a signature (%G? N); the ones
-	// before it are already signed and keep their hashes
-	log, _ := gitx.Out(p, "log", "--reverse", "--topo-order", "--no-show-signature", "--format=%H %G?", "HEAD", "--not", "--remotes")
-	first := ""
-	for _, line := range strings.Split(log, "\n") {
-		if h, s, _ := strings.Cut(line, " "); s == "N" {
-			first = h
-			break
-		}
-	}
-	if first == "" {
-		fmt.Printf("ct ws: %s: unpushed commits on %s are already signed\n", r.Slug, r.Branch)
-		return true
-	}
-	n, err := gitx.Out(p, "rev-list", "--count", "HEAD", "^"+first+"^", "--not", "--remotes")
-	if err != nil {
-		n, _ = gitx.Out(p, "rev-list", "--count", "HEAD", "--not", "--remotes")
-	}
-	onto := []string{"--root"}
-	if parent, err := gitx.Out(p, "rev-parse", "-q", "--verify", first+"^"); err == nil && parent != "" {
-		onto = []string{parent}
-	}
-	if err := gitx.Run(p, append([]string{"rebase", "--quiet", "--force-rebase", "--rebase-merges", "--autostash", "--gpg-sign"}, onto...)...); err != nil {
-		_ = gitx.Timeout(time.Minute, p, "rebase", "--abort")
-		warnf("sign: %s: couldn't re-sign %s (see above); left as it was", r.Slug, r.Branch)
-		return false
-	}
-	sigs, _ := gitx.Out(p, "log", "--no-show-signature", "--format=%G?", "HEAD", "--not", "--remotes")
-	unsigned := 0
-	for _, s := range strings.Split(sigs, "\n") {
-		if s == "N" {
-			unsigned++
-		}
-	}
-	if unsigned > 0 {
-		warnf("sign: %s: %d of %s commit(s) on %s still unsigned (no signing key for this repo's identity?)", r.Slug, unsigned, n, r.Branch)
-		return false
-	}
-	fmt.Printf("ct ws: %s: signed %s commit(s) on %s\n", r.Slug, n, r.Branch)
-	return true
 }
 
 func wsFetchCmd() *cobra.Command {

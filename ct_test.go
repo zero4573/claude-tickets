@@ -70,7 +70,7 @@ fi
 case " $* " in
   *" -p /tickets:save "*)
     if [ -f "$WORK/save-ok" ]; then
-      id=$(basename "$PWD"); f="$CLAUDE_TICKETS_VAULT/tickets/$id/$id.md"
+      id=$(basename "$PWD"); f=$(ls "$CLAUDE_TICKETS_VAULT"/tickets/*/"$id/$id.md" "$CLAUDE_TICKETS_VAULT/tickets/$id/$id.md" 2>/dev/null | head -n 1)
       { head -n 1 "$f"; echo "saved: $(date +%Y-%m-%dT%H:%M:%S)"; tail -n +2 "$f"; } > "$f.tmp" && mv "$f.tmp" "$f"
     fi ;;
 esac

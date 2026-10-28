@@ -138,3 +138,36 @@ func TestMoveTreePartialResultAfterWriteError(t *testing.T) {
 		t.Errorf("Changed = %v, want %v", res.Changed, want)
 	}
 }
+
+func TestMoveTrees(t *testing.T) {
+	v := treeVault(t)
+	trees := []Tree{
+		{Src: filepath.Join(v, "tickets/MAN-4"), Dst: filepath.Join(v, "tickets/manual/MAN-4"), Last: "MAN-4.md"},
+		{Src: filepath.Join(v, "tickets/MAN-5"), Dst: filepath.Join(v, "tickets/manual/MAN-5")},
+	}
+	write(t, v, "tickets/manual/MAN-5/requirements.md", "taken")
+	before := read(t, v, "projects/p/p.md")
+	if _, err := MoveTrees(v, trees); err == nil || !strings.Contains(err.Error(), "destination exists: tickets/manual/MAN-5/requirements.md") {
+		t.Errorf("err = %v", err)
+	}
+	if !exists(v, "tickets/MAN-4/MAN-4.md") || read(t, v, "projects/p/p.md") != before {
+		t.Error("changed something before failing")
+	}
+	os.Remove(filepath.Join(v, "tickets/manual/MAN-5/requirements.md"))
+	res, err := MoveTrees(v, trees)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if last := res.Moves[len(res.Moves)-1]; last.To != "tickets/manual/MAN-4/MAN-4.md" {
+		t.Errorf("last move %v", last)
+	}
+	if got := read(t, v, "projects/p/p.md"); got != "[[MAN-4]] [[tickets/manual/MAN-4/logs/x|log]] [[requirements]] `[[tickets/MAN-4/logs/x]]`\n" {
+		t.Errorf("p.md = %q", got)
+	}
+	if exists(v, "tickets/MAN-4") || exists(v, "tickets/MAN-5") || !exists(v, "tickets/manual/MAN-5/requirements.md") {
+		t.Error("folders not moved")
+	}
+	if _, err := MoveTrees(v, []Tree{{Src: filepath.Join(v, "tickets/manual"), Dst: filepath.Join(v, "tickets/manual/x")}}); err == nil {
+		t.Error("a destination inside the source")
+	}
+}

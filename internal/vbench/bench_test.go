@@ -19,7 +19,7 @@ func TestSearchOptions(t *testing.T) {
 		{"kb", Fact{Scenario: "kb", Project: "p"}, vsearch.Options{K: 30, Budget: Budget}},
 		{"recall project", Fact{Scenario: "recall", Project: "p"}, vsearch.Options{K: 30, Budget: RecallBudget, Project: "p"}},
 		{"recall ticket", Fact{Scenario: "recall", Project: "p", Ticket: "T-1"},
-			vsearch.Options{K: 30, Budget: RecallBudget, Paths: []string{"tickets/T-1/"}, Type: "board"}},
+			vsearch.Options{K: 30, Budget: RecallBudget, Paths: []string{"tickets/jira/T-1/"}, Type: "board"}},
 	} {
 		if got := SearchOptions(c.f); !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%s: got %+v, want %+v", c.name, got, c.want)

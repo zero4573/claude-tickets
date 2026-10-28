@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zero4573/claude-tickets/internal/links"
 	"github.com/zero4573/claude-tickets/internal/ticketmigrate"
 	"github.com/zero4573/claude-tickets/internal/vaultlock"
 )
@@ -85,7 +86,7 @@ func TestVaultUpdateRefreshesWrittenPaths(t *testing.T) {
 	refreshIndex = func(_ string, files ...string) { calls = append(calls, files) }
 	stubMigrate(t, func(string, []byte, string, bool) (ticketmigrate.Result, error) {
 		return ticketmigrate.Result{Migrated: 1, Tickets: []ticketmigrate.TicketChange{{
-			ID: "A-1", StatusAdded: true, StatusRel: "tickets/A-1/A-1-status.md",
+			ID: "A-1", Dir: "tickets/A-1", StatusAdded: true, StatusRel: "tickets/A-1/A-1-status.md",
 			Files: []ticketmigrate.FileChange{{Rel: "tickets/A-1/board.md"}},
 		}}}, nil
 	})
@@ -135,7 +136,7 @@ func TestVaultUpdateMigrateErrorStillReportsAndRefreshes(t *testing.T) {
 	refreshIndex = func(_ string, files ...string) { calls = append(calls, files) }
 	stubMigrate(t, func(string, []byte, string, bool) (ticketmigrate.Result, error) {
 		return ticketmigrate.Result{Migrated: 1, Tickets: []ticketmigrate.TicketChange{{
-			ID: "A-1", StatusAdded: true, StatusRel: "tickets/A-1/A-1-status.md",
+			ID: "A-1", Dir: "tickets/A-1", StatusAdded: true, StatusRel: "tickets/A-1/A-1-status.md",
 			Files: []ticketmigrate.FileChange{{Rel: "tickets/A-1/board.md"}},
 		}}}, errors.New("boom")
 	})
@@ -166,5 +167,42 @@ func TestVaultUpdateMigrateErrorStillReportsAndRefreshes(t *testing.T) {
 		if !have[want] {
 			t.Errorf("%s not refreshed: %v", want, calls[0])
 		}
+	}
+}
+
+// A layout move that stops: the checklist migration waits for the next
+// run, what was moved is refreshed, the error comes back, and the lock is
+// released.
+func TestVaultUpdateLayoutErrorStopsAndRefreshes(t *testing.T) {
+	v := updateVault(t)
+	var calls [][]string
+	orig := refreshIndex
+	t.Cleanup(func() { refreshIndex = orig })
+	refreshIndex = func(_ string, files ...string) { calls = append(calls, files) }
+	origLayout := migrateLayout
+	t.Cleanup(func() { migrateLayout = origLayout })
+	migrateLayout = func(string, bool) (ticketmigrate.LayoutResult, error) {
+		return ticketmigrate.LayoutResult{
+			Moves: []ticketmigrate.Move{{ID: "A-1", Source: "jira", From: "tickets/A-1", To: "tickets/jira/A-1"}},
+			Files: []links.Moved{{From: "tickets/A-1/plan.md", To: "tickets/jira/A-1/plan.md"}},
+		}, errors.New("disk full")
+	}
+	ran := false
+	stubMigrate(t, func(string, []byte, string, bool) (ticketmigrate.Result, error) {
+		ran = true
+		return ticketmigrate.Result{}, nil
+	})
+	if err := vaultUpdate(v, updateOpts{}); err == nil || !strings.Contains(err.Error(), "disk full") {
+		t.Fatalf("err = %v", err)
+	}
+	if ran {
+		t.Error("the checklist migration ran after a failed move")
+	}
+	if len(calls) != 1 || !strings.Contains(strings.Join(calls[0], " "), "tickets/A-1/plan.md tickets/jira/A-1/plan.md") {
+		t.Errorf("refreshed %v", calls)
+	}
+	dir, _ := vaultlock.Dir(v)
+	if h := vaultlock.Holder(dir); h != "" {
+		t.Errorf("lock still held by %s", h)
 	}
 }

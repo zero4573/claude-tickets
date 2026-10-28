@@ -1,7 +1,7 @@
 # ct start: workspace, settings, trust, graph MCP, one tmux window per ticket
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a/github/acme/x/.git
-mkdir home/Documents/Obsidian/a/tickets/MAN-1 home/Documents/Obsidian/a/tickets/MAN-2 home/Documents/Obsidian/a/tickets/MAN-3
-cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+mkdir home/Documents/Obsidian/a/tickets/manual/MAN-1 home/Documents/Obsidian/a/tickets/MAN-2 home/Documents/Obsidian/a/tickets/MAN-3
+cp man-1.md home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
 cp man-2.md home/Documents/Obsidian/a/tickets/MAN-2/MAN-2.md
 cp man-3.md home/Documents/Obsidian/a/tickets/MAN-3/MAN-3.md
 expand user-settings.json
@@ -13,9 +13,14 @@ grep '^new-session -d -s tickets-a -n MAN-1 -c .*/home/Projects/work-a/MAN-1 bas
 grep '"id": "MAN-1"' home/Projects/work-a/MAN-1/workspace.json
 grep '"vault": ".*/Obsidian/a"' home/Projects/work-a/MAN-1/workspace.json
 grep '^- Ticket: `MAN-1` \(source: `manual`\)$' home/Projects/work-a/MAN-1/CLAUDE.md
-grep 'ct ws sign MAN-1' home/Projects/work-a/MAN-1/CLAUDE.md
-grep '^  --hard, or remove the ticket worktrees; the lead adds and removes task$' home/Projects/work-a/MAN-1/CLAUDE.md
-grep '^  worktrees under `tasks/`.$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^- Ticket note: `.*/Obsidian/a/tickets/manual/MAN-1/MAN-1.md`$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^  `/tickets:save`\): `.*/Obsidian/a/tickets/manual/MAN-1/`. A lead ticket' home/Projects/work-a/MAN-1/CLAUDE.md
+! grep 'ct ws sign' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^  Commits are signed with the session.s signing key when one is set up$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^  through `/tickets:save`, which pushes each repo.s ticket branch; never$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^  force push, delete branches or tags, rewrite pushed commits, reset$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^  the lead adds and removes task worktrees under `tasks/`.$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^has reviewed the changes: it pushes the ticket branches.$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^- Workflow: this session is the PO, the one the user talks to. It runs one$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^  .tickets:lead. subagent, which plans the ticket in waves of task agents$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep 'through .relay.md.; .board.md. tracks the tasks' home/Projects/work-a/MAN-1/CLAUDE.md

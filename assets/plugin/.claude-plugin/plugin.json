@@ -1,6 +1,6 @@
 {
   "name": "tickets",
-  "description": "Ticket workflow with an Obsidian vault as long-term memory: the PO (product owner) session you talk to (work-ticket, with grilling, questionnaires and po-refresh) and the lead agent it runs (lead, working the ticket in waves of task agents with a review after each, diagnose for bugs, a retro at hand-over), relayed through relay.md; the task / mechanical / reviewer / reviewer-deep / analyst agents with their briefs (task-agent, wave-review); PR feedback, ticket sync, the knowledge base (kb), teaching a topic (teach), save and recall; and the hooks that tell ct status what a session is doing.",
+  "description": "Ticket workflow with an Obsidian vault as long-term memory: the PO (product owner) session you talk to (work-ticket, with grilling, questionnaires and po-refresh) and the lead agent it runs (lead, working the ticket in waves of task agents with a review after each, diagnose for bugs, a retro at hand-over), relayed through relay.md; the task / mechanical / reviewer / reviewer-deep / analyst agents with their briefs (task-agent, wave-review); PR feedback, ticket sync, filing new tickets at a source (new-ticket), the knowledge base (kb), teaching a topic (teach), save and recall; and the hooks that tell ct status what a session is doing.",
   "version": "0.1.0",
   "author": { "name": "claude-tickets" },
   "hooks": "./hooks/hooks.json"

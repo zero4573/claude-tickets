@@ -6,7 +6,7 @@ argument-hint: "[repo slug ...; default: every repo of the workspace]"
 
 # /tickets:docs [repo ...]
 
-Order: docs → tidy → `/tickets:save` → `ct ws sign`.
+Order: docs → tidy → `/tickets:save` (which pushes).
 
 ## Started by the PO
 

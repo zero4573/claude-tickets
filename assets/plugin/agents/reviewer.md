@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Wave review of one repo for one ticket (architect and senior developer in one pass), scoped to the wave's commit range, with capped findings. Read-only apart from its review file tickets/<ID>/reviews/wave-N-<slug>.md. Spawned by the PO (/tickets:work-ticket) at the lead's request after a wave is merged.
+description: Wave review of one repo for one ticket (architect and senior developer in one pass), scoped to the wave's commit range, with capped findings. Read-only apart from its review file tickets/<source>/<ID>/reviews/wave-N-<slug>.md. Spawned by the PO (/tickets:work-ticket) at the lead's request after a wave is merged.
 tools: Read, Write, Bash, Grep, Glob, Skill, mcp__fff__find_files, mcp__fff__grep, mcp__fff__multi_grep
 model: sonnet
 skills:

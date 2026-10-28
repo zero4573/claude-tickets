@@ -143,7 +143,7 @@ func TestWaveSkillsReferences(t *testing.T) {
 		return string(data)
 	}
 	review := read("plugin/skills/wave-review/SKILL.md")
-	for _, s := range []string{"3 must-fix, 6 should-fix, 5 consider", "tickets/<ID>/reviews/wave-<N>-<slug>.md"} {
+	for _, s := range []string{"3 must-fix, 6 should-fix, 5 consider", "tickets/<source>/<ID>/reviews/wave-<N>-<slug>.md"} {
 		if !strings.Contains(review, s) {
 			t.Errorf("wave-review: missing %q", s)
 		}
@@ -370,7 +370,7 @@ func TestAdaptedSkills(t *testing.T) {
 			t.Errorf("PO (work-ticket, kickoff): missing %q", s)
 		}
 	}
-	if !strings.Contains(read("plugin/skills/questionnaire/SKILL.md"), "tickets/<ID>/<ID>-questionnaire-<slug>.md") {
+	if !strings.Contains(read("plugin/skills/questionnaire/SKILL.md"), "tickets/<source>/<ID>/<ID>-questionnaire-<slug>.md") {
 		t.Error("questionnaire: wrong file path")
 	}
 

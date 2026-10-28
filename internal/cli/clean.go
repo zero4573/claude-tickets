@@ -40,10 +40,10 @@ at a time:
   .trash/<ID>/ (--purge deletes it instead), and every link to it
   ([[ID]], [[ID|alias]], [[ID#heading]], ![[ID]], path forms) becomes a
   link to its remote page, [ID](<source-url>). Files of its folder that
-  other notes link or embed (a log, an image) move to archive/tickets/<ID>/
+  other notes link or embed (a log, an image) move to archive/tickets/<source>/<ID>/
   first, so those links keep working;
 - a manual ticket (or a synced one without a source-url) moves whole to
-  archive/tickets/<ID>/: links to it keep resolving, and ct new never reuses
+  archive/tickets/<source>/<ID>/: links to it keep resolving, and ct new never reuses
   its number. --keep-manual leaves them where they are.
 
 Its workspace goes first (as ct ws rm <ID>). Links in a synced ticket's

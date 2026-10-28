@@ -21,7 +21,7 @@ fakejira jira.json
 exec ct sync
 stderr 'skipping an issue with an unexpected key "../../evil"'
 stdout '^jira: open 1, new 1,'
-exists home/Documents/Obsidian/demo/tickets/PROJ-1/PROJ-1.md
+exists home/Documents/Obsidian/demo/tickets/jira/PROJ-1/PROJ-1.md
 ! exists home/Documents/evil
 ! exists home/evil
 

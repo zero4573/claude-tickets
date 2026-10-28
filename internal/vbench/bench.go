@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/zero4573/claude-tickets/internal/chunk"
+	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/notesec"
 	"github.com/zero4573/claude-tickets/internal/vsearch"
 )
@@ -172,7 +173,7 @@ func Old(vault string, files []string, f Fact) Outcome {
 				case strings.Contains(rel, "-decision-") || rel == pre+f.Project+".md":
 					ctx.WriteString(read(vault, rel))
 				}
-			case strings.HasPrefix(rel, "tickets/") && strings.Count(rel, "/") == 2 && !strings.Contains(rel, "-board.md") && !strings.Contains(rel, "-plan.md"):
+			case isTicketNote(rel):
 				// a ticket's own note: open tickets that list the project
 				if b := read(vault, rel); listsProject(b, f.Project) {
 					ctx.WriteString(b)
@@ -183,9 +184,9 @@ func Old(vault string, files []string, f Fact) Outcome {
 			ctx.WriteString(read(vault, logs[i]))
 		}
 		if f.Ticket != "" {
-			ctx.WriteString(listing(vault, "tickets/"+f.Ticket))
-			ctx.WriteString(read(vault, "tickets/"+f.Ticket+"/"+f.Ticket+".md"))
-			ctx.WriteString(read(vault, "tickets/"+f.Ticket+"/"+f.Ticket+"-board.md"))
+			ctx.WriteString(listing(vault, ticketDir(f.Ticket)))
+			ctx.WriteString(read(vault, ticketDir(f.Ticket)+"/"+f.Ticket+".md"))
+			ctx.WriteString(read(vault, ticketDir(f.Ticket)+"/"+f.Ticket+"-board.md"))
 		}
 	}
 	s := ctx.String()
@@ -239,7 +240,7 @@ func SearchOptions(f Fact) vsearch.Options {
 			// the skill's ticket step: search the ticket's own folder, and
 			// its board for what is open
 			o.Project = ""
-			o.Paths = []string{"tickets/" + f.Ticket + "/"}
+			o.Paths = []string{ticketDir(f.Ticket) + "/"}
 			o.Type = "board"
 		}
 	}
@@ -272,4 +273,10 @@ func listsProject(note, slug string) bool {
 		}
 	}
 	return false
+}
+
+// isTicketNote reports whether rel is a ticket's own note.
+func isTicketNote(rel string) bool {
+	_, ok := note.RelNote(rel)
+	return ok
 }

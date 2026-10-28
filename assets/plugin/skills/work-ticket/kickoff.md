@@ -9,7 +9,7 @@ repo added later skips the grill.
 ## 1. Load context
 
 1. Read `CLAUDE.md`, `workspace.json`, the vault's `AGENTS.md` (by section:
-   `rg -n '^## '`), and the ticket note `tickets/<ID>/<ID>.md` (its content is the source
+   `rg -n '^## '`), and the ticket note `tickets/<source>/<ID>/<ID>.md` (its content is the source
    block, or the description sections for a manual ticket). Read linked tickets that exist in
    the vault, especially its `parent`, `blocked-by`, `blocks` and, for a lead, every ticket in
    `covers` and `children`.
@@ -50,7 +50,7 @@ every ticket in its `covers` list. Those are the children assigned to the user, 
      `✅` once it's no longer blocking.
    - **Owned by someone else and needs answers from them:** offer the user a questionnaire
      for that person (the `tickets:questionnaire` skill). It writes
-     `tickets/<ID>/<ID>-questionnaire-<slug>.md` and links it from the `#follow-up` line.
+     `tickets/<source>/<ID>/<ID>-questionnaire-<slug>.md` and links it from the `#follow-up` line.
    - **If an open blocker stops real progress**, ask the user with AskUserQuestion:
      - **wait:** keep the ticket's `status` (`blocked` means waiting on the user;
        `blocked: true` already says it waits on another ticket), note the wait under
@@ -118,11 +118,11 @@ every ticket in its `covers` list. Those are the children assigned to the user, 
 6. If a repo turns out to be needed later, local or not, run this same gate for it before
    adding it (and before any task names it as `repo`).
 7. Create, whether or not a grill follows, each of `relay.md`, `board.md` and `<ID>-status.md`
-   in `<vault>/tickets/<ID>/` that is missing, from `<vault>/templates/relay.md`, `board.md` and
+   in `<vault>/tickets/<source>/<ID>/` that is missing, from `<vault>/templates/relay.md`, `board.md` and
    `status.md`, and never overwrite one that exists (`ct vault update` pre-creates status files).
    Fill `{{title}}`, `{{date}}`, `TICKET-ID` and the board's `provider-owner-repo` (the first
    slug). The status file (live task views of the ticket, never edited after) is, when missing,
-   `sed -e "s/TICKET-ID/<ID>/g" -e "s/{{date}}/$(date +%F)/g" <vault>/templates/status.md > <vault>/tickets/<ID>/<ID>-status.md`; point the user to it.
+   `sed -e "s/TICKET-ID/<ID>/g" -e "s/{{date}}/$(date +%F)/g" <vault>/templates/status.md > <vault>/tickets/<source>/<ID>/<ID>-status.md`; point the user to it.
 
 ## 4. Grill (always on a new ticket, before the lead)
 

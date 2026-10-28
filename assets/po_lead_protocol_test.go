@@ -218,7 +218,7 @@ func TestPOLeadQAFixes(t *testing.T) {
 // The disposition gate (contract vault-checklists-v1 v1.1) is the same in the
 // lead skill and the PO's hand-over, and flags a missing section, a closed
 // state without its word, and a leftover open line.
-const checklistGate = `for f in tickets/<ID>/reviews/*.md; do
+const checklistGate = `for f in tickets/<source>/<ID>/reviews/*.md; do
   [ -e "$f" ] || continue
   rg -q '^## Dispositions' "$f" || echo "$f: no Dispositions"
   for id in $(rg -o '^- (W[0-9]+-[a-z0-9-]+-[MSC][0-9]+) · ' -r '$1' "$f" | sort -u); do
@@ -261,7 +261,7 @@ func TestChecklistLineForms(t *testing.T) {
 			"`vault-checklists-v1`", "rg -n '^- \\[.\\] [0-9]+ · |^(status|wave|last-reviewed):'",
 			"`rg -n '^- \\[x\\] [0-9]+ · (planned|running|orphaned|partial|blocked|pending)|^- \\[ \\] [0-9]+ · (running|orphaned|partial|blocked|pending)|^- \\[[ /]\\] [0-9]+ · merged '",
 			"rg -q \"^- \\[<c>\\] NN · <status> · \" board.md || echo \"NN not updated\"",
-			"· (open|fixing)' tickets/<ID>/reviews/`", "- [ ] B-nn · w<N> · <repo> · <item> · <finding id> ➕ <date>",
+			"· (open|fixing)' tickets/<source>/<ID>/reviews/`", "- [ ] B-nn · w<N> · <repo> · <item> · <finding id> ➕ <date>",
 			"rg -o 'B-[0-9]+' backlog.md | sort -V | tail -1", "`### w<N>`",
 			"`- w<N> fix · <repo> · <from>..<to> · - · <what you checked> · -`",
 			"- [x] <ID> · deferred → [[<ticket>]] · <why> #deferred ✅ <date>",
@@ -403,11 +403,11 @@ func TestBoardSedRecipe(t *testing.T) {
 func TestDispositionGateRuns(t *testing.T) {
 	requireTool(t, "rg", "--version")
 	lead := pluginTexts(t)[leadWithRef]
-	gate := strings.ReplaceAll(shBlock(t, lead, "for f in tickets/<ID>/reviews/*.md; do"), "<ID>", "T-1")
+	gate := strings.NewReplacer("<source>", "manual", "<ID>", "T-1").Replace(shBlock(t, lead, "for f in tickets/<source>/<ID>/reviews/*.md; do"))
 	run := func(files map[string]string) string {
 		t.Helper()
 		dir := t.TempDir()
-		rev := filepath.Join(dir, "tickets", "T-1", "reviews")
+		rev := filepath.Join(dir, "tickets", "manual", "T-1", "reviews")
 		if err := os.MkdirAll(rev, 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -526,6 +526,48 @@ func TestFollowUpsAskedPerItem(t *testing.T) {
 	}
 	if strings.Contains(texts["plugin/skills/lead/handover.md"], "at most 5 candidate") {
 		t.Error("handover.md: still groups into candidates")
+	}
+}
+
+// /tickets:new-ticket files a ticket only after the user confirms the source
+// and the draft, never headless, under the current epic by default, with a
+// manual fallback; the synced note comes from ct sync in the source layout.
+func TestNewTicketSkill(t *testing.T) {
+	texts := pluginTexts(t)
+	s, ok := texts["plugin/skills/new-ticket/SKILL.md"]
+	if !ok {
+		t.Fatal("plugin/skills/new-ticket/SKILL.md missing")
+	}
+	fm := frontmatter(t, s)
+	if v, _, _ := field(fm, "name"); v != "new-ticket" {
+		t.Errorf("new-ticket: name %q", v)
+	}
+	if v, _, _ := field(fm, "description"); len(v) < 40 {
+		t.Errorf("new-ticket: description too short: %q", v)
+	}
+	if n := strings.Count(s, "\n"); n > 110 {
+		t.Errorf("new-ticket is %d lines, cap 110", n)
+	}
+	for _, want := range []string{
+		"AskUserQuestion", "create nothing", "Nothing is filed without a yes",
+		"`ticket-type: epic`", "parent: {key: <ID>}", "`covers`",
+		"`ct new --type", "tickets/<source>/<NEW-ID>/<NEW-ID>.md", "tickets/manual/",
+		"`ct sync --source <source>`", "write:jira:agent-interface", "Cost guard",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("new-ticket: missing %q", want)
+		}
+	}
+	for p, want := range map[string]string{
+		"plugin/skills/work-ticket/SKILL.md": "`/tickets:new-ticket`",
+		"plugin/skills/kb/SKILL.md":          "`/tickets:new-ticket`",
+	} {
+		if !strings.Contains(texts[p], want) {
+			t.Errorf("%s: missing %q", p, want)
+		}
+	}
+	if data, err := fs.ReadFile(Files, "plugin/.claude-plugin/plugin.json"); err != nil || !strings.Contains(string(data), "new-ticket") {
+		t.Errorf("plugin.json: new-ticket not described (%v)", err)
 	}
 }
 

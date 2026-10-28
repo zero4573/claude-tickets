@@ -7,7 +7,7 @@ import (
 )
 
 func TestDocsTidySkills(t *testing.T) {
-	const order = "docs → tidy → `/tickets:save` → `ct ws sign`"
+	const order = "docs → tidy → `/tickets:save` (which pushes)"
 	want := map[string][]string{
 		"docs": {"ct ws mark <ID> docs", "sequenceDiagram", "flowchart", "## Documentation", "without `;` or `#`", order},
 		"tidy": {"ct ws mark <ID> tidy", "^{tree}", "update-ref", "--not --remotes",
@@ -56,16 +56,17 @@ func TestTidyChecksAncestryBeforeUpdateRef(t *testing.T) {
 	}
 }
 
-func TestPRFeedbackSignsWithSkipMarks(t *testing.T) {
+func TestPRFeedbackPushesThroughSave(t *testing.T) {
 	b, err := fs.ReadFile(Files, "plugin/skills/pr-feedback/SKILL.md")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := strings.Count(string(b), "ct ws sign <ID> --skip-marks"); n < 2 {
-		t.Errorf("pr-feedback names ct ws sign <ID> --skip-marks %d times, want both places", n)
+	text := string(b)
+	if n := strings.Count(text, "/tickets:save"); n < 2 {
+		t.Errorf("pr-feedback names /tickets:save %d times, want the rules and the closing message", n)
 	}
-	if strings.Contains(strings.ReplaceAll(string(b), "ct ws sign <ID> --skip-marks", ""), "ct ws sign <ID>") {
-		t.Error("pr-feedback still has a bare ct ws sign <ID>")
+	if !strings.Contains(text, "anyway at its marks gate") {
+		t.Error("pr-feedback must say to push anyway at save's marks gate (feedback makes the marks stale)")
 	}
 }
 
@@ -84,5 +85,45 @@ func TestTidyCleanNamed(t *testing.T) {
 	}
 	if dir > cmd {
 		t.Error("the clone dir must be named before the command that deletes it")
+	}
+}
+
+func TestSavePushesLast(t *testing.T) {
+	b, err := fs.ReadFile(Files, "plugin/skills/save/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(b)
+	push := strings.Index(text, "### 8. Push the ticket branches")
+	release := strings.Index(text, "Run `ct vault lock release <vault> <ID>`")
+	if push < 0 || release < 0 || push < release {
+		t.Fatalf("save: the push step (%d) must come after the lock release (%d)", push, release)
+	}
+	step := text[push:]
+	for _, s := range []string{"ct ws marks <ID>", "save anyway", "AskUserQuestion", "%G?", "--not --remotes",
+		"push -u <remote> <branch>", "branch.<branch>.remote", "`tasks/*`", "--force", "--delete",
+		"rebase --exec 'git commit --amend --no-edit -S'", "Rejected", "the exact command"} {
+		if !strings.Contains(step, s) {
+			t.Errorf("save push step: missing %q", s)
+		}
+	}
+}
+
+func TestNoWsSign(t *testing.T) {
+	err := fs.WalkDir(Files, ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		b, err := fs.ReadFile(Files, p)
+		if err != nil {
+			return err
+		}
+		if strings.Contains(string(b), "ws sign") || strings.Contains(string(b), "--skip-marks") {
+			t.Errorf("%s still names ct ws sign (removed: sessions sign, /tickets:save pushes)", p)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

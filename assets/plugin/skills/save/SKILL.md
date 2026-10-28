@@ -1,12 +1,13 @@
 ---
 name: save
-description: End-of-session save to the Obsidian vault. In a ticket workspace (~/work/<ID>), writes session logs, promotes the ticket's kb-drafts into projects/ (repos and groups), knowledge-base/ and references/ without breaking links, records dependencies between projects, tags the ticket with <project>-<target-version>, and appends the ticket summary (this replaces the old /summarize). In a repo session started with ct claude, or a kb session, writes a session log and promotes the session's inbox/ drafts. Use when the user runs /tickets:save or asks to save, document or summarize the session.
+description: End-of-session save to the Obsidian vault. In a ticket workspace (~/work/<ID>), writes session logs, promotes the ticket's kb-drafts into projects/ (repos and groups), knowledge-base/ and references/ without breaking links, records dependencies between projects, tags the ticket with <project>-<target-version>, appends the ticket summary (this replaces the old /summarize), then pushes each workspace repo's feature branch (signed commits only, never forced). In a repo session started with ct claude, or a kb session, writes a session log and promotes the session's inbox/ drafts. Use when the user runs /tickets:save or asks to save, document or summarize the session.
 ---
 
 # /tickets:save
 
 The user runs this at the end of a session, after reviewing the changes.
-This is the only time shared vault notes are written. Things can change a
+This is the only time shared vault notes are written, and the only time
+the ticket branches are pushed. Things can change a
 lot mid-session, so write what is true **now**.
 
 Follow the vault's `AGENTS.md`: frontmatter on every note, kebab-case
@@ -94,7 +95,7 @@ Re-read each shared note right before editing it.
 
 ### 3. Session logs
 
-- `tickets/<ID>/logs/yyyy-MM-dd-<ID>-<short-description>.md` (template
+- `tickets/<source>/<ID>/logs/yyyy-MM-dd-<ID>-<short-description>.md` (template
   `templates/session-log.md`): what was done, decisions made (linked),
   pending items, notes created or modified (linked).
 - For each repo **with changes**, `projects/<slug>/logs/yyyy-MM-dd-<ID>-<slug>-<short-description>.md`:
@@ -109,7 +110,7 @@ from its type):
 - **New note** (no note with that name exists; first
   `ct vault search "<topic>" --project <slug>` for one on the same subject, and
   update that instead of duplicating it): move it with
-  `ct vault links move <vault> tickets/<ID>/kb-drafts/<note>.md <target-folder>/`.
+  `ct vault links move <vault> tickets/<source>/<ID>/kb-drafts/<note>.md <target-folder>/`.
   Never move notes with mv, because `ct vault links` keeps links working.
   After moving, remove the `target:` field and set
   `status: active`, `updated: <today>`.
@@ -200,7 +201,7 @@ project index note.
 ### 5. Check links
 
 ```sh
-ct vault links check <vault> <every note created, moved or edited> tickets/<ID>/<ID>.md
+ct vault links check <vault> <every note created, moved or edited> tickets/<source>/<ID>/<ID>.md
 ```
 
 Fix every unresolved or ambiguous link (rename a clashing new note,
@@ -261,17 +262,65 @@ Run `ct vault lock release <vault> <ID>`. Then, in the ticket's frontmatter
 - set `saved: <date +%FT%T>`, adding the field after `status` if it's
   missing. `ct clean` reads it to know the ticket's work is in the vault;
 - set `status: done`, **unless it's `closed`** (the source, or the user,
-  closed it), which stays: `/tickets:save` ends the lead's work, and
-  signing and pushing are the user's steps.
+  closed it), which stays: `/tickets:save` ends the lead's work; step 8
+  pushes the ticket branches.
 
 Before the final status, in a ticket workspace run `ct ws marks <ID>`. On exit 3 ask with
 AskUserQuestion: stop and run `/tickets:docs` and `/tickets:tidy` first (recommended), or save
-anyway; go on only on the second.
+anyway; go on only on the second, and remember that the user chose it (step 8 asks again
+before pushing).
+
+### 8. Push the ticket branches
+
+Last, after everything above (and the lock released). For each repo in
+`workspace.json` (a lead ticket: every repo of the lead's workspace, which
+holds the work of all the tickets it covers), with `<path>` its checkout
+and `<branch>` its feature branch from `workspace.json` (`feature/<ID>…`; a
+manual ticket's: `feature/<description>`):
+
+1. **Only the feature branch.** Never push a task branch (`tasks/*`
+   worktrees, `task/*` branches), another branch, or tags. Skip a repo
+   whose worktree is missing or not on `<branch>`, and say so.
+2. **The marks gate.** `ct ws marks <ID>` exited 0 in step 7. If the user
+   chose to save anyway, ask once more with AskUserQuestion before
+   pushing: push anyway, or don't push (recommended: run `/tickets:docs`
+   and `/tickets:tidy` first). Push only on a yes.
+3. **Nothing to push:** `git -C <path> rev-list --count <branch> --not --remotes`
+   is 0 and the branch has an upstream: say it's up to date.
+4. **Every commit signed.** `git -C <path> log --format='%h %G? %s' <branch> --not --remotes`:
+   any commit whose `%G?` is `N` (unsigned) or `B` (bad signature) means
+   this repo is **not pushed**. (`E`, signed but not checkable here, e.g.
+   no `gpg.ssh.allowedSignersFile`, counts as signed; `G`, `U`, `X`, `Y`,
+   `R` are signed.) Tell the user which commits, and that they
+   re-sign and push themselves on the host, e.g.
+   `git -C <path> rebase --exec 'git commit --amend --no-edit -S' <base>`
+   (`<base>` from `workspace.json`; `--rebase-merges` too when the branch
+   has the lead's `--no-ff` merges), then `git -C <path> push -u origin <branch>`,
+   or that the session's signing agent needs fixing. No ct command does it.
+5. **Push.** `git -C <path> push -u <remote> <branch>`, where `<remote>`
+   is `git -C <path> config branch.<branch>.remote` when set, else
+   `origin`. Never `--force`, `--force-with-lease`, `+<branch>`,
+   `--delete`, `:<ref>`, `--mirror`, `--tags` or `--prune`.
+6. **Rejected** (not a fast-forward, or the host's push broker refuses it:
+   it rejects force pushes, branch deletes and tag deletes or moves): stop
+   for this repo, don't retry with other options, fetch, rebase or merge
+   to make it pass. Tell the user what git said and the exact command to
+   run on the host, e.g. `git -C <path> push -u origin <branch>` after
+   they've looked at the remote branch. Go on with the other repos.
+
+Without AskUserQuestion (headless, `ct clean --save`): push only when the
+marks gate passed and every commit is signed; otherwise push nothing and
+say why.
+
+Force pushes, rewriting pushed commits, and deleting branches or tags are
+always the user's manual steps: never do them, even when asked mid-save;
+give the command instead.
 
 Tell them:
 - what was written, as wikilinks
-- that the code is committed, unsigned, on `feature/<ID>…` (a manual ticket: `feature/<description>`) in each
-  worktree (plus anything `ct ws diff <ID>` still shows uncommitted):
-  `ct ws sign <ID>` on the host, then push
+- per repo: pushed `<branch>` to `<remote>` (with the PR link git printed,
+  if any), up to date, or not pushed and why (marks, unsigned commits,
+  rejected, uncommitted changes `ct ws diff <ID>` still shows), with the
+  command to run on the host
 - that `ct ws rm <ID>` cleans up the worktrees after merge, and `ct clean`
   the ticket once it is closed

@@ -1,7 +1,9 @@
-# Finishing a ticket: docs, tidy, save, sign
+# Finishing a ticket: docs, tidy, save and push
 
-The order is fixed: docs, then tidy, then `/tickets:save`, then `ct ws sign`, then you
-push. Sessions commit on the ticket branches and never push.
+The order is fixed: docs, then tidy, then `/tickets:save`, which pushes the ticket
+branches. Sessions commit (signed, when the session has a signing key) on the ticket
+branches and push only through `/tickets:save`: never a force push, a branch or tag
+delete, or a task branch.
 
 ```mermaid
 sequenceDiagram
@@ -19,11 +21,11 @@ sequenceDiagram
   L->>W: ct ws mark ID tidy
   U->>P: /tickets:save
   P->>P: session logs, kb-drafts to projects/, ticket summary
-  U->>H: ct ws marks ID
-  H-->>U: ok, stale or none per repo
-  U->>H: ct ws sign ID
-  H->>W: check marks, re-sign unpushed commits
-  U->>H: git push
+  P->>W: ct ws marks ID
+  W-->>P: ok, stale or none per repo
+  P->>P: every commit to push signed?
+  P->>H: git push -u origin feature branch (fast-forward only)
+  H-->>P: pushed, or rejected: you push or re-sign on the host
 ```
 
 ## Docs
@@ -55,16 +57,22 @@ one, `stale` means commits came after it, `none` means never marked. It exits 3 
 every mark is `ok`. Because any later commit makes a mark stale, docs and tidy run last,
 and tidy keeps the tree, so its mark follows docs.
 
-## The sign gate
+## The push gate
 
-`ct ws sign <ID>` runs on the host, where the signing key is, and refuses inside a
-container. It first checks the marks:
+`/tickets:save` pushes last, after the logs, kb-drafts, links, the ticket note and the
+vault lock release. For each repo of the workspace (`workspace.json`), on its feature
+branch only (never a `tasks/*` branch):
 
-- every mark ok: it signs;
-- some stale or none: it asks for confirmation, but only when stdin is a terminal. Without
-  one it refuses; `--skip-marks` goes on without asking;
-- a worktree that is gone is a warning, not an error, and the other repos are signed.
+- the marks: `ct ws marks <ID>` must exit 0. When some are `stale` or `none`, save asks
+  whether to save anyway; if you say yes it still asks again before pushing;
+- the signatures: every commit to push (`git log --format=%G? <branch> --not --remotes`)
+  must be signed. A repo with an unsigned one is not pushed: re-sign it on the host (for
+  example `git -C <repo> rebase --exec 'git commit --amend --no-edit -S' <base>`, or fix
+  the session's signing agent) and push it yourself;
+- the push: `git push -u origin <branch>` (or the branch's configured remote). Never
+  forced. A rejected push (not a fast-forward, or refused by the host's push broker,
+  which rejects force pushes and branch or tag deletes and moves) stops that repo, and
+  save prints the command to run on the host.
 
-Signing replays each worktree's unpushed commits onto the same parent with `--gpg-sign`,
-starting from the oldest unsigned one: same changes and authors, new hashes. Merge commits
-stay merges, and commits already on a remote are left alone.
+Rewriting pushed history, force pushes and branch or tag deletes are always your
+manual steps.

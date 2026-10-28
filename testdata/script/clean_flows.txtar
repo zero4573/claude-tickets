@@ -6,23 +6,23 @@ mkdir $V/.obsidian $V/projects/p $V/inbox $V/attachments
 cp empty $V/pending.md
 cp empty $V/tickets.base
 cp proj.md $V/projects/p/p.md
-exec sh -c 'cd home/Documents/Obsidian/a && for t in PROJ-50 PROJ-51 PROJ-52 PROJ-53 MAN-50 MAN-51 MAN-52 MAN-53 MAN-54 MAN-55; do mkdir -p tickets/$t; done'
-cp synced.md $V/tickets/PROJ-50/PROJ-50.md
-cp empty $V/tickets/PROJ-50/diagram.png
-cp empty $V/tickets/PROJ-50/unused.png
-cp synced.md $V/tickets/PROJ-51/PROJ-51.md
-cp ignored.md $V/tickets/PROJ-52/PROJ-52.md
-cp badurl.md $V/tickets/PROJ-53/PROJ-53.md
-cp manual.md $V/tickets/MAN-50/MAN-50.md
-cp links51.md $V/tickets/MAN-50/notes.md
-cp lead.md $V/tickets/MAN-51/MAN-51.md
-cp covered-closed.md $V/tickets/MAN-52/MAN-52.md
-cp lead-nocovers.md $V/tickets/MAN-53/MAN-53.md
-cp covered-open.md $V/tickets/MAN-54/MAN-54.md
-cp manual.md $V/tickets/MAN-55/MAN-55.md
+exec sh -c 'cd home/Documents/Obsidian/a && for t in jira/PROJ-50 jira/PROJ-51 jira/PROJ-52 jira/PROJ-53 manual/MAN-50 manual/MAN-51 manual/MAN-52 manual/MAN-53 manual/MAN-54 manual/MAN-55; do mkdir -p tickets/$t; done'
+cp synced.md $V/tickets/jira/PROJ-50/PROJ-50.md
+cp empty $V/tickets/jira/PROJ-50/diagram.png
+cp empty $V/tickets/jira/PROJ-50/unused.png
+cp synced.md $V/tickets/jira/PROJ-51/PROJ-51.md
+cp ignored.md $V/tickets/jira/PROJ-52/PROJ-52.md
+cp badurl.md $V/tickets/jira/PROJ-53/PROJ-53.md
+cp manual.md $V/tickets/manual/MAN-50/MAN-50.md
+cp links51.md $V/tickets/manual/MAN-50/notes.md
+cp lead.md $V/tickets/manual/MAN-51/MAN-51.md
+cp covered-closed.md $V/tickets/manual/MAN-52/MAN-52.md
+cp lead-nocovers.md $V/tickets/manual/MAN-53/MAN-53.md
+cp covered-open.md $V/tickets/manual/MAN-54/MAN-54.md
+cp manual.md $V/tickets/manual/MAN-55/MAN-55.md
 # synced PROJ-51's attachment is linked only from PROJ-50, also trashed in this run
-cp empty $V/tickets/PROJ-51/only-from-50.png
-exec sh -c 'echo "![[only-from-50.png]]" >> home/Documents/Obsidian/a/tickets/PROJ-50/PROJ-50.md'
+cp empty $V/tickets/jira/PROJ-51/only-from-50.png
+exec sh -c 'echo "![[only-from-50.png]]" >> home/Documents/Obsidian/a/tickets/jira/PROJ-50/PROJ-50.md'
 # a leftover workspace folder without workspace.json, holding a file
 mkdir $W/PROJ-51
 cp empty $W/PROJ-51/precious.txt
@@ -39,20 +39,20 @@ exec ct clean --yes
 cp stdout run.txt
 exec cat run.txt
 # referenced attachment kept, unreferenced one trashed
-exists $V/archive/tickets/PROJ-50/diagram.png
+exists $V/archive/tickets/jira/PROJ-50/diagram.png
 exists $V/.trash/PROJ-50/unused.png
 # only linked from another ticket trashed in the same run: not kept
-! exists $V/archive/tickets/PROJ-51/only-from-50.png
+! exists $V/archive/tickets/jira/PROJ-51/only-from-50.png
 # ignored tickets are cleaned
 exists $V/.trash/PROJ-52/PROJ-52.md
 # synced without a usable source-url: archived, links keep resolving
-exists $V/archive/tickets/PROJ-53/PROJ-53.md
+exists $V/archive/tickets/jira/PROJ-53/PROJ-53.md
 # the lead and its closed covered ticket go together
-exists $V/archive/tickets/MAN-51/MAN-51.md
-exists $V/archive/tickets/MAN-52/MAN-52.md
+exists $V/archive/tickets/manual/MAN-51/MAN-51.md
+exists $V/archive/tickets/manual/MAN-52/MAN-52.md
 # a lead with no covers goes; its open covered ticket stays, covered-by still resolves
-exists $V/archive/tickets/MAN-53/MAN-53.md
-exists $V/tickets/MAN-54/MAN-54.md
+exists $V/archive/tickets/manual/MAN-53/MAN-53.md
+exists $V/tickets/manual/MAN-54/MAN-54.md
 exec ct vault links check $V
 stdout 'all links resolve'
 # the leftover workspace folder's file is kept

@@ -55,7 +55,18 @@ func (s *Sync) New(c *mcp.Client) *Sync {
 	return s
 }
 
-func (s *Sync) notePath(id string) string { return note.TicketPath(s.Vault, id) }
+// notePath is ticket id's note: where the vault has it, else (a new
+// ticket) tickets/<source>/<ID>/<ID>.md.
+func (s *Sync) notePath(id string) string {
+	if p := note.Find(s.Vault, id); p != "" {
+		return p
+	}
+	src := s.Source
+	if !note.ValidSource(src) {
+		src = "jira"
+	}
+	return note.SourcePath(s.Vault, src, id)
+}
 
 // tool calls an MCP tool and decodes its "data" into v.
 func (s *Sync) tool(name string, args map[string]any, v any) error {
@@ -93,7 +104,7 @@ func (s *Sync) search(jql string, fields []string) ([]issue, error) {
 		if err := s.tool("searchJiraIssuesUsingJql", args, &page); err != nil {
 			return nil, err
 		}
-		// Keys become file names (tickets/<KEY>/<KEY>.md): anything that isn't a
+		// Keys become file names (tickets/<source>/<KEY>/<KEY>.md): anything that isn't a
 		// ticket key is dropped, whatever the server sends
 		for _, is := range page.Issues {
 			if note.ValidKey(is.Key) {
@@ -215,10 +226,9 @@ type local struct {
 var blockerRe = regexp.MustCompile(`\[\[([A-Z][A-Z0-9_]*-[A-Z0-9-]+)\]\]`)
 
 func (s *Sync) localIndex() []local {
-	files, _ := filepath.Glob(filepath.Join(s.Vault, "tickets", "*", "*.md"))
-	sort.Strings(files)
 	var out []local
-	for _, f := range files {
+	for _, l := range note.TicketNotes(s.Vault) {
+		f := l.Note()
 		fm := note.Fields(f)
 		if fm["source"] != "jira" {
 			continue

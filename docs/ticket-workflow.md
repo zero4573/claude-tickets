@@ -55,7 +55,8 @@ disposition, and how each ticket type shapes the plan.
 
 ## Checks that run in the sandbox
 
-Sessions often run sandboxed, as root, with no network and no signing key.
+Sessions often run sandboxed, as root, with no network, a signing-only key at most, and
+pushes only through a host broker.
 
 - `.tool-versions` in the workspace root pins `go`, `gofmt` and `python3` through asdf, so
   the tools work without `ASDF_*_VERSION` exports.
@@ -63,8 +64,8 @@ Sessions often run sandboxed, as root, with no network and no signing key.
 - Each repo's own `AGENTS.md` names its check command (here: `make check`, which bounds
   test parallelism with `TESTFLAGS`). Tests never rely on file permissions, since root
   ignores them.
-- Commits are unsigned in the sandbox. `ct ws sign` re-signs them on the host, see
-  [finishing a ticket](finishing-a-ticket.md).
+- Commits are signed by the session when the sandbox gives it a signing-only agent;
+  `/tickets:save` pushes only signed commits, see [finishing a ticket](finishing-a-ticket.md).
 
 ## Manual and synced tickets
 

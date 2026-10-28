@@ -370,9 +370,8 @@ func (s *Sync) writeChildren(epic, file string, p *parts) error {
 		}
 	}
 	// and off the notes that left it
-	files, _ := filepath.Glob(filepath.Join(s.Vault, "tickets", "*", "*.md"))
-	sort.Strings(files)
-	for _, cn := range files {
+	for _, l := range note.TicketNotes(s.Vault) {
+		cn := l.Note()
 		data, _ := os.ReadFile(cn)
 		if !strings.Contains("\n"+note.Normalize(string(data)), "\ncovered-by: \"[["+epic+"]]\"") {
 			continue

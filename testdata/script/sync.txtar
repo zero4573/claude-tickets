@@ -4,10 +4,10 @@
 # (UPDATE_GOLDEN=1 go test . rewrites them).
 exec ct vault init demo --defaults
 cp sources.json home/Documents/Obsidian/demo/tickets/.sources.json
-mkdir home/Documents/Obsidian/demo/tickets/PROJ-12 home/Documents/Obsidian/demo/tickets/PROJ-13 home/Documents/Obsidian/demo/tickets/MAN-1
-cp proj-12.md home/Documents/Obsidian/demo/tickets/PROJ-12/PROJ-12.md
-cp proj-13.md home/Documents/Obsidian/demo/tickets/PROJ-13/PROJ-13.md
-cp man-1.md home/Documents/Obsidian/demo/tickets/MAN-1/MAN-1.md
+mkdir home/Documents/Obsidian/demo/tickets/jira/PROJ-12 home/Documents/Obsidian/demo/tickets/jira/PROJ-13 home/Documents/Obsidian/demo/tickets/manual/MAN-1
+cp proj-12.md home/Documents/Obsidian/demo/tickets/jira/PROJ-12/PROJ-12.md
+cp proj-13.md home/Documents/Obsidian/demo/tickets/jira/PROJ-13/PROJ-13.md
+cp man-1.md home/Documents/Obsidian/demo/tickets/manual/MAN-1/MAN-1.md
 env CLAUDE_TICKETS_VAULT=$WORK/home/Documents/Obsidian/demo
 
 # 1: every ticket new; a parent epic pulled in; a ticket that fails; HTML to Claude

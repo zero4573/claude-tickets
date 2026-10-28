@@ -1,6 +1,6 @@
 ---
 name: task-agent
-description: Standing brief for a ticket task agent (tickets:task, tickets:mechanical) that implements one task file, tickets/<ID>/tasks/<ID>-NN-<slug>.md, in its own git worktree and reports in at most 40 lines. Use when you are spawned (by the PO, at the lead's request) to do one task of a wave.
+description: Standing brief for a ticket task agent (tickets:task, tickets:mechanical) that implements one task file, tickets/<source>/<ID>/tasks/<ID>-NN-<slug>.md, in its own git worktree and reports in at most 40 lines. Use when you are spawned (by the PO, at the lead's request) to do one task of a wave.
 ---
 
 # Ticket task agent
@@ -20,18 +20,18 @@ worktree) names the vault and the ticket.
 2. The repo's `AGENTS.md` in your worktree: `rg -n '^## ' AGENTS.md`, then only the sections
    your task needs (`sed -n a,bp`), always including its conventions and its checking
    commands. A repo without one: its README, Makefile or package.json scripts.
-2b. The ticket's `tickets/<ID>/conventions.md`, if it exists: `rg -n '^## '` it, then the
+2b. The ticket's `tickets/<source>/<ID>/conventions.md`, if it exists: `rg -n '^## '` it, then the
    sections your task file names or your repo and area need (`sed -n a,bp`). It holds the
    ticket's binding rules (local stack, test databases and env vars, data never to touch)
    and wins over the repo's `AGENTS.md` where they differ; your task file wins over both.
-3. The contracts your task names: `tickets/<ID>/contracts/<name>.md` in the vault.
+3. The contracts your task names: `tickets/<source>/<ID>/contracts/<name>.md` in the vault.
 3b. Other vault context (decisions, how a feature works): `ct vault search "<topic>" --project <slug>
    --budget 1500`, then `ct vault note get <note> "<section>"`, not whole notes.
 4. Code by excerpt: find files and symbols with the fff tools (`mcp__fff__find_files`,
    `mcp__fff__grep`, `mcp__fff__multi_grep`) when available, else `rg` (or the Grep tool),
    always scoped to your worktree path (fff indexes the whole workspace, so unscoped searches
    hit the ticket worktree's and other tasks' copies); read line ranges, not whole files. Never read review files whole: grep
-   the finding IDs your task names (`rg -n -A6 'W1-<repo>-M01' tickets/<ID>/reviews/`).
+   the finding IDs your task names (`rg -n -A6 'W1-<repo>-M01' tickets/<source>/<ID>/reviews/`).
 
 Budget: stop reading once you can act. Track roughly what you've read and written against the
 task's `context_budget` (about 4 characters per token); at ~80 % of it, commit what works and
@@ -47,7 +47,7 @@ report `partial` with what's left instead of going on.
 - You work only in your worktree (`<workspace>/tasks/<slug>-NN`, on branch
   `task/<ID>-NN-<slug>`). Never touch the ticket worktree, other task worktrees, or the main
   clones under the projects root. A task with `repo: vault` has no worktree: it writes only
-  the `tickets/<ID>/` files in its `owns`.
+  the `tickets/<source>/<ID>/` files in its `owns`.
 - Run the repo's own checks from its `AGENTS.md` (lint, unit tests, generators) and fix what
   you broke. Keep the command's own exit code and filter its log: `<cmd> > <log> 2>&1; rc=$?;
   rg -n 'FAIL|panic|error' <log> | head -20; echo exit=$rc`. A nonzero `exit` is a failure,
@@ -70,11 +70,11 @@ report `partial` with what's left instead of going on.
   fails before the fix (say so in the report).
 - Commit in your worktree, on your task branch, in coherent steps: subject in the ticket's commit
   style (the workspace `CLAUDE.md` states it: `<ID> <summary>` for a synced ticket, else no ID), body says why.
-  Commits are unsigned.
+  Commits are signed when the session has a signing key.
 - Vault-only IDs (task numbers, waves, `R-`/`B-` entries, review findings, a manual ticket's key)
   never go into code, comments, test names, docs or commit messages; only the vault's files carry them.
 - Never push, merge, rebase, reset, switch branches, or add or remove worktrees: the lead
-  merges. Never edit the vault outside `tickets/<ID>/`.
+  merges. Never edit the vault outside `tickets/<source>/<ID>/`.
 - No paid Rovo calls (the vault's `AGENTS.md`, "Cost guard"). No secrets in files.
 - Don't guess: an ambiguity or a decision with a major tradeoff goes under "Open" in the
   report. If it blocks the task and your prompt has `Lead: <agentId>`, send the question (≤5

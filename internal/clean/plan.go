@@ -28,7 +28,7 @@ const (
 	Skip    Action = iota
 	Trash          // to <vault>/.trash/<ID>/, links rewritten to its URL
 	Purge          // deleted, links rewritten to its URL
-	Archive        // to archive/tickets/<ID>/, links unchanged
+	Archive        // to archive/tickets/<source>/<ID>/, links unchanged
 	Keep           // left where it is (--keep-manual)
 )
 

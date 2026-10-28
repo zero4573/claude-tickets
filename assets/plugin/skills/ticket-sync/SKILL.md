@@ -86,7 +86,11 @@ the workspace (`~/work/<ID>`). With an empty `idPrefix` it's the source's
 native key as-is (Jira `PROJ-12`); otherwise it's
 `<idPrefix>-<native id>` (`SNOW-INC0012345`). It must match
 `^[A-Z][A-Z0-9_]*(-[A-Z0-9]+)+$`. Upper-case it and replace other
-characters with `-` if needed. The note is `tickets/<ID>/<ID>.md`.
+characters with `-` if needed. The note is `tickets/<source>/<ID>/<ID>.md`,
+`<source>` being this source's key in `.sources.json` (the same as its
+`source:`), as ct sync writes them. A note of the ID already elsewhere (an
+older vault's `tickets/<ID>/<ID>.md`, before `ct vault update` moves it)
+is refreshed where it is, never written twice.
 
 ## What you own in a ticket note
 
@@ -125,7 +129,7 @@ Normalized values:
    adapter, paging through every result, and fetch only the ID, the
    last-updated time and the status.
 3. **For each result**, find the local note
-   (`tickets/<ID>/<ID>.md`) and compare its `source-updated`:
+   (`tickets/<source>/<ID>/<ID>.md`, else `tickets/<ID>/<ID>.md`) and compare its `source-updated`:
    - **Same or later:** skip it. It's unchanged, unless the note has no
      `blocked-by` field yet (written before dependencies were tracked): then
      treat it as older, so the dependency fields get filled in once.
@@ -138,7 +142,8 @@ Normalized values:
      local `status` is `closed` (the source reopened it), set `status: new`
      and say so in the summary.
 4. **Closed or reassigned.** Collect this source's local notes
-   (`tickets/*/*.md` with `source: <source>`) whose `status` isn't `closed`
+   (`tickets/<source>/*/*.md`, and any older `tickets/*/*.md`, with
+   `source: <source>`) whose `status` isn't `closed`
    and that weren't in step 2's results. Look them up by ID through the
    adapter, in batches. Then:
    - **Category `done`:** refresh the note, set `status: closed`.

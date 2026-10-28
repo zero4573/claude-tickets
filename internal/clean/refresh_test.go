@@ -82,14 +82,14 @@ func TestRunRefreshesExactPathsArchive(t *testing.T) {
 	calls := recordRefresh(t)
 	o := setup(t)
 	ticket(t, o.Vault, "MAN-1", "status: closed", "source: manual", saved)
-	put(t, o.Vault, "tickets/MAN-1/log.md", "# log\n")
-	put(t, o.Vault, "notes/p.md", "see [[tickets/MAN-1/log]]\n")
+	put(t, o.Vault, "tickets/manual/MAN-1/log.md", "# log\n")
+	put(t, o.Vault, "notes/p.md", "see [[tickets/manual/MAN-1/log]]\n")
 	put(t, o.Vault, "notes/other.md", "nothing\n")
 	if res := runQuiet(o, Plan(o)); res.Cleaned != 1 || res.Failed {
 		t.Fatalf("%+v", res)
 	}
-	wantOneCall(t, calls, []string{"tickets/MAN-1/MAN-1.md", "archive/tickets/MAN-1/MAN-1.md",
-		"tickets/MAN-1/log.md", "archive/tickets/MAN-1/log.md", "notes/p.md"})
+	wantOneCall(t, calls, []string{"tickets/manual/MAN-1/MAN-1.md", "archive/tickets/manual/MAN-1/MAN-1.md",
+		"tickets/manual/MAN-1/log.md", "archive/tickets/manual/MAN-1/log.md", "notes/p.md"})
 }
 
 func TestRunRefreshesExactPathsTrashAndPurge(t *testing.T) {
@@ -98,13 +98,13 @@ func TestRunRefreshesExactPathsTrashAndPurge(t *testing.T) {
 		o := setup(t)
 		o.Purge = purge
 		ticket(t, o.Vault, "PROJ-1", "status: closed", saved, jira+"PROJ-1")
-		put(t, o.Vault, "tickets/PROJ-1/extra.md", "# extra\n")
+		put(t, o.Vault, "tickets/jira/PROJ-1/extra.md", "# extra\n")
 		put(t, o.Vault, "notes/n.md", "See [[PROJ-1]] for details.\n")
 		put(t, o.Vault, "notes/keep.md", "unrelated\n")
 		if res := runQuiet(o, Plan(o)); res.Cleaned != 1 || res.Failed {
 			t.Fatalf("purge=%v: %+v", purge, res)
 		}
-		wantOneCall(t, calls, []string{"notes/n.md", "tickets/PROJ-1/PROJ-1.md", "tickets/PROJ-1/extra.md"})
+		wantOneCall(t, calls, []string{"notes/n.md", "tickets/jira/PROJ-1/PROJ-1.md", "tickets/jira/PROJ-1/extra.md"})
 	}
 }
 
@@ -112,8 +112,8 @@ func TestRunRefreshesKeptFilesAndFollowUp(t *testing.T) {
 	calls := recordRefresh(t)
 	o := setup(t)
 	ticket(t, o.Vault, "PROJ-1", "status: closed", saved, jira+"PROJ-1")
-	put(t, o.Vault, "tickets/PROJ-1/doc.md", "# doc\n")
-	put(t, o.Vault, "notes/n.md", "See [[PROJ-1]] and [[tickets/PROJ-1/doc]].\n")
+	put(t, o.Vault, "tickets/jira/PROJ-1/doc.md", "# doc\n")
+	put(t, o.Vault, "notes/n.md", "See [[PROJ-1]] and [[tickets/jira/PROJ-1/doc]].\n")
 	// a frontmatter form ct clean can't rewrite: it leaves a follow-up note
 	put(t, o.Vault, "notes/fm.md", "---\nrelated: [[PROJ-1]] and more\n---\n")
 	res := runQuiet(o, Plan(o))
@@ -121,8 +121,8 @@ func TestRunRefreshesKeptFilesAndFollowUp(t *testing.T) {
 		t.Fatalf("setup: %+v", res)
 	}
 	fu, _ := filepath.Rel(o.Vault, res.FollowUp)
-	wantOneCall(t, calls, []string{"notes/n.md", "tickets/PROJ-1/PROJ-1.md", "tickets/PROJ-1/doc.md",
-		"archive/tickets/PROJ-1/doc.md", filepath.ToSlash(fu)})
+	wantOneCall(t, calls, []string{"notes/n.md", "tickets/jira/PROJ-1/PROJ-1.md", "tickets/jira/PROJ-1/doc.md",
+		"archive/tickets/jira/PROJ-1/doc.md", filepath.ToSlash(fu)})
 }
 
 func TestRunFallsBackToWholeVault(t *testing.T) {

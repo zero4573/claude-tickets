@@ -31,7 +31,7 @@ flowchart TB
 |---|---|
 | `internal/cli` | the cobra commands: `start`, `status`, `ws`, `vault`, `kb`, `teach`, `clean`, `sync`, `graph`, `layout`, `claude`, `hook` |
 | `internal/workspace` | a ticket workspace: `workspace.json` (repos, bases, branches, target versions), the docs and tidy marks, the live sessions, the `.tool-versions` stamp |
-| `internal/gitx`, `internal/repo` | git helpers (worktrees, unpushed commits, signing) and the repo slug rules |
+| `internal/gitx`, `internal/repo` | git helpers (worktrees, unpushed commits) and the repo slug rules |
 | `internal/vault`, `internal/config` | finding the current vault, its `.workflow.json`, tool versions |
 | `internal/links`, `internal/lock`, `internal/vaultlock` | moving notes without breaking wikilinks, and the vault lock `/tickets:save` takes |
 | `internal/vsearch`, `internal/vindex`, `internal/embed`, `internal/chunk`, `internal/modelcache` | the vault search index and its embedding model |
@@ -50,7 +50,7 @@ flowchart TB
 
 ## Layout on disk
 
-- The vault: `tickets/<ID>/` (note, plan, board, relay, tasks, contracts, reviews),
+- The vault: `tickets/<source>/<ID>/` (note, plan, board, relay, tasks, contracts, reviews),
   `projects/<slug>/`, `knowledge-base/`, `references/`, `inbox/`, `learning/`.
 - The workspace: `<workRoot>/<ID>/` with `CLAUDE.md`, `workspace.json`, `.tool-versions`,
   one worktree per repo at `<ID>/<slug>` and task worktrees under `tasks/`.

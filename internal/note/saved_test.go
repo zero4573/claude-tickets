@@ -85,7 +85,7 @@ func TestTicketHelpers(t *testing.T) {
 	if got := ArchivedIDs(v); len(got) != 2 || got[0] != "MAN-4" || got[1] != "PROJ-12" {
 		t.Errorf("ArchivedIDs = %v", got)
 	}
-	if TicketDir(v, "MAN-4") != filepath.Join(v, "tickets", "MAN-4") || ArchiveDir(v, "MAN-4") != filepath.Join(v, "archive", "tickets", "MAN-4") {
+	if TicketDir(v, "MAN-4") != filepath.Join(v, "tickets", "manual", "MAN-4") || ArchiveDir(v, "MAN-4") != filepath.Join(v, "archive", "tickets", "MAN-4") {
 		t.Error("TicketDir / ArchiveDir")
 	}
 	if !IsTicketNote(filepath.Join(v, "tickets", "MAN-4", "MAN-4.md")) || IsTicketNote(filepath.Join(v, "tickets", "MAN-4", "design.md")) ||
