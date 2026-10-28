@@ -6,14 +6,16 @@
 // generated from git; see genhistory). A copy whose content is what the
 // vault's .scaffold.json records but this ct doesn't know was shipped by a
 // newer ct: it's kept (Newer), never downgraded. Contents are compared
-// normalized (Norm), so line endings and trailing newlines don't count as
-// edits.
+// through Key: normalized (Norm), so line endings and trailing newlines
+// don't count as edits, and a .base file by its parsed YAML, so Obsidian
+// reformatting it or dropping its comments doesn't either.
 package scaffold
 
 import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -21,6 +23,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/zero4573/claude-tickets/assets"
 )
@@ -33,7 +37,7 @@ const Skipped = "obsidian-types.json"
 type File struct {
 	Rel  string
 	Data []byte
-	Hash string
+	Hash string // Key(Rel, Data)
 }
 
 // Source is what vault files are compared with.
@@ -70,7 +74,7 @@ func FromFS(fsys fs.FS, root string) ([]File, error) {
 		if err != nil {
 			return err
 		}
-		files = append(files, File{Rel: rel, Data: data, Hash: Hash(data)})
+		files = append(files, File{Rel: rel, Data: data, Hash: Key(rel, data)})
 		return nil
 	})
 	sort.Slice(files, func(i, j int) bool { return files[i].Rel < files[j].Rel })
@@ -94,6 +98,32 @@ func Hash(data []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// Key is what file contents are compared by. For a rel ending in ".base" it
+// is the hex sha256 of the JSON of the parsed YAML (map keys sorted), so
+// comments, indentation, quoting, style and key order don't count; values,
+// list order and types do. Any other file, or a .base that doesn't parse or
+// doesn't marshal, is keyed by Hash(data).
+func Key(rel string, data []byte) string {
+	if !strings.HasSuffix(rel, ".base") {
+		return Hash(data)
+	}
+	var v any
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	if err := dec.Decode(&v); err != nil {
+		return Hash(data)
+	}
+	var extra any
+	if err := dec.Decode(&extra); err == nil {
+		return Hash(data) // several documents
+	}
+	j, err := json.Marshal(v)
+	if err != nil {
+		return Hash(data)
+	}
+	sum := sha256.Sum256(j)
+	return hex.EncodeToString(sum[:])
+}
+
 type State int
 
 const (
@@ -112,7 +142,7 @@ const (
 type Entry struct {
 	Rel    string
 	State  State
-	Have   string // normalized hash of the vault's copy ("" if missing or not a regular file)
+	Have   string // Key of the vault's copy ("" if missing or not a regular file)
 	Ship   *File  // nil when not shipped any more
 	Reason string // why it counts as edited, when that isn't its content
 }
@@ -127,7 +157,7 @@ func contains(list []string, s string) bool {
 }
 
 // look reads a vault file: its hash, or why it can't be compared.
-func look(dest string) (exists bool, hash, reason string, err error) {
+func look(dest, rel string) (exists bool, hash, reason string, err error) {
 	st, err := os.Lstat(dest)
 	if errors.Is(err, fs.ErrNotExist) {
 		return false, "", "", nil
@@ -142,7 +172,7 @@ func look(dest string) (exists bool, hash, reason string, err error) {
 	if err != nil {
 		return false, "", "", err
 	}
-	return true, Hash(data), "", nil
+	return true, Key(rel, data), "", nil
 }
 
 // Classify compares a vault's files with src (and what rec says was
@@ -154,7 +184,7 @@ func Classify(vault string, src Source, rec Record) ([]Entry, error) {
 	for i := range src.Files {
 		f := &src.Files[i]
 		shipped[f.Rel] = true
-		exists, have, reason, err := look(filepath.Join(vault, filepath.FromSlash(f.Rel)))
+		exists, have, reason, err := look(filepath.Join(vault, filepath.FromSlash(f.Rel)), f.Rel)
 		if err != nil {
 			return nil, err
 		}
@@ -190,7 +220,7 @@ func Classify(vault string, src Source, rec Record) ([]Entry, error) {
 		if !ok || !filepath.IsLocal(filepath.FromSlash(rel)) {
 			continue
 		}
-		exists, have, reason, err := look(filepath.Join(vault, filepath.FromSlash(rel)))
+		exists, have, reason, err := look(filepath.Join(vault, filepath.FromSlash(rel)), rel)
 		if err != nil {
 			return nil, err
 		}

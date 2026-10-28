@@ -226,8 +226,9 @@ current vault. For each file:
   (files already up to date are only counted)
 
 A file counts as unedited when its content is a version this ct knows it
-shipped, ignoring line endings and trailing newlines. Obsidian rewrites
-tickets.base when you change a view in it, so it then counts as edited.
+shipped, ignoring line endings and trailing newlines. .base files are
+compared by their parsed YAML, so Obsidian reformatting one or dropping its
+comments isn't an edit; changing a view (filters, columns, sort) is.
 Settings (.obsidian/, .workflow.json, tickets/.sources.json) and your own
 notes are never touched. Writes happen under the vault lock (ct vault
 lock), and .scaffold.json records what was shipped.
@@ -341,7 +342,7 @@ func vaultUpdate(v string, o updateOpts) error {
 			case e.Reason != "":
 				why = "; " + e.Reason
 			case filepath.Ext(e.Rel) == ".base":
-				why = "; Obsidian rewrites .base files when a view changes"
+				why = "; its parsed YAML differs from the shipped one"
 			}
 			fmt.Printf("  ! %s (edited, kept%s)\n", e.Rel, why)
 			showDiff = e.Reason == ""
