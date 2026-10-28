@@ -1,4 +1,4 @@
-# ct clean: --save when claude fails; a run that fails after rewriting finishes on re-run; archive collision; IDs as typed
+# ct clean: --save when claude fails; a dev workspace saves on the installed plugin and ct; a run that fails after rewriting finishes on re-run; archive collision; IDs as typed
 env V=home/Documents/Obsidian/a
 env W=home/Projects/work-a
 mkdir $V/.obsidian $V/inbox $V/notes
@@ -50,6 +50,28 @@ cp synced61.md $V/tickets/PROJ-61/PROJ-61.md
 stdout 'proj-61: skip: not a ticket in the vault'
 
 
+# 6. a dev workspace (ct start --dev): --save runs the installed plugin and
+# ct; nothing is built (here a build would fail) or copied from the checkout
+cp unsaved-manual.md $V/tickets/MAN-62/MAN-62.md
+cp empty $V/tickets/MAN-62/design.md
+env WS=$WORK/$W/MAN-62
+mkdir $WS/github-acme-tickets/cmd/ct $WS/github-acme-tickets/assets/plugin/.claude-plugin
+cp empty $WS/github-acme-tickets/assets/plugin/.claude-plugin/plugin.json
+expand dev-workspace.json
+cp dev-workspace.json $WS/workspace.json
+cp gofail stub/go
+chmod 0755 stub/go
+! exec ct clean --yes --save MAN-62
+stdout 'MAN-62: running /tickets:save'
+! stdout 'dev mode'
+! stderr 'building ct'
+! exists calls/go
+! exists $WS/.cache/dev
+exec sh -c 'grep "/tickets:save" "$WORK/calls/claude" | tail -n 1'
+stdout '--plugin-dir '
+! stdout '\.cache/dev'
+
+
 -- empty --
 -- failclaude --
 #!/bin/sh
@@ -83,3 +105,17 @@ source-url: https://x.example/browse/PROJ-61
 ---
 -- links60.md --
 See [[PROJ-60]].
+-- gofail --
+#!/bin/sh
+echo "$PWD $*" >> "$WORK/calls/go"
+echo 'cmd/ct/main.go:1: syntax error' >&2
+exit 1
+-- dev-workspace.json --
+{
+  "id": "MAN-62",
+  "repos": [
+    {"provider": "github", "owner": "acme", "repo": "tickets", "slug": "github-acme-tickets",
+     "path": "$WS/github-acme-tickets", "base": "main", "branch": "main", "mode": "clone", "targetVersion": "1.2.0"}
+  ],
+  "dev": {"slug": "github-acme-tickets"}
+}

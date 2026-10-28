@@ -26,9 +26,16 @@ stdout '^github-acme-billing +github/acme/billing$'
 
 # add: a worktree on feature/<ID>-<desc>, with the .worktreeinclude files
 cp env home/Projects/repo-a/github/acme/billing/.env
+mkdir home/Projects/repo-a/github/acme/billing/graphify-out
+cp env home/Projects/repo-a/github/acme/billing/graphify-out/graph.json
 exec ct ws add MAN-1 github-acme-billing --base main --desc 'Fix the Thing' --version 2.1
 stdout 'created .*/work-a/MAN-1/github-acme-billing \(worktree\) on feature/fix-the-thing \(from origin/main\)'
 exists home/Projects/work-a/MAN-1/github-acme-billing/.env
+# the worktree's code graph is seeded outside it: nothing graphify-related in the checkout
+exists home/Projects/work-a/MAN-1/.cache/graphify/github-acme-billing/graphify-out/graph.json
+! exists home/Projects/work-a/MAN-1/github-acme-billing/graphify-out
+exec git -C home/Projects/work-a/MAN-1/github-acme-billing status --ignored --short
+! stdout graphify
 grep '"branch": "feature/fix-the-thing"' home/Projects/work-a/MAN-1/workspace.json
 grep '"mode": "worktree"' home/Projects/work-a/MAN-1/workspace.json
 grep '"targetVersion": "2.1"' home/Projects/work-a/MAN-1/workspace.json

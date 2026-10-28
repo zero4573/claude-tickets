@@ -26,3 +26,6 @@ desktop.ini
 *.swp
 *.swo
 *~
+
+# Python bytecode (the graph merge script tests)
+__pycache__/

@@ -426,7 +426,7 @@ func (r kbRepo) checkout(ref string, force bool) error {
 		if err := gitx.SharedClone(r.main, r.path); err != nil {
 			return fmt.Errorf("making an exploration clone of %s failed", r.slug)
 		}
-		graph.Seed(r.main, r.path)
+		graph.Seed(r.main, filepath.Join(r.path, "graphify-out"))
 	}
 	r.refresh()
 	if !fresh && gitx.Dirty(r.path) {

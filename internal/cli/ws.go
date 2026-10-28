@@ -42,7 +42,8 @@ workspace's repos are recorded in <workRoot>/<ID>/workspace.json.
 A <repo> argument is a slug or <provider>/<owner>/<repo>.`,
 	}
 	cmd.AddCommand(wsReposCmd(), wsCloneCmd(), wsAddCmd(), wsLsCmd(), wsDiffCmd(),
-		wsRmCmd(), wsMarkCmd(), wsMarksCmd(), wsFetchCmd(), wsGcCmd(), wsTidyCleanCmd())
+		wsDiffCheckCmd(), wsRmCmd(), wsMarkCmd(), wsMarksCmd(), wsFetchCmd(), wsGcCmd(),
+		wsTidyCleanCmd(), wsRefreshCmd())
 	return cmd
 }
 
@@ -169,8 +170,11 @@ func wsAddCmd() *cobra.Command {
 		Long: `Creates (or reuses) the ticket's worktree of a repo, branched from
 origin/<base> (or the local <base> when there's no such remote branch). The
 branch is reused if it already exists. Copies untracked files matching the
-main clone's .worktreeinclude (gitignore syntax, e.g. .env) and seeds
-graphify-out/ from the main clone so the code graph builds incrementally.
+main clone's .worktreeinclude (gitignore syntax, e.g. .env) and seeds the
+worktree's code graph from the main clone's graphify-out/ so it builds
+incrementally. The worktree's graph lives outside it, in
+<workRoot>/<ID>/.cache/graphify/<slug>/graphify-out, so nothing graphify
+writes lands in the checkout.
 --branch checks out an existing branch instead (local, or origin's,
 tracked), e.g. the source branch of an open PR; --base is then the branch
 it merges into.`,
@@ -345,7 +349,7 @@ func wsAdd(ctx vault.Context, key, spec, base, desc, version, useBranch string) 
 			fmt.Printf("ct ws: created %s (%s) on existing branch %s\n", wt, mode, branch)
 		}
 		copyWorktreeIncludes(main, wt)
-		graph.Seed(main, wt)
+		graph.Seed(main, graph.WorktreeOut(dir, slug))
 	}
 	parts := strings.SplitN(clone, "/", 3)
 	if err := workspace.Put(workspace.File(dir), workspace.Repo{
@@ -547,7 +551,7 @@ func wsRemove(ctx vault.Context, key string, force, merged bool) error {
 				fmt.Printf("ct ws: removed %s (shared clone)\n", r.Path)
 				continue
 			}
-			// graphify-out is ignored, so `git worktree remove` would refuse it
+			// a legacy in-worktree graphify-out is ignored, so `git worktree remove` would refuse it
 			_ = os.RemoveAll(filepath.Join(r.Path, "graphify-out"))
 			args := []string{"worktree", "remove"}
 			if force {
@@ -655,7 +659,9 @@ func wsGcCmd() *cobra.Command {
 done or closed and idle for N days (default 14; dirty or unpushed work is
 kept, and left as a follow-up task in the vault's inbox), merged graphs of
 sessions that aren't running, idle kb exploration clones, and graphify's
-dated snapshots older than a week.
+dated snapshots older than a week. A stopped session's .cache goes too,
+worktree graphs included: the next start re-seeds each from its main
+clone's graph and updates it.
 
 A session counts as running when its window is open (tmux), else when its
 process (ct start without a multiplexer, ct kb) is alive on this host,
@@ -784,13 +790,15 @@ func wsGc(ctx vault.Context, l launcher.Launcher, days int, dry bool) error {
 	return nil
 }
 
-// graphOutDirs is every graphify-out of the main clones and of the
-// vault's ticket and kb checkouts.
+// graphOutDirs is every graphify-out of the main clones, of the vault's kb
+// checkouts and legacy ticket worktrees, and the ticket worktrees' graphs
+// under <WorkRoot>/<ID>/.cache/graphify/<slug>/graphify-out.
 func graphOutDirs(ctx vault.Context) []string {
 	var out []string
 	main, _ := filepath.Glob(filepath.Join(ctx.ProjectsRoot, "*", "*", "*", "graphify-out"))
 	ws, _ := filepath.Glob(filepath.Join(ctx.WorkRoot, "*", "*", "graphify-out"))
-	for _, d := range append(main, ws...) {
+	cached, _ := filepath.Glob(filepath.Join(ctx.WorkRoot, "*", ".cache", "graphify", "*", "graphify-out"))
+	for _, d := range append(append(main, ws...), cached...) {
 		rel, _ := filepath.Rel(ctx.WorkRoot, d)
 		if top := strings.Split(rel, string(filepath.Separator))[0]; strings.HasPrefix(d, ctx.WorkRoot+string(filepath.Separator)) &&
 			strings.HasPrefix(top, ".") && !strings.HasPrefix(top, ".kb-") {

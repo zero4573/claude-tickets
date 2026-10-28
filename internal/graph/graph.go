@@ -21,6 +21,7 @@ import (
 	"github.com/zero4573/claude-tickets/internal/config"
 	"github.com/zero4573/claude-tickets/internal/container"
 	"github.com/zero4573/claude-tickets/internal/fsx"
+	"github.com/zero4573/claude-tickets/internal/session"
 )
 
 // BaseImage is the graphify image's base, pinned to a tag and the digest
@@ -288,10 +289,19 @@ func serveCommand(ws, projectsRoot, stdin string) ([]string, error) {
 	return nil, errors.New("mcp: the graphify image isn't built (run ct graph build on the host)")
 }
 
-// Seed copies a main clone's graph (graph, manifest, cache) into a new
-// checkout of it, so the checkout's graph builds incrementally.
-func Seed(main, checkout string) {
-	src, dest := filepath.Join(main, "graphify-out"), filepath.Join(checkout, "graphify-out")
+// WorktreeOut is where a ticket worktree's graphify output lives:
+// <ws>/.cache/graphify/<slug>/graphify-out, outside the worktree so no
+// formatter or linter that walks the checkout sees it (graphify is pointed
+// there with GRAPHIFY_OUT).
+func WorktreeOut(ws, slug string) string {
+	return filepath.Join(session.CacheDir(ws), "graphify", slug, "graphify-out")
+}
+
+// Seed copies a main clone's graph (graph, manifest, cache) into dest, the
+// graphify-out dir of a new checkout of it, so the checkout's graph builds
+// incrementally.
+func Seed(main, dest string) {
+	src := filepath.Join(main, "graphify-out")
 	if st, err := os.Stat(src); err != nil || !st.IsDir() {
 		return
 	}
