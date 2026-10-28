@@ -66,7 +66,7 @@ exec ct start --no-fetch MAN-1
 ! grep ' --continue' calls/tmux
 exec ct start --no-fetch --continue MAN-1
 stdout 'started in tickets-a \(continuing its last session\)'
-grep 'new-session .* --permission-mode auto --continue ./tickets:work-ticket MAN-1.' calls/tmux
+grep 'new-session .* --permission-mode auto --continue .ct start --continue: a new process.*step 0 of /tickets:work-ticket MAN-1 from board.md.*run /tickets:work-ticket MAN-1\.' calls/tmux
 
 # a failed merge stops the start: no session without the graph
 rm calls/tmux

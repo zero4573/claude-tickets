@@ -172,7 +172,8 @@ claude --plugin-dir <plugin> \
 ```
 
 (`--continue` only with `ct start --continue`, when the workspace ran a
-session before; by default each start is a new conversation), and the
+session before, and then the prompt is a short nudge to redo the resume
+instead of the skill command; by default each start is a new conversation), and the
 workspace's `.claude/settings.json` holds the one rule the ticket
 system needs: **the main clones and the graph cache are never edited**
 (`Edit`/`Write`/`NotebookEdit` denied under `projectsRoot` and the cache;
@@ -553,7 +554,10 @@ flowchart TB
 - **Fresh context:** the PO resumes from `board.md` and `relay.md` in a
   few calls, so a new `ct start <ID>` (a new conversation by default)
   picks up where the last one stopped, with a fresh lead.
-  `ct start --continue <ID>` reopens the last conversation. When the PO's
+  `ct start --continue <ID>` reopens the last conversation and sends a one-line
+  nudge instead of `/tickets:work-ticket <ID>` (the conversation already holds the
+  playbook): redo the resume from `board.md` and `relay.md`, as the agents of the
+  last run are gone. When the PO's
   context grows, it suggests `/tickets:po-refresh` at a quiet point: it
   checkpoints the board and relay and gives you the `/compact` to type,
   while the lead and workers keep running.

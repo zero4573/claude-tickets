@@ -17,6 +17,7 @@ exec ct start --no-fetch --continue MAN-1
 stderr 'MAN-1: no earlier session in its workspace to continue, starting a new one'
 ! stdout 'continuing'
 ! grep ' --continue' calls/tmux
+grep 'new-session .* --permission-mode auto ./tickets:work-ticket MAN-1.; echo' calls/tmux
 grep 'board.md`; `ct start$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^--continue MAN-1` reopens the last one\), and `/tickets:save` once the user$' home/Projects/work-a/MAN-1/CLAUDE.md
 
@@ -29,7 +30,7 @@ stdout '^ct start: MAN-1 started in tickets-a -- ct attach MAN-1$'
 rm calls/tmux
 exec ct start --no-fetch -c MAN-1
 stdout 'started in tickets-a \(continuing its last session\)'
-grep 'new-session .* --permission-mode auto --continue ./tickets:work-ticket MAN-1.' calls/tmux
+grep 'new-session .* --permission-mode auto --continue .ct start --continue: a new process.*step 0 of /tickets:work-ticket MAN-1 from board.md.*run /tickets:work-ticket MAN-1\.' calls/tmux
 
 # none: claude runs here; the stub records its arguments
 env CLAUDE_TICKETS_LAUNCHER=none
@@ -51,7 +52,7 @@ rm home/Projects/work-a/MAN-1/.sessions.json
 rm calls/claude
 exec ct-tty start --no-fetch --continue MAN-1
 stdout '\(continuing its last session\)'
-grep '--permission-mode auto --continue /tickets:work-ticket MAN-1$' calls/claude
+grep '--permission-mode auto --continue ct start --continue: a new process.*step 0 of /tickets:work-ticket MAN-1 from board.md.*run /tickets:work-ticket MAN-1\.$' calls/claude
 
 -- open.md --
 ---

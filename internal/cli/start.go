@@ -401,7 +401,7 @@ func prepareSession(ctx vault.Context, key, skill string, dirs []string, graphOK
 	if resume {
 		argv = append(argv, "--continue")
 	}
-	argv = append(argv, sessionPrompt(skill, key))
+	argv = append(argv, startPrompt(skill, key, resume))
 	// The vault goes with the session (not with a backend server started now:
 	// shells opened there later would act on this vault, whatever the default)
 	return launcher.Window{Group: ctx.TmuxSession, Name: key, Dir: dir, Argv: argv,
@@ -409,6 +409,23 @@ func prepareSession(ctx vault.Context, key, skill string, dirs []string, graphOK
 }
 
 func sessionPrompt(skill, key string) string { return "/tickets:" + skill + " " + key }
+
+// continueNudge is what a continued work-ticket session is sent: its
+// conversation already holds the playbook, so resending the skill would load
+// a second copy. Plain words (no quotes, backticks, # or ;) so tmux and bash -c
+// pass it unchanged. %s is the ticket ID.
+const continueNudge = "ct start --continue: a new process, so agents of the last run are gone. " +
+	"Redo step 0 of /tickets:work-ticket %s from board.md and the Open part of relay.md, then carry on. " +
+	"If that playbook is no longer in your context, run /tickets:work-ticket %s."
+
+// startPrompt is the session's first prompt: the nudge when a work-ticket
+// session really continues, else the skill's own command.
+func startPrompt(skill, key string, resume bool) string {
+	if resume && skill == "work-ticket" {
+		return fmt.Sprintf(continueNudge, key, key)
+	}
+	return sessionPrompt(skill, key)
+}
 
 // openWindow starts a session in a background window, or (feedback) types
 // the prompt into its window when it's open already.
