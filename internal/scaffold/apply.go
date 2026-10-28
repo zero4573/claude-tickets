@@ -139,7 +139,7 @@ func Apply(vault string, src Source, o Options) (Result, error) {
 			if beforeRemove != nil {
 				beforeRemove(dest)
 			}
-			if _, now, reason, err := look(dest); err == nil && (reason != "" || now != e.Have) {
+			if _, now, reason, err := look(dest, e.Rel); err == nil && (reason != "" || now != e.Have) {
 				delete(res.Done, e.Rel)
 				res.Warnings = append(res.Warnings, fmt.Sprintf("%s: changed during the update; kept", e.Rel))
 				continue

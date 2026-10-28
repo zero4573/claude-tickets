@@ -1,5 +1,5 @@
 // Command genhistory writes assets/scaffold-history.json: the normalized
-// sha256 (scaffold.Hash) of every version of each file ct has shipped into
+// sha256 (scaffold.Hash, and scaffold.Key for .base files) of every version of each file ct has shipped into
 // vaults, read from the git history of the scaffold folders (historicRoots)
 // plus the working tree's current scaffold. It merges into the existing
 // file and never drops a hash or a path, so rewritten or partial history
@@ -75,6 +75,9 @@ func run(dir, out string) error {
 	add := func(rel string, data []byte) {
 		if rel != scaffold.Skipped {
 			files[rel] = append(files[rel], scaffold.Hash(data))
+			if k := scaffold.Key(rel, data); k != scaffold.Hash(data) {
+				files[rel] = append(files[rel], k)
+			}
 		}
 	}
 

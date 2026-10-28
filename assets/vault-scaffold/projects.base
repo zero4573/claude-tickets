@@ -1,7 +1,3 @@
-# Projects and groups at the vault root: one project per repo
-# (projects/<slug>/<slug>.md), optional groups of projects that work
-# together (projects/<group>/<group>.md, type: group). See AGENTS.md,
-# "Projects and groups"; ct vault groups shows the clusters.
 filters:
   and:
     - file.inFolder("projects")
