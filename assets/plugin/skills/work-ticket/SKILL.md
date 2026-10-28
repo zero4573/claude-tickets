@@ -49,7 +49,7 @@ spawn the lead (1). Otherwise liveness goes by **session id**, never by a ping t
 (subagents die with their session):
 - `po: session:` differs from `$CLAUDE_CODE_SESSION_ID` (a new session): every agent of the old
   one is gone. Mark its `running` lines `orphaned` (the word decides, any box: `sed -i -E 's/^- \[.\] ([0-9]+) · running · /- [\/] \1 · orphaned · /' board.md; rg -q '^- \[.\] [0-9]+ · running · ' board.md && echo "running lines left"`), set `agents: []` and `lead: none`, and spawn one fresh
-  lead (1) with `New since the last lead: orphaned tasks NN, MM` (it checks their branches),
+  lead (1) (a sandbox or container wipe, task worktrees or the stack gone, is the same case: mark the `running` lines `orphaned` and tell the lead) with `New since the last lead: orphaned tasks NN, MM` (it checks their branches),
   adding `; finished, not sent: <the po: finished: entries>`, then set `finished: []`.
 - The same session (after `/compact` or a refresh): the lead is alive. SendMessage it "PO
   refreshed; send status" and wait; replace it only after its completion notice arrived.
@@ -79,11 +79,11 @@ Each event gets one short action; never forward report bodies.
   `finished:`. When **no entry of the same wave and kind** (tasks, or reviews) is left in
   `agents:`, also right after such a notice, SendMessage one line, "wave 2 finished: tasks 04
   done, 05 partial, reports in their task files" or "wave 2 reviews written: <slug>, <slug>", and
-  drop them from `finished:`. Until then send nothing: the lead waits for stragglers (no early
+  drop them from `finished:`. Before sending a tasks line, check each finished task file's `## Report` has content beyond the template comment (`sed -n '/^## Report/,$p'`) and add `NO REPORT: NN, …` to the line for each that doesn't. Until then send nothing: the lead waits for stragglers (no early
   merge, no timeout). A finished analyst: its answer to the user.
 - **User input:**
   - new requirement, feature or feedback: append a `relay.md` entry (`request`, `feature` or
-    `feedback`, `user→lead`, `open`) and SendMessage the lead "new request R-09". No lead
+    `feedback`, `user→lead`, `open`). While a task of the current wave runs, hold it: list it in `po:` `held: [R-91]` and send the lead only the next wave line ("…; new: R-91, R-92"), then clear `held:`. Urgent ones go at once ("new request R-94"): an answer to a pending `Ask user`, anything changing a running task's contract or files, anything the user calls urgent. No lead
     (after hand-over): spawn one; it plans the entry into the next wave. Vague new scope or
     a feature: grill it first (`tickets:grilling`, as `/tickets:grill` does).
   - a question: answer it from `board.md`, `relay.md` and `plan.md` when they cover it, else

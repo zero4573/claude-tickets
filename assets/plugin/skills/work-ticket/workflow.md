@@ -107,9 +107,11 @@ po:
     - "<agentId> · <agent> · w<N>|- · task NN|review <repo>|analyst · <since>"
   finished:
     - "w<N> · task NN · done|partial"
+  held: [R-nn]
 ```
 `agents`: the running ones (`w<N>` from the `Spawn:` entry's `wave:`, `-` for an analyst);
-`finished`: notices not yet sent to the lead (they survive `/compact`); `[]` when none.
+`finished`: notices not yet sent to the lead (they survive `/compact`); `[]` when none; `held`: non-urgent
+user entries kept from the lead until the wave line (`[]` when none).
 
 ## A ticket that changes the plugin's own formats
 A ticket whose work changes the formats of `board.md`, `relay.md`, task files or reviews (this plugin's
