@@ -54,7 +54,11 @@ tags: [ticket, jira, proj]
 Export invoices as CSV.
 
 - daily
-- weekly
+- weekly  
+
+- \[ \] design
+  - \[x\] schema
+- \[x\] review
 
 **Acceptance Criteria:** CSV opens in a spreadsheet
 
@@ -62,6 +66,8 @@ Export invoices as CSV.
 - **Jane Doe**, 2026-09-01: First pass done
 - **Bob Roe**, 2026-09-02: Looks good.
   Ship it
+  - \[ \] merge
+  - \[x\] test
 
   thanks | cheers
 <!-- comments: 99@2026-09-01T09:00:00.000-0400,101@2026-09-02T09:00:00.000-0400 -->

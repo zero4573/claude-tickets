@@ -250,7 +250,7 @@ func (s *Sync) frontmatter(is issue) (fs []fmField, mine bool, typ, project, par
 
 // description renders ### Description from the evidence view.
 func (s *Sync) description(is issue) string {
-	d := trimSpace(or(is.Fields.Description, ""))
+	d := plainTaskItems(trimSpace(or(is.Fields.Description, "")))
 	if d == "" {
 		d = "_No description._"
 	}
@@ -258,7 +258,7 @@ func (s *Sync) description(is issue) string {
 	for _, label := range s.TextFields {
 		v, ok := is.Fields.CustomFields[label].Value.(string)
 		if ok && strings.TrimSpace(v) != "" && regexp.MustCompile(`\S`).MatchString(v) {
-			ls = append(ls, "", "**"+label+":** "+trimSpace(v))
+			ls = append(ls, "", "**"+label+":** "+plainTaskItems(trimSpace(v)))
 		}
 	}
 	return strings.Join(ls, "\n") + "\n"
@@ -282,7 +282,7 @@ func renderComments(cs []comment, sig string) string {
 		ls = append(ls, "_No comments._")
 	}
 	for _, c := range cs {
-		body := strings.Split(trimSpace(c.Body), "\n")
+		body := strings.Split(plainTaskItems(trimSpace(c.Body)), "\n")
 		author := "unknown"
 		if c.Author != nil && c.Author.DisplayName != "" {
 			author = c.Author.DisplayName

@@ -41,6 +41,16 @@ it asks through `relay.md` (`lead` skill, "Never file a ticket on your own").
   under it by default: the source's parent / epic link (Jira: `parent: {key: <ID>}`) for a
   synced epic. When the session ticket is itself covered (`covered-by`), offer that lead.
 
+- **Jira task lists:** the Rovo `createJiraIssue` tool takes `contentFormat` `markdown` (the
+  default) or `html`, and markdown `- [ ] item` renders as a plain bullet prefixed "[]". When
+  the description has a task list (e.g. the acceptance criteria as checkboxes), file it with
+  `contentFormat: "html"` and write the whole description as HTML: `<p>`, `<h3>`, `<ul>` /
+  `<ol>` / `<li>`, `<code>`, `<a href>`, and each task list as
+  `<ul data-type="task-list"><li data-type="task-item"><input type="checkbox"> Item</li></ul>`
+  (`<input type="checkbox" checked>` for a done item: `- [x]` in the draft). Escape `&`, `<` and `>` in
+  the text as `&amp;`, `&lt;`, `&gt;`. Without a task list keep markdown.
+  The same rule applies to any `editJiraIssue` description edit; never add outward edits.
+
 ## 3. Confirm (always, before anything is created)
 One AskUserQuestion call: show the source, project, type, title, assignee, parent and the
 description (in the question text), with options such as *File it at `<source>`* (recommended),
@@ -48,7 +58,9 @@ description (in the question text), with options such as *File it at `<source>`*
 lead add the choice *not under `<lead>`*. Nothing is filed without a yes, and only what was shown.
 
 ## 4. File it
-**At the source:** call the create tool with the confirmed fields. Keep the key it returns
+**At the source:** call the create tool with the confirmed fields. For Jira with a task list, pass
+`contentFormat: "html"` and the HTML description (the Jira task lists rule above); the Confirm step shows
+the readable markdown draft, and what is filed must say exactly the same. Keep the key it returns
 (`PROJ-13`) and the URL. On an error, a missing create tool, or a permission refusal (401/403,
 "not allowed", read-only token): don't retry another way; tell the user why and ask
 (AskUserQuestion) whether to file it as a manual ticket instead, or not at all.

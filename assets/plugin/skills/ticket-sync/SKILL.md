@@ -55,7 +55,9 @@ For each entry, and only those:
     `maxResults: 5` and `orderBy: "-created"`.
 - Convert it to Markdown that Obsidian renders: tables, lists and code blocks
   as Markdown; panels as `> **Note:** ...` callouts; mentions as plain names;
-  media as their file names.
+  media as their file names; task lists (`data-type="task-list"`, `taskItem`)
+  as plain bullets `- \[ \] item` / `- \[x\] item` (escaped brackets), never
+  `- [ ]` checkboxes.
 - Replace only that section inside the note's source block, keeping its
   heading:
   - `### Description`: the description, then each text custom field as

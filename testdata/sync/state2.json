@@ -141,7 +141,7 @@
       "evidence": {
         "appliedContentFormat": "markdown",
         "fields": {
-          "description": "Export invoices as CSV.\n\n- daily\n- weekly  \n\n",
+          "description": "Export invoices as CSV.\n\n- daily\n- weekly  \n\n- [ ] design\n  - [x] schema\n- [X] review\n\n",
           "customFields": {
             "Acceptance Criteria": {
               "value": "CSV opens in a spreadsheet  "
@@ -163,7 +163,7 @@
               "accountId": "u-bob",
               "displayName": "Bob Roe"
             },
-            "body": "Looks good.\nShip it\n\nthanks | cheers"
+            "body": "Looks good.\nShip it\n- [ ] merge\n- [x] test\n\nthanks | cheers"
           },
           {
             "id": 99,

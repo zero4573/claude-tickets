@@ -37,10 +37,10 @@ def issue($t; $sum; $s; $who): {issuetype: typ($t), summary: $sum, status: $s, a
         issuelinks: [blockedby("OTHER-9"; $blocker), relates("PROJ-3")],
         subtasks: [{key: "PROJ-7", fields: {summary: "Write the export job", status: todo}}]}),
       changelog: cl($u2; ["timeoriginalestimate", "rank"]),
-      evidence: {appliedContentFormat: "markdown", fields: {description: "Export invoices as CSV.\n\n- daily\n- weekly  \n\n",
+      evidence: {appliedContentFormat: "markdown", fields: {description: "Export invoices as CSV.\n\n- daily\n- weekly  \n\n- [ ] design\n  - [x] schema\n- [X] review\n\n",
         customFields: {"Acceptance Criteria": {value: "CSV opens in a spreadsheet  "}, "Steps to Reproduce": {value: "   "}}}},
       comments: {appliedContentFormat: "markdown", comments: [
-        comment("101"; "2026-09-02T09:00:00.000-0400"; bob; "Looks good.\nShip it\n\nthanks | cheers"),
+        comment("101"; "2026-09-02T09:00:00.000-0400"; bob; "Looks good.\nShip it\n- [ ] merge\n- [x] test\n\nthanks | cheers"),
         comment(99; "2026-09-01T09:00:00.000-0400"; jane; "First pass done")]}},
     "PROJ-2": {
       fields: (issue("Bug"; "Totals wrong: rounding"; (if $n == 2 then done elif $n == 3 then doing else todo end); jane)
