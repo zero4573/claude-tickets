@@ -1,0 +1,39 @@
+# ct ws refresh: the workspace CLAUDE.md follows board.md's commit style
+mkdir home/Documents/Obsidian/a/.obsidian
+mkdir home/Documents/Obsidian/a/tickets/MAN-1
+cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+expand gitconfig
+exec git init -q -b main seed
+exec git -C seed add -A
+exec git -C seed commit -q -m init
+exec git clone -q --bare seed remote/acme/billing.git
+exec git clone -q git@github.com:acme/billing.git home/Projects/repo-a/github/acme/billing
+exec ct ws add MAN-1 github-acme-billing --base main --desc refresh
+env C=home/Projects/work-a/MAN-1/CLAUDE.md
+
+exec ct ws refresh MAN-1
+stdout 'ct ws refresh: .*MAN-1/CLAUDE.md rewritten'
+grep 'not chosen yet' $C
+
+cp board.md home/Documents/Obsidian/a/tickets/MAN-1/board.md
+exec ct ws refresh MAN-1
+grep 'conventional commits' $C
+! grep 'not chosen yet' $C
+
+! exec ct ws refresh MAN-9
+stderr 'MAN-9 has no workspace'
+
+-- man-1.md --
+---
+summary: First
+status: in-progress
+---
+-- board.md --
+---
+commit-style: conventional
+---
+-- gitconfig --
+[url "$WORK/remote/"]
+	insteadOf = git@github.com:
+-- seed/README.md --
+# billing
