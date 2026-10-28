@@ -1,0 +1,91 @@
+# ct ws diff-check --ticket: the ticket's own vault-only IDs in added lines
+# and commit messages
+expand gitconfig
+env V=home/Documents/Obsidian/a
+mkdir $V/.obsidian $V/tickets/manual/PROJ-12/reviews
+cp empty $V/tickets/manual/PROJ-12/PROJ-12.md
+cp relay.md $V/tickets/manual/PROJ-12/relay.md
+cp review.md $V/tickets/manual/PROJ-12/reviews/wave-1-acme.md
+exec git init -q -b main repo
+cp readme repo/README.md
+exec git -C repo add -A
+exec git -C repo commit -q -m init
+exec git -C repo checkout -q -b topic
+
+# clean, and a generic R-9090 that is not in the relay passes
+cp generic repo/g.txt
+exec git -C repo add g.txt
+exec git -C repo commit -q -m 'generic R-9090'
+exec ct ws diff-check -C repo --ticket PROJ-12 main..topic
+! stdout .
+! stderr .
+
+# a hit in a file
+cp hit repo/h.txt
+exec git -C repo add h.txt
+exec git -C repo commit -q -m 'add h'
+! exec ct ws diff-check -C repo --ticket PROJ-12 main..topic
+stdout '^vault-id\tR-9093\t[0-9a-f]+\th.txt$'
+stdout '^vault-id\tW1-acme-M01\t[0-9a-f]+\th.txt$'
+! stdout 'g.txt'
+stderr '2 vault-only ID\(s\) of PROJ-12 in the range'
+
+# a hit in a message
+exec git -C repo reset -q --hard main
+cp generic repo/g.txt
+exec git -C repo add g.txt
+exec git -C repo commit -q -m 'work on PROJ-12'
+! exec ct ws diff-check -C repo --ticket PROJ-12 main..topic
+stdout '^vault-id\tPROJ-12\t[0-9a-f]+\t:commit-message$'
+
+# rev-list order: the newer commit's ID line comes before the older
+# commit's size line
+exec git -C repo reset -q --hard main
+exec sh -c 'printf "a\\000b\\n" > repo/b.dat'
+exec git -C repo add b.dat
+exec git -C repo commit -q -m 'add a binary'
+cp hit repo/h.txt
+exec git -C repo add h.txt
+exec git -C repo commit -q -m 'add h'
+! exec ct ws diff-check -C repo --ticket PROJ-12 main..topic
+stdout '(?s)\Avault-id\tR-9093\t[0-9a-f]+\th.txt\nvault-id\tW1-acme-M01\t[0-9a-f]+\th.txt\nbinary\t[0-9]+\t[0-9a-f]+\tb.dat\n\z'
+
+# a line kept from the base passes, even reworded; an ID mentioned only in
+# the relay's prose (R-9077) is not in the set
+exec git -C repo reset -q --hard main
+cp kept repo/README.md
+exec git -C repo commit -q -am 'base line'
+exec git -C repo branch -f main
+cp reworded repo/README.md
+exec git -C repo commit -q -am 'reword'
+exec ct ws diff-check -C repo --ticket PROJ-12 main..topic
+! stdout .
+
+# without --ticket: unchanged
+exec ct ws diff-check -C repo main..topic
+! stdout .
+! stderr .
+
+# an unknown ticket
+! exec ct ws diff-check -C repo --ticket NOPE-1 main..topic
+stderr 'not found'
+
+-- empty --
+-- readme --
+acme
+-- relay.md --
+R-9093 · 2026-01-02 · user→lead · decision · as R-9077 said · copied
+-- review.md --
+- W1-acme-M01 · f:1 · problem
+-- kept --
+Ask user: none | R-9093: q
+-- reworded --
+Ask user: none | R-9093: question, see R-9077
+-- generic --
+see R-9090 for details
+-- hit --
+the R-9093 decision, finding W1-acme-M01
+-- gitconfig --
+[user]
+	name = Jane Doe
+	email = jane@example.com

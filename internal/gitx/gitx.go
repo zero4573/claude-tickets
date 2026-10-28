@@ -4,7 +4,11 @@
 package gitx
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +20,56 @@ import (
 func Out(dir string, args ...string) (string, error) {
 	out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).Output()
 	return strings.TrimRight(string(out), "\n"), err
+}
+
+// OutIn is Out with stdin (nil for none), and git's stderr in the error
+// (in place of "exit status N") so a caller can show why git failed.
+func OutIn(dir string, stdin io.Reader, args ...string) (string, error) {
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	cmd.Stdin = stdin
+	var out, errb bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &errb
+	if err := cmd.Run(); err != nil {
+		if msg := strings.TrimSpace(errb.String()); msg != "" {
+			return "", fmt.Errorf("%s", msg)
+		}
+		return "", err
+	}
+	return strings.TrimRight(out.String(), "\n"), nil
+}
+
+// Lines runs git and calls fn with each line of its stdout (without the
+// newline) as it arrives, so a large output is never held whole. Like
+// OutIn, git's stderr is in the error.
+func Lines(dir string, fn func(line string), args ...string) error {
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	var errb bytes.Buffer
+	cmd.Stderr = &errb
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	r := bufio.NewReaderSize(out, 64<<10)
+	for {
+		l, rerr := r.ReadString('\n')
+		if l != "" {
+			fn(strings.TrimSuffix(l, "\n"))
+		}
+		if rerr != nil {
+			break
+		}
+	}
+	_, _ = io.Copy(io.Discard, out)
+	if err := cmd.Wait(); err != nil {
+		if msg := strings.TrimSpace(errb.String()); msg != "" {
+			return fmt.Errorf("%s", msg)
+		}
+		return err
+	}
+	return nil
 }
 
 func Ok(dir string, args ...string) bool {
