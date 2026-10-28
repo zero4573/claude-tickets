@@ -249,6 +249,20 @@ A deny rule matches the start of a command only (`git push origin
 broker on the host, or branch protection, that refuses non-fast-forward
 pushes and branch or tag deletes and moves.
 
+To keep session context small, also deny the built-in tools ticket work
+doesn't use. A deny rule naming a whole tool (no parentheses) drops the
+tool's schema from the context, not only its use, for the session and its
+subagents (same effect as `--disallowedTools`); measured on Claude Code
+2.1.308. Which tools to drop is yours to choose; the workflow never needs
+these:
+
+```json
+{ "permissions": { "deny": [
+  "Artifact", "ArtifactCheck", "ArtifactComments", "ArtifactData",
+  "SendFeedback", "ShareOnboardingGuide"
+] } }
+```
+
 Running sessions in a sandbox that keeps credentials out (no SSH agent, no
 tokens: MCP servers behind a proxy that adds them) is recommended too. Give
 it a signing-only key (an ssh-agent with just the commit-signing key, or
