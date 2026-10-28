@@ -54,8 +54,10 @@ Read-only. Never write to the vault.
    description sections), `## Workspace`, `## Tasks`, `## Questions`,
    `## Follow-ups`, `## Review`, and the summaries at the end. Also its
    dependency fields (`blocked-by`, `blocked`, `parent`).
-2. The 3 most recent `tickets/<source>/<ID>/logs/` notes; the `board.md` task lines
-   (`rg -n '^- \[.\] [0-9]+ · '`; the ticket's live task views are in `<ID>-status.md`), `tail -n 25 backlog.md`, and the open must-fixes
+2. The 3 most recent `tickets/<source>/<ID>/logs/` notes; the `board.md` task lines still open
+   and the last 5 merged, with the merged and dropped counts (by word, any box:
+   `rg -n '^- \[.\] [0-9]+ · ' board.md | rg -v '^[0-9]+:- \[.\] [0-9]+ · (merged|dropped) '; rg '^- \[.\] [0-9]+ · merged ' board.md | tail -n 5; echo "merged $(rg -c '^- \[.\] [0-9]+ · merged ' board.md || echo 0), dropped $(rg -c '^- \[.\] [0-9]+ · dropped ' board.md || echo 0)"`;
+   the ticket's live task views are in `<ID>-status.md`), `tail -n 25 backlog.md`, and the open must-fixes
    (by word: `rg -n '^- \[.\] W[0-9]+-[a-z0-9-]+-M[0-9]+ · (open|fixing)' reviews/`, their `[ ]`/`[/]` Dispositions lines; a review
    without `## Dispositions` predates the rule: check its must-fixes against
    the board);
