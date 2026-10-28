@@ -87,7 +87,7 @@ report `partial` with what's left instead of going on.
   commit what works and report `blocked`.
 
 ## Report (the only thing the lead reads; ≤40 lines, ≤15 for tickets:mechanical)
-Write it under the task file's existing `## Report` heading (task files already have one: fill it, never append a second), then re-read it (`sed -n '/^## Report/,$p' <task file>`) and reply with the same text; if the write failed or the section is still empty, start the reply with `REPORT NOT WRITTEN: <reason>` (the reply goes to
+Write it under the task file's existing `## Report` heading, the line that is exactly `## Report` (never at a `## Report` quoted inside the task's text; task files already have one: fill it, never append a second), then re-read it (`sed -n '/^## Report/,$p' <task file>`) and reply with the same text; if the write failed or the section is still empty, start the reply with `REPORT NOT WRITTEN: <reason>` (the reply goes to
 the PO, which tells the lead; the lead reads the task file):
 ```
 Task NN: done | partial | blocked

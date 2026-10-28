@@ -555,7 +555,7 @@ func TestPluginSkillRules(t *testing.T) {
 			"git merge-base --is-ancestor <b> HEAD && git update-ref -d refs/heads/<b>",
 		}},
 		"wave-review": {review, []string{"timeout 300", "focused tests of the changed packages", "`confirmed`", "`unconfirmed`", "**3 must-fix, 6 should-fix, 5 consider**"}},
-		"task-agent":  {task, []string{"existing `## Report` heading", "never append a second", "Commit early", "read `git diff` before committing", "git status --short", "build outputs", "never `git add -A` blindly"}},
+		"task-agent":  {task, []string{"existing `## Report` heading", "the line that is exactly `## Report`", "never append a second", "Commit early", "read `git diff` before committing", "git status --short", "build outputs", "never `git add -A` blindly"}},
 		"workflow":    {wf, []string{"A ticket that changes the plugin's own formats", "in the format of the plugin version"}},
 	} {
 		for _, s := range c.want {
