@@ -75,6 +75,22 @@ podman run --rootfs, which works where the runtime starts with no images
 			return passExit(execReplaceOrRun(path, argv))
 		},
 	}
+	merge := &cobra.Command{
+		Use:   "merge <workspace>",
+		Short: "Re-merge a workspace's code graph (dev sessions)",
+		Long: `Brings <workspace>'s merged code graph up to date: what ct start does
+before a session, with progress on stderr. For dev sessions: after a branch
+changes how the graph is merged, run it with that branch's ct on PATH to
+test the change. <workspace> is taken as ct graph mcp takes it.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, err := vault.Require()
+			if err != nil {
+				return err
+			}
+			return graph.Merge(args[0], ctx.ProjectsRoot)
+		},
+	}
 	index := &cobra.Command{
 		Use:   "index [<repo>...]",
 		Short: "Build or refresh the main clones' code graphs",
@@ -109,7 +125,7 @@ follow-up tasks in the vault's inbox.`,
 			return nil
 		},
 	}
-	cmd.AddCommand(build, status, mcp, index)
+	cmd.AddCommand(build, status, mcp, merge, index)
 	return cmd
 }
 

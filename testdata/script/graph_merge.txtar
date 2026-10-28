@@ -1,0 +1,17 @@
+# usage and context errors
+! exec ct graph merge
+stderr 'accepts 1 arg'
+! exec ct graph merge home/Projects/work-a/MAN-1
+stderr .
+
+# a merge run reaches the runtime stub, progress on stderr
+exec ct graph build
+mkdir home/Documents/Obsidian/a/.obsidian home/Projects/work-a/MAN-1 home/Projects/repo-a
+cp ws.json home/Projects/work-a/MAN-1/workspace.json
+! exec ct graph merge home/Projects/work-a
+stderr 'must be a ticket or kb workspace'
+exec ct graph merge home/Projects/work-a/MAN-1
+grep '^run --rm --security-opt label=disable .*localhost/claude-tickets-graphify:[0-9a-f]+ /opt/graphify/serve.sh --merge$' calls/podman
+
+-- ws.json --
+{"id": "MAN-1", "repos": []}
