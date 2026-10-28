@@ -48,12 +48,34 @@ flowchart TB
 `analyst`) and hooks are what `ct` passes to `claude` with `--plugin-dir`. The flow is in
 [the ticket workflow](ticket-workflow.md).
 
+## Code graph
+
+Each session's code graph merges the ticket worktrees' graphs with every other repo's main
+clone. A worktree's graph replaces its main clone's, and node ids are prefixed with the repo
+slug. `ct start` runs the merge before a session and `ct graph merge <workspace>` runs it
+on demand; in a dev workspace the session's graph MCP is served by the built `ct` (see
+[Workspaces and the vault](workspace-and-vault.md)).
+
+```mermaid
+flowchart LR
+  main[("main clones: graphify-out")] -- "seed at ws add, and after ws gc" --> wg[("workRoot/ID/.cache/graphify/slug/graphify-out")]
+  wt["ticket worktree"] -- "graphify watch, GRAPHIFY_OUT" --> wg
+  wg --> merge["ticket-merge.py: node ids prefixed with slug"]
+  main --> merge
+  merge --> out[("workRoot/ID/graphify-out/graph.json")]
+  out --> serve["graphify MCP server, hot reload"]
+```
+
+Details of where worktree graphs live are in
+[workspaces and the vault](workspace-and-vault.md#worktree-code-graphs).
+
 ## Layout on disk
 
 - The vault: `tickets/<source>/<ID>/` (note, plan, board, relay, tasks, contracts, reviews),
   `projects/<slug>/`, `knowledge-base/`, `references/`, `inbox/`, `learning/`.
 - The workspace: `<workRoot>/<ID>/` with `CLAUDE.md`, `workspace.json`, `.tool-versions`,
-  one worktree per repo at `<ID>/<slug>` and task worktrees under `tasks/`.
+  one worktree per repo at `<ID>/<slug>`, task worktrees under `tasks/`, and `.cache/` (Go
+  modules and the worktree graphs).
 - Main clones: `<projectsRoot>/<provider>/<owner>/<repo>`; never edited, only their `.git`
   is written so worktrees can be created.
 

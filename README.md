@@ -182,11 +182,45 @@ it). Its `env` puts Go's `GOPATH`, `GOMODCACHE` and `GOCACHE` under
 and builds modules in a folder it can write. graphify never scans a
 `.cache` folder, and `ct` writes `<workspace>/.ignore` (`/.cache/`,
 `graphify-out/`) so fff and rg (Claude's Grep) skip the caches and every
-code graph, the worktrees' included, unless a search names them. `ct ws rm`
+code graph unless a search names them. A ticket worktree's own graph lives
+under `<workspace>/.cache/graphify/<slug>/graphify-out`, never in the
+worktree, so formatters that walk the checkout don't see it. `ct ws rm`
 removes the caches with the workspace, and `ct ws gc` drops them from
-workspaces with no running session. `CLAUDE_TICKETS_SESSION_SETTINGS` is
+workspaces with no running session (the next start re-seeds each
+worktree graph from its main clone). `CLAUDE_TICKETS_SESSION_SETTINGS` is
 merged in last, so your own `env` wins. A sandbox can read
 the same flags and rules to decide what to mount, and how.
+
+A dev workspace (`ct start --dev <slug>`, for a ticket that changes
+claude-tickets itself, so its sessions follow the rules it is writing) is
+recorded in `workspace.json` (`"dev": {"slug": ...}`) and kept for later
+starts until `--dev none`. `<slug>` must be a repo of the workspace with
+`cmd/ct` and `assets/plugin`. At each start, ct runs `go build -o
+<workspace>/.cache/dev/bin/ct ./cmd/ct` in that checkout (with the
+workspace's Go env; a failed build fails the start), copies the checkout's
+`assets/plugin` to `<workspace>/.cache/dev/plugin` with its hooks pointed at
+the built ct, and prints `dev mode: plugin and ct from <slug> (<short
+HEAD>)` (`-dirty` when the checkout has uncommitted changes). Sessions get
+`--plugin-dir` of that dir, `<workspace>/.cache/dev/bin` prepended to the
+`PATH` they start with (in the tmux window's shell, or the foreground
+launch env; never written into the settings), and the code graph served by
+the built ct, named by path in `.claude/graph-mcp.json`. They also get
+`CLAUDE_TICKETS_DEV_BIN=<workspace>/.cache/dev/bin`: a sandbox or container
+wrapping `claude` that sets its own `PATH` prepends it there (it is in the
+workspace, so the same path exists inside), or skills and hooks run the
+installed ct. The installed ct only builds (`go build`; the go.mod
+toolchain and module downloads still run on the host) and copies regular
+files and dirs (a symlink or other special file in `assets/plugin`, or
+`assets/plugin` itself a link, fails the start): it never runs the built
+ct or other code from the checkout outside a session. So the graph merge
+at each start runs in the installed ct too; to test a branch that changes
+the merged graph, run `ct graph merge <workspace>` inside the session (with that branch's ct on PATH).
+When the ticket's window is already open, nothing is rebuilt or copied
+(the live session keeps its files) and ct prints `dev mode: window open,
+the build is used from the next start`; until a build exists, the graph
+keeps the installed ct. `ct clean --save` ignores the dev build: the unattended
+`/tickets:save` runs on the installed plugin and ct. `ct ws rm` and `ct ws
+gc` remove the build with `.cache`.
 
 ### Recommended session settings
 
@@ -257,18 +291,18 @@ clusters, and the vault's `AGENTS.md` has the rules.
 | `ct vault default [<vault>\|--pick\|--unset]` | The vault every other command acts on. Switch it to work on another vault. |
 | `ct sync [--source <name>] [--full]` | Pull your open tickets from each enabled source and reconcile the notes, unsupervised. For Jira, it finds and writes only what changed, without a model; Claude only converts HTML-only descriptions or comments. |
 | `ct new [--type <t>] "<summary>"` | Create a manual ticket `MAN-<n>`. |
-| `ct start [--force] [--feedback] [--continue] [--no-attach] <ID>...` | Open one tmux window per named ticket, in a workspace marked as trusted in Claude Code so the session starts right away (with one ID it then switches to that window; `--no-attach` doesn't) (Tab completes the vault's open tickets; `--list` prints them; an ID that isn't in the vault's `tickets/` stops it before anything starts), each running `/tickets:work-ticket <ID>` (or `/tickets:pr-feedback` with `--feedback`). Each run starts a new conversation, which resumes from the ticket's `board.md`; `--continue` (`-c`) reopens the workspace's last conversation instead (also on `ct feedback`). Without a multiplexer (launcher `none`): one ID, run in this terminal; `--no-attach` is refused; a session that looks running is refused (`--force` if it isn't). |
+| `ct start [--force] [--feedback] [--continue] [--no-attach] [--dev <slug>\|none] <ID>...` | Open one tmux window per named ticket, in a workspace marked as trusted in Claude Code so the session starts right away (with one ID it then switches to that window; `--no-attach` doesn't) (Tab completes the vault's open tickets; `--list` prints them; an ID that isn't in the vault's `tickets/` stops it before anything starts), each running `/tickets:work-ticket <ID>` (or `/tickets:pr-feedback` with `--feedback`). Each run starts a new conversation, which resumes from the ticket's `board.md`; `--continue` (`-c`) reopens the workspace's last conversation instead (also on `ct feedback`). Without a multiplexer (launcher `none`): one ID, run in this terminal; `--no-attach` is refused; a session that looks running is refused (`--force` if it isn't). `--dev <slug>` makes it a dev workspace, for a ticket that changes claude-tickets itself: its sessions run the plugin and `ct` built from its checkout `<slug>` (see [What sessions get](#what-sessions-get)); `--dev none` goes back to the installed ones. |
 | `ct feedback <ID>...` | Shorthand for `ct start --feedback`: apply the review comments on your open Bitbucket PRs. Without a multiplexer, a running session gets nothing typed into it: type `/tickets:pr-feedback` there. |
 | `ct status [-w] [--interval <d>]` | Every session: `needs-input` / `idle` / `working` / `exited`, window (`-` without a multiplexer), source, status, dirty repos. With `-w`, stays on screen and refreshes every 2s (`--interval`, at least 1s) and whenever a session changes state, until Ctrl-C; piped, it prints once. |
 | `ct attach <ID>` | Jump to a ticket's window (Tab completes the open ones). tmux only: without a multiplexer, a session is in the terminal where it was started. |
 | `ct open <ID>` | Open the ticket's workspace in `$CLAUDE_TICKETS_EDITOR` (default `code`). For VS Code and its forks it opens `<ID>.code-workspace`: one folder per worktree plus the ticket's vault notes, so each repo gets its own source control. |
-| `ct ws repos\|clone\|add\|ls\|diff\|mark\|marks\|rm\|fetch\|gc\|tidy-clean` | Worktrees per ticket, on `feature/<ID>[-<desc>]` (a manual ticket's branch has no ID: `feature/<desc>`, so `add` needs `--desc` or `--branch`). Sessions run it to create their own. `mark <ID> <docs\|tidy> [<slug>...]` records, per repo, the commit where docs or tidy were done and `marks <ID>` shows `ok`, `stale` (commits after it) or `none` per repo (exit 3 unless all are ok; `/tickets:save` checks it before pushing); `gc` frees disk (see below); `tidy-clean <ID> [--force] [--dry-run]` removes the tidy skill's scratch clones `<ws>/tasks/tidy-<slug>` (an unmerged one is kept unless `--force`). |
+| `ct ws repos\|clone\|add\|ls\|diff\|diff-check\|mark\|marks\|refresh\|rm\|fetch\|gc\|tidy-clean` | Worktrees per ticket, on `feature/<ID>[-<desc>]` (a manual ticket's branch has no ID: `feature/<desc>`, so `add` needs `--desc` or `--branch`). Sessions run it to create their own. `mark <ID> <docs\|tidy> [<slug>...]` records, per repo, the commit where docs or tidy were done and `marks <ID>` shows `ok`, `stale` (commits after it) or `none` per repo (exit 3 unless all are ok; `/tickets:save` checks it before pushing); `refresh <ID>` rewrites the workspace's `CLAUDE.md` from the vault, as `ct start` does (the kickoff runs it once `board.md` names the commit style); `diff-check [-C <dir>] [--max-size 1M] [--ticket <ID>] <range>` flags binary or large files added by any commit of the range, and with `--ticket` the ticket's vault-only IDs a commit introduces (exit 3 when something is flagged); `gc` frees disk (see below); `tidy-clean <ID> [--force] [--dry-run]` removes the tidy skill's scratch clones `<ws>/tasks/tidy-<slug>` (an unmerged one is kept unless `--force`). |
 | `ct clean [<ID>...] [--dry-run] [--yes] [--save] [--include-done] [--keep-manual] [--purge] [--days N]` | Clean up closed tickets: remove the workspace, then move a synced ticket's folder to the vault's `.trash/` (links to it become `[ID](<source-url>)`; files other notes link or embed move to `archive/tickets/<source>/<ID>/`) and a manual one's to `archive/tickets/<source>/<ID>/`. Skips open tickets, running sessions, uncommitted or unpushed work (commits already in `origin/<base>`, e.g. squash-merged, count as pushed) and unsaved sessions (`--save` runs `/tickets:save` headless first). Prints the plan and asks; `--yes` without a terminal. |
 | `ct kb [--continue] [--print] ["<question>"]` | Ask about the vault's projects without a ticket: a session with the vault, every repo read-only, and a graph merged from every repo. |
 | `ct kb repo checkout\|fetch\|graph\|ls\|reset` | Inside a kb session: exploration clones of any branch, to build and test in (never committed). |
 | `ct teach [--continue] [<topic>] \| --list` | Learn a topic (kebab-case) over many sessions: a session running `/tickets:teach <topic>` in the window `teach-<topic>` (launcher `none`: this terminal), with the vault, every repo read-only and the merged graph. No topic: pick one of the vault's `learning/*/` or type a new one (without a terminal it prints them and fails). A new conversation each time; `--continue` (`-c`) reopens the topic's last one. `--list` prints the topics. See "Learning a topic". |
 | `ct claude [claude args]` | `claude` in the current repo with the vault as its knowledge base: the vault added, the plugin's skills, and the repo's project notes named in the system prompt. |
-| `ct graph build\|status\|mcp` | The graphify image (`localhost/claude-tickets-graphify:<hash>`, podman or docker) and the stdio MCP server sessions use for their code graph. |
+| `ct graph build\|status\|mcp\|merge` | The graphify image (`localhost/claude-tickets-graphify:<hash>`, podman or docker) and the stdio MCP server sessions use for their code graph. `merge <workspace>` re-merges a workspace's graph (dev sessions). |
 | `ct graph index [<repo>...]` | Build or refresh the main clones' code graphs. |
 | `ct layout [--apply]` | Move repos into `<projectsRoot>/<provider>/<owner>/<repo>`. |
 | `ct vault lock` / `ct vault links` | Used by `/tickets:save`: serialize writes to shared notes, and move notes without breaking wikilinks. |
@@ -652,7 +686,7 @@ flowchart LR
 flowchart TB
   idx["ct graph index"] --> mg[("projectsRoot/*/*/*/graphify-out/graph.json")]
   subgraph server["ct graph mcp (graphify image, stdio)"]
-    watch["graphify watch per worktree"] --> wg[(worktree graphs)]
+    watch["graphify watch per worktree<br/>(GRAPHIFY_OUT=workRoot/ID/.cache/graphify/slug/graphify-out)"] --> wg[(worktree graphs)]
     links[".inputs/slug/graphify-out<br/>symlinks to main clones"]
     merge["merge-graphs: node ids prefixed with slug"]
   end
@@ -662,6 +696,15 @@ flowchart TB
 
 - **Merged graph:** a worktree's graph replaces its main clone's, so a
   session sees its own edits next to every other repo as last indexed.
+- **Where worktree graphs live:** `ct ws add` seeds each ticket worktree's
+  graph from its main clone into
+  `<workspace>/.cache/graphify/<slug>/graphify-out`, and the server points
+  graphify there with `GRAPHIFY_OUT`, so nothing graphify writes lands in
+  the worktree (a `prettier --check .` stays clean). `ct ws gc` drops them
+  with `.cache`; the next start re-seeds each from its main clone's graph
+  and runs the incremental update. A legacy
+  `<worktree>/graphify-out` is moved there (or dropped) on the next start.
+  Main clones and `ct kb repo` exploration clones keep `<repo>/graphify-out`.
 - **When it re-merges:** within about 10 s of a worktree change. When only
   the main-clone graphs changed, it waits about 2 min, since
   `ct graph index` rewrites them all at once.
@@ -755,13 +798,15 @@ leave these notes alone.
 
 Architecture and flows, with diagrams, under `docs/`:
 
-- [Architecture](docs/architecture.md): `ct`'s packages, the plugin, the layout on disk.
+- [Architecture](docs/architecture.md): `ct`'s packages, the plugin, the code graph, the
+  layout on disk.
 - [The ticket workflow](docs/ticket-workflow.md): PO, lead, waves, tasks and reviews as a
-  sequence; sandbox-safe checks; manual and synced tickets.
+  sequence; the rules the skills enforce; `ct ws diff-check`; sandbox-safe checks; manual
+  and synced tickets.
 - [Finishing a ticket](docs/finishing-a-ticket.md): docs, tidy, then save, which pushes;
   the marks and the push gate.
-- [Workspaces and the vault](docs/workspace-and-vault.md): the vault, worktrees, branch
-  names and `.tool-versions`.
+- [Workspaces and the vault](docs/workspace-and-vault.md): the vault, worktrees, their code
+  graphs, branch names and `.tool-versions`.
 - [Knowledge base and vault search](docs/knowledge-base.md): search, `ct kb`, drafts.
 
 ## Troubleshooting
