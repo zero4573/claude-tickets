@@ -225,11 +225,16 @@ func TestPOAndLeadSkills(t *testing.T) {
 		"`tickets:lead`", "`tickets:analyst`", "`relay.md`", "/tickets:po-refresh", "≤3 calls",
 		"`lead:`", "`po:`", "AskUserQuestion", "Lead: <agentId>",
 		"`wait-tasks`", "`wait-user`", "`rotate`", "`handover-done`", "never two at once",
-		// relay caps
-		"`## Open` holds **≤30** entries", "`## Closed` **≤40**", "about 100 lines",
 	} {
 		if !strings.Contains(po, s) {
 			t.Errorf("work-ticket (PO): missing %q", s)
+		}
+	}
+	// relay caps (moved to workflow.md "relay.md format")
+	poFull := po + read("plugin/skills/work-ticket/workflow.md")
+	for _, s := range []string{"`## Open` holds **≤30** entries", "`## Closed` **≤40**", "about 100 lines"} {
+		if !strings.Contains(poFull, s) {
+			t.Errorf("work-ticket (PO) and workflow.md: missing %q", s)
 		}
 	}
 

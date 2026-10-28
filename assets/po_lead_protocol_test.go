@@ -125,7 +125,8 @@ func TestLeadFinalBlockHasPOActions(t *testing.T) {
 // The relay and board states agree wherever they're listed.
 func TestPOLeadQAFixes(t *testing.T) {
 	texts := pluginTexts(t)
-	po, kickoff := texts["plugin/skills/work-ticket/SKILL.md"], texts["plugin/skills/work-ticket/kickoff.md"]
+	// The PO's rarely used parts live in workflow.md: check both together.
+	po, kickoff := texts["plugin/skills/work-ticket/SKILL.md"]+" "+texts["plugin/skills/work-ticket/workflow.md"], texts["plugin/skills/work-ticket/kickoff.md"]
 	lead, handover := texts["plugin/skills/lead/SKILL.md"], texts["plugin/skills/lead/handover.md"]
 	refresh := texts["plugin/skills/po-refresh/SKILL.md"]
 	tpl := func(name string) string {
@@ -256,6 +257,8 @@ func TestDispositionGateLoopMatches(t *testing.T) {
 // recall skills, the reviewers and the templates (vault-checklists-v1).
 func TestChecklistLineForms(t *testing.T) {
 	texts := pluginTexts(t)
+	// The orphan sed moved to workflow.md: check SKILL.md and workflow.md together.
+	texts["plugin/skills/work-ticket/SKILL.md"] += " " + texts["plugin/skills/work-ticket/workflow.md"]
 	want := map[string][]string{
 		leadWithRef: {
 			"`vault-checklists-v1`", "rg -n '^- \\[.\\] [0-9]+ · |^(status|wave|last-reviewed):'",
@@ -513,6 +516,8 @@ func TestWaveBatchedWakeups(t *testing.T) {
 // R-08: no agent files a follow-up ticket without a per-item answer from the user.
 func TestFollowUpsAskedPerItem(t *testing.T) {
 	texts := pluginTexts(t)
+	// The follow-up rules moved to workflow.md: check SKILL.md and workflow.md together.
+	texts["plugin/skills/work-ticket/SKILL.md"] += " " + texts["plugin/skills/work-ticket/workflow.md"]
 	for p, want := range map[string]string{
 		"plugin/skills/lead/SKILL.md":        "Never file a ticket on your own",
 		"plugin/skills/lead/handover.md":     "Never run `ct new` unasked",
@@ -575,6 +580,8 @@ func TestNewTicketSkill(t *testing.T) {
 // every file that states them.
 func TestFollowUpAskWording(t *testing.T) {
 	texts := pluginTexts(t)
+	// The follow-up rules moved to workflow.md: check SKILL.md and workflow.md together.
+	texts["plugin/skills/work-ticket/SKILL.md"] += " " + texts["plugin/skills/work-ticket/workflow.md"]
 	for _, p := range []string{"vault-scaffold/AGENTS.md", "vault-scaffold/templates/backlog.md"} {
 		data, err := fs.ReadFile(Scaffold, p)
 		if err != nil {

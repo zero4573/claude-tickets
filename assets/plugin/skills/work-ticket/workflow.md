@@ -126,3 +126,38 @@ entries whose board line (note `R-nn`) is merged, or that have no line, to `## C
 first, until `## Open` is ≤30; drop the oldest Closed lines. If more than 30 are still truly
 open, batch new user input into one entry per theme instead of one per message. The durable
 record is `plan.md ## Decisions`, `## Questions` and `board.md`.
+
+## The gate
+1. The lead has written `R-nn · … · lead→user · question · … · open` to `relay.md`, set
+   `status: blocked`, and ended with `Ask user:` (options, recommendation, tradeoffs).
+2. Append the questions under `## Questions` in the ticket note:
+   `- **yyyy-MM-dd** (lead) <question>`, with options and the recommendation.
+3. Ask with **AskUserQuestion**, all pending questions in one batch, recommended option first,
+   tradeoffs in the option descriptions. This shows the ticket as `needs-input` in `ct status`.
+4. Record each answer under its question (`  - **Answer:** ...`), set the question's entry to
+   `answered`, append `R-mm · <date> · user→lead · answer · R-nn: <answer> · open`, and
+   SendMessage the lead "R-nn answered (R-mm)". The lead records the decision in `plan.md` and
+   sets `status: in-progress`.
+
+## Follow-up questions
+Follow-up items (the lead's deferral candidates and open backlog; never fix tasks or `kept:`) are asked as the lead's `Ask user:` says (A, this ticket; B, a new ticket; C, an existing ticket (name it); D, leave it in the backlog (backlog items only)). Up to 4 items: one question each. More than 4: one question per repo or theme, listing each item with the lead's proposed option (A-D); the user accepts it or overrides it per item. Ask at most 4 questions per AskUserQuestion call and use more calls when needed. Rule: nothing is filed with `ct new` before the answer. A ticket the user asks you to file (at the ticket's source, e.g. Jira, or manual): `/tickets:new-ticket`.
+
+## relay.md format
+One line per entry: `R-nn · <date> · <from>→<to> · <request|feature|feedback|question|answer|decision> · <text ≤200 chars> · <open|planned|answered|copied>`.
+Next free id: `rg -o 'R-[0-9]+' relay.md | sort -V | tail -1`. Caps: `## Open` holds **≤30** entries, `## Closed` **≤40**,
+about 100 lines; the lead marks `decision` and `answer` entries `copied`.
+
+## Orphaned tasks
+After a new session, mark the old one's `running` lines `orphaned`, then check none is left:
+`sed -i -E 's/^- \[.\] ([0-9]+) · running · /- [\/] \1 · orphaned · /' board.md; rg -q '^- \[.\] [0-9]+ · running · ' board.md && echo "running lines left"`
+
+## Refresh reminders
+At quiet points (a wave merged and reviewed; no agent `running` and no user question pending; before hand-over; after ~15 exchanges or 3 analyst answers since `last-refresh`) end a status update with one line, e.g. "Good time to refresh: `/tickets:po-refresh` (lead and workers keep running)". At most once per quiet point, never mid-gate; if the user says "later", wait for the next one.
+
+## Vault write rules
+- Never touch the note's identity and source fields (`source`, `source-*`), `ignore*` fields, a
+  synced ticket's `<!-- source:start -->` block or a covered ticket's content; a manual ticket's
+  content sections only to record a user decision (cite its R-nn) or tick met criteria.
+- Follow the vault's `AGENTS.md` (frontmatter, kebab-case, wikilinks by bare note name). Checkboxes
+  only where `vault-checklists-v1` puts them (`board.md ## Tasks`, `## Dispositions`, `backlog.md`,
+  the note's `## Tasks`/`## Follow-ups`); relay, plan, task files and `## Reviews`: plain bullets.
