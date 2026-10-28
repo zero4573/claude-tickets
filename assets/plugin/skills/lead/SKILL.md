@@ -29,7 +29,7 @@ the vault (`<source>`: the note's `source:`, e.g. `jira`; the workspace `CLAUDE.
 - Commits are signed when the session has a signing key. Never push (only `/tickets:save` pushes),
   force push, delete branches or tags, rewrite pushed commits, `reset --hard`, `branch -D`, or remove
   the ticket worktrees: those are the user's manual steps. You add and remove only task worktrees under `<ws>/tasks/`, and delete
-  only merged task branches, with `git merge-base --is-ancestor <b> HEAD && git update-ref -d refs/heads/<b>` (never `git branch -d`: a sandboxed main clone's `.git/config` is read-only).
+  only merged task branches, with `git merge-base --is-ancestor <b> HEAD && git update-ref -d refs/heads/<b>` (never `git branch -d`: a sandboxed main clone's `.git/config` is read-only). Shell commands that don't read input get `</dev/null` (heredoc-fed ones excepted), so none waits on stdin until the tool times out.
 - **No paid Rovo calls** (the vault's `AGENTS.md`, "Cost guard").
 - **Graph first for structure:** the `graphify` tools hold every repo, with this ticket's
   worktrees in place of their main clones (ids prefixed `<slug>::`); task worktrees aren't in
@@ -55,13 +55,13 @@ the task branch (name from call 3 or `git branch --list 'task/<ID>-*'`, then
 it again with "New since: resumed, commits so far …", or re-plan it; `running` lines → their
 agents live, `Next: wait-tasks`; a merged wave without a `## Reviews` line → 6; open must-fixes
 (by word: `rg -n '^- \[.\] W[0-9]+-[a-z0-9-]+-M[0-9]+ · (open|fixing)' tickets/<source>/<ID>/reviews/`) →
-7; `planned` lines → 4; nothing left → hand-over (8).
+7; `planned` lines → 4; nothing left → hand-over (8). After a sandbox or container wipe (the PO says so, or task worktrees or the stack are gone) every `running` line is `orphaned`.
 
 ## 1. relay.md (shared with the PO)
 One line per entry, appended with `>>`; change the state (last field) of any line with `sed -i`:
 `R-nn · <date> · <from>→<to> · <request|feature|feedback|question|answer|decision> · <text ≤200 chars> · <open|planned|answered|copied>`.
 The PO adds the user's `request`, `feature`, `feedback` and `answer` entries and messages you
-one line ("new request R-09", "R-07 answered"). For each: plan it into the next wave (task
+one line ("new request R-9094", "R-9093 answered"); while a wave runs, non-urgent entries arrive batched with its wave line ("…; new: R-9091, R-9092"). For each: plan it into the next wave (task
 files, board lines with `R-nn` in the note, state `planned`), record it (`plan.md ## Decisions`,
 state `copied`), or ask (the gate). A grill (`tickets:grilling`, run by the PO) leaves
 `user→lead · decision` entries: copy each into `plan.md ## Decisions` (the first one's
@@ -75,11 +75,11 @@ state `copied`), or ask (the gate). A grill (`tickets:grilling`, run by the PO) 
 3. Write `plan.md` (≤150 lines): `## Scope`, `## Acceptance criteria`, `## Decisions`,
    `## Waves`, `## Relationships`, `## Root cause` (bugs), `## Risks`.
    Ticket-wide rules that aren't the repo's own (local stack, test DBs and the env a check
-   needs, data never to touch) go in `conventions.md` (`##` per topic); task files cite sections.
+   needs, data never to touch) go in `conventions.md` (`##` per topic); task files cite sections. The test DB env (DSN variable, how to start the stack) goes in `## Test DB`.
 4. Pick files with graphify (`query_graph`, `shortest_path`, `get_neighbors`), confirm exact
    paths with fff/rg, and write wave 1 as 2–6 task files `tasks/<ID>-NN-<slug>.md` (frontmatter
    `id`, `ticket`, `wave`, `repo`, `agent`, `depends_on`, `owns`, `branch`, `worktree`,
-   `context_budget`, `contracts`, optional `skills: [tickets:diagnose]`; body `## Goal` ≤5 lines, `## Do` ≤25, `## Checks`,
+   `context_budget`, `contracts`, `db: none|heavy`, `fixes: [B-nn, W<N>-<repo>-<M|S|C>nn]` (set when planning a fix), optional `skills: [tickets:diagnose]`; body `## Goal` ≤5 lines, `## Do` ≤25, `## Checks`,
    `## Done when` ≤5). `owns` is exact repo-relative files or `dir/**`.
 5. Fill `board.md` (the PO created it; a `- [ ] NN · planned · …` line per task, format in its `## Tasks` comment) and write `backlog.md`, add
    the plan and wave lines to `## Tasks`, set `status: in-progress`.
@@ -96,7 +96,7 @@ never changes while an agent that uses it runs: have it stopped, update the cont
   concurrently: split ownership by file in the task files, not by "be careful". Concurrent
   tasks in one Go package get distinct name prefixes (in each task file) for their helpers and
   `Test` functions, so names can't clash at merge. A task starts only when its `depends_on` lines are `merged`.
-  Nor do they share a writable test DB, fixed port or container (give each its own).
+  Nor do they share a writable test DB, fixed port or container (give each its own). `db: heavy` marks a task that runs DB suites on a shared stack: at most one `db: heavy` task per repo stack in flight.
 - `Spawn:` entries may add `model:`/`effort:`: `effort: low` for `tickets:mechanical` work,
   `model: opus` for engine, contract, transaction or concurrency design.
 - Per task: `git -C <ws>/<slug> worktree add -q <ws>/tasks/<slug>-NN -b task/<ID>-NN-<task-slug> HEAD`
@@ -121,14 +121,14 @@ blocked; wave 2 still running: 04; finished, unsent: 05"): set its line, ask or 
 timeout). For each finished task read only its `## Report` (`sed -n '/^## Report/,$p' <task
 file>`). First check it was committed: the task worktree's `git status --short` is empty and
 `git diff --stat HEAD...<task branch>` shows only `owns` (+ "Outside owns"), not empty for `done`;
-else mark it `partial` and ask again (never force-remove a dirty task worktree). Per finished task, in task order, one chain in `<ws>/<slug>` (merge `&&` checks `&&` board line, so a
+else mark it `partial` and ask again (never force-remove a dirty task worktree). The report's `Commits:` lists shas and its `Checks:` full run names the task branch tip (a prefix of `git rev-parse task/<ID>-NN-<task-slug>`) with exit 0; else `partial`. A task the PO flags `NO REPORT` (or whose `## Report` is empty) is `partial`: ask again, never do its work. Per finished task, in task order, one chain in `<ws>/<slug>` (merge `&&` checks `&&` board line, so a
 dead lead can never leave a merged task `running`; filtered output):
-`git merge --no-ff -q task/<ID>-NN-<task-slug> -m "<subject>"` (`<subject>`: the task's title as a summary, in the ticket's commit style from `board.md` `commit-style:`; never `merge task NN`, and no ID unless the style is `ticket`), then the repo's
+`ct ws diff-check -C <ws>/<slug> --ticket <ID> HEAD..task/<ID>-NN-<task-slug>` first (it flags binary and large files added by the range, and the ticket's own vault-only IDs in added lines and commit messages): exit 3 → don't merge, mark it `partial` with the flagged files and ask a follow-up that drops them from the (unpushed) task branch, unless you judge one expected (e.g. a lockfile) and note that on the board line; a `vault-id` hit on a line kept from the base, or in a fixture that models a ticket, is noted on the board line, not reworded and not a reason for `partial`; exit 1 or an unknown command (older `ct`) → read `git log --stat` of the range instead. Then `git merge --no-ff -q task/<ID>-NN-<task-slug> -m "<subject>"` (`<subject>`: the task's title as a summary, in the ticket's commit style from `board.md` `commit-style:`; never `merge task NN`, and no ID unless the style is `ticket`), then the repo's
 lint and tests from its `AGENTS.md` "Checking", with the env it or `conventions.md` names (DB tests skip silently without it) (`<cmd> > <log> 2>&1; rc=$?;
 rg -n 'FAIL|panic|error' <log> | head -20; echo exit=$rc`). A nonzero `exit` blocks the merge,
 whatever the filtered output shows, and stops the chain before the board line; the merge commit is then already on HEAD: `git revert -m 1 <merge-sha>` it (never reset) and mark the line `partial`. Trust the report for detail: open files only when it claims
 something risky or lists "Outside owns". Then:
-- the board line, the last link of that chain: one sed recipe for every state, with `merged $(git rev-parse --short HEAD)` (recipe: `reference.md`, "Board line");
+- the board line, the last link of that chain: one sed recipe for every state, with `merged $(git rev-parse --short HEAD)` (recipe: `reference.md`, "Board line"); a task with `fixes:` also closes each entry: its backlog line becomes `fixed · task NN (<sha>) ✅ <date>` under `## Closed` `### w<N>`, a review finding's disposition `resolved` (`reference.md`, "Disposition line formats");
 - `git worktree remove <ws>/tasks/<slug>-NN && git merge-base --is-ancestor task/<ID>-NN-<task-slug> HEAD && git update-ref -d refs/heads/task/<ID>-NN-<task-slug>`. It leaves no reflog and any `branch.<name>.*` config (harmless).
   If removal is denied, mark the line `pending — user` and put the command in `Status:`.
 - A `repo: vault` task has nothing to merge: check its files, set the line `merged -`.
@@ -144,13 +144,13 @@ something risky or lists "Outside owns". Then:
 One reviewer per repo the wave touched, all in one `Spawn:` block: `tickets:reviewer`, or
 `tickets:reviewer-deep` when the wave changed a contract or security-sensitive code. Prompt:
 ticket, wave N, slug, ticket worktree, range `<last-reviewed>..<head sha>` (first wave:
-`git merge-base <base> HEAD`), the previous fix-task IDs and review file, and a ≤5-line impact
+`git merge-base <base> HEAD`), the previous fix-task IDs and review file, `conventions.md ## Test DB` (the reviewer runs the DB suites with it), and a ≤5-line impact
 note from graphify `get_neighbors` on the changed symbols (`git diff --stat <range>` for the
 files). It writes `reviews/wave-N-<slug>.md` and replies to the PO, who tells you once, when
 all the wave's reviews are written ("wave 2 reviews written: <slug>, <slug>"): per file read the
 summary and finding lines, add a `## Reviews` bullet (`- w<N> · <repo> · <from>..<to> · M/S/C <m>/<s>/<c> · [[wave-N-<slug>]] · fix tasks <NN, …|lead <sha>|->`),
 set `last-reviewed`. A fix pass with no review file gets
-`- w<N> fix · <repo> · <from>..<to> · - · <what you checked> · -`.
+`- w<N> fix · <repo> · <from>..<to> · - · <what you checked> · -`. **Small waves get no reviewer:** a range under ~150 changed lines (`git diff --shortstat`) with no contract or security-sensitive code: read the diff yourself and write `- w<N> self · <repo> · <from>..<to> · - · <what you checked> · -`, or leave `last-reviewed` so the next wave's review covers it. The last wave before hand-over gets a reviewer if any of its range is unreviewed.
 Every finding ends resolved, kept or deferred in the file's `## Dispositions` (contract
 `vault-checklists-v1`): you fill each line as you triage (7).
 
@@ -215,7 +215,7 @@ Spawn:
 - agent: tickets:task
   wave: 3
   prompt: Task 03: <vault>/tickets/<source>/<ID>/tasks/<ID>-03-<slug>.md. Worktree: <path>. Concurrent: none. New since the task file: none.
-Ask user: none | R-07: <question> · options: A (recommended): …; B: …
+Ask user: none | R-9093: <question> · options: A (recommended): …; B: …
 Status: <≤3 lines: what changed this run, what's running, risks>
 Next: wait-tasks | wait-user | rotate | handover-done
 ```

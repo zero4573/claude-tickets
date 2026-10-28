@@ -16,6 +16,8 @@ worktree:
 context_budget: 80k
 contracts: []
 skills: []
+db: none
+fixes: []
 tags: [task]
 ---
 # {{title}}
@@ -24,7 +26,7 @@ tags: [task]
 repo: a slug, or vault for a vault-only task (no branch or worktree). agent: task | mechanical.
 owns: exact repo-relative files or dir/** (vault: tickets/<source>/<ID>/<file>); the only paths the agent
 writes. depends_on: task IDs. context_budget: 80k (60k for follow-ups). contracts: names in
-contracts/. skills: skills the agent loads, e.g. [tickets:diagnose]. Epic only: add for:
+contracts/. skills: skills the agent loads, e.g. [tickets:diagnose]. db: none | heavy (heavy: runs DB suites on a shared stack, one at a time per repo). fixes: IDs (B-nn, W<N>-<repo>-<M|S|C>nn) the task closes at merge. Epic only: add for:
 "[[<covered ID>]]". Plain bullets only, no checkboxes. -->
 
 Task of [[TICKET-ID]] in [[provider-owner-repo]].

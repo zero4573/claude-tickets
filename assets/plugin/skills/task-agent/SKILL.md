@@ -42,18 +42,22 @@ report `partial` with what's left instead of going on.
   again as you go; a dead agent leaves the commits, not the working tree.
 - **Before each commit** run `git status --short` and leave out build outputs (nix `result`/`result-*`
   links, `dist/`, binaries, caches); stage files by name, never `git add -A` blindly.
+- **Shell commands that don't read input get `</dev/null`** (heredoc-fed ones excepted): a
+  stray `cat` or prompt otherwise waits on stdin until the tool times out.
 - **After scripted prose edits** (`perl`, `sed`), read `git diff` before committing: a bad pattern
   rewrites more than you meant.
 - You work only in your worktree (`<workspace>/tasks/<slug>-NN`, on branch
   `task/<ID>-NN-<slug>`). Never touch the ticket worktree, other task worktrees, or the main
   clones under the projects root. A task with `repo: vault` has no worktree: it writes only
   the `tickets/<source>/<ID>/` files in its `owns`.
+- Install dependencies before checks, as `AGENTS.md` or `conventions.md` names them (e.g. `npm ci` when there is a lockfile and no `node_modules`).
+- Helper scripts (stack rebuilds, migrations) run from your worktree with worktree-relative paths, never a main clone's.
 - Run the repo's own checks from its `AGENTS.md` (lint, unit tests, generators) and fix what
   you broke. Keep the command's own exit code and filter its log: `<cmd> > <log> 2>&1; rc=$?;
   rg -n 'FAIL|panic|error' <log> | head -20; echo exit=$rc`. A nonzero `exit` is a failure,
   whatever the filtered output shows. Tests that need an env var or a service (a test DB DSN, a
   container) skip silently without it: set what `AGENTS.md` or `conventions.md` names, and say in
-  `Checks:` if any skipped. The sandbox can run containers (podman / podman-compose).
+  `Checks:` if any skipped. A check you skip or can't run makes the task `partial`, never `done`. The sandbox can run containers (podman / podman-compose).
 - Shared state: use the test database, port or container your task file gives you; never
   recreate or reseed a shared one, and never stop processes you didn't start.
 - If a command fails on the environment (a missing tool, dependency or network), stop and
@@ -69,7 +73,7 @@ report `partial` with what's left instead of going on.
 - Tests come with the change: unit tests for new logic; for a bug, a regression test that
   fails before the fix (say so in the report).
 - Commit in your worktree, on your task branch, in coherent steps: subject in the ticket's commit
-  style (the workspace `CLAUDE.md` states it: `<ID> <summary>` for a synced ticket, else no ID), body says why.
+  style (`board.md` `commit-style:` wins: `conventional`, `repo` or `ticket`; else the workspace `CLAUDE.md`: `<ID> <summary>` for a synced ticket, else no ID), body says why.
   Commits are signed when the session has a signing key.
 - Vault-only IDs (task numbers, waves, `R-`/`B-` entries, review findings, a manual ticket's key)
   never go into code, comments, test names, docs or commit messages; only the vault's files carry them.
@@ -87,8 +91,8 @@ Write it under the task file's existing `## Report` heading (task files already 
 the PO, which tells the lead; the lead reads the task file):
 ```
 Task NN: done | partial | blocked
-Commit(s): <sha> <subject>
-Checks: <lint/test/...>: pass|fail (one line each)
+Commits: <sha> <subject>, one line per commit (`git log --oneline <ticket-branch>..HEAD`; never "see git log")
+Checks: <the repo's full check command>: exit <rc> at <`git rev-parse --short HEAD`>, run after the last commit (no subsets); one line per extra check
 Contract changes (for other tasks): <exact names/shapes, or "none">
 Outside owns: <paths + why, or "none">
 Results: <counts, e.g. 12 new tests>
@@ -98,6 +102,7 @@ No narrative, no per-file walkthroughs, no restating the task. Plain bullets onl
 checkboxes anywhere in the ticket folder.
 
 ## Before you report
-- `git -C <worktree> status --short` is empty (everything committed).
+- `git -C <worktree> status --short` is empty (everything committed), and the full check ran after the last commit.
+- `ct ws diff-check -C <worktree> --ticket <ID> <ticket-branch>..HEAD` exits 0: drop any binary or large file it flags from your branch (or name it in the report if it belongs there), and reword any `vault-id` line (the ticket's own vault-only IDs in code or commit messages), except a hit on a line kept from the base or in a fixture that models a ticket: note that one in the report, don't reword it.
 - Nothing left running: no background poll loops (`until … sleep`), watchers, dev servers or
   containers you started. Wait for a command in the foreground with a timeout instead.
