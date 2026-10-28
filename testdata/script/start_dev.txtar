@@ -1,0 +1,153 @@
+# ct start --dev: a dev workspace's sessions run the ct and plugin built from
+# its claude-tickets checkout; go is a stub that writes a fake ct, which
+# records any run of it (the installed ct must never run it)
+[windows] skip
+mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a
+mkdir home/Documents/Obsidian/a/tickets/MAN-1
+cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+cp go-stub stub/go
+chmod 755 stub/go
+env WS=$WORK/home/Projects/work-a/MAN-1
+mkdir $WS/github-acme-tickets/cmd/ct $WS/github-acme-tickets/assets/plugin/.claude-plugin $WS/github-acme-tickets/assets/plugin/hooks $WS/github-acme-billing
+cp main.go $WS/github-acme-tickets/cmd/ct/main.go
+cp plugin.json $WS/github-acme-tickets/assets/plugin/.claude-plugin/plugin.json
+cp hooks.json $WS/github-acme-tickets/assets/plugin/hooks/hooks.json
+cp main.go $WS/github-acme-billing/main.go
+exec git init -q -b main $WS/github-acme-tickets
+exec git -C $WS/github-acme-tickets add -A
+exec git -C $WS/github-acme-tickets commit -q -m init
+expand workspace.json
+cp workspace.json $WS/workspace.json
+
+exec ct start --help
+stdout '--dev string +run the workspace.s sessions on the plugin and ct built'
+! stdout 'write-plugin'
+
+# Not a claude-tickets checkout, or not a repo of the workspace: nothing starts
+! exec ct start --no-fetch --dev github-acme-billing MAN-1
+stderr '^ct start: github-acme-billing is not a claude-tickets checkout$'
+! exists calls/tmux
+! grep '"dev"' $WS/workspace.json
+! exec ct start --no-fetch --dev github-acme-nope MAN-1
+stderr '^ct start: github-acme-nope is not a repo of MAN-1.s workspace \(ct ws add first\)$'
+
+# --dev records it, builds ct, copies the checkout's plugin (its hooks run
+# the built ct), and the session gets that plugin, the built ct first on its
+# own PATH (expanded where it starts) and the graph served by the built ct
+exec ct start --no-fetch --dev github-acme-tickets MAN-1
+stdout '^ct start: dev mode: plugin and ct from github-acme-tickets \([0-9a-f]+\)$'
+grep '"dev": \{' $WS/workspace.json
+grep '"slug": "github-acme-tickets"' $WS/workspace.json
+grep '/MAN-1/github-acme-tickets build -o .*/MAN-1/.cache/dev/bin/ct ./cmd/ct$' calls/go
+grep 'GOCACHE=.*/MAN-1/.cache/go/build$' calls/go-env
+! exists calls/built-ct
+exists $WS/.cache/dev/plugin/.claude-plugin/plugin.json
+grep '"command": "\\".*/MAN-1/.cache/dev/bin/ct\\" hook agent-state' $WS/.cache/dev/plugin/hooks/hooks.json
+grep 'claude --plugin-dir .*/MAN-1/.cache/dev/plugin --add-dir' calls/tmux
+grep 'bash -c export PATH=.*/MAN-1/.cache/dev/bin:"\$PATH"; env ' calls/tmux
+grep 'env CLAUDE_TICKETS_DEV_BIN=.*/MAN-1/.cache/dev/bin ' calls/tmux
+! grep '"PATH"' $WS/.claude/settings.json
+grep '"command": ".*/MAN-1/.cache/dev/bin/ct"' $WS/.claude/graph-mcp.json
+
+# Uncommitted changes in the checkout: the build has them, the line says so
+cp main.go $WS/github-acme-tickets/cmd/ct/extra.go
+rm calls/tmux
+exec ct start --no-fetch MAN-1
+stdout '^ct start: dev mode: plugin and ct from github-acme-tickets \([0-9a-f]+-dirty\)$'
+rm $WS/github-acme-tickets/cmd/ct/extra.go
+
+# The ticket's window is open: its session keeps its build and plugin (no
+# build, no copy), and ct says when the build is used
+rm calls/tmux calls/go
+cp main.go $WS/.cache/dev/plugin/marker
+cp windows tmux-windows
+exec ct start --no-fetch --no-attach MAN-1
+stderr 'MAN-1: already has a window'
+stdout '^ct start: dev mode: window open, the build is used from the next start$'
+! stdout 'plugin and ct from'
+! exists calls/go
+exists $WS/.cache/dev/plugin/marker
+grep '"command": ".*/MAN-1/.cache/dev/bin/ct"' $WS/.claude/graph-mcp.json
+rm tmux-windows
+
+# A later start keeps it, and builds and copies again
+rm calls/tmux
+exec ct start --no-fetch MAN-1
+stdout 'dev mode: plugin and ct from github-acme-tickets'
+exists calls/go
+! exists $WS/.cache/dev/plugin/marker
+grep '--plugin-dir .*/MAN-1/.cache/dev/plugin ' calls/tmux
+! exists calls/built-ct
+
+# A failing build fails the start, with go's output; no fallback
+rm calls/tmux
+cp go-stub stub/go-fail
+! exec ct start --no-fetch MAN-1
+stderr 'cmd/ct/main.go:1: syntax error'
+stderr '^ct start: building ct in github-acme-tickets failed'
+! grep 'new-(session|window)' calls/tmux
+rm stub/go-fail
+
+# --dev none clears it: the installed plugin, no PATH
+exec ct start --no-fetch --dev none MAN-1
+! stdout 'dev mode'
+! grep '"dev"' $WS/workspace.json
+! grep '/.cache/dev/plugin' calls/tmux
+grep '--plugin-dir .*/plugin --add-dir' calls/tmux
+! grep 'export PATH' calls/tmux
+! grep '"PATH"' $WS/.claude/settings.json
+! grep '.cache/dev' $WS/.claude/graph-mcp.json
+! grep 'CLAUDE_TICKETS_DEV_BIN' calls/tmux
+
+# Switched to dev with the window open and nothing built yet: no build, and
+# the graph keeps the installed ct until the next start
+rm $WS/.cache/dev calls/tmux calls/go
+cp windows tmux-windows
+exec ct start --no-fetch --no-attach --dev github-acme-tickets MAN-1
+stdout '^ct start: dev mode: window open, the build is used from the next start$'
+! exists calls/go
+! exists $WS/.cache/dev/bin/ct
+grep '"command": "ct"' $WS/.claude/graph-mcp.json
+! grep '.cache/dev' $WS/.claude/graph-mcp.json
+rm tmux-windows
+
+-- man-1.md --
+---
+summary: First
+status: in-progress
+source: manual
+---
+-- main.go --
+package main
+-- workspace.json --
+{
+  "id": "MAN-1",
+  "repos": [
+    {"provider": "github", "owner": "acme", "repo": "tickets", "slug": "github-acme-tickets",
+     "path": "$WS/github-acme-tickets", "base": "main", "branch": "main", "mode": "clone", "targetVersion": null},
+    {"provider": "github", "owner": "acme", "repo": "billing", "slug": "github-acme-billing",
+     "path": "$WS/github-acme-billing", "base": "main", "branch": "main", "mode": "clone", "targetVersion": null}
+  ]
+}
+-- plugin.json --
+{"name": "tickets"}
+-- hooks.json --
+{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "ct hook agent-state idle"}]}]}}
+-- windows --
+MAN-1
+-- go-stub --
+#!/bin/sh
+# go build -o <out> ./cmd/ct: records the call and writes a fake ct that
+# records any run of it
+echo "$PWD $*" >> "$WORK/calls/go"
+env | grep '^GO' >> "$WORK/calls/go-env"
+if [ -e "$WORK/stub/go-fail" ]; then
+  echo 'cmd/ct/main.go:1: syntax error' >&2
+  exit 1
+fi
+cat > "$3" <<'CT'
+#!/bin/sh
+echo "$@" >> "$WORK/calls/built-ct"
+exit 2
+CT
+chmod 755 "$3"

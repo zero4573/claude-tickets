@@ -34,6 +34,7 @@ func hasSession(group string) bool {
 
 // Open puts the environment on the command line: a window gets its
 // environment from the tmux server, i.e. from whoever started it first.
+// PathFirst is prepended to the window's own $PATH, expanded by its shell.
 func (Tmux) Open(w Window) error {
 	argv := w.Argv
 	if len(w.Env) > 0 {
@@ -49,6 +50,9 @@ func (Tmux) Open(w Window) error {
 		argv = append(env, argv...)
 	}
 	shellCmd := ShellJoin(argv) + "; echo; read -rp 'Session ended. Press Enter to close this window. '"
+	if w.PathFirst != "" {
+		shellCmd = `export PATH=` + ShellJoin([]string{w.PathFirst}) + `:"$PATH"; ` + shellCmd
+	}
 	var cmd *exec.Cmd
 	if hasSession(w.Group) {
 		cmd = exec.Command("tmux", "new-window", "-d", "-t", "="+w.Group+":", "-n", w.Name, "-c", w.Dir, "bash", "-c", shellCmd)

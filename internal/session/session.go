@@ -48,6 +48,11 @@ func Command(dirs ...string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	return CommandPlugin(plugin, dirs...), nil
+}
+
+// CommandPlugin is Command with the given plugin dir (a dev workspace's).
+func CommandPlugin(plugin string, dirs ...string) []string {
 	argv := strings.Fields(os.Getenv("CLAUDE_TICKETS_CLAUDE"))
 	if len(argv) == 0 {
 		argv = []string{"claude"}
@@ -58,7 +63,7 @@ func Command(dirs ...string) ([]string, error) {
 			argv = append(argv, "--add-dir="+d)
 		}
 	}
-	return argv, nil
+	return argv
 }
 
 // WriteSettings writes <dir>/.claude/settings.json, which Claude reads as
@@ -74,6 +79,10 @@ func Command(dirs ...string) ([]string, error) {
 //     (objects merge, arrays are joined)
 //
 // It also writes <dir>/.ignore (WriteIgnore).
+//
+// It never sets PATH: a dev workspace's built ct goes first on the PATH
+// the session starts with (launcher.Window's PathFirst), not on a copy of
+// ct's own.
 func WriteSettings(dir, projectsRoot string, extraDeny ...string) error {
 	var deny []any
 	for _, p := range []string{projectsRoot, config.CacheDir()} {
@@ -119,6 +128,11 @@ func WriteSettings(dir, projectsRoot string, extraDeny ...string) error {
 // a search names it.
 func CacheDir(dir string) string { return filepath.Join(dir, ".cache") }
 
+// DevDir is a dev workspace's build of claude-tickets, <dir>/.cache/dev:
+// bin/ct (ct.exe on Windows) and its plugin, plugin/ (copied from the
+// checkout, its hooks running bin/ct).
+func DevDir(dir string) string { return filepath.Join(CacheDir(dir), "dev") }
+
 // GoEnv is the Go environment of a workspace's sessions: GOPATH, its
 // module cache and the build cache under <dir>/.cache/go, so every ticket
 // container fetches its own modules into a folder it can write, and
@@ -134,8 +148,9 @@ func GoEnv(dir string) map[string]string {
 
 // ignoreFile is <dir>/.ignore, read by fff and rg (the ignore-file format
 // both share, honoured outside a git repo too): the Go caches, and every
-// graphify-out (the merged graph and each worktree's), whose JSON and HTML
-// would swamp searches. Unanchored: a worktree's graphify-out is only
+// graphify-out (the merged graph, the kb clones' and the main clones'), whose
+// JSON and HTML would swamp searches. Ticket worktrees' graphs sit under
+// /.cache/ already. Unanchored: a kb clone's graphify-out is only
 // git-ignored by the user's global excludes, which a sandbox may not have.
 const ignoreFile = "# Written by ct; regenerated on every start, so don't edit it.\n" +
 	"# fff and rg (Claude's Grep) skip these unless a search names them.\n" +
@@ -287,10 +302,19 @@ func trusted(file, dir string) bool {
 // found: the session may run where that path doesn't exist (a container
 // with its own PATH), and resolves ct on its own PATH instead.
 func WriteGraphMCP(dir, vault string) (string, error) {
-	ct := "ct"
-	if _, err := exec.LookPath(ct); err != nil {
-		if ct, err = os.Executable(); err != nil {
-			return "", err
+	return WriteGraphMCPWith(dir, vault, "")
+}
+
+// WriteGraphMCPWith is WriteGraphMCP with the server run by the ct at path
+// ct when not "": a dev workspace's built ct (inside the workspace, so
+// wherever the session runs, that path is there too).
+func WriteGraphMCPWith(dir, vault, ct string) (string, error) {
+	if ct == "" {
+		ct = "ct"
+		if _, err := exec.LookPath(ct); err != nil {
+			if ct, err = os.Executable(); err != nil {
+				return "", err
+			}
 		}
 	}
 	file := filepath.Join(dir, ".claude", "graph-mcp.json")

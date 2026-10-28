@@ -88,6 +88,26 @@ type Info struct {
 	ID    string `json:"id"`
 	Vault string `json:"vault"`
 	Repos []Repo `json:"repos"`
+	// Dev is set in a dev workspace (ct start --dev): its sessions run the
+	// plugin and ct built from that repo's checkout
+	Dev *Dev `json:"dev,omitempty"`
+}
+
+// Dev names the claude-tickets checkout a dev workspace builds from.
+type Dev struct {
+	Slug string `json:"slug"`
+}
+
+// SetDev records d in a workspace.json, or with nil removes it.
+func SetDev(file string, d *Dev) error {
+	return Update(file, func(doc map[string]any) error {
+		if d == nil {
+			delete(doc, "dev")
+		} else {
+			doc["dev"] = map[string]any{"slug": d.Slug}
+		}
+		return nil
+	})
 }
 
 // Read loads a workspace.json. Repos recorded outside the workspace dir

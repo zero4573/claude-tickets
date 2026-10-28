@@ -24,7 +24,7 @@ func TestTicketClaudeMDCommitRules(t *testing.T) {
 			[]string{"style: the repo's own convention, without an ID"},
 			[]string{"starting with `K-1`"}},
 		{"manual unset", "manual", "",
-			[]string{"not chosen yet (the kickoff asks): a plain imperative summary"},
+			[]string{"not chosen yet (the kickoff asks): once the ticket's board.md has `commit-style:`, follow it; until then a plain imperative summary"},
 			[]string{"starting with `K-1`"}},
 		{"manual ticket style", "manual", "commit-style: ticket\n",
 			[]string{"not chosen yet (the kickoff asks)"},

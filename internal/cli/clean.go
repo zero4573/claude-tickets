@@ -146,10 +146,11 @@ func runClean(ctx vault.Context, o clean.Options, dry, yes bool) error {
 }
 
 // headlessSave runs /tickets:save in a ticket's workspace, with no one to
-// answer questions.
+// answer questions, on the installed plugin and ct (a dev workspace's build
+// isn't used: nothing from its checkout runs unattended).
 func headlessSave(ctx vault.Context, id string) (string, error) {
 	log := config.StateLog("clean-save-" + id)
-	dir, argv, err := prepareTicketSession(ctx, id, sessionDirs(ctx))
+	dir, argv, _, err := prepareTicketSession(ctx, id, sessionDirs(ctx), devIgnore)
 	if err != nil {
 		return log, err
 	}

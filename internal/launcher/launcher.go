@@ -27,6 +27,10 @@ type Window struct {
 	// Unset is kept out of a backend server started now (variables shells
 	// opened there later shouldn't inherit)
 	Unset []string
+	// PathFirst (when not "") goes first on the PATH the session starts
+	// with, expanded where it starts (never a copy of ct's own PATH): a dev
+	// workspace's built ct
+	PathFirst string
 }
 
 // Caps is what a backend can do. Callers branch on these, never on Name.
@@ -74,7 +78,8 @@ func (none) SendKeys(string, string, string) error { return ErrUnsupported }
 func (none) Attach(string, string) error           { return ErrUnsupported }
 
 // Run runs w in this terminal, in the foreground: cwd w.Dir, the
-// environment with w.Env set (Unset doesn't apply: there's no server).
+// environment with w.Env set and w.PathFirst first on its PATH (Unset
+// doesn't apply: there's no server).
 // Where the OS can exec, ct is replaced by w's program and Run returns only
 // on failure. Elsewhere (Windows) the program runs as a child with ct's
 // stdio, ct ignores Ctrl-C until it exits (the console sends it to both, so
@@ -91,7 +96,7 @@ func Run(w Window) error {
 	if err := os.Chdir(w.Dir); err != nil {
 		return err
 	}
-	env := mergeEnv(os.Environ(), w.Env)
+	env := mergeEnv(os.Environ(), withPath(w.Env, w.PathFirst, os.Getenv("PATH")))
 	if execReplace(path, w.Argv, env) == nil {
 		return nil
 	}
@@ -101,6 +106,23 @@ func Run(w Window) error {
 	signal.Ignore(os.Interrupt)
 	defer signal.Reset(os.Interrupt)
 	return cmd.Run()
+}
+
+// withPath is env with PATH set to first, then path (the PATH the session
+// starts with), when first isn't "".
+func withPath(env map[string]string, first, path string) map[string]string {
+	if first == "" {
+		return env
+	}
+	out := make(map[string]string, len(env)+1)
+	for k, v := range env {
+		out[k] = v
+	}
+	out["PATH"] = first
+	if path != "" {
+		out["PATH"] = first + string(os.PathListSeparator) + path
+	}
+	return out
 }
 
 // mergeEnv is environ with set's variables replacing (not duplicating)

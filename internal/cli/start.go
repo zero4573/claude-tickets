@@ -25,6 +25,8 @@ import (
 
 type startOpts struct {
 	force, noFetch, feedback, cont, noAttach, list, all bool
+	// dev is --dev (a checkout slug, or none)
+	dev string
 	// name is the command as typed (ct start, ct feedback), for messages
 	name string
 }
@@ -56,7 +58,7 @@ exited, e.g. after its terminal was closed) needs --force.`
 func startCmd() *cobra.Command {
 	o := startOpts{name: "ct start"}
 	cmd := &cobra.Command{
-		Use:   "start [--force] [--no-fetch] [--feedback] [--continue] [--no-attach] <ID>... | --list [--all]",
+		Use:   "start [--force] [--no-fetch] [--feedback] [--continue] [--no-attach] [--dev <slug>|none] <ID>... | --list [--all]",
 		Short: "Start (or re-open) one session per named ticket",
 		Long: `Starts (or re-opens) one Claude session for each ticket named, from the
 current vault (ct vault default), each in its own window of the vault's tmux
@@ -78,6 +80,15 @@ them with ct status.
 --feedback runs /tickets:pr-feedback <ID> instead: apply the review feedback
 on your open PRs for the ticket (ct feedback is a shorthand). A ticket whose
 window is already open gets /tickets:pr-feedback typed into it.
+
+--dev <slug> makes the workspace a dev workspace, for a ticket that changes
+claude-tickets itself: at each start ct builds ct from the workspace's
+checkout <slug> (go build, into <workspace>/.cache/dev) and copies its
+plugin there, and its sessions run that ct (first on PATH, and for the code
+graph) and that plugin instead of the installed ones. ct never runs the
+build itself; an open window keeps the build it started with, and ct clean
+saves on the installed ones. It's kept in workspace.json for later starts;
+--dev none clears it.
 
 --list prints the vault's open tickets, one per line: <ID> <status>
 <summary>, tab-separated (--all: done and closed tickets too).`,
@@ -105,6 +116,7 @@ window is already open gets /tickets:pr-feedback typed into it.
 	f.BoolVar(&o.noAttach, "no-attach", false, noAttachHelp)
 	f.BoolVar(&o.list, "list", false, "print the vault's open tickets")
 	f.BoolVar(&o.all, "all", false, "with --list: done and closed tickets too")
+	f.StringVar(&o.dev, "dev", "", devHelp)
 	return cmd
 }
 
@@ -221,6 +233,11 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 			return err
 		}
 	}
+	if o.dev != "" {
+		if err := setDev(ctx, launch, o.dev); err != nil {
+			return err
+		}
+	}
 
 	if !o.noFetch {
 		if err := wsFetch(ctx, nil); err != nil {
@@ -237,7 +254,7 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 	}
 
 	for _, k := range launch {
-		w, resume, err := prepareSession(ctx, k, skill, dirs, graphOK, o.cont)
+		w, resume, err := prepareSession(ctx, k, skill, dirs, graphOK, o.cont, startDevMode(ctx, l, k, foreground))
 		if err != nil {
 			return err
 		}
@@ -317,38 +334,54 @@ func runningPIDError(key string, pid int, startedAt string, o startOpts) error {
 
 // prepareTicketSession readies a ticket's workspace for a session (its
 // workspace.json, settings, trust, CLAUDE.md) and returns it with the
-// claude command line to run there (no prompt yet).
-func prepareTicketSession(ctx vault.Context, key string, dirs []string) (string, []string, error) {
+// claude command line to run there (no prompt yet) and, in a dev workspace
+// (ct start --dev; devMode says what to do with its build), the build.
+func prepareTicketSession(ctx vault.Context, key string, dirs []string, mode devMode) (string, []string, *devBuild, error) {
 	dir := filepath.Join(ctx.WorkRoot, key)
 	if err := workspace.Ensure(dir, key, ctx.Vault); err != nil {
-		return "", nil, err
+		return "", nil, nil, err
+	}
+	dev, err := prepareDev(dir, mode)
+	if err != nil {
+		return "", nil, nil, err
 	}
 	if err := session.WriteSettings(dir, ctx.ProjectsRoot); err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 	writeToolVersions(ctx, dir)
 	if err := session.Trust(dir); err != nil {
 		warnf("couldn't mark %s as trusted in %s: %v", dir, session.ClaudeConfig(), err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(ticketClaudeMD(ctx, key, dir)), 0o644); err != nil {
-		return "", nil, err
+	if err := writeTicketClaudeMD(ctx, key, dir); err != nil {
+		return "", nil, nil, err
+	}
+	if dev != nil {
+		return dir, session.CommandPlugin(dev.plugin, dirs...), dev, nil
 	}
 	argv, err := session.Command(dirs...)
-	return dir, argv, err
+	return dir, argv, nil, err
 }
 
 // prepareSession readies a ticket's workspace (prepareTicketSession, plus the
 // graph MCP config) and builds its session: a new conversation, or with cont
 // (--continue) the workspace's last one (resume) when it already ran one.
-func prepareSession(ctx vault.Context, key, skill string, dirs []string, graphOK, cont bool) (launcher.Window, bool, error) {
+func prepareSession(ctx vault.Context, key, skill string, dirs []string, graphOK, cont bool, mode devMode) (launcher.Window, bool, error) {
 	_, err := os.Stat(filepath.Join(ctx.WorkRoot, key, ".agent-state"))
 	resume := err == nil && cont
 	if cont && !resume {
 		warnf("%s: no earlier session in its workspace to continue, starting a new one", key)
 	}
-	dir, argv, err := prepareTicketSession(ctx, key, dirs)
+	dir, argv, dev, err := prepareTicketSession(ctx, key, dirs, mode)
 	if err != nil {
 		return launcher.Window{}, false, err
+	}
+	env := map[string]string{"CLAUDE_TICKETS_VAULT": ctx.Vault}
+	devCt, pathFirst := "", ""
+	if dev != nil {
+		devCt, pathFirst = dev.ct, dev.bin
+		// For a wrapper (sandbox, container) that sets its own PATH: it
+		// prepends this to have the built ct first
+		env["CLAUDE_TICKETS_DEV_BIN"] = dev.bin
 	}
 	if graphOK {
 		// Merged now, however long it takes: the session's server then only
@@ -358,7 +391,7 @@ func prepareSession(ctx vault.Context, key, skill string, dirs []string, graphOK
 		if err := graph.Merge(dir, ctx.ProjectsRoot); err != nil {
 			return launcher.Window{}, false, fmt.Errorf("%w (ct graph mcp %s shows the server's own run)", err, dir)
 		}
-		mcp, err := session.WriteGraphMCP(dir, ctx.Vault)
+		mcp, err := session.WriteGraphMCPWith(dir, ctx.Vault, devCt)
 		if err != nil {
 			return launcher.Window{}, false, err
 		}
@@ -372,7 +405,7 @@ func prepareSession(ctx vault.Context, key, skill string, dirs []string, graphOK
 	// The vault goes with the session (not with a backend server started now:
 	// shells opened there later would act on this vault, whatever the default)
 	return launcher.Window{Group: ctx.TmuxSession, Name: key, Dir: dir, Argv: argv,
-		Env: map[string]string{"CLAUDE_TICKETS_VAULT": ctx.Vault}, Unset: []string{"CLAUDE_TICKETS_VAULT"}}, resume, nil
+		Env: env, Unset: []string{"CLAUDE_TICKETS_VAULT", "CLAUDE_TICKETS_DEV_BIN"}, PathFirst: pathFirst}, resume, nil
 }
 
 func sessionPrompt(skill, key string) string { return "/tickets:" + skill + " " + key }
@@ -439,6 +472,11 @@ func runForeground(l launcher.Resolved, w launcher.Window, resume bool, o startO
 		fmt.Fprintln(os.Stderr, "ct start: tmux not found, so the session runs here; install tmux for background windows and several sessions at once")
 	}
 	return passExit(launcher.Run(w))
+}
+
+// writeTicketClaudeMD writes the workspace dir's CLAUDE.md from the vault.
+func writeTicketClaudeMD(ctx vault.Context, key, dir string) error {
+	return os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(ticketClaudeMD(ctx, key, dir)), 0o644)
 }
 
 func ticketClaudeMD(ctx vault.Context, key, dir string) string {
@@ -519,7 +557,7 @@ func ticketCommitStyle(ctx vault.Context, key string) string {
 
 // manualSubjectRule is the commit-subject rule of a manual ticket in style.
 func manualSubjectRule(style string) string {
-	rule := "not chosen yet (the kickoff asks): a plain imperative summary"
+	rule := "not chosen yet (the kickoff asks): once the ticket's board.md has `commit-style:`, follow it; until then a plain imperative summary"
 	switch style {
 	case "conventional":
 		rule = "conventional commits"
