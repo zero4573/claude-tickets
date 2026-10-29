@@ -90,6 +90,8 @@ one stdout line, tab separated: `binary`, `large` or `binary,large`, the size in
 short sha and the path. Exit 0 means clean, 3 means something was flagged (with a count on
 stderr), 1 means a usage error, a directory that is not a git checkout or a bad range.
 
+For `A..B` ranges it also flags `spec-id` lines for duplicate requirement IDs (see [the ct ws commands](workspace-commands.md#diff-check)).
+
 It also prints two informational line kinds that never change the exit code: `note test-changed <name> <short sha> <path>` when a commit changes or removes a Go `Test*`, `Benchmark*`, `Fuzz*` or `Example*` func that its first parent had (or, with name `-`, an existing `testdata/**/*.txtar` file), and `note unsigned - <short sha> :commit` for a commit with no signature when `commit.gpgsign` is true.
 
 With `--ticket <ID>` it also flags the ticket's own vault-only IDs that a commit introduces. The

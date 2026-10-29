@@ -29,9 +29,11 @@ flowchart TB
 
 | Package | Role |
 |---|---|
-| `internal/cli` | the cobra commands: `start`, `status`, `ws`, `vault`, `kb`, `teach`, `clean`, `sync`, `graph`, `layout`, `claude`, `hook` |
+| `internal/cli` | the cobra commands: `start`, `status`, `ws`, `vault`, `spec`, `ticket`, `teach`, `clean`, `sync`, `graph`, `layout`, `claude`, `hook` |
 | `internal/workspace` | a ticket workspace: `workspace.json` (repos, bases, branches, target versions), the tidy mark, the live sessions, the `.tool-versions` stamp |
-| `internal/gitx`, `internal/repo` | git helpers (worktrees, unpushed commits) and the repo slug rules |
+| `internal/gitx`, `internal/repo` | git helpers (worktrees, unpushed commits), the config allowlist that every git call passes ([git hardening](git-hardening.md)), and the repo slug rules |
+| `internal/spec`, `internal/ticketconv` | the spec parser, diff and vault versions ([spec workflow](spec-workflow.md), [versions](spec-versions.md)); manual-to-synced ticket conversion |
+| `internal/diffcheck` | `ct ws diff-check`: binary, large, vault-ID and spec-ID checks of a commit range |
 | `internal/vault`, `internal/config` | finding the current vault, its `.workflow.json`, tool versions |
 | `internal/links`, `internal/lock`, `internal/vaultlock` | moving notes without breaking wikilinks, and the vault lock `/tickets:save` takes |
 | `internal/vsearch`, `internal/vindex`, `internal/embed`, `internal/chunk`, `internal/modelcache` | the vault search index and its embedding model |
@@ -79,5 +81,7 @@ Details of where worktree graphs live are in
 - Main clones: `<projectsRoot>/<provider>/<owner>/<repo>`; never edited, only their `.git`
   is written so worktrees can be created.
 
-See [workspaces and the vault](workspace-and-vault.md) for the details, and
+See [workspaces and the vault](workspace-and-vault.md) and
+[the ct ws commands](workspace-commands.md) for the details, [session upkeep](session-upkeep.md)
+for the hooks that keep a long session usable, and
 [finishing a ticket](finishing-a-ticket.md) for the order of the closing steps.

@@ -50,7 +50,7 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
 - **Specs over contracts:** a ticket's `contracts/` holds only shapes private to
   its own tasks (an internal signature). What another capability or repo uses
   lives in the capability spec's `## Interfaces`, and tasks cite requirement
-  IDs (`requirements:`), not contract files (`docs/spec-workflow.md`, item 10).
+  IDs (`requirements:`), not contract files (`docs/spec-workflow.md`, "Who writes specs").
 - **ct sync is pinned by golden vaults:** `testdata/sync/` holds a fake
   Jira (`state<n>.json`, built by `fixtures.jq`, served by
   `internal/mcp/mcptest`) and the vaults three runs must leave
