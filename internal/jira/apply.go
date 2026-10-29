@@ -376,6 +376,11 @@ func (s *Sync) writeChildren(epic, file string, p *parts) error {
 		if !strings.Contains("\n"+note.Normalize(string(data)), "\ncovered-by: \"[["+epic+"]]\"") {
 			continue
 		}
+		// a stub (ct ticket stub) not yet synced may be missing from the
+		// source's children (search lag): it keeps its covered-by
+		if frontmatterGet(cn, "source-updated") == "" && frontmatterGet(cn, "source-url") == "" {
+			continue
+		}
 		if !covered[strings.TrimSuffix(filepath.Base(cn), ".md")] {
 			_ = note.Set(cn, "covered-by", "")
 		}
@@ -469,6 +474,10 @@ func (s *Sync) apply(key, mode, reason string) error {
 
 	// What moved since the note's last sync
 	since := frontmatterGet(file, "source-updated")
+	// A stub (ct ticket stub) is a note never synced: no source-updated, no
+	// source-url. It gets what a created note gets, keeping its own created,
+	// status, covered-by and the covers of its lead.
+	stub := mode == "refresh" && since == "" && frontmatterGet(file, "source-url") == ""
 	switch {
 	case !all && reason == "children":
 		// only the children part, below
@@ -538,9 +547,12 @@ func (s *Sync) apply(key, mode, reason string) error {
 		}
 		catNow := frontmatterGet(file, "source-status-category")
 		statusNow := frontmatterGet(file, "status")
-		if mode == "create" {
-			for _, f := range []fmField{{"source", "jira"}, {"source-id", key}, {"source-url", s.url + "/browse/" + key},
-				{"ticket-type", typ}, {"status", "new"}, {"created", s.today}} {
+		if mode == "create" || stub {
+			fields := []fmField{{"source", "jira"}, {"source-id", key}, {"source-url", s.url + "/browse/" + key}, {"ticket-type", typ}}
+			if !stub {
+				fields = append(fields, fmField{"status", "new"}, fmField{"created", s.today})
+			}
+			for _, f := range fields {
 				_ = note.Set(file, f.key, f.value)
 			}
 			_ = note.EditTags(file, true, "jira")
@@ -639,7 +651,7 @@ func (s *Sync) apply(key, mode, reason string) error {
 
 	what := strings.Join(changes, "; ")
 	switch {
-	case mode == "create":
+	case mode == "create" || stub:
 		what = "new"
 	case mode == "close":
 		what = "closed"

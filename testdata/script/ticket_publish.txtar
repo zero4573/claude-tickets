@@ -83,8 +83,17 @@ grep 'stale' $V/tickets/jira/PROJ-1/PROJ-1.md
 ! exec ct ticket publish PROJ-3 --description-file live-nonempty.md
 stderr 'no spec change was found'
 stderr 'left as is'
+stderr '--allow-empty'
 ! exec ct ticket publish PROJ-3 --dry-run --description-file live-nonempty.md
 stderr 'no spec change was found'
+
+# --allow-empty clears the section on purpose
+exec ct ticket publish PROJ-3 --description-file live-nonempty.md --allow-empty
+stdout 'No spec change\.'
+! stdout 'left as is'
+exec ct ticket publish PROJ-3 --dry-run --allow-empty --description-file live-nonempty.md
+stdout '^--- new ---'
+stdout 'No spec change\.'
 
 # refusals
 ! exec ct ticket publish nope

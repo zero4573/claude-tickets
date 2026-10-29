@@ -23,7 +23,9 @@ ignore-reason:
 parent: "[[PROJ-20]]"
 children: []
 covers: []
-covered-by: "[[PROJ-20]]"
+specs: []
+requirements: []
+covered-by: "[[MAN-1]]"
 blocked-by: []
 blocks: []
 related: []

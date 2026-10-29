@@ -9,7 +9,6 @@
         "PROJ-3",
         "PROJ-4",
         "PROJ-5",
-        "PROJ-7",
         "PROJ-8",
         "PROJ-10",
         "PROJ-11",
@@ -28,6 +27,7 @@
       "open": 11,
       "skipped": 0,
       "updated": [
+        "PROJ-7",
         "PROJ-12"
       ]
     }

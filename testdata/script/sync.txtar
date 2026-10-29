@@ -9,14 +9,17 @@ cp proj-12.md home/Documents/Obsidian/demo/tickets/jira/PROJ-12/PROJ-12.md
 cp proj-13.md home/Documents/Obsidian/demo/tickets/jira/PROJ-13/PROJ-13.md
 cp man-1.md home/Documents/Obsidian/demo/tickets/manual/MAN-1/MAN-1.md
 env CLAUDE_TICKETS_VAULT=$WORK/home/Documents/Obsidian/demo
+# PROJ-7 was filed under the manual lead MAN-1: a stub for ct sync to fill, keeping the lead
+exec ct ticket stub PROJ-7 --source jira --summary 'Write the export job' --covered-by MAN-1
 
 # 1: every ticket new; a parent epic pulled in; a ticket that fails; HTML to Claude
 fakejira $SYNCDATA/state1.json
 ! exec ct sync
-stdout '^jira: open 11, new 10, to refresh 1, to close 0, gone 0, blocked flips 0, unchanged 0$'
+stdout '^jira: open 11, new 9, to refresh 2, to close 0, gone 0, blocked flips 0, unchanged 0$'
 stdout '^PROJ-12: nothing the note shows \(timestamp only\) \[In Progress\] Legacy note$'
 stdout '^PROJ-16: couldn.t sync'
 stdout '^PROJ-20: new \[In Progress\] Platform$'
+stdout '^PROJ-7: new \[To Do\] Write the export job$'
 stdout '2 HTML-only part\(s\) go to Claude'
 stderr 'getJiraIssue failed: issue PROJ-16'
 grep ' -p /tickets:ticket-sync jira --plan tickets/.sync-plan.json --followups tickets/.sync-followups --model sonnet --strict-mcp-config --permission-mode dontAsk --allowedTools mcp__atlassian,Read,Write,Edit,Glob,Grep,Bash\(date:\*\) --output-format stream-json --verbose$' calls/claude
