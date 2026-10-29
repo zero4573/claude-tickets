@@ -1,0 +1,52 @@
+# ct relay add / state: collision-free ids in a ticket's relay.md
+mkdir home/Documents/Obsidian/a/.obsidian
+mkdir home/Documents/Obsidian/a/tickets/manual/MAN-1
+cp MAN-1.md home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
+cp relay.md home/Documents/Obsidian/a/tickets/manual/MAN-1/relay.md
+
+exec ct relay add MAN-1 --from po --to lead --kind question 'which db?'
+stdout '^R-83\n$'
+exec ct relay add MAN-1 --from lead --to po --kind answer --state planned 'use pg'
+stdout '^R-84\n$'
+grep '^R-83 · 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9] · po→lead · question · which db\? · open$' home/Documents/Obsidian/a/tickets/manual/MAN-1/relay.md
+grep ' · lead→po · answer · use pg · planned$' home/Documents/Obsidian/a/tickets/manual/MAN-1/relay.md
+
+exec ct relay state MAN-1 R-83 copied
+! stdout .
+grep ' · which db\? · copied$' home/Documents/Obsidian/a/tickets/manual/MAN-1/relay.md
+
+! exec ct relay state MAN-1 R-99 copied
+stderr 'no R-99'
+! exec ct relay state MAN-1 R-83 nope
+stderr 'state must be one of'
+! exec ct relay add MAN-1 --from po --to lead --kind chat 'x'
+stderr '--kind must be one of'
+! exec ct relay add MAN-1 --from po --to lead --kind answer 'a · b'
+stderr 'must not contain'
+! exec ct relay add MAN-9 --from po --to lead --kind answer 'x'
+stderr 'no ticket MAN-9'
+exec ct relay close MAN-1 R-83 'answered: pg'
+! stdout .
+grep '^R-83 → answered: pg$' home/Documents/Obsidian/a/tickets/manual/MAN-1/relay.md
+! grep '^R-83 · ' home/Documents/Obsidian/a/tickets/manual/MAN-1/relay.md
+exec ct relay add MAN-1 --from po --to lead --kind answer 'next'
+stdout '^R-85\n$'
+! exec ct relay close MAN-1 R-83 'again'
+stderr 'no R-83'
+! exec ct relay add MAN-1 --from po --to lead --kind answer 'a	b'
+stderr 'control characters'
+! grep 'R-86' home/Documents/Obsidian/a/tickets/manual/MAN-1/relay.md
+
+-- MAN-1.md --
+---
+title: MAN-1
+---
+# MAN-1
+-- relay.md --
+# Relay
+
+## Closed
+
+## Open
+R-81 · 2026-01-01 · user→lead · request · a · open
+R-82 · 2026-01-01 · user→lead · request · b · open
