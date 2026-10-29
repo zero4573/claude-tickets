@@ -147,7 +147,6 @@ func UnsetDefault() error {
 type Locations struct {
 	WorkRoot     string // ticket and kb workspaces (default ~/Projects/work-<vault>)
 	ProjectsRoot string // main clones (default ~/Projects/repo-<vault>; vaults may share one)
-	TmuxSession  string // tickets-<vault> (tickets with no vault)
 }
 
 // LocationsOf reads <vault>/.workflow.json, defaulting missing keys.
@@ -163,7 +162,6 @@ func LocationsOf(vault string) Locations {
 	l := Locations{
 		WorkRoot:     config.ExpandHome(wf.WorkRoot),
 		ProjectsRoot: config.ExpandHome(wf.ProjectsRoot),
-		TmuxSession:  "tickets-" + name,
 	}
 	if wf.WorkRoot == "" {
 		l.WorkRoot = filepath.Join(config.Home(), "Projects", "work-"+name)
@@ -233,7 +231,6 @@ func Optional() Context {
 	return Context{Locations: Locations{
 		WorkRoot:     filepath.Join(home, "Projects", "work"),
 		ProjectsRoot: filepath.Join(home, "Projects"),
-		TmuxSession:  "tickets",
 	}}
 }
 

@@ -36,7 +36,7 @@ flowchart TB
 | `internal/links`, `internal/lock`, `internal/vaultlock` | moving notes without breaking wikilinks, and the vault lock `/tickets:save` takes |
 | `internal/vsearch`, `internal/vindex`, `internal/embed`, `internal/chunk`, `internal/modelcache` | the vault search index and its embedding model |
 | `internal/jira`, `internal/followup` | ticket sources and the follow-up notes `ct` leaves |
-| `internal/launcher`, `internal/session`, `internal/watch` | tmux or terminal launching and the session state behind `ct status` |
+| `internal/launcher`, `internal/session`, `internal/watch` | running sessions in the foreground of this terminal, and the session state behind `ct status` |
 | `internal/graph`, `internal/container` | the code graph image (podman or docker) and the stdio MCP server |
 | `internal/scaffold`, `assets/` | the vault scaffold and its hash history, the plugin, the graph sources |
 

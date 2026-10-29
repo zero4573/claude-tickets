@@ -14,11 +14,11 @@ mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/tickets/MAN-
 
 # no workspaces yet
 exec ct status -w
-stdout '^Vault a, tmux session tickets-a$'
+stdout '^Vault a \(sessions run in their own terminal\)$'
 stdout '^No ticket workspaces under .*/work-a \(start one with ct start <ID>\)\.$'
 stderr '^ct status: --watch needs a terminal; printed once$'
 
-# MAN-1 waiting on you with its window open, MAN-2 working
+# MAN-1 waiting on you with its process alive, MAN-2 working
 mkdir home/Projects/work-a/MAN-1 home/Projects/work-a/MAN-2
 expand ws1.json ws2.json
 cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
@@ -28,7 +28,7 @@ cp state-needs.json home/Projects/work-a/MAN-1/.agent-state
 cp ws2.json home/Projects/work-a/MAN-2/workspace.json
 cp state-working.json home/Projects/work-a/MAN-2/.agent-state
 mkdir home/Projects/work-a/MAN-1/repo-a/.git
-cp windows tmux-windows
+live-session home/Projects/work-a/MAN-1
 
 exec ct status
 cp stdout plain.txt
@@ -39,7 +39,9 @@ exec ct status -w
 cmp stdout plain.txt
 stderr '^ct status: --watch needs a terminal; printed once\n$'
 ! stdout '\x1b'
-stdout '(?s)^Vault a, tmux session tickets-a\n.*MAN-1 .*needs-input.*\nMAN-2 '
+stdout '(?s)^Vault a \(sessions run in their own terminal\)\n.*MAN-1 .*needs-input.*\nMAN-2 '
+stdout '^MAN-1 +manual +needs-input +new '
+! stdout 'WINDOW'
 
 exec ct status --watch --interval 5s
 cmp stdout plain.txt
@@ -73,21 +75,6 @@ stderr 'at least 1s'
 stderr 'at least 1s'
 ! stdout .
 
-# none mode: the same header and WINDOW wording as plain ct status
-env CLAUDE_TICKETS_LAUNCHER=none
-exec ct status
-cp stdout plain-none.txt
-exec ct status -w
-cmp stdout plain-none.txt
-stdout '^Vault a, no terminal multiplexer \(sessions run in their own terminal\)$'
-stdout '^MAN-1 +manual +needs-input +- '
-
-# a bad launcher fails as plain ct status does, before printing anything
-env CLAUDE_TICKETS_LAUNCHER=tmx
-! exec ct status -w
-stderr 'unknown launcher .tmx.'
-! stdout .
-
 -- man-1.md --
 ---
 summary: First
@@ -110,5 +97,3 @@ source: jira
 {"state": "needs-input", "reason": "Which base branch?", "ts": "2026-10-03T10:00:00-04:00"}
 -- state-working.json --
 {"state": "working", "reason": "", "ts": "2026-10-03T09:00:00-04:00"}
--- windows --
-MAN-1

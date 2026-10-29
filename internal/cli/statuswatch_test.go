@@ -73,28 +73,28 @@ func TestIntervalFlagTooLong(t *testing.T) {
 func TestWriteStatus(t *testing.T) {
 	var b bytes.Buffer
 	err := writeStatus(&b, statusView{
-		header: "Vault a, tmux session tickets-a",
+		header: "Vault a (sessions run in their own terminal)",
 		rows: []statusRow{
-			{0, "MAN-1", []string{"MAN-1", "manual", "needs-input", "yes", "new", "2 (1 dirty)", "10:00:00", "Which base branch?"}},
-			{3, "MAN-22", []string{"MAN-22", "jira", "-", "no", "in-progress", "0 (0 dirty)", "", ""}},
+			{0, "MAN-1", []string{"MAN-1", "manual", "needs-input", "new", "2 (1 dirty)", "10:00:00", "Which base branch?"}},
+			{3, "MAN-22", []string{"MAN-22", "jira", "-", "in-progress", "0 (0 dirty)", "", ""}},
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "Vault a, tmux session tickets-a\n" +
-		"TICKET  SOURCE  AGENT        WINDOW  STATUS       REPOS        SINCE     WAITING ON\n" +
-		"MAN-1   manual  needs-input  yes     new          2 (1 dirty)  10:00:00  Which base branch?\n" +
-		"MAN-22  jira    -            no      in-progress  0 (0 dirty)            \n"
+	want := "Vault a (sessions run in their own terminal)\n" +
+		"TICKET  SOURCE  AGENT        STATUS       REPOS        SINCE     WAITING ON\n" +
+		"MAN-1   manual  needs-input  new          2 (1 dirty)  10:00:00  Which base branch?\n" +
+		"MAN-22  jira    -            in-progress  0 (0 dirty)            \n"
 	if got := b.String(); got != want {
 		t.Errorf("got\n%s\nwant\n%s", got, want)
 	}
 
 	b.Reset()
-	if err := writeStatus(&b, statusView{header: "Vault a, no terminal multiplexer (sessions run in their own terminal)", empty: "No ticket workspaces under /w (start one with ct start <ID>)."}); err != nil {
+	if err := writeStatus(&b, statusView{header: "Vault a (sessions run in their own terminal)", empty: "No ticket workspaces under /w (start one with ct start <ID>)."}); err != nil {
 		t.Fatal(err)
 	}
-	want = "Vault a, no terminal multiplexer (sessions run in their own terminal)\nNo ticket workspaces under /w (start one with ct start <ID>).\n"
+	want = "Vault a (sessions run in their own terminal)\nNo ticket workspaces under /w (start one with ct start <ID>).\n"
 	if got := b.String(); got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}

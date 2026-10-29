@@ -1,38 +1,36 @@
-# The launcher: CLAUDE_TICKETS_LAUNCHER, else config.json's launcher, else
-# tmux when installed, else none. With none, a session runs in this terminal.
+# A session runs in this terminal, in the foreground: one ticket per ct
+# start, from a terminal. What the session record says, who cleans it up,
+# and how a recorded process counts for the other commands.
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a
-mkdir home/Documents/Obsidian/a/tickets/MAN-1 home/Documents/Obsidian/a/tickets/MAN-2 home/Documents/Obsidian/a/tickets/MAN-3 home/Documents/Obsidian/a/tickets/MAN-4 home/Documents/Obsidian/a/tickets/MAN-5
+mkdir home/Documents/Obsidian/a/tickets/MAN-1 home/Documents/Obsidian/a/tickets/MAN-2 home/Documents/Obsidian/a/tickets/MAN-3 home/Documents/Obsidian/a/tickets/MAN-4 home/Documents/Obsidian/a/tickets/MAN-6 home/Documents/Obsidian/a/tickets/MAN-7 home/Documents/Obsidian/a/tickets/MAN-8
 cp open.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
 cp ignored.md home/Documents/Obsidian/a/tickets/MAN-2/MAN-2.md
 cp open.md home/Documents/Obsidian/a/tickets/MAN-3/MAN-3.md
 cp done.md home/Documents/Obsidian/a/tickets/MAN-4/MAN-4.md
-cp open.md home/Documents/Obsidian/a/tickets/MAN-5/MAN-5.md
-mkdir home/Documents/Obsidian/a/tickets/MAN-6
 cp open.md home/Documents/Obsidian/a/tickets/MAN-6/MAN-6.md
+cp open.md home/Documents/Obsidian/a/tickets/MAN-7/MAN-7.md
+cp done.md home/Documents/Obsidian/a/tickets/MAN-8/MAN-8.md
 
-# none, even with (the stub) tmux on PATH
-env CLAUDE_TICKETS_LAUNCHER=none
+# ct vault names no launcher
 exec ct vault
-stdout '^launcher: +none \(CLAUDE_TICKETS_LAUNCHER\)$'
-! stdout 'tmux session'
+! stdout 'launcher'
+! stdout 'session'
 
-# one ticket only, from a terminal, and no --no-attach: refused before anything
+# one ticket only, from a terminal: refused before anything
 ! exec ct-tty start --no-fetch MAN-1 MAN-2
-stderr 'without a terminal multiplexer, ct start takes one ticket \(got 2\); set CLAUDE_TICKETS_LAUNCHER=tmux to run several'
+stderr 'ct start takes one ticket \(got 2\): the session runs in this terminal; start the others from their own terminals'
 ! exec ct-tty feedback --no-fetch MAN-1 MAN-2
 stderr 'ct feedback takes one ticket \(got 2\)'
-! exec ct-tty start --no-fetch --no-attach MAN-1
-stderr '--no-attach needs a terminal multiplexer: without one, the session runs in this terminal'
 ! exec ct start --no-fetch MAN-1
-stderr 'the session runs in this terminal, and this isn.t one \(stdin/stdout\)'
+stderr 'the session runs in this terminal, and this isn.t one \(stdin/stdout\); run it from a terminal$'
 ! exists home/Projects/work-a/MAN-1
 ! exists calls/claude
 
 # one ticket (named twice): claude runs here, in its workspace, with no
-# window and no shell wrapper; its process is recorded
+# shell wrapper; ct becomes claude (exec), so the recorded PID is the
+# session's own
 exec ct-tty start --no-fetch MAN-1 MAN-1
-stdout '^ct start: MAN-1 runs in this terminal; no window to come back to, ct start MAN-1 later continues it$'
-! stderr 'tmux not found'
+stdout '^ct start: MAN-1 runs in this terminal; ct start MAN-1 later continues it$'
 grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a .*--mcp-config .*/MAN-1/.claude/graph-mcp.json --permission-mode auto /tickets:work-ticket MAN-1$' calls/claude
 ! grep 'read -rp' calls/claude
 grep '/home/Projects/work-a/MAN-1$' calls/claude-cwd
@@ -40,7 +38,10 @@ grep '^CLAUDE_TICKETS_VAULT=.*/Obsidian/a$' calls/claude-env
 grep '"id": "MAN-1"' home/Projects/work-a/MAN-1/workspace.json
 grep '"pid": [0-9]+' home/Projects/work-a/MAN-1/.sessions.json
 grep '"command": "start"' home/Projects/work-a/MAN-1/.sessions.json
-! exists calls/tmux
+samepid home/Projects/work-a/MAN-1
+grep '"host": ' home/Projects/work-a/MAN-1/.sessions.json
+grep '"proc": ' home/Projects/work-a/MAN-1/.sessions.json
+grep '"started": "[0-9]{4}-' home/Projects/work-a/MAN-1/.sessions.json
 
 # its .agent-state alone says it's running (no record to check): refused,
 # unless --force (its terminal was closed)
@@ -77,11 +78,10 @@ grep '--permission-mode auto /tickets:pr-feedback MAN-1$' calls/claude
 ! grep ' --continue' calls/claude
 grep '"command": "feedback"' home/Projects/work-a/MAN-1/.sessions.json
 
-# an ignored ticket is skipped, as with tmux
+# an ignored ticket is skipped
 ! exec ct-tty start --no-fetch MAN-2
 stderr 'MAN-2: marked ignore: true \(not mine\), skipping'
 ! grep MAN-2 calls/claude
-! exists calls/tmux
 
 # no claude: it fails before saying it runs, or recording a session
 env CLAUDE_TICKETS_CLAUDE=no-such-claude
@@ -91,7 +91,21 @@ stderr '"no-such-claude": executable file not found'
 ! exists home/Projects/work-a/MAN-6/.sessions.json
 env CLAUDE_TICKETS_CLAUDE=
 
-# status: no windows (tmux's are hidden), AGENT from .agent-state
+# ct ws rm deletes the session record with the other files ct owns
+exec ct-tty start --no-fetch MAN-6
+exists home/Projects/work-a/MAN-6/.sessions.json
+exec ct ws rm MAN-6
+! exists home/Projects/work-a/MAN-6
+
+# ct start --list and ID completion (one ID)
+exec ct start --list
+stdout '^MAN-1\t'
+exec ct __complete start ''
+stdout '^MAN-1\t'
+exec ct __complete start MAN-1 ''
+! stdout 'MAN-'
+
+# status: no WINDOW column, AGENT from .agent-state
 rm home/Projects/work-a/MAN-1/.sessions.json
 cp state-working.json home/Projects/work-a/MAN-1/.agent-state
 mkdir home/Projects/work-a/MAN-3
@@ -99,18 +113,23 @@ expand ws3.json
 cp ws3.json home/Projects/work-a/MAN-3/workspace.json
 cp state-working.json home/Projects/work-a/MAN-3/.agent-state
 exec touch -d '2 days ago' home/Projects/work-a/MAN-3/.agent-state
-cp windows tmux-windows
 exec ct status
-stdout '^Vault a, no terminal multiplexer \(sessions run in their own terminal\)$'
-stdout '^MAN-1 +manual +working +- +in-progress '
-stdout '^MAN-3 +manual +working \(stale\) +- +in-progress '
+stdout '^Vault a \(sessions run in their own terminal\)$'
+stdout '^TICKET +SOURCE +AGENT +STATUS +REPOS '
+! stdout 'WINDOW'
+stdout '^MAN-1 +manual +working +in-progress '
+stdout '^MAN-3 +manual +working \(stale\) +in-progress '
 
-# attach: no windows to attach to
-! exec ct attach MAN-1
-stderr 'no windows to attach to without a terminal multiplexer: a running session \(see ct status\) is in the terminal where it was started'
-exec ct attach --list
-! stdout .
-! exists calls/tmux
+# a live recorded process, with an old hook state: running, not stale
+mkdir home/Projects/work-a/MAN-7
+expand ws7.json
+cp ws7.json home/Projects/work-a/MAN-7/workspace.json
+cp state-idle.json home/Projects/work-a/MAN-7/.agent-state
+exec touch -d '3 days ago' home/Projects/work-a/MAN-7/.agent-state
+live-session home/Projects/work-a/MAN-7
+exec ct status
+stdout '^MAN-7 +manual +idle +in-progress '
+! stdout 'MAN-7 .*stale'
 
 # gc: a fresh, not exited .agent-state keeps a finished workspace (gc
 # refuses to run inside a container)
@@ -126,64 +145,25 @@ exec touch -d '20 days ago' home/Projects/work-a/MAN-4/workspace.json
 [!container] exec ct ws gc
 [!container] stdout 'remove MAN-4 \(done\)'
 [!container] ! exists home/Projects/work-a/MAN-4
-rm tmux-windows
 
-# a bad value: the commands that use the launcher fail, the others don't
-env CLAUDE_TICKETS_LAUNCHER=tmx
-! exec ct status
-stderr 'unknown launcher .tmx. \(from CLAUDE_TICKETS_LAUNCHER\): use tmux or none'
-! exec ct-tty start --no-fetch MAN-5
-stderr 'unknown launcher .tmx.'
-! exists home/Projects/work-a/MAN-5
-! exec ct attach --list
-stderr 'unknown launcher'
-exec ct start --list
-stdout '^MAN-5\t'
-exec ct vault
-stdout '^launcher: +error: unknown launcher .tmx.'
-exec ct ws repos
+# gc keeps a finished workspace whose recorded process is alive, even
+# without any hook state
+mkdir home/Projects/work-a/MAN-8/graphify-out
+expand ws8.json
+cp ws8.json home/Projects/work-a/MAN-8/workspace.json
+exec touch -d '20 days ago' home/Projects/work-a/MAN-8/workspace.json
+live-session home/Projects/work-a/MAN-8
+[!container] exec ct ws gc
+[!container] ! stdout 'MAN-8'
+[!container] exists home/Projects/work-a/MAN-8/graphify-out
 
-# config.json's launcher, trimmed and case-insensitive; the variable wins
-env CLAUDE_TICKETS_LAUNCHER=
+# config.json's old launcher key is ignored
 mkdir home/.config/claude-tickets
-cp config-none.json home/.config/claude-tickets/config.json
+cp config-launcher.json home/.config/claude-tickets/config.json
 exec ct vault
-stdout '^launcher: +none \(config.json\)$'
-cp config-bad.json home/.config/claude-tickets/config.json
-! exec ct status
-stderr 'unknown launcher .screen. \(from config.json "launcher"\): use tmux or none'
-env CLAUDE_TICKETS_LAUNCHER=' TMUX '
-exec ct vault
-stdout '^launcher: +tmux \(CLAUDE_TICKETS_LAUNCHER\)$'
-stdout '^tmux session: tickets-a$'
-rm home/.config/claude-tickets/config.json
-
-# tmux by default when installed (the stub)
-env CLAUDE_TICKETS_LAUNCHER=
-exec ct vault
-stdout '^launcher: +tmux \(detected\)$'
-
-# no tmux at all
-rm stub/tmux
-[exec:tmux] skip 'a real tmux is installed'
-env CLAUDE_TICKETS_LAUNCHER=tmux
-! exec ct-tty start --no-fetch MAN-5
-stderr 'tmux isn.t installed \(CLAUDE_TICKETS_LAUNCHER / config.json "launcher"\); install it, or set the launcher to none'
-! exists home/Projects/work-a/MAN-5
-! exec ct status
-stderr 'tmux isn.t installed'
-! exec ct attach MAN-1
-stderr 'tmux isn.t installed'
-[!container] ! exec ct ws gc
-[!container] stderr 'tmux isn.t installed'
-# not set: none, with a hint
-env CLAUDE_TICKETS_LAUNCHER=
-exec ct vault
-stdout '^launcher: +none \(detected\)$'
-exec ct-tty start --no-fetch MAN-5
-stdout 'MAN-5 runs in this terminal'
-stderr '^ct start: tmux not found, so the session runs here; install tmux for background windows and several sessions at once$'
-grep '/tickets:work-ticket MAN-5$' calls/claude
+! stdout 'launcher'
+exec ct status
+stdout '^Vault a \(sessions run in their own terminal\)$'
 
 -- open.md --
 ---
@@ -202,18 +182,21 @@ ignore-reason: not mine
 ---
 summary: Done
 status: done
+source: manual
 ---
 -- ws3.json --
 {"id": "MAN-3", "vault": "$WORK/home/Documents/Obsidian/a", "repos": []}
 -- ws4.json --
 {"id": "MAN-4", "vault": "$WORK/home/Documents/Obsidian/a", "repos": []}
+-- ws7.json --
+{"id": "MAN-7", "vault": "$WORK/home/Documents/Obsidian/a", "repos": []}
+-- ws8.json --
+{"id": "MAN-8", "vault": "$WORK/home/Documents/Obsidian/a", "repos": []}
 -- state-working.json --
 {"state": "working", "reason": "", "ts": "2026-10-06T10:00:00-04:00"}
 -- state-exited.json --
 {"state": "exited", "reason": "", "ts": "2026-10-06T11:00:00-04:00"}
--- windows --
-MAN-1
--- config-none.json --
-{"launcher": "None "}
--- config-bad.json --
-{"launcher": "screen"}
+-- state-idle.json --
+{"state": "idle", "reason": "", "ts": "2026-10-06T10:00:00-04:00"}
+-- config-launcher.json --
+{"launcher": "other"}

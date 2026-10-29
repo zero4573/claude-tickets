@@ -19,19 +19,25 @@ stdout '^rust-async$'
 ! exec ct teach
 cmp stdout topics.txt
 stderr 'name a topic: ct teach <topic>'
-! exists calls/tmux
+! exists calls/claude
 
 # topics are kebab-case
 ! exec ct teach Rust_Async
 stderr 'not a kebab-case topic: .Rust_Async.'
 ! exec ct teach rust--async
 stderr 'not a kebab-case topic'
-! exists calls/tmux
+! exists calls/claude
 
-# a window teach-<topic> in the vault's tmux session, running /tickets:teach
-exec ct teach rust-async
-stdout '^ct teach: rust-async started in tickets-a -- ct attach teach-rust-async$'
-grep '^new-session -d -s tickets-a -n teach-rust-async -c .*/home/Projects/work-a/.teach-a/rust-async bash -c env CLAUDE_TICKETS_VAULT=.*/Obsidian/a claude --plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a --mcp-config .*/.teach-a/rust-async/.claude/graph-mcp.json --permission-mode auto ./tickets:teach rust-async.; ' calls/tmux
+# in this terminal only, running /tickets:teach
+! exec ct teach rust-async
+stderr 'the session runs in this terminal, and this isn.t one'
+! exists calls/claude
+exec ct-tty teach rust-async
+stdout '^ct teach: rust-async runs in this terminal$'
+grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a .*--mcp-config .*/.teach-a/rust-async/.claude/graph-mcp.json --permission-mode auto /tickets:teach rust-async$' calls/claude
+grep '/home/Projects/work-a/.teach-a/rust-async$' calls/claude-cwd
+grep '^CLAUDE_TICKETS_VAULT=.*/Obsidian/a$' calls/claude-env
+grep '"command": "teach"' home/Projects/work-a/.teach-a/rust-async/.sessions.json
 grep '"id": "teach-rust-async"' home/Projects/work-a/.teach-a/rust-async/workspace.json
 grep '"vault": ".*/Obsidian/a"' home/Projects/work-a/.teach-a/rust-async/workspace.json
 grep '^# Teaching session: rust-async$' home/Projects/work-a/.teach-a/rust-async/CLAUDE.md
@@ -45,54 +51,42 @@ exec ct status
 
 # a new conversation by default; --continue continues one that ran
 cp state.json home/Projects/work-a/.teach-a/rust-async/.agent-state
-rm calls/tmux
-exec ct teach rust-async
+rm calls/claude
+exec ct-tty teach rust-async
 ! stdout continuing
-! grep ' --continue' calls/tmux
-exec ct teach -c rust-async
-stdout 'started in tickets-a \(continuing its last session\)'
-grep ' --permission-mode auto --continue ./tickets:teach rust-async.' calls/tmux
+! grep ' --continue' calls/claude
+exec ct-tty teach -c rust-async
+stdout 'runs in this terminal \(continuing its last session\)'
+grep ' --permission-mode auto --continue /tickets:teach rust-async$' calls/claude
 # nothing to continue on a new topic: a new conversation, with a warning
-rm calls/tmux
-exec ct teach --continue go-generics
+rm calls/claude
+exec ct-tty teach --continue go-generics
 stderr 'go-generics: no earlier session on this topic to continue, starting a new one'
-! grep ' --continue' calls/tmux
+! grep ' --continue' calls/claude
 
-# a topic whose window is open is switched to, not started again
-cp windows tmux-windows
-rm calls/tmux
-exec ct teach rust-async
-stdout 'rust-async is open already in tickets-a -- ct attach teach-rust-async'
-! grep 'new-session' calls/tmux
-rm tmux-windows
+# a topic whose session runs in another terminal isn't started again
+[!container] live-session home/Projects/work-a/.teach-a/rust-async
+[!container] rm calls/claude
+[!container] ! exec ct-tty teach rust-async
+[!container] stderr 'rust-async: a teach session on it is running \(pid [0-9]+\) in another terminal'
+[!container] ! exists calls/claude
+[!container] rm home/Projects/work-a/.teach-a/rust-async/.sessions.json
 
 # from a terminal with no topic: pick one by number, or type a new one
-rm calls/tmux
 stdin two.txt
 exec ct-tty teach
 stderr '  2\) rust-async'
-grep '-n teach-rust-async .*/tickets:teach rust-async' calls/tmux
+grep '^--plugin-dir .*/tickets:teach rust-async$' calls/claude
 stdin new.txt
 exec ct-tty teach
-grep '-n teach-sql-joins .*/tickets:teach sql-joins' calls/tmux
+grep '^--plugin-dir .*/tickets:teach sql-joins$' calls/claude
 stdin bad.txt
 ! exec ct-tty teach
 stderr 'not a kebab-case topic: .Not A Topic.'
 
-# without a multiplexer: in this terminal (from a terminal only)
-env CLAUDE_TICKETS_LAUNCHER=none
-! exec ct teach bash-basics
-stderr 'this isn.t one'
-exec ct-tty teach bash-basics
-grep '^--plugin-dir .* --permission-mode auto /tickets:teach bash-basics$' calls/claude
-grep '/home/Projects/work-a/.teach-a/bash-basics$' calls/claude-cwd
-grep '"command": "teach"' home/Projects/work-a/.teach-a/bash-basics/.sessions.json
-
 -- topics.txt --
 bash-basics
 rust-async
--- windows --
-teach-rust-async
 -- state.json --
 {"state": "idle", "reason": "", "ts": "2026-01-01T00:00:00Z"}
 -- two.txt --

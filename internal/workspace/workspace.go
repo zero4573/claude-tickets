@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/lock"
 )
 
@@ -152,7 +151,6 @@ type By int
 
 const (
 	ByNone       By = iota // not running
-	ByWindow               // its window is open (a launcher with List)
 	ByPID                  // its recorded process is alive on this host
 	ByAgentState           // only its hooks' last state says so
 )
@@ -168,20 +166,14 @@ type Status struct {
 }
 
 // Session tells whether a workspace's session is running, in this order:
-//  1. its window is open in the vault's group (l lists windows; with the
-//     none launcher there are none, even if tmux has some);
-//  2. its recorded process (.sessions.json: ct start without a
-//     multiplexer, ct kb) is alive on this host; when every record is
-//     provably dead, it isn't running, whatever .agent-state says;
-//  3. when no record can be checked (none, another host, a container, an
+//  1. its recorded process (.sessions.json: ct start, ct teach, ct kb) is
+//     alive on this host; when every record is provably dead, it isn't
+//     running, whatever .agent-state says;
+//  2. when no record can be checked (none, another host, a container, an
 //     OS that can't tell): its hooks' last state isn't exited and is less
 //     than a day old.
-func Session(dir string, l launcher.Launcher, group string) Status {
+func Session(dir string) Status {
 	st := Status{State: ReadState(dir)}
-	if l != nil && l.Caps().List && launcher.HasWindow(l, group, filepath.Base(dir)) {
-		st.Running, st.By = true, ByWindow
-		return st
-	}
 	switch live, rec := sessionLiveness(dir); live {
 	case LivenessAlive:
 		st.Running, st.By, st.PID, st.Started = true, ByPID, rec.PID, rec.Started
@@ -200,8 +192,8 @@ func Session(dir string, l launcher.Launcher, group string) Status {
 }
 
 // Running is Session(...).Running.
-func Running(dir string, l launcher.Launcher, group string) bool {
-	return Session(dir, l, group).Running
+func Running(dir string) bool {
+	return Session(dir).Running
 }
 
 // State is what the session's hooks last recorded (.agent-state).

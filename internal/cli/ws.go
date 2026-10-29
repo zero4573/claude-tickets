@@ -18,7 +18,6 @@ import (
 	"github.com/zero4573/claude-tickets/internal/fsx"
 	"github.com/zero4573/claude-tickets/internal/gitx"
 	"github.com/zero4573/claude-tickets/internal/graph"
-	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/repo"
 	"github.com/zero4573/claude-tickets/internal/session"
@@ -663,20 +662,16 @@ dated snapshots older than a week. A stopped session's .cache goes too,
 worktree graphs included: the next start re-seeds each from its main
 clone's graph and updates it.
 
-A session counts as running when its window is open (tmux), else when its
-process (ct start without a multiplexer, ct kb) is alive on this host,
-else, when that can't be checked, when its hook state (.agent-state) is
-less than a day old and not exited. Without a terminal multiplexer
-(CLAUDE_TICKETS_LAUNCHER=none, or no tmux installed) there are no windows,
-so only the last two apply.`,
+A session counts as running when its process (ct start, ct teach, ct kb)
+is alive on this host, else, when that can't be checked, when its hook
+state (.agent-state) is less than a day old and not exited.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if days < 0 {
 				return errors.New("gc: --days must be a number")
 			}
-			// It tells running sessions apart by the vault's tmux session and
-			// the sessions' PIDs; inside a container it would see neither and
-			// clean up live workspaces
+			// It tells running sessions apart by the sessions' PIDs; inside a
+			// container it would see none and clean up live workspaces
 			if gitx.InContainer() {
 				return errors.New("gc: run it on the host, not inside a container")
 			}
@@ -684,11 +679,7 @@ so only the last two apply.`,
 			if err != nil {
 				return err
 			}
-			l, err := launcher.Resolve()
-			if err != nil {
-				return err
-			}
-			return wsGc(ctx, l, days, dry)
+			return wsGc(ctx, days, dry)
 		},
 	}
 	cmd.Flags().IntVar(&days, "days", 14, "idle days before a finished workspace or kb clone goes")
@@ -696,7 +687,7 @@ so only the last two apply.`,
 	return cmd
 }
 
-func wsGc(ctx vault.Context, l launcher.Launcher, days int, dry bool) error {
+func wsGc(ctx vault.Context, days int, dry bool) error {
 	act := ""
 	if dry {
 		act = "would "
@@ -708,7 +699,7 @@ func wsGc(ctx vault.Context, l launcher.Launcher, days int, dry bool) error {
 		key := filepath.Base(dir)
 		kb := strings.HasPrefix(key, ".kb-")
 		ws := workspace.File(dir)
-		running := workspace.Running(dir, l, ctx.TmuxSession)
+		running := workspace.Running(dir)
 
 		if !kb && !running && fsx.OlderThanDays(ws, days) {
 			info, _ := workspace.Read(dir)

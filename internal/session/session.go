@@ -81,7 +81,7 @@ func CommandPlugin(plugin string, dirs ...string) []string {
 // It also writes <dir>/.ignore (WriteIgnore).
 //
 // It never sets PATH: a dev workspace's built ct goes first on the PATH
-// the session starts with (launcher.Window's PathFirst), not on a copy of
+// the session starts with (launcher.Session's PathFirst), not on a copy of
 // ct's own.
 func WriteSettings(dir, projectsRoot string, extraDeny ...string) error {
 	var deny []any

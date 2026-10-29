@@ -11,7 +11,7 @@ mkdir home/.asdf/installs/python/3.12.3 home/.asdf/installs/python/3.13.7
 cp workflow.json home/Documents/Obsidian/a/.workflow.json
 
 # no repo yet: the settings (golang latest, python pinned)
-exec ct start --no-fetch MAN-1
+exec ct-tty start --no-fetch MAN-1
 grep '^# Written by ct; regenerated on every start, so don.t edit it.$' home/Projects/work-a/MAN-1/.tool-versions
 grep '^golang 1.26.1$' home/Projects/work-a/MAN-1/.tool-versions
 grep '^python 3.13.7$' home/Projects/work-a/MAN-1/.tool-versions
@@ -20,20 +20,20 @@ grep '^- Tools: .go., .gofmt. and .python3. come from .\.tool-versions.' home/Pr
 # ct ws rm removes the file with the workspace
 exec ct ws rm MAN-1
 ! exists home/Projects/work-a/MAN-1/.tool-versions
-exec ct start --no-fetch MAN-1
+exec ct-tty start --no-fetch MAN-1
 
 # a repo with a go.mod: its Go line picks the newest installed 1.25
 mkdir home/Projects/work-a/MAN-1/acme-x
 cp go.mod home/Projects/work-a/MAN-1/acme-x/go.mod
 expand workspace.json
 cp workspace.json home/Projects/work-a/MAN-1/workspace.json
-exec ct start --no-fetch --force MAN-1
+exec ct-tty start --no-fetch --force MAN-1
 grep '^golang 1.25.5$' home/Projects/work-a/MAN-1/.tool-versions
 grep '^# golang: go.mod of acme-x;' home/Projects/work-a/MAN-1/.tool-versions
 
 # a pinned version that isn't installed: a warning, the tool left out
 cp workflow-missing.json home/Documents/Obsidian/a/.workflow.json
-exec ct start --no-fetch --force MAN-1
+exec ct-tty start --no-fetch --force MAN-1
 stderr 'ct: .tool-versions: python 9.9.9 isn.t installed \(asdf install python 9.9.9\)'
 ! grep '^python' home/Projects/work-a/MAN-1/.tool-versions
 
@@ -43,7 +43,7 @@ cp workflow.json home/Documents/Obsidian/a/.workflow.json
 exec ct kb --no-fetch
 grep '^golang 1.26.1$' home/Projects/work-a/.kb-a/.tool-versions
 grep '^python 3.13.7$' home/Projects/work-a/.kb-a/.tool-versions
-exec ct teach rust-async
+exec ct-tty teach rust-async
 grep '^golang 1.26.1$' home/Projects/work-a/.teach-a/rust-async/.tool-versions
 
 -- man-1.md --

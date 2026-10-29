@@ -37,8 +37,8 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
   points them at this `ct` by path (the Nix package at its store `ct`).
 - **One command, `ct`.** Subcommands live in `internal/cli` (one file per
   group), their logic in `internal/<area>`. Every change comes with tests:
-  testscript CLI tests in `testdata/script/*.txtar` (stub `tmux`,
-  `claude`, `podman`, `notify-send` and editor commands, real git), unit
+  testscript CLI tests in `testdata/script/*.txtar` (stub `claude`,
+  `podman`, `notify-send` and editor commands, real git), unit
   tests next to the code. User-facing names are always `ct …`.
 - **ct sync is pinned by golden vaults:** `testdata/sync/` holds a fake
   Jira (`state<n>.json`, built by `fixtures.jq`, served by
@@ -56,9 +56,9 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
   - directories and desktop tools (notify, open, shell): `internal/platform`.
     A pure function of GOOS (`DirsFor`) for anything testable, build tags
     otherwise.
-  - ticket windows: `internal/launcher` (tmux, and none = foreground
-    in this terminal; a new backend implements `Launcher`, declares its
-    `Caps` and gets one entry in `registry.go`).
+  - running a session in the foreground of this terminal:
+    `internal/launcher` (`Run`: exec where the OS can, a child process
+    with ct ignoring Ctrl-C on Windows; `exec_*.go`).
   - process liveness (PID + start time): `internal/proc`.
   - containers: `internal/container` (`Runtime`, `RunArgs`, `Mount`/`Path`).
   - locks, exec and writability: build-tagged files (`internal/lock`,

@@ -34,10 +34,8 @@ func teachCmd() *cobra.Command {
 		Short: "Learn a topic over many sessions, kept in the vault's learning/<topic>/",
 		Long: `Opens a teaching session on a topic (kebab-case, e.g. rust-async), from the
 current vault (ct vault default): a Claude session running /tickets:teach
-<topic>, in the window teach-<topic> of the vault's tmux session
-(tickets-<vault>), or without a terminal multiplexer in this terminal. With
-one terminal it then switches to that window; a topic whose window is open
-already is switched to, not started again.
+<topic>, in this terminal, in the foreground. A topic whose session runs
+in another terminal isn't started again.
 
 The session works in <workRoot>/.teach-<vault>/<topic>, whose CLAUDE.md
 names the vault and the topic's folder, with:
@@ -52,12 +50,7 @@ up where the last one left off.
 Without a topic it lists learning/*/ and asks which one, or a new one; with
 no terminal it prints them and fails. --list prints the topics. Each session
 is a new conversation; --continue (-c) continues the topic's last one
-instead.
-
-Without a terminal multiplexer (CLAUDE_TICKETS_LAUNCHER, or config.json's
-launcher: tmux or none) the session runs in this terminal, in the
-foreground, and a topic whose session runs in another terminal isn't
-started again.`,
+instead.`,
 		Args:              cobra.MaximumNArgs(1),
 		ValidArgsFunction: completeTopics,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -143,28 +136,16 @@ func pickTopic(topics []string) (string, error) {
 }
 
 func teach(ctx vault.Context, topic string, cont bool) error {
-	l, err := launcher.Resolve()
-	if err != nil {
-		return err
-	}
-	foreground := !l.Caps().Background
-	if foreground && !isTerminal() {
-		return fmt.Errorf("without a terminal multiplexer, the session runs in this terminal, and this isn't one (stdin/stdout); run it from a terminal, or set %s=tmux", launcher.EnvVar)
+	if !isTerminal() {
+		return errors.New("the session runs in this terminal, and this isn't one (stdin/stdout); run it from a terminal")
 	}
 	name := "teach-" + topic
-	if !foreground && launcher.HasWindow(l, ctx.TmuxSession, name) {
-		fmt.Printf("ct teach: %s is open already in %s -- ct attach %s\n", topic, ctx.TmuxSession, name)
-		if l.Caps().Attach && isTerminal() {
-			return l.Attach(ctx.TmuxSession, name)
-		}
-		return nil
-	}
 
 	// A workspace with no repos of its own, like kb's: its graph (ct graph
 	// mcp) merges every main clone, and the hooks record its state there.
 	// Hidden, so ct status and ct ws skip it.
 	dir := filepath.Join(ctx.WorkRoot, ".teach-"+filepath.Base(ctx.Vault), topic)
-	_, err = os.Stat(filepath.Join(dir, ".agent-state"))
+	_, err := os.Stat(filepath.Join(dir, ".agent-state"))
 	resume := err == nil && cont
 	if cont && !resume {
 		warnf("%s: no earlier session on this topic to continue, starting a new one", topic)
@@ -201,39 +182,24 @@ func teach(ctx vault.Context, topic string, cont bool) error {
 		argv = append(argv, "--continue")
 	}
 	argv = append(argv, "/tickets:teach "+topic)
-	w := launcher.Window{Group: ctx.TmuxSession, Name: name, Dir: dir, Argv: argv,
-		Env: map[string]string{"CLAUDE_TICKETS_VAULT": ctx.Vault}, Unset: []string{"CLAUDE_TICKETS_VAULT"}}
+	w := launcher.Session{Dir: dir, Argv: argv, Env: map[string]string{"CLAUDE_TICKETS_VAULT": ctx.Vault}}
 	again := ""
 	if resume {
 		again = " (continuing its last session)"
 	}
-
-	if foreground {
-		if _, err := exec.LookPath(argv[0]); err != nil {
-			return err
+	if _, err := exec.LookPath(argv[0]); err != nil {
+		return err
+	}
+	// One session per topic: the teach skill writes its folder directly
+	if err := workspace.ClaimSession(dir, "teach"); err != nil {
+		var running *workspace.RunningError
+		if errors.As(err, &running) {
+			return fmt.Errorf("%s: a teach session on it is running (pid %d) in another terminal; continue there, or end it first", topic, running.Record.PID)
 		}
-		// One session per topic: the teach skill writes its folder directly
-		if err := workspace.ClaimSession(dir, "teach"); err != nil {
-			var running *workspace.RunningError
-			if errors.As(err, &running) {
-				return fmt.Errorf("%s: a teach session on it is running (pid %d) in another terminal; continue there, or end it first", topic, running.Record.PID)
-			}
-			warnf("couldn't record the session in %s: %v", workspace.SessionsFile(dir), err)
-		}
-		fmt.Printf("ct teach: %s runs in this terminal%s\n", topic, again)
-		return passExit(launcher.Run(w))
+		warnf("couldn't record the session in %s: %v", workspace.SessionsFile(dir), err)
 	}
-	if err := workspace.PruneSessions(dir); err != nil {
-		warnf("couldn't update %s: %v", workspace.SessionsFile(dir), err)
-	}
-	if err := l.Open(w); err != nil {
-		return fmt.Errorf("couldn't open a window for %s: %w", name, err)
-	}
-	fmt.Printf("ct teach: %s started in %s%s -- ct attach %s\n", topic, ctx.TmuxSession, again, name)
-	if l.Caps().Attach && isTerminal() && launcher.HasWindow(l, ctx.TmuxSession, name) {
-		return l.Attach(ctx.TmuxSession, name)
-	}
-	return nil
+	fmt.Printf("ct teach: %s runs in this terminal%s\n", topic, again)
+	return passExit(launcher.Run(w))
 }
 
 func teachClaudeMD(ctx vault.Context, topic string) string {

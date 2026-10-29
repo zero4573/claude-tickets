@@ -39,7 +39,7 @@ let
       # The prebuilt llama.cpp library needs libstdc++ and libgomp, which NixOS keeps out of the
       # default search path: ct preloads them from here (CLAUDE_TICKETS_LIB_PATH goes first)
       ++ lib.optional isLinux "-X github.com/zero4573/claude-tickets/internal/embed.DefaultLibPath=${lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]}";
-    # Every package, and the CLI tests (stub tmux, podman, editor; real
+    # Every package, and the CLI tests (stub claude, podman, editor; real
     # git, openssh for the tests' SSH-signed commits)
     nativeCheckInputs = with pkgs; [ coreutils git gnutar openssh ];
     checkPhase = ''
@@ -53,10 +53,9 @@ let
   # Defaults ct sees unless the environment says otherwise
   defaultsEnv = { CLAUDE_TICKETS_PLUGIN = plugin; CLAUDE_TICKETS_GRAPH_DIR = graphSrc; } // env;
 
-  # The tools ct runs: git, tmux (ticket windows), tar (unpacking the graph
-  # image), fzf (the vault picker), bash (CLAUDE_TICKETS_MCP_PREPARE) and
-  # notify-send (ct sync)
-  tools = with pkgs; [ git tmux coreutils gnutar fzf bash ] ++ lib.optional isLinux pkgs.libnotify;
+  # The tools ct runs: git, tar (unpacking the graph image), fzf (the vault
+  # picker), bash (CLAUDE_TICKETS_MCP_PREPARE) and notify-send (ct sync)
+  tools = with pkgs; [ git coreutils gnutar fzf bash ] ++ lib.optional isLinux pkgs.libnotify;
 
   ct = pkgs.runCommand "claude-tickets"
     {

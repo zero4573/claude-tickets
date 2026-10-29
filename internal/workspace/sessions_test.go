@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/proc"
 )
 
@@ -155,40 +154,23 @@ func TestPruneSessions(t *testing.T) {
 	}
 }
 
-type fakeLauncher struct {
-	list    bool
-	windows []string
-}
-
-func (fakeLauncher) Name() string                          { return "fake" }
-func (f fakeLauncher) Caps() launcher.Caps                 { return launcher.Caps{List: f.list} }
-func (f fakeLauncher) Windows(string) []string             { return f.windows }
-func (fakeLauncher) Open(launcher.Window) error            { return nil }
-func (fakeLauncher) SendKeys(string, string, string) error { return nil }
-func (fakeLauncher) Attach(string, string) error           { return nil }
-
 func TestSession(t *testing.T) {
 	onHost(t)
 	me := self(t)
 	dead := Record{PID: deadPID(t), Host: me.Host, Proc: me.Proc}
-	none := fakeLauncher{}
 	for _, tc := range []struct {
 		name  string
-		l     launcher.Launcher
 		recs  []Record
 		state string
 		age   time.Duration
 		want  By
 	}{
-		{name: "window open", l: fakeLauncher{list: true, windows: []string{"PROJ-1"}}, recs: []Record{dead}, want: ByWindow},
-		{name: "windows not listed", l: fakeLauncher{windows: []string{"PROJ-1"}}, state: "exited", want: ByNone},
-		{name: "live pid, no state", l: none, recs: []Record{me}, want: ByPID},
-		{name: "live pid, old state", l: none, recs: []Record{me}, state: "idle", age: 72 * time.Hour, want: ByPID},
-		{name: "dead pid beats a fresh state", l: none, recs: []Record{dead}, state: "working", want: ByNone},
-		{name: "no record, fresh state", l: none, state: "working", want: ByAgentState},
-		{name: "no record, old state", l: none, state: "working", age: 25 * time.Hour, want: ByNone},
-		{name: "no record, exited", l: none, state: "exited", want: ByNone},
-		{name: "nil launcher", recs: []Record{me}, want: ByPID},
+		{name: "live pid, no state", recs: []Record{me}, want: ByPID},
+		{name: "live pid, old state", recs: []Record{me}, state: "idle", age: 72 * time.Hour, want: ByPID},
+		{name: "dead pid beats a fresh state", recs: []Record{dead}, state: "working", want: ByNone},
+		{name: "no record, fresh state", state: "working", want: ByAgentState},
+		{name: "no record, old state", state: "working", age: 25 * time.Hour, want: ByNone},
+		{name: "no record, exited", state: "exited", want: ByNone},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := filepath.Join(t.TempDir(), "PROJ-1")
@@ -201,7 +183,7 @@ func TestSession(t *testing.T) {
 			if tc.state != "" {
 				writeState(t, dir, tc.state, tc.age)
 			}
-			st := Session(dir, tc.l, "tickets-acme")
+			st := Session(dir)
 			if st.By != tc.want || st.Running != (tc.want != ByNone) {
 				t.Errorf("got %+v, want by %v", st, tc.want)
 			}
@@ -211,7 +193,7 @@ func TestSession(t *testing.T) {
 			if tc.state != "" && st.State.State != tc.state {
 				t.Errorf("State %q, want %q", st.State.State, tc.state)
 			}
-			if Running(dir, tc.l, "tickets-acme") != st.Running {
+			if Running(dir) != st.Running {
 				t.Error("Running disagrees with Session")
 			}
 		})

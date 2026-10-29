@@ -6,7 +6,7 @@ cp board.md home/Documents/Obsidian/a/tickets/MAN-1/board.md
 expand user-settings.json
 env CLAUDE_TICKETS_SESSION_SETTINGS=$WORK/user-settings.json
 
-exec ct start --no-fetch MAN-1
+exec ct-tty start --no-fetch MAN-1
 grep 'subjects never carry the ticket ID' home/Projects/work-a/MAN-1/CLAUDE.md
 grep 'style: conventional commits' home/Projects/work-a/MAN-1/CLAUDE.md
 grep 'normally on .feature/<description>.' home/Projects/work-a/MAN-1/CLAUDE.md

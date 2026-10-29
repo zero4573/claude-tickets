@@ -105,7 +105,7 @@ every later lesson.
 Adapted from mattpocock/skills (MIT); see THIRD_PARTY_NOTICES.md.
 
 ## Where it runs
-`ct teach <topic>` runs this skill in the tmux window `teach-<topic>` (without a multiplexer,
-the terminal), under `<workRoot>/.teach-<vault>/<topic>`, a new conversation each time (the
+`ct teach <topic>` runs this skill in the terminal it was started from, under
+`<workRoot>/.teach-<vault>/<topic>`, a new conversation each time (the
 last one with `--continue`). The topic's state is `learning/<topic>/` (above); the lessons
 come from primary sources found on the web, never from the model's memory.

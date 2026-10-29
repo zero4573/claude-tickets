@@ -14,7 +14,6 @@ import (
 	"github.com/zero4573/claude-tickets/assets"
 	"github.com/zero4573/claude-tickets/internal/fsx"
 	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/session"
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/workspace"
@@ -119,23 +118,8 @@ type devMode int
 
 const (
 	devIgnore  devMode = iota // the installed plugin and ct (ct clean)
-	devReuse                  // the build as it is: its window is open, its session uses it
 	devRebuild                // build ct and copy the plugin first
 )
-
-// startDevMode is what ct start does with key's dev build: rebuild it,
-// unless the ticket's window is open (its session keeps the build it
-// started with). Only a dev workspace looks for its window here.
-func startDevMode(ctx vault.Context, l launcher.Launcher, key string, foreground bool) devMode {
-	if foreground {
-		return devRebuild
-	}
-	info, err := workspace.Read(filepath.Join(ctx.WorkRoot, key))
-	if err != nil || info.Dev == nil || !launcher.HasWindow(l, ctx.TmuxSession, key) {
-		return devRebuild
-	}
-	return devReuse
-}
 
 // prepareDev is the build of a dev workspace (nil when dir isn't one or
 // mode is devIgnore). With devRebuild it builds ct into <dir>/.cache/dev/bin
@@ -158,15 +142,6 @@ func prepareDev(dir string, mode devMode) (*devBuild, error) {
 	}
 	b := devBuild{plugin: filepath.Join(session.DevDir(dir), "plugin"), bin: filepath.Join(session.DevDir(dir), "bin")}
 	b.ct = filepath.Join(b.bin, ctFile())
-	if mode == devReuse {
-		fmt.Println("ct start: dev mode: window open, the build is used from the next start")
-		if _, err := os.Stat(b.ct); err != nil {
-			// Not built yet (switched to dev with the window open): the
-			// graph keeps the installed ct until the next start builds it
-			b.ct = ""
-		}
-		return &b, nil
-	}
 	slug := info.Dev.Slug
 	checkout, ok := devCheckout(info, slug)
 	if !ok {

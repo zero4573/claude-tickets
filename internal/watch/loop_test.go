@@ -98,7 +98,7 @@ func TestRunFirstFrame(t *testing.T) {
 		Out:      out,
 		Interval: 2 * time.Second,
 		Poll:     5 * time.Millisecond,
-		Refresh:  func() []string { return []string{"Vault a, tmux session tickets-a", "TICKET  AGENT"} },
+		Refresh:  func() []string { return []string{"Vault a (sessions run in their own terminal)", "TICKET  AGENT"} },
 		Size:     func() (int, int, bool) { return 100, 30, true },
 		Now:      func() time.Time { return clock },
 	})
@@ -106,7 +106,7 @@ func TestRunFirstFrame(t *testing.T) {
 	if err := stop(); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"refreshed 14:03:07, every 2s (Ctrl-C to quit)", "Vault a, tmux session tickets-a", "TICKET  AGENT"}
+	want := []string{"refreshed 14:03:07, every 2s (Ctrl-C to quit)", "Vault a (sessions run in their own terminal)", "TICKET  AGENT"}
 	if got := out.last(); strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("got %q, want %q", got, want)
 	}

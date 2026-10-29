@@ -10,8 +10,8 @@ What it gives you:
 - **Ticket sync:** your open tickets from Jira (or any source with an MCP
   server and an adapter) are pulled into the vault, unsupervised. Manual
   tickets are written in the vault and never synced.
-- **One session per ticket:** each runs in its own tmux window (or, without
-  tmux, in your terminal, one at a time). The session is the ticket's
+- **One session per ticket:** each runs in the terminal you start it from
+  (one ticket per terminal; `ct status` shows them all). The session is the ticket's
   product owner (PO): you talk to it, it grills you on the ticket first,
   and it runs a lead agent that plans the ticket and works it in waves of
   small task agents, each in its own task worktree, with a review agent
@@ -40,7 +40,7 @@ so they work the same unsandboxed or inside a sandbox that wraps `claude`.
 | `assets/` | built into `ct`: `vault-scaffold/` (what `ct vault init` copies into a vault), `scaffold-history.json` (the hash of every version of those files ever shipped, so `ct vault update` knows an unedited old copy; `go generate ./assets`), `obsidian/` (the Tasks plugin pin and settings, shared with the Nix module), `plugin/` and `graph/` (below) |
 | `assets/plugin/` | the Claude Code plugin `tickets`: skills (`/tickets:work-ticket` (the PO), `/tickets:po-refresh`, `/tickets:grill`, `/tickets:retro`, `/tickets:teach`, `/tickets:pr-feedback`, `/tickets:ticket-sync`, `/tickets:kb`, `/tickets:save`, `/tickets:recall`, `/tickets:new-ticket`; the playbooks and methods the agents load: `tickets:lead`, `tickets:task-agent`, `tickets:wave-review`, `tickets:grilling`, `tickets:diagnose`, `tickets:questionnaire`), the agents (`tickets:lead`, and the `tickets:task`, `tickets:mechanical`, `tickets:reviewer`, `tickets:reviewer-deep` and `tickets:analyst` agents the PO spawns), and the hooks that tell `ct status` what a session is doing. Some skills are adapted from mattpocock/skills (see Credits) |
 | `assets/graph/` | the graphify image (`ct graph`) and the merger behind each session's code graph |
-| `testdata/`, `*_test.go` | the tests: `go test ./...` runs `ct` against a throwaway home with stub `tmux`, `podman`, `claude` and editor commands and real git, and `ct sync` against a fake Jira (`testdata/sync/`) |
+| `testdata/`, `*_test.go` | the tests: `go test ./...` runs `ct` against a throwaway home with stub `podman`, `claude` and editor commands and real git, and `ct sync` against a fake Jira (`testdata/sync/`) |
 | `nix/`, `flake.nix` | the package, a home-manager module, and Obsidian modules (Linux, Flathub) |
 | `configure`, `Makefile` | building and installing without Nix |
 | `.github/workflows/` | CI (tests on Linux, macOS and Windows; cross builds), run by hand for now |
@@ -88,7 +88,6 @@ zsh` for completion). What you need:
 | Go 1.26+ | building `ct` |
 | Claude Code (`claude`) | the sessions |
 | git | worktrees |
-| tmux (optional) | background windows, and several sessions at once; without it `ct start` runs one ticket in the current terminal (the Nix package brings tmux along: set the launcher to `none` for that) |
 | podman or docker | the code graph (graphify runs in an image; on Linux also tar, to unpack it for sandboxes) |
 | fzf (optional) | picking a vault interactively (else a numbered list) |
 
@@ -99,8 +98,8 @@ For zsh completion, put `<prefix>/share/zsh/site-functions` on `fpath`
 |---|---|
 | Linux (amd64) | everything, including semantic vault search (`ct vault model fetch` installs the pinned llama.cpp build and model) |
 | Linux (arm64) | everything except semantic search: no verified prebuilt llama.cpp is pinned, so `ct vault model fetch` says so and `ct vault search` uses keyword search only |
-| macOS | everything (tmux from Homebrew, optional) except semantic search, for the same reason (no pinned llama.cpp for darwin); the code graph uses the image only (no unpacked filesystem: the runtime runs in a VM) |
-| Windows | the commands build and run natively; without tmux, `ct start` runs one ticket at a time in the console (no WSL needed). Untested; no semantic search either (no embedding build: keyword search only) |
+| macOS | everything except semantic search, for the same reason (no pinned llama.cpp for darwin); the code graph uses the image only (no unpacked filesystem: the runtime runs in a VM) |
+| Windows | the commands build and run natively; `ct start` runs the session in the console (no WSL needed). Untested; no semantic search either (no embedding build: keyword search only) |
 
 Where `ct` keeps its own files (`ct vault` shows them):
 
@@ -128,7 +127,7 @@ neither replaces an installed plugin.
 
 Everything is optional. The home-manager module builds these into the
 commands from `programs.claude-tickets.*` (so they apply right after a
-switch, in every shell and tmux window); an exported variable still wins.
+switch, in every shell and terminal); an exported variable still wins.
 Without the module, export them.
 
 | Variable | What |
@@ -138,7 +137,8 @@ Without the module, export them.
 | `CLAUDE_TICKETS_MCP_CONFIG` | a standard MCP config (`{"mcpServers": {"<name>": {"type": "http", "url": …, "headers": {…}}}}`) naming each server the ticket sources use; `ct sync` talks to them directly. Sessions get the same servers from their own `claude` command; a read-only token is enough for everything but `/tickets:new-ticket`, which files tickets at a source only when that token also has create scope (optional; Jira through Rovo: `write:jira:agent-interface`) |
 | `CLAUDE_TICKETS_MCP_PREPARE` | a command run before `ct sync` talks to them (e.g. starting a local proxy) |
 | `CLAUDE_TICKETS_CONTAINER` | `podman` or `docker` for the code graph (default: `ct vault configure --section runtime`, else detected; podman's docker alias counts as podman) |
-| `CLAUDE_TICKETS_LAUNCHER` | the terminal multiplexer ticket sessions run in: `tmux` or `none`, case-insensitive (default: `config.json`'s `launcher`, else tmux when it's installed, else none). With `none`, `ct start` runs one ticket in the current terminal. An explicit `tmux` that isn't installed is an error. The Nix package puts tmux on `ct`'s PATH, so it always detects tmux: set `programs.claude-tickets.launcher = "none"` (or `CLAUDE_TICKETS_LAUNCHER=none`) for foreground sessions |
+| `CLAUDE_TICKETS_NOTIFY` | `0` turns off the desktop notifications sessions send when they need you (e.g. when your own Claude hooks already notify) |
+| `CLAUDE_TICKETS_CONTEXT_WARN` | context sizes, in tokens and comma separated, at which a session warns once that its context is getting large (default `150000,200000,250000`); past the last one it warns on every prompt. A ticket session points at `/tickets:po-refresh`, any other at `/compact` |
 | `CLAUDE_TICKETS_SYSTEMD_SLICE` | systemd user slice the graph containers run in (Linux) |
 | `CLAUDE_TICKETS_EDITOR` | editor of `ct open` (default `code`) |
 | `CLAUDE_TICKETS_CONFIG_DIR` | settings dir (default: per OS, see Install) |
@@ -149,11 +149,6 @@ Without the module, export them.
 | `CLAUDE_TICKETS_LIB_PATH` | extra absolute directories (PATH style) searched for the llama.cpp library and its runtime libraries; the Nix package sets it. `go test` and `make bench` with `CT_EMBED_REAL=1` need no value on NixOS: they build `.#llamaRuntimeLibs` (libgomp, libstdc++) through nix when it is unset |
 | `OBSIDIAN_ROOT` | where the vaults live (default `~/Documents/Obsidian`) |
 | `CLAUDE_TICKETS_TASKS_URL` | where `ct vault init` downloads the Tasks plugin release from: a mirror holding `<version>/<file>` (default: the GitHub releases); the checksums are always the pinned ones |
-
-To set the launcher without the variable, add `"launcher": "none"` (or
-`"tmux"`) to `config.json` in the settings dir. Switching the launcher hides
-the sessions opened under the other one (tmux windows keep running; attach
-to them with tmux itself).
 
 `CLAUDE_TICKETS_VAULT` is set by the commands for the sessions they start
 (so their tools act on the same vault); don't set it yourself. When a
@@ -203,8 +198,8 @@ workspace's Go env; a failed build fails the start), copies the checkout's
 the built ct, and prints `dev mode: plugin and ct from <slug> (<short
 HEAD>)` (`-dirty` when the checkout has uncommitted changes). Sessions get
 `--plugin-dir` of that dir, `<workspace>/.cache/dev/bin` prepended to the
-`PATH` they start with (in the tmux window's shell, or the foreground
-launch env; never written into the settings), and the code graph served by
+`PATH` they start with (the launch environment; never written into the
+settings), and the code graph served by
 the built ct, named by path in `.claude/graph-mcp.json`. They also get
 `CLAUDE_TICKETS_DEV_BIN=<workspace>/.cache/dev/bin`: a sandbox or container
 wrapping `claude` that sets its own `PATH` prepends it there (it is in the
@@ -216,10 +211,8 @@ files and dirs (a symlink or other special file in `assets/plugin`, or
 ct or other code from the checkout outside a session. So the graph merge
 at each start runs in the installed ct too; to test a branch that changes
 the merged graph, run `ct graph merge <workspace>` inside the session (with that branch's ct on PATH).
-When the ticket's window is already open, nothing is rebuilt or copied
-(the live session keeps its files) and ct prints `dev mode: window open,
-the build is used from the next start`; until a build exists, the graph
-keeps the installed ct. `ct clean --save` ignores the dev build: the unattended
+A running session keeps the build it started with: `ct start` refuses a
+ticket whose session runs, so every start rebuilds. `ct clean --save` ignores the dev build: the unattended
 `/tickets:save` runs on the installed plugin and ct. `ct ws rm` and `ct ws
 gc` remove the build with `.cache`.
 
@@ -299,23 +292,22 @@ clusters, and the vault's `AGENTS.md` has the rules.
 
 | Command | What it does |
 |---|---|
-| `ct vault` | The current vault and where its workspaces, main clones and tmux session are, and the launcher in effect (and where it was chosen). |
+| `ct vault` | The current vault and where its workspaces and main clones are, and where `ct` keeps its settings, cache and logs. |
 | `ct vault init [<vault>]` | Set a vault up: folders, `AGENTS.md`, templates, the `tickets.base` dashboard, `inbox.md`, then `ct vault configure` for the settings not made yet, and the Tasks plugin (downloaded when missing; `--skip-plugins` to leave it out). Keeps existing files (and records what it shipped in `.scaffold.json`); `ct vault update` brings them up to date. |
 | `ct vault update [<vault>] [--dry-run] [--diff] [--take <file>]` | Bring the files `ct` ships into a vault (`AGENTS.md`, templates, `tickets.base`, `inbox.md`) up to date: missing ones are added, unedited old versions replaced in place, edited ones kept and reported (`.base` files are compared by their parsed YAML, so Obsidian reformatting one or dropping its comments isn't an edit, changing a view is; `--diff` shows the difference, `--take <file>` takes the shipped version and keeps the old one as `<file>.bak`; `<file>` is relative to the vault root or any path inside it), files a newer `ct` wrote (per `.scaffold.json`) kept and never downgraded, files no longer shipped reported and never deleted, except the retired task views (see "Vault layout and checklists" below). It also migrates the ticket folders (same section). `--dry-run` previews it. Settings and your own notes are never touched. |
 | `ct vault configure [<vault>] [--section locations\|sources\|runtime]` | The vault's settings, each prompt showing its current value: locations (`.workflow.json`, see below), ticket sources (`tickets/.sources.json`), and the container runtime (host-wide). |
 | `ct vault default [<vault>\|--pick\|--unset]` | The vault every other command acts on. Switch it to work on another vault. |
 | `ct sync [--source <name>] [--full]` | Pull your open tickets from each enabled source and reconcile the notes, unsupervised. For Jira, it finds and writes only what changed, without a model; Claude only converts HTML-only descriptions or comments. |
 | `ct new [--type <t>] "<summary>"` | Create a manual ticket `MAN-<n>`. |
-| `ct start [--force] [--feedback] [--continue] [--no-attach] [--dev <slug>\|none] <ID>...` | Open one tmux window per named ticket, in a workspace marked as trusted in Claude Code so the session starts right away (with one ID it then switches to that window; `--no-attach` doesn't) (Tab completes the vault's open tickets; `--list` prints them; an ID that isn't in the vault's `tickets/` stops it before anything starts), each running `/tickets:work-ticket <ID>` (or `/tickets:pr-feedback` with `--feedback`). Each run starts a new conversation, which resumes from the ticket's `board.md`; `--continue` (`-c`) reopens the workspace's last conversation instead (also on `ct feedback`). Without a multiplexer (launcher `none`): one ID, run in this terminal; `--no-attach` is refused; a session that looks running is refused (`--force` if it isn't). `--dev <slug>` makes it a dev workspace, for a ticket that changes claude-tickets itself: its sessions run the plugin and `ct` built from its checkout `<slug>` (see [What sessions get](#what-sessions-get)); `--dev none` goes back to the installed ones. |
-| `ct feedback <ID>...` | Shorthand for `ct start --feedback`: apply the review comments on your open Bitbucket PRs. Without a multiplexer, a running session gets nothing typed into it: type `/tickets:pr-feedback` there. |
-| `ct status [-w] [--interval <d>]` | Every session: `needs-input` / `idle` / `working` / `exited`, window (`-` without a multiplexer), source, status, dirty repos. With `-w`, stays on screen and refreshes every 2s (`--interval`, at least 1s) and whenever a session changes state, until Ctrl-C; piped, it prints once. |
-| `ct attach <ID>` | Jump to a ticket's window (Tab completes the open ones). tmux only: without a multiplexer, a session is in the terminal where it was started. |
+| `ct start [--force] [--feedback] [--continue] [--dev <slug>\|none] <ID>` | Run the ticket's session in this terminal (one ticket per run; start others from their own terminals), in a workspace marked as trusted in Claude Code so the session starts right away (Tab completes the vault's open tickets; `--list` prints them; an ID that isn't in the vault's `tickets/` stops it before anything starts), running `/tickets:work-ticket <ID>` (or `/tickets:pr-feedback` with `--feedback`). Each run starts a new conversation, which resumes from the ticket's `board.md`; `--continue` (`-c`) reopens the workspace's last conversation instead (also on `ct feedback`). A ticket whose session runs is refused; one whose session only looks running (its `.agent-state`) needs `--force`. `--dev <slug>` makes it a dev workspace, for a ticket that changes claude-tickets itself: its sessions run the plugin and `ct` built from its checkout `<slug>` (see [What sessions get](#what-sessions-get)); `--dev none` goes back to the installed ones. |
+| `ct feedback <ID>` | Shorthand for `ct start --feedback`: apply the review comments on your open Bitbucket PRs. A running session gets nothing typed into it: type `/tickets:pr-feedback` in its terminal. |
+| `ct status [-w] [--interval <d>]` | Every session: `needs-input` / `idle` / `working` / `exited` (`stale` when its process ended without the session ending), source, status, dirty repos. With `-w`, stays on screen and refreshes every 2s (`--interval`, at least 1s) and whenever a session changes state, until Ctrl-C; piped, it prints once. |
 | `ct open <ID>` | Open the ticket's workspace in `$CLAUDE_TICKETS_EDITOR` (default `code`). For VS Code and its forks it opens `<ID>.code-workspace`: one folder per worktree plus the ticket's vault notes, so each repo gets its own source control. |
 | `ct ws repos\|clone\|add\|ls\|diff\|diff-check\|mark\|marks\|refresh\|rm\|fetch\|gc\|tidy-clean` | Worktrees per ticket, on `feature/<ID>[-<desc>]` (a manual ticket's branch has no ID: `feature/<desc>`, so `add` needs `--desc` or `--branch`). Sessions run it to create their own. `mark <ID> <docs\|tidy> [<slug>...]` records, per repo, the commit where docs or tidy were done and `marks <ID>` shows `ok`, `stale` (commits after it) or `none` per repo (exit 3 unless all are ok; `/tickets:save` checks it before pushing); `refresh <ID>` rewrites the workspace's `CLAUDE.md` from the vault, as `ct start` does (the kickoff runs it once `board.md` names the commit style); `diff-check [-C <dir>] [--max-size 1M] [--ticket <ID>] <range>` flags binary or large files added by any commit of the range, and with `--ticket` the ticket's vault-only IDs a commit introduces (exit 3 when something is flagged); `gc` frees disk (see below); `tidy-clean <ID> [--force] [--dry-run]` removes the tidy skill's scratch clones `<ws>/tasks/tidy-<slug>` (an unmerged one is kept unless `--force`). |
 | `ct clean [<ID>...] [--dry-run] [--yes] [--save] [--include-done] [--keep-manual] [--purge] [--days N]` | Clean up closed tickets: remove the workspace, then move a synced ticket's folder to the vault's `.trash/` (links to it become `[ID](<source-url>)`; files other notes link or embed move to `archive/tickets/<source>/<ID>/`) and a manual one's to `archive/tickets/<source>/<ID>/`. Skips open tickets, running sessions, uncommitted or unpushed work (commits already in `origin/<base>`, e.g. squash-merged, count as pushed) and unsaved sessions (`--save` runs `/tickets:save` headless first). Prints the plan and asks; `--yes` without a terminal. |
 | `ct kb [--continue] [--print] ["<question>"]` | Ask about the vault's projects without a ticket: a session with the vault, every repo read-only, and a graph merged from every repo. |
 | `ct kb repo checkout\|fetch\|graph\|ls\|reset` | Inside a kb session: exploration clones of any branch, to build and test in (never committed). |
-| `ct teach [--continue] [<topic>] \| --list` | Learn a topic (kebab-case) over many sessions: a session running `/tickets:teach <topic>` in the window `teach-<topic>` (launcher `none`: this terminal), with the vault, every repo read-only and the merged graph. No topic: pick one of the vault's `learning/*/` or type a new one (without a terminal it prints them and fails). A new conversation each time; `--continue` (`-c`) reopens the topic's last one. `--list` prints the topics. See "Learning a topic". |
+| `ct teach [--continue] [<topic>] \| --list` | Learn a topic (kebab-case) over many sessions: a session running `/tickets:teach <topic>` in this terminal, with the vault, every repo read-only and the merged graph. No topic: pick one of the vault's `learning/*/` or type a new one (without a terminal it prints them and fails). A new conversation each time; `--continue` (`-c`) reopens the topic's last one. `--list` prints the topics. See "Learning a topic". |
 | `ct claude [claude args]` | `claude` in the current repo with the vault as its knowledge base: the vault added, the plugin's skills, and the repo's project notes named in the system prompt. |
 | `ct graph build\|status\|mcp\|merge` | The graphify image (`localhost/claude-tickets-graphify:<hash>`, podman or docker) and the stdio MCP server sessions use for their code graph. `merge <workspace>` re-merges a workspace's graph (dev sessions). |
 | `ct graph index [<repo>...]` | Build or refresh the main clones' code graphs. |
@@ -334,7 +326,7 @@ when the default changes.
 ### Per-vault locations
 
 Each vault's `.workflow.json` says where its tools work, so several vaults
-never share a workspace (a `MAN-1` exists in each) or (with tmux) a tmux session:
+never share a workspace (a `MAN-1` exists in each):
 
 ```json
 { "workRoot": "~/Projects/work-<vault>", "projectsRoot": "~/Projects/repo-<vault>" }
@@ -342,9 +334,7 @@ never share a workspace (a `MAN-1` exists in each) or (with tmux) a tmux session
 
 The values shown are the defaults when a key is missing: each vault gets
 its own folders. Point several vaults' `projectsRoot` at one folder to
-share main clones. With tmux, the ticket windows
-always run in the tmux session `tickets-<vault>`, so a session says which
-vault it belongs to. `ct status` and `ct attach` only see the
+share main clones. `ct status` only sees the
 current vault's sessions, so switch back to reach the others.
 `ct vault configure --section locations` sets the folders. It checks each
 folder against every other vault's, and against this vault's other folder.
@@ -678,8 +668,7 @@ flowchart LR
 ```
 
 - **`ct teach <topic>`** (kebab-case, e.g. `rust-async`) opens a session
-  running `/tickets:teach <topic>` in the tmux window `teach-<topic>` (with
-  the launcher `none`, in this terminal), with the vault, every repo
+  running `/tickets:teach <topic>` in this terminal, with the vault, every repo
   read-only for examples, and the merged code graph. Without a topic it
   lists the vault's `learning/*/` and lets you pick one or name a new one;
   `--list` prints them. Each run is a new conversation that picks up from
@@ -744,9 +733,8 @@ flowchart TB
 | Logs (`*.log` in the log dir) | trimmed to the last 1 MB once past 5 MB |
 
 `ct ws gc` is run by hand; a weekly timer is an easy addition. It leaves
-running sessions alone: a session runs when its tmux window is open, else
-when its process is alive on this host (ct start without a multiplexer and
-`ct kb` record it in the workspace's `.sessions.json`), else, when that
+running sessions alone: a session runs when its process is alive on this
+host (`ct start`, `ct teach` and `ct kb` record it in the workspace's `.sessions.json`), else, when that
 can't be checked, when its `.agent-state` is less than a day old and not
 `exited`.
 
@@ -835,8 +823,8 @@ Architecture and flows, with diagrams, under `docs/`:
   `ticket-sync-<vault>.log` in the log dir (`ct vault` shows where). For Atlassian, see the vault
   note `atlassian-rovo-mcp-setup`.
 - **A session seems stuck.** `ct status` shows `needs-input` when it's
-  waiting on you, and `stale` when its window is gone without the session
-  having ended. `ct attach <ID>` jumps to its window.
+  waiting on you, and `stale` when its process is gone without the session
+  having ended. It runs in the terminal where it was started.
 - **No code graph in a session.** `ct graph status` says what's built;
   `ct graph build` (on the host) builds it. Inside a container the
   server needs podman and the unpacked filesystem under the cache dir.

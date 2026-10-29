@@ -1,11 +1,6 @@
-// Package launcher runs ticket sessions. A backend with windows (tmux) runs
-// each session in a window the user can come back to: one session group
-// per vault (tickets-<vault>), one window per ticket, named by its ID.
-// Without one (the none backend), a session runs in the foreground, in the
-// terminal ct was started from (Run). Which backend: CLAUDE_TICKETS_LAUNCHER,
-// else config.json's launcher, else the first one installed (Resolve). A
-// new backend (e.g. zellij, Windows Terminal) implements Launcher, declares
-// what it can do in Caps, and gets one entry in registry.go.
+// Package launcher runs ticket sessions in the foreground, in the terminal
+// ct was started from (Run): ct is replaced by the session where the OS can
+// exec (exec_unix.go), else runs it as a child (exec_windows.go).
 package launcher
 
 import (
@@ -16,76 +11,25 @@ import (
 	"strings"
 )
 
-// Window is a session to open.
-type Window struct {
-	Group, Name string // e.g. tickets-acme, PROJ-12
-	Dir         string
-	Argv        []string
-	// Env is set for the session (also on a long-running backend server
-	// that wouldn't pass the caller's environment on)
+// Session is a session to run.
+type Session struct {
+	Dir  string
+	Argv []string
+	// Env is set for the session
 	Env map[string]string
-	// Unset is kept out of a backend server started now (variables shells
-	// opened there later shouldn't inherit)
-	Unset []string
 	// PathFirst (when not "") goes first on the PATH the session starts
-	// with, expanded where it starts (never a copy of ct's own PATH): a dev
-	// workspace's built ct
+	// with: a dev workspace's built ct
 	PathFirst string
 }
 
-// Caps is what a backend can do. Callers branch on these, never on Name.
-type Caps struct {
-	Background bool // Open starts a session that outlives ct, so several can run at once
-	List       bool // Windows lists a group's open windows
-	SendKeys   bool // SendKeys types into an open window
-	Attach     bool // Attach brings a window to the front
-}
-
-type Launcher interface {
-	Name() string
-	Caps() Caps
-	// Windows is nil when the group doesn't exist (always, without List).
-	Windows(group string) []string
-	// Open starts w in a new background window, kept open after the
-	// session ends so its output stays readable (ErrUnsupported without
-	// Background).
-	Open(w Window) error
-	// SendKeys presses Enter after text (ErrUnsupported without SendKeys).
-	SendKeys(group, name, text string) error
-	// Attach brings a window to the front (ErrUnsupported without Attach).
-	Attach(group, name string) error
-}
-
-func HasWindow(l Launcher, group, name string) bool {
-	for _, w := range l.Windows(group) {
-		if w == name {
-			return true
-		}
-	}
-	return false
-}
-
-var ErrUnsupported = errors.New("not supported without a terminal multiplexer")
-
-// none has no windows: sessions run in the foreground (Run).
-type none struct{}
-
-func (none) Name() string                          { return "none" }
-func (none) Caps() Caps                            { return Caps{} }
-func (none) Windows(string) []string               { return nil }
-func (none) Open(Window) error                     { return ErrUnsupported }
-func (none) SendKeys(string, string, string) error { return ErrUnsupported }
-func (none) Attach(string, string) error           { return ErrUnsupported }
-
 // Run runs w in this terminal, in the foreground: cwd w.Dir, the
-// environment with w.Env set and w.PathFirst first on its PATH (Unset
-// doesn't apply: there's no server).
+// environment with w.Env set and w.PathFirst first on its PATH.
 // Where the OS can exec, ct is replaced by w's program and Run returns only
 // on failure. Elsewhere (Windows) the program runs as a child with ct's
 // stdio, ct ignores Ctrl-C until it exits (the console sends it to both, so
 // the program handles it and ct isn't killed first), and its
 // *exec.ExitError is returned.
-func Run(w Window) error {
+func Run(w Session) error {
 	if len(w.Argv) == 0 {
 		return errors.New("no command to run")
 	}

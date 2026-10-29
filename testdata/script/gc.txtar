@@ -21,7 +21,7 @@ stdout 'would drop the caches of MAN-3'
 exists home/Projects/work-a/MAN-1/workspace.json
 
 # MAN-3's session is running: its graph stays
-cp windows tmux-windows
+live-session home/Projects/work-a/MAN-3
 exec ct ws gc
 stdout 'remove MAN-1 \(done\)'
 stdout 'removed workspace .*/MAN-1$'
@@ -38,7 +38,7 @@ exec sh -c 'cat home/Documents/Obsidian/a/inbox/*-ct-ws-gc-follow-ups.md'
 stdout '^source-command: ct-ws-gc$'
 stdout '^- \[ \] Clean up the workspace of \[\[MAN-2\]\] \(done\): .* Review it with ct ws diff MAN-2, then ct ws rm MAN-2 \(--force to drop it\) #ct-ws-gc ➕ '
 
-rm tmux-windows
+rm home/Projects/work-a/MAN-3/.sessions.json
 exec ct ws gc --days 30
 ! stdout 'remove MAN-2'
 stdout 'drop the merged graph of MAN-3'
@@ -70,6 +70,4 @@ status: in-progress
 ]}
 -- ws3.json --
 {"id": "MAN-3", "vault": "$WORK/home/Documents/Obsidian/a", "repos": []}
--- windows --
-MAN-3
 -- empty --

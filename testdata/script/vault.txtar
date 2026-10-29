@@ -8,8 +8,8 @@ exec ct vault
 stdout 'vault: +~/Documents/Obsidian/a'
 stdout 'workspaces: +~/Projects/work-a$'
 stdout 'main clones: +~/Projects/repo-a$'
-stdout '^launcher: +tmux \(detected\)$'
-stdout 'tmux session: tickets-a'
+! stdout 'launcher'
+! stdout 'session'
 
 # Two vaults and no default: pick one
 mkdir home/Documents/Obsidian/b/.obsidian

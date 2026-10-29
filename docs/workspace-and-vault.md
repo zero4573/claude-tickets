@@ -75,13 +75,11 @@ therefore runs in the installed `ct`; a branch that changes the merged graph is 
 running `ct graph merge <workspace>` inside the session (with that branch's ct on PATH).
 `ct graph merge <workspace>` brings that workspace's merged graph up to date, exactly what
 `ct start` does before a session, with progress on stderr (exit 0 merged, 1 for no vault
-context, an unknown workspace or a failed merge); the workspace is resolved as in `ct graph mcp`. A start against a ticket whose
-window is already open neither builds nor copies, so the live session keeps its files; it
-prints `dev mode: window open, the build is used from the next start`, and until a build
-exists the graph keeps the installed `ct`. `ct clean --save` ignores `dev`: its unattended `/tickets:save`
+context, an unknown workspace or a failed merge); the workspace is resolved as in `ct graph mcp`. A running
+session keeps the build it started with: `ct start` refuses a ticket whose session runs, so
+every start builds and copies afresh. `ct clean --save` ignores `dev`: its unattended `/tickets:save`
 runs on the installed plugin and `ct`. An unknown `<slug>` fails with `<slug> is not a repo
-of <ID>'s workspace (ct ws add first)`; with several IDs, every one is checked before any is
-recorded.
+of <ID>'s workspace (ct ws add first)`.
 
 ```mermaid
 sequenceDiagram
@@ -92,17 +90,13 @@ sequenceDiagram
   participant C as claude session
   U->>S: ct start PROJ-12 --dev acme-ct
   S->>S: record dev slug in workspace.json
-  alt ticket window already open
-    S-->>U: dev mode: window open, build used from next start
-  else
-    S->>G: build ./cmd/ct from the checkout
-    G-->>W: bin/ct
-    S->>W: copy assets/plugin, regular files only, hooks run bin/ct
-    S->>S: graph merge with the installed ct
-    S->>S: write graph-mcp.json naming bin/ct
-    S-->>U: dev mode: plugin and ct from acme-ct
-  end
-  S->>C: start with --plugin-dir, PATH with bin first, CLAUDE_TICKETS_DEV_BIN
+  S->>G: build ./cmd/ct from the checkout
+  G-->>W: bin/ct
+  S->>W: copy assets/plugin, regular files only, hooks run bin/ct
+  S->>S: graph merge with the installed ct
+  S->>S: write graph-mcp.json naming bin/ct
+  S-->>U: dev mode: plugin and ct from acme-ct
+  S->>C: becomes claude with --plugin-dir, PATH with bin first, CLAUDE_TICKETS_DEV_BIN
   C->>W: skills and hooks run the built ct
 ```
 

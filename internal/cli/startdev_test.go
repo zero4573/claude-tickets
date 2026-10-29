@@ -173,20 +173,6 @@ func TestDevPluginCopiedWithoutRunningTheBuild(t *testing.T) {
 	if want := `"` + b.ct + `" hook agent-state idle`; hooks["command"] != want {
 		t.Errorf("hook = %q, want %q", hooks["command"], want)
 	}
-	// An open window's session keeps its build: nothing built or copied
-	if err := os.WriteFile(filepath.Join(b.plugin, "marker"), nil, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	again, err := prepareDev(dir, devReuse)
-	if err != nil || again == nil || again.plugin != b.plugin || again.ct != b.ct {
-		t.Fatalf("reuse: %+v, %v", again, err)
-	}
-	if builds != 1 {
-		t.Error("reuse built again")
-	}
-	if _, err := os.Stat(filepath.Join(b.plugin, "marker")); err != nil {
-		t.Error("reuse replaced the plugin copy")
-	}
 	// ct clean ignores it
 	if b, err := prepareDev(dir, devIgnore); b != nil || err != nil {
 		t.Errorf("ignore: %+v, %v", b, err)

@@ -16,14 +16,13 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/watch"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
 
 // minInterval bounds how often ct status --watch recomputes the table (a
-// git status per worktree, tmux): .agent-state changes still show sooner.
+// git status per worktree): .agent-state changes still show sooner.
 const minInterval = time.Second
 
 // durationSyntax is time.ParseDuration's syntax. A value it matches that
@@ -54,8 +53,8 @@ var stdoutIsTerminal = func() bool { return term.IsTerminal(int(os.Stdout.Fd()))
 
 // printStatusOnce is watch mode where it can't redraw: the table once, as
 // plain ct status prints it, and why on stderr.
-func printStatusOnce(ctx vault.Context, l launcher.Launcher, why string) error {
-	if err := writeStatus(os.Stdout, buildStatus(ctx, l)); err != nil {
+func printStatusOnce(ctx vault.Context, why string) error {
+	if err := writeStatus(os.Stdout, buildStatus(ctx)); err != nil {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "ct status: --watch needs %s; printed once\n", why)
@@ -65,7 +64,7 @@ func printStatusOnce(ctx vault.Context, l launcher.Launcher, why string) error {
 // runStatusWatch keeps ct status's table on the terminal (the alternate
 // screen) until Ctrl-C or SIGTERM, which end it with status 0 and the
 // terminal as it was.
-func runStatusWatch(parent context.Context, ctx vault.Context, l launcher.Launcher, interval time.Duration) error {
+func runStatusWatch(parent context.Context, ctx vault.Context, interval time.Duration) error {
 	if parent == nil {
 		parent = context.Background()
 	}
@@ -76,7 +75,7 @@ func runStatusWatch(parent context.Context, ctx vault.Context, l launcher.Launch
 	out := os.Stdout
 	restoreVT, err := watch.EnableVT(out)
 	if err != nil {
-		return printStatusOnce(ctx, l, "a terminal that handles escape sequences")
+		return printStatusOnce(ctx, "a terminal that handles escape sequences")
 	}
 	resize, stopResize := watch.ResizeSignals()
 	defer stopResize()
@@ -119,7 +118,7 @@ func runStatusWatch(parent context.Context, ctx vault.Context, l launcher.Launch
 				}
 			}()
 			var buf bytes.Buffer
-			_ = writeStatus(&buf, buildStatus(ctx, l))
+			_ = writeStatus(&buf, watchStatus(ctx))
 			lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
 			return append(lines, warns.drain()...)
 		},
@@ -134,6 +133,9 @@ func runStatusWatch(parent context.Context, ctx vault.Context, l launcher.Launch
 		Resize: resize,
 	})
 }
+
+// watchStatus is what a watch refresh renders: buildStatus, swapped in tests.
+var watchStatus = buildStatus
 
 // lineCollector keeps the lines written to it until drained, once each.
 type lineCollector struct {

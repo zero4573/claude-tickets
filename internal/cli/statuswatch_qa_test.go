@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
@@ -96,24 +95,19 @@ func hookWrite(t *testing.T, ws, state string) {
 }
 
 // QA (MAN-15): runStatusWatch end to end, with stdout a pipe (so 80x24),
-// the none launcher and a temp work root: it enters the alternate screen,
+// a temp work root: it enters the alternate screen,
 // redraws on an .agent-state rename well within 1s although the interval
 // is an hour (criterion 6), re-sorts (9), follows workspaces coming and
 // going (7), keeps workspace.Read's warnings in the frame rather than on
 // stderr (design section 7), and on cancel leaves the screen and returns
 // nil (10).
 func TestRunStatusWatchEndToEnd(t *testing.T) {
-	t.Setenv(launcher.EnvVar, "none")
-	res, err := launcher.Resolve()
-	if err != nil {
-		t.Fatal(err)
-	}
 	root := t.TempDir()
 	vaultDir := filepath.Join(root, "a")
 	work := filepath.Join(root, "work-a")
 	mkWorkspace(t, vaultDir, work, "MAN-1", "working", filepath.Join(root, "elsewhere"))
 	ws2 := mkWorkspace(t, vaultDir, work, "MAN-2", "working", "")
-	ctx := vault.Context{Vault: vaultDir, Locations: vault.Locations{WorkRoot: work, TmuxSession: "tickets-a"}}
+	ctx := vault.Context{Vault: vaultDir, Locations: vault.Locations{WorkRoot: work}}
 
 	outR, outW, err := os.Pipe()
 	if err != nil {
@@ -135,7 +129,7 @@ func TestRunStatusWatchEndToEnd(t *testing.T) {
 	pctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan error, 1)
-	go func() { done <- runStatusWatch(pctx, ctx, res, time.Hour) }()
+	go func() { done <- runStatusWatch(pctx, ctx, time.Hour) }()
 
 	waitFor(t, "the first frame", 2*time.Second, func() bool { return strings.Contains(out.lastFrame(), "MAN-2") })
 	first := out.lastFrame()
@@ -145,7 +139,7 @@ func TestRunStatusWatchEndToEnd(t *testing.T) {
 	if !strings.Contains(first, "refreshed ") || !strings.Contains(first, "every 1h (Ctrl-C to quit)") {
 		t.Errorf("no refreshed line in %q", first)
 	}
-	if !strings.Contains(first, "Vault a, no terminal multiplexer") {
+	if !strings.Contains(first, "Vault a (sessions run in their own terminal)") {
 		t.Errorf("header isn't plain ct status's: %q", first)
 	}
 	// cut to the 80 columns of the fallback size, so only its start is sure

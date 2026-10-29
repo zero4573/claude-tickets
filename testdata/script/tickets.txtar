@@ -44,10 +44,11 @@ stdout '^MAN-2\tnew\tSecond$'
 exec ct start --list --all
 stdout '^MAN-3\tdone\tFinished$'
 
-# Completion offers open tickets, minus the ones already given
-exec ct __complete start MAN-1 ''
+# Completion offers open tickets; ct start takes one, so nothing after it
+exec ct __complete start ''
 stdout '^MAN-2\tSecond \[new\]$'
-! stdout '^MAN-1'
+exec ct __complete start MAN-1 ''
+! stdout '^MAN-'
 
 -- ticket-manual.md --
 ---

@@ -43,23 +43,17 @@ func overrideContainer() {
 	}
 }
 
-// stubs are fake tools on PATH: tmux, claude, podman, notify-send and editor
-// record their arguments in $WORK/calls/<name>, and tmux lists the windows
-// named in $WORK/tmux-windows.
+// stubs are fake tools on PATH: claude, podman, notify-send and editor
+// record their arguments in $WORK/calls/<name>.
 var stubs = map[string]string{
-	"tmux": `#!/bin/sh
-echo "$@" >> "$WORK/calls/tmux"
-case "$1" in
-  list-windows) [ -f "$WORK/tmux-windows" ] && cat "$WORK/tmux-windows" || exit 1 ;;
-  has-session) [ -f "$WORK/tmux-windows" ] ;;
-esac
-`,
-	// claude: one line of arguments per run (and its cwd, vault and PID); with
-	// -p, a stream-json conversation
+	// claude: one line of arguments per run (and its cwd, vault, dev bin,
+	// PATH and PID); with -p, a stream-json conversation
 	"claude": `#!/bin/sh
 echo "$@" >> "$WORK/calls/claude"
 pwd >> "$WORK/calls/claude-cwd"
 echo "CLAUDE_TICKETS_VAULT=$CLAUDE_TICKETS_VAULT" >> "$WORK/calls/claude-env"
+echo "CLAUDE_TICKETS_DEV_BIN=$CLAUDE_TICKETS_DEV_BIN" >> "$WORK/calls/claude-env"
+echo "PATH=$PATH" >> "$WORK/calls/claude-env"
 echo "$$" >> "$WORK/calls/claude-pid"
 # ct sync: keep the plan, and leave a follow-up as the skill would
 if [ -f tickets/.sync-plan.json ]; then
@@ -173,7 +167,7 @@ func TestScripts(t *testing.T) {
 			"faketasks": faketasks,
 			"cmpvault":  cmpvault,
 			// live-session <dir>: records this (running) test process as the
-			// session of workspace dir, as ct start does without a multiplexer
+			// session of workspace dir, as ct start does
 			"live-session": func(ts *testscript.TestScript, neg bool, args []string) {
 				if neg || len(args) != 1 {
 					ts.Fatalf("usage: live-session <dir>")
@@ -258,8 +252,6 @@ func TestScripts(t *testing.T) {
 			env.Setenv("OBSIDIAN_ROOT", filepath.Join(home, "Documents", "Obsidian"))
 			env.Setenv("PATH", stubDir+string(os.PathListSeparator)+env.Getenv("PATH"))
 			env.Setenv("CLAUDE_TICKETS_VAULT", "")
-			env.Setenv("TMUX", "")
-			env.Setenv("CLAUDE_TICKETS_LAUNCHER", "")
 			env.Setenv("REAL_GIT", realGit)
 			env.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 			env.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(work, "gitconfig"))

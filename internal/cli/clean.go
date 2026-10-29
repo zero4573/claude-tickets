@@ -10,7 +10,6 @@ import (
 	"github.com/zero4573/claude-tickets/internal/clean"
 	"github.com/zero4573/claude-tickets/internal/config"
 	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/prompt"
 	"github.com/zero4573/claude-tickets/internal/session"
@@ -80,8 +79,8 @@ skipped or a step failed.`,
 			if o.Days < 0 {
 				return errors.New("clean: --days must be 0 or more")
 			}
-			// It tells running sessions apart by the launcher's windows and their
-			// recorded processes; inside a container it would see none
+			// It tells running sessions apart by their recorded processes;
+			// inside a container it would see none
 			if gitx.InContainer() {
 				return errors.New("clean: run it on the host, not inside a container")
 			}
@@ -89,11 +88,7 @@ skipped or a step failed.`,
 			if err != nil {
 				return err
 			}
-			l, err := launcher.Resolve()
-			if err != nil {
-				return err
-			}
-			o.Vault, o.WorkRoot, o.TmuxSession, o.Launcher, o.IDs = ctx.Vault, ctx.WorkRoot, ctx.TmuxSession, l, args
+			o.Vault, o.WorkRoot, o.IDs = ctx.Vault, ctx.WorkRoot, args
 			return runClean(ctx, o, dry, yes)
 		},
 	}

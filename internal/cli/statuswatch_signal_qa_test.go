@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/workspace"
 )
@@ -29,16 +28,11 @@ const (
 // written and runStatusWatch's result.
 func watchWithStdoutPipe(t *testing.T, parent context.Context, during func()) (string, error) {
 	t.Helper()
-	t.Setenv(launcher.EnvVar, "none")
-	l, err := launcher.Resolve()
-	if err != nil {
-		t.Fatal(err)
-	}
 	root := t.TempDir()
 	vaultDir := filepath.Join(root, "a")
 	work := filepath.Join(root, "work-a")
 	mkWorkspace(t, vaultDir, work, "MAN-1", "working", "")
-	ctx := vault.Context{Vault: vaultDir, Locations: vault.Locations{WorkRoot: work, TmuxSession: "tickets-a"}}
+	ctx := vault.Context{Vault: vaultDir, Locations: vault.Locations{WorkRoot: work}}
 
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -52,7 +46,7 @@ func watchWithStdoutPipe(t *testing.T, parent context.Context, during func()) (s
 	go func() { io.Copy(&out, r); close(copied) }()
 
 	done := make(chan error, 1)
-	go func() { done <- runStatusWatch(parent, ctx, l, time.Hour) }()
+	go func() { done <- runStatusWatch(parent, ctx, time.Hour) }()
 	// the first frame is drawn after signal.NotifyContext, so a signal sent
 	// from here on can't kill the test binary
 	waitFor(t, "the first frame", 2*time.Second, func() bool { return strings.Contains(out.lastFrame(), "MAN-1") })
@@ -96,28 +90,19 @@ func TestRunStatusWatchSignals(t *testing.T) {
 	}
 }
 
-// panicLauncher is the none launcher, except that listing windows panics:
-// a bug inside a refresh.
-type panicLauncher struct{ launcher.Launcher }
-
-func (panicLauncher) Windows(string) []string { panic("QA: a refresh panics") }
-
 // QA (MAN-15), design section 6 / dev-notes "Panic in a refresh": a panic
 // inside a refresh (its own goroutine) still restores the terminal before
 // ct crashes. Run in a child process, since the panic ends it.
 func TestRunStatusWatchPanicRestores(t *testing.T) {
 	if os.Getenv("MAN15_QA_PANIC_CHILD") == "1" {
-		t.Setenv(launcher.EnvVar, "none")
-		l, err := launcher.Resolve()
-		if err != nil {
-			t.Fatal(err)
-		}
+		// a bug inside a refresh
+		watchStatus = func(vault.Context) statusView { panic("QA: a refresh panics") }
 		root := t.TempDir()
 		vaultDir := filepath.Join(root, "a")
 		work := filepath.Join(root, "work-a")
 		mkWorkspace(t, vaultDir, work, "MAN-1", "working", "")
-		ctx := vault.Context{Vault: vaultDir, Locations: vault.Locations{WorkRoot: work, TmuxSession: "tickets-a"}}
-		_ = runStatusWatch(context.Background(), ctx, panicLauncher{l}, time.Hour)
+		ctx := vault.Context{Vault: vaultDir, Locations: vault.Locations{WorkRoot: work}}
+		_ = runStatusWatch(context.Background(), ctx, time.Hour)
 		t.Fatal("runStatusWatch returned instead of crashing")
 	}
 	cmd := exec.Command(os.Args[0], "-test.run=^TestRunStatusWatchPanicRestores$", "-test.count=1")

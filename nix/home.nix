@@ -7,14 +7,13 @@ let
   settingsFile = pkgs.writeText "claude-tickets-session-settings.json" (builtins.toJSON cfg.sessionSettings);
   # The settings below, built into the commands as defaults (an exported
   # variable still wins): they apply right after a switch, in every shell,
-  # tmux window or service, not only after the next login
+  # terminal or service, not only after the next login
   env = lib.filterAttrs (_: v: v != null) {
     CLAUDE_TICKETS_CLAUDE = if cfg.claude == "claude" then null else cfg.claude;
     CLAUDE_TICKETS_SESSION_SETTINGS = if cfg.sessionSettings == { } then null else "${settingsFile}";
     CLAUDE_TICKETS_MCP_CONFIG = cfg.mcpConfig;
     CLAUDE_TICKETS_MCP_PREPARE = cfg.mcpPrepare;
     CLAUDE_TICKETS_CONTAINER = cfg.container;
-    CLAUDE_TICKETS_LAUNCHER = cfg.launcher;
     CLAUDE_TICKETS_SYSTEMD_SLICE = cfg.systemdSlice;
     CLAUDE_TICKETS_EDITOR = cfg.editor;
     CLAUDE_TICKETS_TASKS_URL = cfg.tasksUrl;
@@ -70,12 +69,6 @@ in
       type = lib.types.nullOr (lib.types.enum [ "podman" "docker" ]);
       default = null;
       description = "Container runtime for the code graph (CLAUDE_TICKETS_CONTAINER); detected when null.";
-    };
-
-    launcher = lib.mkOption {
-      type = lib.types.nullOr (lib.types.enum [ "tmux" "none" ]);
-      default = null;
-      description = "Terminal multiplexer for ticket sessions (CLAUDE_TICKETS_LAUNCHER); tmux when installed, else none, when null. With none, ct start runs one ticket in the current terminal. This package puts tmux on ct's PATH, so it's always detected: set \"none\" for foreground sessions.";
     };
 
     systemdSlice = lib.mkOption {

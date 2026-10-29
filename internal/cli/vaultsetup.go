@@ -614,7 +614,6 @@ Sections (all of them unless --section is given):
   locations  .workflow.json: where the vault's tools work
                workRoot      ticket and kb workspaces (~/Projects/work-<vault>)
                projectsRoot  main clones (~/Projects/repo-<vault>)
-             (The ticket windows' tmux session is always tickets-<vault>.)
              A folder that is the same as, inside, or around another
              vault's folder (or this vault's other one) is shown with what
              it overlaps, and kept only when you type yes. Vaults sharing
@@ -814,14 +813,14 @@ func configureLocations(v, file string, o setupOpts) error {
 		break
 	}
 	if err := config.WriteJSON(file, workflowFile{
-		Comment:      "Where the ticket tools of this vault work: workRoot holds the ticket and kb workspaces, projectsRoot the main clones (vaults may share it). The ticket windows run in the tmux session tickets-<vault>. Change them with ct vault configure --section locations, which checks for overlaps with other vaults.",
+		Comment:      "Where the ticket tools of this vault work: workRoot holds the ticket and kb workspaces, projectsRoot the main clones (vaults may share it). Change them with ct vault configure --section locations, which checks for overlaps with other vaults.",
 		WorkRoot:     config.TildePath(w),
 		ProjectsRoot: config.TildePath(p),
 	}); err != nil {
 		return err
 	}
-	fmt.Printf("ct vault configure: wrote .workflow.json (workspaces in %s, main clones in %s, tmux session tickets-%s)\n",
-		config.TildePath(w), config.TildePath(p), filepath.Base(v))
+	fmt.Printf("ct vault configure: wrote .workflow.json (workspaces in %s, main clones in %s)\n",
+		config.TildePath(w), config.TildePath(p))
 	return nil
 }
 

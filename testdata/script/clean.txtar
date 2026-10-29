@@ -52,7 +52,7 @@ mkdir $W/PROJ-18 $W/PROJ-14 $W/PROJ-21
 exec sh -c 'echo "{\"id\": \"PROJ-18\", \"repos\": []}" > $W/PROJ-18/workspace.json'
 exec sh -c 'echo "{\"id\": \"PROJ-14\", \"repos\": []}" > $W/PROJ-14/workspace.json'
 cp ws-null.json $W/PROJ-21/workspace.json
-cp windows tmux-windows
+live-session $W/PROJ-18
 
 # Dry run: the plan, and nothing changes
 exec sh -c 'find home -type f | sort | xargs cksum'
@@ -176,8 +176,6 @@ stdout 'PROJ-19 \(done\): skip: done synced ticket \(ct sync would re-create it\
 stdout 'NOPE-1: skip: not a ticket in the vault'
 
 -- empty --
--- windows --
-PROJ-18
 -- ws.json --
 {"id": "ID", "vault": "$WORK/home/Documents/Obsidian/a", "repos": [
   {"provider": "github", "owner": "acme", "repo": "x", "slug": "x", "path": "$WORK/home/Projects/work-a/ID/x", "base": "main", "branch": "feature/ID", "mode": "worktree", "targetVersion": "1.0"}
