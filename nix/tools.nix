@@ -30,6 +30,8 @@ let
       root = ../.;
       fileset = lib.fileset.unions [
         ../go.mod ../go.sum ../cmd ../internal ../assets ../ct_test.go ../ct_sync_test.go ../testdata
+        # The assets tests check the docs, README and AGENTS.md the skills refer to
+        ../docs ../README.md ../AGENTS.md
       ];
     };
     # Refresh whenever go.mod/go.sum change: set lib.fakeHash, run `nix build .#default` on the host, paste the hash it reports
