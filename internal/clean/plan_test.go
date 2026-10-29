@@ -195,6 +195,8 @@ func TestPlanSafety(t *testing.T) {
 	git(t, clone, "commit", "--quiet", "--allow-empty", "-m", "base")
 	git(t, clone, "push", "--quiet", "origin", "HEAD:main")
 	git(t, clone, "worktree", "add", "--quiet", "-b", "feature/PROJ-1", wt)
+	// ct's git refuses a local-path origin; nothing below fetches or pushes
+	git(t, clone, "remote", "set-url", "origin", "git@example.invalid:acme/repo.git")
 	put(t, o.WorkRoot, "PROJ-1/workspace.json", `{"id": "PROJ-1", "repos": [{"slug": "repo", "path": "`+wt+`", "base": "main", "targetVersion": "1.0"}]}`)
 
 	if got := plan(o); got["PROJ-1"].Action != Trash {

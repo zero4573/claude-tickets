@@ -26,7 +26,8 @@ exec ct ws gc
 stdout 'remove MAN-1 \(done\)'
 stdout 'removed workspace .*/MAN-1$'
 ! exists home/Projects/work-a/MAN-1
-stderr 'repo has uncommitted changes'
+stderr 'repo not removed'
+stderr 'modified files: file'
 stderr 'kept MAN-2'
 exists home/Projects/work-a/MAN-2/workspace.json
 ! stdout 'merged graph of MAN-3'
@@ -36,7 +37,7 @@ stdout 'pruned graphify snapshots older than a week in 0 graph folder'
 stdout 'follow-ups in .*/inbox/.*-ct-ws-gc-follow-ups.md'
 exec sh -c 'cat home/Documents/Obsidian/a/inbox/*-ct-ws-gc-follow-ups.md'
 stdout '^source-command: ct-ws-gc$'
-stdout '^- \[ \] Clean up the workspace of \[\[MAN-2\]\] \(done\): .* Review it with ct ws diff MAN-2, then ct ws rm MAN-2 \(--force to drop it\) #ct-ws-gc ➕ '
+stdout '^- \[ \] Clean up the workspace of \[\[MAN-2\]\] \(done\): .* Review it with ct ws diff MAN-2, then ct ws rm MAN-2 \(--drop-ignored for ignored files only\) #ct-ws-gc ➕ '
 
 rm home/Projects/work-a/MAN-3/.sessions.json
 exec ct ws gc --days 30

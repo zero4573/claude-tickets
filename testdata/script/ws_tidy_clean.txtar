@@ -20,7 +20,6 @@ stdout 'ct ws: no tidy clones in .*[/\\]tasks$'
 # a merged clone (the same commits as the ticket branch): removed
 mkdir $T
 exec git clone -q $R $C
-exec git -C $C remote set-url origin git@github.com:acme/billing.git
 exec ct ws tidy-clean MAN-1 --dry-run
 stdout 'ct ws: would remove .*tidy-github-acme-billing'
 exists $C
@@ -30,7 +29,6 @@ stdout 'ct ws: removed .*tidy-github-acme-billing'
 
 # an unmerged clone: kept, exit 1
 exec git clone -q $R $C
-exec git -C $C remote set-url origin git@github.com:acme/billing.git
 cp seed/README.md $C/new.txt
 exec git -C $C add new.txt
 exec git -C $C commit -q -m new
@@ -64,7 +62,6 @@ exists $T/github-acme-billing-01
 
 # a clone without the bookmark
 exec git clone -q $R $C
-exec git -C $C remote set-url origin git@github.com:acme/billing.git
 exec git -C $C branch -m feature/tidy other
 ! exec ct ws tidy-clean MAN-1
 stderr 'no bookmark feature/tidy, not removing'
@@ -94,6 +91,21 @@ exec ct ws tidy-clean MAN-1 --force
 stderr 'tidy-clean: no workspace at'
 ! exec ct ws tidy-clean nope
 stderr 'tidy-clean: not a ticket ID'
+
+# a ref that is a link or a FIFO isn't read (a FIFO would block): no bookmark
+exec git clone -q $R $C
+cp $C/.git/refs/heads/feature/tidy ref.txt
+rm $C/.git/refs/heads/feature/tidy
+symlink $C/.git/refs/heads/feature/tidy -> $WORK/ref.txt
+! exec ct ws tidy-clean MAN-1
+stderr 'no bookmark feature/tidy, not removing'
+[!exec:mkfifo] skip 'no mkfifo'
+rm $C/.git/refs/heads/feature/tidy
+exec mkfifo $C/.git/refs/heads/feature/tidy
+! exec ct ws tidy-clean MAN-1
+stderr 'no bookmark feature/tidy, not removing'
+exec ct ws tidy-clean MAN-1 --force
+! exists $C
 
 -- man-1.md --
 ---

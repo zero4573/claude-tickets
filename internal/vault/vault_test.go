@@ -30,3 +30,22 @@ func TestToolVersionsOf(t *testing.T) {
 		}
 	}
 }
+
+func TestLocationsValidate(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	v := filepath.Join(home, "vault")
+	if err := os.MkdirAll(v, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := LocationsOf(v).Validate(); err != nil {
+		t.Errorf("defaults: %v", err)
+	}
+	nested := `{"workRoot":"~/Projects/repos/work","projectsRoot":"~/Projects/repos"}`
+	if err := os.WriteFile(filepath.Join(v, ".workflow.json"), []byte(nested), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := LocationsOf(v).Validate(); err == nil || !strings.Contains(err.Error(), "inside projectsRoot") {
+		t.Errorf("nested workRoot: %v", err)
+	}
+}

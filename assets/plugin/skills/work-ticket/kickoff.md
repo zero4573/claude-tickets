@@ -85,12 +85,10 @@ every ticket in its `covers` list. Those are the children assigned to the user, 
    - **Repos:** multiSelect of your candidates by slug, each with a one-line reason. Mark the
      ones that are `(not cloned)`, and note any existing branch or PR for this ticket. The
      user can add others.
-   - If any chosen repo isn't cloned, the sandbox can't clone it (there are no git
-     credentials). Give the user the exact host command, one per repo:
-     `ct ws clone bitbucket/<workspace>/<repo>`. Then ask whether it's done, or whether to go
-     on without that repo. Once `~/Projects/bitbucket/<workspace>/<repo>/.git` exists,
-     `ct ws add` works for it in this session. It makes a shared clone because the new repo's
-     `.git` isn't writable here, and the graph picks it up within about 15 seconds.
+   - A chosen repo that isn't cloned: run `ct ws clone bitbucket/<workspace>/<repo>`
+     yourself (into the repo directory, `ct dir repos`; never clone a repo anywhere else, and never twice), then
+     `ct ws add` it (step 4). If the clone fails, say why and ask whether to go on without
+     that repo.
    - For each chosen repo, the **base branch** to branch from. Offer the likely ones you
      found with `git -C ~/Projects/<provider>/<owner>/<repo> branch -r`, e.g. `develop`,
      `main`, `release/x.y`.

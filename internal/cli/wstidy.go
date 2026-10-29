@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -105,9 +106,10 @@ func tidyUnmerged(repos map[string]workspace.Repo, slug, path string) string {
 	if _, err := os.Stat(filepath.Join(path, ".git")); err != nil {
 		return "no bookmark " + r.Branch
 	}
-	sha, err := gitx.Out(path, "rev-parse", "--verify", "-q", "refs/heads/"+r.Branch+"^{commit}")
-	sha = strings.TrimSpace(sha)
-	if err != nil || sha == "" {
+	// read the ref in Go: the scratch clone's origin is the worktree's local
+	// path, which ct's host git refuses to run in
+	sha := readBranchRef(filepath.Join(path, ".git"), r.Branch)
+	if sha == "" {
 		return "no bookmark " + r.Branch
 	}
 	if !gitx.Ok(r.Path, "merge-base", "--is-ancestor", sha, "refs/heads/"+r.Branch) {
@@ -118,4 +120,63 @@ func tidyUnmerged(repos map[string]workspace.Repo, slug, path string) string {
 		return fmt.Sprintf("bookmark %s isn't on %s", short, r.Branch)
 	}
 	return ""
+}
+
+// readBranchRef is the commit refs/heads/<branch> names in the git dir, from
+// the loose ref or packed-refs, "" when there is none (or the dir isn't one).
+func readBranchRef(gitDir, branch string) string {
+	if fi, err := os.Lstat(gitDir); err != nil || !fi.IsDir() {
+		return ""
+	}
+	ref := "refs/heads/" + branch
+	if b, ok := readRefFile(filepath.Join(gitDir, filepath.FromSlash(ref)), 1<<10); ok {
+		if sha := strings.TrimSpace(string(b)); isHexSHA(sha) {
+			return sha
+		}
+	}
+	b, ok := readRefFile(filepath.Join(gitDir, "packed-refs"), 64<<20)
+	if !ok {
+		return ""
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		if sha, name, ok := strings.Cut(strings.TrimSpace(line), " "); ok && name == ref && isHexSHA(sha) {
+			return sha
+		}
+	}
+	return ""
+}
+
+// readRefFile reads a file of the scratch clone (which a session can
+// write) only when it is a regular file, not a link, FIFO or device, of at
+// most max bytes; the file opened must be the one checked.
+func readRefFile(path string, max int64) ([]byte, bool) {
+	fi, err := os.Lstat(path)
+	if err != nil || !fi.Mode().IsRegular() || fi.Size() > max {
+		return nil, false
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, false
+	}
+	defer f.Close()
+	if st, err := f.Stat(); err != nil || !os.SameFile(fi, st) {
+		return nil, false
+	}
+	b, err := io.ReadAll(io.LimitReader(f, max+1))
+	if err != nil || int64(len(b)) > max {
+		return nil, false
+	}
+	return b, true
+}
+
+func isHexSHA(s string) bool {
+	if len(s) != 40 && len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if !strings.ContainsRune("0123456789abcdef", c) {
+			return false
+		}
+	}
+	return true
 }

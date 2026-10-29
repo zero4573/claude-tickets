@@ -15,9 +15,9 @@ import (
 
 func wsMarkCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "mark <ID> <docs|tidy> [<slug>...]",
-		Short: "Record that docs or tidy were done at the repos' current commit",
-		Long: `Records HEAD, its tree and the time as the ticket's docs or tidy mark of
+		Use:   "mark <ID> <tidy> [<slug>...]",
+		Short: "Record that tidy was done at the repos' current commit",
+		Long: `Records HEAD, its tree and the time as the ticket's tidy mark of
 the named repos (default: all of the workspace). A repo with uncommitted
 changes is skipped with a warning, and the command exits 1. ct ws marks
 shows where the marks stand; /tickets:save checks them before it pushes.`,
@@ -46,7 +46,7 @@ func wsMark(ctx vault.Context, key, kind string, slugs []string) error {
 		return err
 	}
 	if !workspace.ValidMark(kind) {
-		return fmt.Errorf("mark: unknown kind '%s' (docs or tidy)", kind)
+		return fmt.Errorf("mark: unknown kind '%s' (tidy)", kind)
 	}
 	dir := filepath.Join(ctx.WorkRoot, key)
 	if _, err := os.Stat(workspace.File(dir)); err != nil {
@@ -146,10 +146,10 @@ func wsMarkStates(repos []workspace.Repo) []markState {
 func wsMarksCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "marks <ID>",
-		Short: "Show whether docs and tidy were done after each repo's last commit",
-		Long: `One line per repo: <slug> docs <ok|stale|none> tidy <ok|stale|none>. ok:
+		Short: "Show whether tidy was done after each repo's last commit",
+		Long: `One line per repo: <slug> tidy <ok|stale|none>. ok:
 the marked tree is the repo's current one; stale: commits came after the
-mark; none: not marked (ct ws mark). Exits 0 when every repo is ok for both,
+mark; none: not marked (ct ws mark). Exits 0 when every repo is ok,
 else 3.`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeWorkspaceID,
@@ -168,9 +168,9 @@ else 3.`,
 			all := true
 			for _, st := range wsMarkStates(wsRepos(ctx, key)) {
 				if st.Missing {
-					fmt.Printf("%s docs missing tidy missing\n", st.Repo.Slug)
+					fmt.Printf("%s tidy missing\n", st.Repo.Slug)
 				} else {
-					fmt.Printf("%s docs %s tidy %s\n", st.Repo.Slug, st.Status[workspace.MarkDocs], st.Status[workspace.MarkTidy])
+					fmt.Printf("%s tidy %s\n", st.Repo.Slug, st.Status[workspace.MarkTidy])
 				}
 				all = all && st.ok()
 			}

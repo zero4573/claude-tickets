@@ -68,9 +68,10 @@ func CommandPlugin(plugin string, dirs ...string) []string {
 
 // WriteSettings writes <dir>/.claude/settings.json, which Claude reads as
 // the project settings:
-//   - what the ticket system needs: the main clones (projectsRoot) and the
-//     cache are never edited (// marks an absolute path in a rule), plus
-//     extraDeny
+//   - what the ticket system needs: the graph cache is never edited (//
+//     marks an absolute path in a rule), plus extraDeny (ReposReadOnly for
+//     sessions that only read the repos). Ticket sessions may write the
+//     repo directory: they clone repos into it and add worktrees.
 //   - the workspace's own Go caches (GoEnv), so a session (in its
 //     container) fetches and builds Go modules there
 //   - a 10-minute MCP_TIMEOUT, so a slow code graph server comes up late
@@ -83,12 +84,10 @@ func CommandPlugin(plugin string, dirs ...string) []string {
 // It never sets PATH: a dev workspace's built ct goes first on the PATH
 // the session starts with (launcher.Session's PathFirst), not on a copy of
 // ct's own.
-func WriteSettings(dir, projectsRoot string, extraDeny ...string) error {
+func WriteSettings(dir string, extraDeny ...string) error {
 	var deny []any
-	for _, p := range []string{projectsRoot, config.CacheDir()} {
-		for _, tool := range []string{"Edit", "Write", "NotebookEdit"} {
-			deny = append(deny, fmt.Sprintf("%s(/%s/**)", tool, p))
-		}
+	for _, tool := range []string{"Edit", "Write", "NotebookEdit"} {
+		deny = append(deny, fmt.Sprintf("%s(/%s/**)", tool, config.CacheDir()))
 	}
 	for _, r := range extraDeny {
 		deny = append(deny, r)
@@ -120,6 +119,16 @@ func WriteSettings(dir, projectsRoot string, extraDeny ...string) error {
 		return err
 	}
 	return writeJSON(filepath.Join(dir, ".claude", "settings.json"), settings)
+}
+
+// ReposReadOnly is the deny rules that keep a session's file tools out of
+// every repo of the repo directory (<projectsRoot>/<provider>/<owner>/<repo>).
+func ReposReadOnly(projectsRoot string) []string {
+	var deny []string
+	for _, tool := range []string{"Edit", "Write", "NotebookEdit"} {
+		deny = append(deny, fmt.Sprintf("%s(/%s/**)", tool, filepath.Join(projectsRoot, "*", "*", "*")))
+	}
+	return deny
 }
 
 // CacheDir is a workspace's cache folder, <dir>/.cache: Go's module and

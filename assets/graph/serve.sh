@@ -7,7 +7,7 @@
 # merged graph up to date and exits: ct start runs that before the session,
 # so the server finds the graph current and is up within Claude's MCP
 # startup timeout. Expects:
-#   PROJECT_ROOT   the ticket or kb workspace (read-write)
+#   PROJECT_ROOT   the ticket or spec workspace (read-write)
 #   PROJECTS_ROOT  the main clones (read-only)
 # Run from the image (env set there) or from its unpacked rootfs (podman
 # --rootfs, which doesn't apply the image's env), so it sets its own.

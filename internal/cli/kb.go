@@ -90,7 +90,7 @@ func kb(ctx vault.Context, question string, cont, print, fetch bool) error {
 	// The exploration clones (in this directory) are the session's own, so it
 	// may edit, build and test in them. The main clones stay untouched, and
 	// nothing is committed or pushed.
-	if err := session.WriteSettings(dir, ctx.ProjectsRoot, "Bash(git commit:*)", "Bash(git push:*)"); err != nil {
+	if err := session.WriteSettings(dir, append(session.ReposReadOnly(ctx.ProjectsRoot), "Bash(git commit:*)", "Bash(git push:*)")...); err != nil {
 		return err
 	}
 	writeToolVersions(ctx, dir)

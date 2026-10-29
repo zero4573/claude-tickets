@@ -17,7 +17,6 @@ import (
 	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/modelcache"
 	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/repo"
 	"github.com/zero4573/claude-tickets/internal/session"
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/workspace"
@@ -142,6 +141,7 @@ continues the workspace's last conversation instead.
 	f.BoolVarP(&o.cont, "continue", "c", false, continueHelp)
 	return cmd
 }
+
 // completeOneID completes a single ticket ID: ct start and ct feedback take one.
 func completeOneID(list func(vault.Context) []note.Ticket) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 	ids := completeIDs(list)
@@ -152,7 +152,6 @@ func completeOneID(list func(vault.Context) []note.Ticket) func(*cobra.Command, 
 		return ids(cmd, args, s)
 	}
 }
-
 
 // linkTarget strips a frontmatter link's brackets and quotes: [[PROJ-1]] -> PROJ-1.
 func linkTarget(s string) string { return strings.NewReplacer("[", "", "]", "", `"`, "").Replace(s) }
@@ -253,16 +252,12 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 }
 
 // sessionDirs is what a ticket session works in, given to claude as
-// --add-dir: the vault, the main clones (read-only to sessions:
-// session.WriteSettings), each main clone's .git (writable, so ct ws add can
-// create worktrees and branches), the graph image cache and the embedding
-// model cache (both read-only; each is added only when it exists).
+// --add-dir: the vault, the repo directory (writable: ct ws clone and ct ws
+// add's worktrees; one --add-dir, not one per repo, which would grow every
+// session's context), the graph image cache and the embedding model cache
+// (both read-only; each is added only when it exists).
 func sessionDirs(ctx vault.Context) []string {
-	dirs := []string{ctx.Vault, ctx.ProjectsRoot}
-	for _, c := range repo.MainClones(ctx.ProjectsRoot) {
-		dirs = append(dirs, filepath.Join(ctx.ProjectsRoot, c, ".git"))
-	}
-	return append(dirs, filepath.Join(config.CacheDir(), "graphify"), modelcache.Dir())
+	return []string{ctx.Vault, ctx.ProjectsRoot, filepath.Join(config.CacheDir(), "graphify"), modelcache.Dir()}
 }
 
 // refuseRunning keeps a second session out of a workspace whose session
@@ -322,7 +317,7 @@ func prepareTicketSession(ctx vault.Context, key string, dirs []string, mode dev
 	if err != nil {
 		return "", nil, nil, err
 	}
-	if err := session.WriteSettings(dir, ctx.ProjectsRoot); err != nil {
+	if err := session.WriteSettings(dir); err != nil {
 		return "", nil, nil, err
 	}
 	writeToolVersions(ctx, dir)

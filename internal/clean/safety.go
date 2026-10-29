@@ -36,6 +36,11 @@ func safety(o Options, id, status string, dirs []string) (reason, task string) {
 					"[[%s]] (%s): %s has uncommitted changes in %s. Commit or drop them (ct ws diff %s), push, then ct clean %s",
 					id, status, r.Path, ws, ws, id)
 			}
+			if sub := gitx.PopulatedSubmodule(r.Path); sub != "" {
+				return "submodule checked out in " + r.Slug, fmt.Sprintf(
+					"[[%s]] (%s): %s has a submodule checked out at %s, whose work ct doesn't check. Check it by hand (commit and push its work, or deinit it), then ct clean %s (ct ws rm has no override for this stop)",
+					id, status, r.Path, sub, id)
+			}
 			if lost, err := gitx.Lost(r.Path, r.Base); err != nil || lost {
 				return "commits on no remote in " + r.Slug, fmt.Sprintf(
 					"[[%s]] (%s): %s has commits that aren't on any remote (or a stash). Push them (/tickets:save in ct start %s, or git push on the host), then ct clean %s",

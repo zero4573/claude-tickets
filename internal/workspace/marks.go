@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// Mark records the point where a step (docs, tidy) was done in a repo.
+// Mark records the point where a step (tidy) was done in a repo.
 type Mark struct {
 	Commit string `json:"commit"`
 	Tree   string `json:"tree"`
@@ -14,15 +14,15 @@ type Mark struct {
 
 // Mark kinds.
 const (
-	MarkDocs = "docs"
 	MarkTidy = "tidy"
 )
 
-// MarkKinds lists the kinds in the order they are shown.
-var MarkKinds = []string{MarkDocs, MarkTidy}
+// MarkKinds lists the kinds in the order they are shown. An entry of another
+// kind in workspace.json (an old docs mark) is ignored.
+var MarkKinds = []string{MarkTidy}
 
 // ValidMark reports whether kind is a mark kind.
-func ValidMark(kind string) bool { return kind == MarkDocs || kind == MarkTidy }
+func ValidMark(kind string) bool { return kind == MarkTidy }
 
 // Mark states.
 const (

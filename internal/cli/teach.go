@@ -156,7 +156,7 @@ func teach(ctx vault.Context, topic string, cont bool) error {
 	if err := session.Trust(dir); err != nil {
 		warnf("couldn't mark %s as trusted in %s: %v", dir, session.ClaudeConfig(), err)
 	}
-	if err := session.WriteSettings(dir, ctx.ProjectsRoot, "Bash(git commit:*)", "Bash(git push:*)"); err != nil {
+	if err := session.WriteSettings(dir, append(session.ReposReadOnly(ctx.ProjectsRoot), "Bash(git commit:*)", "Bash(git push:*)")...); err != nil {
 		return err
 	}
 	writeToolVersions(ctx, dir)

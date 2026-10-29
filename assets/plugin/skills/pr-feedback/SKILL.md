@@ -56,10 +56,9 @@ with other tools or workspaces.
 4. For a matching PR whose repo has **no worktree** yet, add one on the PR's
    own branch:
    `ct ws add <ID> bitbucket/<workspace>/<repo> --base <destination> --branch <source>`.
-   If the repo isn't cloned under `~/Projects/bitbucket/<workspace>/`, give
-   the user the host command, `ct ws clone bitbucket/<workspace>/<repo>`,
-   and ask whether it's done. Once it is, add it as above (it becomes a
-   shared clone). If the user skips it, list the PR as skipped.
+   If the repo isn't cloned (`ct ws repos`), run
+   `ct ws clone bitbucket/<workspace>/<repo>` yourself, then add it as above.
+   If the clone fails, list the PR as skipped and say why.
 5. **Sync the worktree with the PR.**
    - Compare `git -C <worktree> rev-parse HEAD` with the PR's
      `source.commit.hash` (Bitbucket gives a short hash, so match the

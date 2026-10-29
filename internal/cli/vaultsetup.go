@@ -612,7 +612,7 @@ a name under ~/Documents/Obsidian or a path; default: the current vault.
 
 Sections (all of them unless --section is given):
   locations  .workflow.json: where the vault's tools work
-               workRoot      ticket and kb workspaces (~/Projects/work-<vault>)
+               workRoot      ticket and spec workspaces (~/Projects/work-<vault>)
                projectsRoot  main clones (~/Projects/repo-<vault>)
              A folder that is the same as, inside, or around another
              vault's folder (or this vault's other one) is shown with what
@@ -759,7 +759,7 @@ func configureLocations(v, file string, o setupOpts) error {
 	}
 	for {
 		if !o.defaults {
-			w = config.ExpandHome(prompt.Ask("  workRoot: ticket and kb workspaces", config.TildePath(w)))
+			w = config.ExpandHome(prompt.Ask("  workRoot: ticket and spec workspaces", config.TildePath(w)))
 			p = config.ExpandHome(prompt.Ask("  projectsRoot: main clones", config.TildePath(p)))
 		}
 		var overlaps []string
@@ -813,7 +813,7 @@ func configureLocations(v, file string, o setupOpts) error {
 		break
 	}
 	if err := config.WriteJSON(file, workflowFile{
-		Comment:      "Where the ticket tools of this vault work: workRoot holds the ticket and kb workspaces, projectsRoot the main clones (vaults may share it). Change them with ct vault configure --section locations, which checks for overlaps with other vaults.",
+		Comment:      "Where the ticket tools of this vault work: workRoot holds the ticket and spec workspaces, projectsRoot the main clones (vaults may share it). Change them with ct vault configure --section locations, which checks for overlaps with other vaults.",
 		WorkRoot:     config.TildePath(w),
 		ProjectsRoot: config.TildePath(p),
 	}); err != nil {

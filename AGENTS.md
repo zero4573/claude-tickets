@@ -27,8 +27,13 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
   in the README's Configuration table and the home-manager module
   (`nix/home.nix`).
 - **No workflow opinions in the defaults.** Only what the ticket system
-  needs to work goes in `session.WriteSettings` (today: main clones and
-  the graph cache are never edited). Everything else (git rules, MCP cost
+  needs to work goes in `session.WriteSettings` (today: the graph cache is
+  never edited; spec and teach sessions also keep out of the repos; the repo
+  directory is writable, protected on the host by the sandbox's read-only
+  `.git/hooks`, `.git/config` and pointer files of existing clones and by `gitx.Command`, which
+  every ct git call uses: git runs with hooks, fsmonitor, sshCommand, credential helpers and
+  signing off, refuses non-lfs filters, and diff/log that read patches pass `--no-ext-diff
+  --no-textconv`). Everything else (git rules, MCP cost
   guards) is the user's, through `CLAUDE_TICKETS_SESSION_SETTINGS`, and
   recommended in the README.
 - **Plugin names are namespaced:** skills are `/tickets:<skill>`, agents

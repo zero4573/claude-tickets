@@ -6,7 +6,7 @@ env M=home/Projects/repo-a/github/acme/x
 mkdir $V/.obsidian $V/inbox
 cp empty $V/pending.md
 cp empty $V/tickets.base
-exec sh -c 'cd home/Documents/Obsidian/a && for t in PROJ-70 PROJ-71 PROJ-72 PROJ-73 PROJ-74 MAN-70 MAN-71; do mkdir -p tickets/$t; sed "s/ID/$t/" $WORK/synced.md > tickets/$t/$t.md; done'
+exec sh -c 'cd home/Documents/Obsidian/a && for t in PROJ-70 PROJ-71 PROJ-72 PROJ-73 PROJ-74 PROJ-75 MAN-70 MAN-71; do mkdir -p tickets/$t; sed "s/ID/$t/" $WORK/synced.md > tickets/$t/$t.md; done'
 cp manual-lead.md $V/tickets/MAN-70/MAN-70.md
 cp manual-covered.md $V/tickets/MAN-71/MAN-71.md
 
@@ -41,6 +41,32 @@ exec git -C $M merge -q --squash feature/PROJ-73
 exec git -C $M commit -q -m 'PROJ-73 (squashed)'
 exec git -C $M push -q origin HEAD:main
 exec git -C $M push -q origin --delete feature/PROJ-73
+# its ignored .env (local secrets) is the user's: removal moves it to the vault's .trash/
+cp envignore $M/.git/info/exclude
+cp secret $W/PROJ-73/x/.env
+mkdir $W/PROJ-73/x/node_modules/a
+cp secret $W/PROJ-73/x/node_modules/a/b.js
+exec git init -q $W/PROJ-73/x/node_modules/inner
+exec git -C $W/PROJ-73/x/node_modules/inner -c user.name=a -c user.email=a@example.com commit -q --allow-empty -m nested
+# a clean clone under a dependency folder: its remote holds its history
+exec git clone -q $WORK/$W/PROJ-73/x/node_modules/inner $WORK/$W/PROJ-73/x/node_modules/dep
+exec git -C $W/PROJ-73/x/node_modules/dep remote set-url origin https://example.invalid/dep.git
+# a clone on a detached HEAD with a commit no remote has keeps its commit
+exec git clone -q $WORK/$W/PROJ-73/x/node_modules/inner $WORK/$W/PROJ-73/x/node_modules/dep2
+exec git -C $W/PROJ-73/x/node_modules/dep2 remote set-url origin https://example.invalid/dep2.git
+exec git -C $W/PROJ-73/x/node_modules/dep2 checkout -q --detach
+exec git -C $W/PROJ-73/x/node_modules/dep2 -c user.name=a -c user.email=a@example.com commit -q --allow-empty -m detached
+# a clone with an ignored file of its own (local secrets) keeps it; its own
+# ignored build output doesn't count
+exec git clone -q $WORK/$W/PROJ-73/x/node_modules/inner $WORK/$W/PROJ-73/x/node_modules/dep3
+exec git -C $W/PROJ-73/x/node_modules/dep3 remote set-url origin https://example.invalid/dep3.git
+cp envignore $W/PROJ-73/x/node_modules/dep3/.git/info/exclude
+cp secret $W/PROJ-73/x/node_modules/dep3/.env
+exec git clone -q $WORK/$W/PROJ-73/x/node_modules/inner $WORK/$W/PROJ-73/x/node_modules/dep4
+exec git -C $W/PROJ-73/x/node_modules/dep4 remote set-url origin https://example.invalid/dep4.git
+cp envignore $W/PROJ-73/x/node_modules/dep4/.git/info/exclude
+mkdir $W/PROJ-73/x/node_modules/dep4/node_modules/z
+cp secret $W/PROJ-73/x/node_modules/dep4/node_modules/z/index.js
 # PROJ-74: pushed, never merged, its remote branch deleted: its work is lost with it
 exec git -C $M worktree add -q -b feature/PROJ-74 $WORK/$W/PROJ-74/x
 cp dirt $W/PROJ-74/x/w74.txt
@@ -49,11 +75,18 @@ exec git -C $W/PROJ-74/x commit -q -m w74
 exec git -C $W/PROJ-74/x push -q origin HEAD:feature/PROJ-74
 exec git -C $M push -q origin --delete feature/PROJ-74
 exec git -C $M fetch -q --prune origin
+# PROJ-75: pushed, but an initialized submodule holds a local commit that
+# ct's status doesn't see
+exec git -C $M worktree add -q -b feature/PROJ-75 $WORK/$W/PROJ-75/x
+exec git -C $W/PROJ-75/x submodule add -q git@example.invalid:remote.git lib
+exec git -C $W/PROJ-75/x -c user.name=a -c user.email=a@example.com commit -q -m lib
+exec git -C $W/PROJ-75/x push -q origin HEAD:feature/PROJ-75
+exec git -C $W/PROJ-75/x/lib -c user.name=a -c user.email=a@example.com commit -q --allow-empty -m local
 # MAN-70 lead (closed) with dirty workspace; MAN-71 covered (closed)
 exec git -C $M worktree add -q -b feature/MAN-70 $WORK/$W/MAN-70/x
 cp dirt $W/MAN-70/x/new.txt
-exec sh -c 'for t in PROJ-70 PROJ-71 PROJ-72 PROJ-73 PROJ-74 MAN-70; do sed "s/ID/$t/g" ws.json > $W/$t/workspace.json; done'
-expand $W/PROJ-70/workspace.json $W/PROJ-71/workspace.json $W/PROJ-72/workspace.json $W/PROJ-73/workspace.json $W/PROJ-74/workspace.json $W/MAN-70/workspace.json
+exec sh -c 'for t in PROJ-70 PROJ-71 PROJ-72 PROJ-73 PROJ-74 PROJ-75 MAN-70; do sed "s/ID/$t/g" ws.json > $W/$t/workspace.json; done'
+expand $W/PROJ-70/workspace.json $W/PROJ-71/workspace.json $W/PROJ-72/workspace.json $W/PROJ-73/workspace.json $W/PROJ-74/workspace.json $W/PROJ-75/workspace.json $W/MAN-70/workspace.json
 
 exec sh -c 'find home/Documents home/Projects remote.git -printf "%p %T@ %s %m\n" | sort'
 cp stdout before.txt
@@ -68,16 +101,51 @@ stdout 'PROJ-71 \(closed\): skip: commits on no remote in x'
 stdout 'PROJ-72 \(closed\): skip: session running \(PROJ-72\)'
 stdout 'PROJ-73 \(closed\): remove the workspace; move to .trash/PROJ-73'
 stdout 'PROJ-74 \(closed\): skip: commits on no remote in x'
+stdout 'PROJ-75 \(closed\): skip: submodule checked out in x'
 stdout 'MAN-70 \(closed\): skip: uncommitted changes in x'
 stdout 'MAN-71 \(closed\): skip: uncommitted changes in x'
+
+# a nested repository that can't move keeps the worktree, and the warning
+# says what already went to the trash
+mkdir $V/.trash/PROJ-73-ignored-files/x
+cp empty $V/.trash/PROJ-73-ignored-files/x/node_modules
+! exec ct clean --yes PROJ-73
+stderr 'not removed: couldn''t move its nested repository .*; its ignored files were already copied to .*/\.trash/PROJ-73-ignored-files/x'
+exists $W/PROJ-73/x/node_modules/inner/.git
+exists $W/PROJ-73/x/.env
+rm $V/.trash/PROJ-73-ignored-files/x/node_modules
 
 # The squash-merged one goes; its branch stays in the main clone
 exec ct clean --yes PROJ-73
 stdout 'PROJ-73: removed its workspace; moved to .trash/PROJ-73'
 ! exists $W/PROJ-73
+stdout 'ignored files moved to .*/\.trash/PROJ-73-ignored-files/x: \.env'
+grep '^changed$' $V/.trash/PROJ-73-ignored-files/x/.env
+stdout 'removed without a copy .*: node_modules/a/b.js'
+stdout 'nested repositories moved to the trash: .*node_modules/inner/ -> .*/\.trash/PROJ-73-ignored-files/x/node_modules/inner'
+exists $V/.trash/PROJ-73-ignored-files/x/node_modules/inner/.git
+stdout 'nested repositories removed with it \(clean clones under a build or dependency folder\): node_modules/dep/, node_modules/dep4/$'
+! exists $V/.trash/PROJ-73-ignored-files/x/node_modules/dep
+! exists $V/.trash/PROJ-73-ignored-files/x/node_modules/dep4
+stdout 'node_modules/dep2/ -> .*/\.trash/PROJ-73-ignored-files/x/node_modules/dep2'
+stdout 'node_modules/dep3/ -> .*/\.trash/PROJ-73-ignored-files/x/node_modules/dep3'
+exec git -C $V/.trash/PROJ-73-ignored-files/x/node_modules/dep2 log -1 --format=%s
+stdout '^detached$'
+grep '^changed$' $V/.trash/PROJ-73-ignored-files/x/node_modules/dep3/.env
+! exists $V/.trash/PROJ-73-ignored-files/x/node_modules/a
 exec git -C $M rev-parse --verify -q refs/heads/feature/PROJ-73
 
+# the one with the submodule stays, with the same reason on a real run
+! exec ct clean --yes PROJ-75
+stdout 'PROJ-75.*submodule checked out in x'
+exists $W/PROJ-75/x/lib/.git
+
 -- empty --
+-- envignore --
+.env
+node_modules/
+-- secret --
+changed
 -- dirt --
 changed
 -- running.json --

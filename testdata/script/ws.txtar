@@ -32,9 +32,15 @@ exists home/Projects/repo-a/github/acme/billing/.git
 mkdir outside
 symlink home/Projects/repo-a/github/evil -> $WORK/outside
 ! exec ct ws clone github/evil/billing
-stderr 'outside <provider>/<owner> under'
+stderr 'outside '
 ! exists outside/billing
 rm home/Projects/repo-a/github/evil
+# a provider folder symlinked out: nothing is created behind it
+symlink home/Projects/repo-a/gitlab -> $WORK/outside
+! exec ct ws clone gitlab/evil/billing --url git@gitlab.com:evil/billing.git
+stderr 'outside .*home.Projects.repo-a'
+! exists outside/evil
+rm home/Projects/repo-a/gitlab
 # a vault whose workRoot sits inside its projectsRoot is refused
 cp nested-workflow.json home/Documents/Obsidian/a/.workflow.json
 ! exec ct ws clone github/acme/other
@@ -128,14 +134,29 @@ stderr 'no main clone .nope.'
 
 # rm: refuses uncommitted changes, and unpushed commits in a shared clone
 ! exec ct ws rm MAN-1
-stderr 'github-acme-billing has uncommitted changes, not removing'
+stderr 'github-acme-billing not removed'
+stderr 'untracked files: untracked.txt'
 exists home/Projects/work-a/MAN-1/workspace.json
 rm home/Projects/work-a/MAN-1/github-acme-billing/untracked.txt
 mkdir home/Projects/work-a/MAN-1/github-acme-billing/graphify-out
 # the Go module cache (read-only folders, as go leaves them) goes too
 mkdir home/Projects/work-a/MAN-1/.cache/go/pkg/mod/example.com/m@v1/sub
 chmod 0555 home/Projects/work-a/MAN-1/.cache/go/pkg/mod/example.com/m@v1
+# the .env the add seeded is unchanged: rm goes on; a changed one, or another ignored file, stops it
+cp change.txt home/Projects/work-a/MAN-1/github-acme-billing/.env
+! exec ct ws rm MAN-1
+stderr 'ignored files that removing it would delete: \.env \('
+cp env home/Projects/work-a/MAN-1/github-acme-billing/.env
+cp env home/Projects/work-a/MAN-1/github-acme-billing/other.env
+cp exclude-other home/Projects/repo-a/github/acme/billing/.git/info/exclude
+! exec ct ws rm MAN-1
+stderr 'ignored files that removing it would delete: other\.env \('
+! stderr 'delete: \.env'
+exists home/Projects/work-a/MAN-1/github-acme-billing/.env
+rm home/Projects/work-a/MAN-1/github-acme-billing/other.env
+cp env home/Projects/work-a/MAN-1/github-acme-billing/.env
 exec ct ws rm MAN-1
+! stdout 'ignored files removed'
 stdout 'removed .*/MAN-1/github-acme-billing \(branch feature/fix-the-thing kept\)'
 stdout 'removed workspace .*/work-a/MAN-1$'
 ! exists home/Projects/work-a/MAN-1
@@ -151,25 +172,159 @@ exec git -C home/Projects/work-a/MAN-2/github-acme-billing add side.txt
 exec git -C home/Projects/work-a/MAN-2/github-acme-billing commit -q -m side
 exec git -C home/Projects/work-a/MAN-2/github-acme-billing checkout -q feature/MAN-2
 ! exec ct ws rm MAN-2
-stderr 'commits that aren.t on origin or stashed changes'
+stderr 'commits that aren.t on origin or stashed changes: [0-9a-f]+ side'
 exists home/Projects/work-a/MAN-2/github-acme-billing/.git
 
 cp change.txt home/Projects/work-a/MAN-2/github-acme-billing/mine.txt
 exec git -C home/Projects/work-a/MAN-2/github-acme-billing add mine.txt
 exec git -C home/Projects/work-a/MAN-2/github-acme-billing commit -q -m mine
 ! exec ct ws rm MAN-2
-stderr 'commits that aren.t on origin or stashed changes'
-exec ct ws rm MAN-2 --force
+stderr 'commits that aren.t on origin or stashed changes: .*mine'
+# --force never skips unpushed work: push it, then rm goes on
+! exec ct ws rm MAN-2 --force
+stderr 'commits that aren.t on origin'
+exec git -C home/Projects/work-a/MAN-2/github-acme-billing push -q origin side feature/MAN-2
+exec ct ws rm MAN-2
 stdout 'removed .*/MAN-2/github-acme-billing \(shared clone\)'
 ! exists home/Projects/work-a/MAN-2
 
 ! exec ct ws rm MAN-9
 stderr 'no workspace at'
 
-# once MAN-1's workspace is gone, its manual branch name is free again
+# --force doesn't remove a dirty worktree
+cp change.txt home/Projects/work-a/MAN-1/github-acme-billing/dirty.txt
+! exec ct ws rm MAN-1
+stderr 'untracked files: dirty.txt'
+! exec ct ws rm MAN-1 --force
+stderr 'untracked files: dirty.txt'
+rm home/Projects/work-a/MAN-1/github-acme-billing/dirty.txt
 exec ct ws rm MAN-1
+! exists home/Projects/work-a/MAN-1
+
+# once MAN-1's workspace is gone, its manual branch name is free again
 exec ct ws add MAN-5 github-acme-billing --base main --desc 'Fix the Thing'
 grep '"branch": "feature/fix-the-thing"' home/Projects/work-a/MAN-5/workspace.json
+
+# rm sees untracked files whatever status.showUntrackedFiles says
+exec ct ws add MAN-6 github-acme-billing --base main --desc six
+env W=home/Projects/work-a/MAN-6/github-acme-billing
+cp change.txt $W/untracked.txt
+exec git -C $W config status.showUntrackedFiles no
+! exec ct ws rm MAN-6
+stderr 'github-acme-billing not removed'
+stderr 'untracked files: untracked.txt \(commit or stash them\)'
+! stderr 'submodule'
+exists $W/untracked.txt
+exec git -C $W config --unset status.showUntrackedFiles
+rm $W/untracked.txt
+
+# rm keeps a worktree with a submodule checked out: ct's status doesn't
+# look inside it, and its git dir goes with the worktree
+exec git -C $W submodule add -q git@github.com:acme/billing.git lib
+exec git -C $W -c user.name=a -c user.email=a@example.com commit -q -m lib
+cp change.txt $W/lib/new.txt
+exec git -C $W/lib add new.txt
+exec git -C $W/lib -c user.name=a -c user.email=a@example.com commit -q -m new
+cp change.txt $W/lib/untracked.txt
+! exec ct ws rm MAN-6
+stderr 'a submodule checked out at lib, whose work ct doesn.t check \(check it by hand\)'
+! stderr 'modified files'
+exists $W/lib/untracked.txt
+exec git -C $W rm -q --cached lib
+exec git -C $W -c user.name=a -c user.email=a@example.com commit -q -m 'no gitlink'
+cp exclude-lib home/Projects/repo-a/github/acme/billing/.git/info/exclude
+! exec ct ws rm MAN-6
+stderr 'a submodule checked out at .*[/\\]modules[/\\]lib, whose'
+# nothing forces past a submodule: its git dir is removed by hand
+! exec ct ws rm MAN-6 --force
+stderr 'a submodule checked out'
+rm home/Projects/repo-a/github/acme/billing/.git/worktrees/github-acme-billing1/modules
+exec ct ws rm MAN-6 --drop-ignored
+stdout 'removed .*/MAN-6/github-acme-billing \(branch feature/six kept\); ignored files removed with it: lib/'
+! exists $W
+
+# so does one with a nested repository committed as a gitlink
+exec ct ws add MAN-7 github-acme-billing --base main --desc seven
+env W=home/Projects/work-a/MAN-7/github-acme-billing
+exec git init -q $W/inner
+exec git -C $W/inner -c user.name=a -c user.email=a@example.com commit -q --allow-empty -m x
+exec git -C $W add inner
+exec git -C $W -c user.name=a -c user.email=a@example.com commit -q -m inner
+! exec ct ws rm MAN-7
+stderr 'a submodule checked out at inner,'
+rm $W/inner/.git
+# a repository in an ignored folder: rm refuses, naming it and its unpushed commits
+mkdir $W/lib
+exec git init -q $W/lib/inner
+exec git -C $W/lib/inner -c user.name=a -c user.email=a@example.com commit -q --allow-empty -m nestedwork
+! exec ct ws rm MAN-7
+stderr 'ignored folders that hold a git repository: lib/inner/ \(unpushed: [0-9a-f]+ nestedwork\)'
+exists $W/lib/inner/.git
+# --drop-ignored moves it whole to the trash (the .env check below comes after)
+exec ct ws rm MAN-7 --drop-ignored
+stdout 'nested repositories moved to the trash: lib/inner/ -> .*/\.trash/MAN-7-ignored-files/github-acme-billing/lib/inner'
+exists home/Documents/Obsidian/a/.trash/MAN-7-ignored-files/github-acme-billing/lib/inner/.git
+! exists $W
+exec ct ws add MAN-7 github-acme-billing --base main --desc seven
+# a changed .env is the user's: rm names it and keeps the tree
+cp change.txt $W/.env
+! exec ct ws rm MAN-7
+stderr 'ignored files that removing it would delete: \.env \(keep them, or use --drop-ignored\)'
+exists $W/.env
+exec ct ws rm MAN-7 --drop-ignored
+stdout 'removed .*/MAN-7/github-acme-billing \(branch feature/seven kept\); ignored files removed with it: \.env$'
+
+# a refusal lists every guard with its items: modified and untracked files, ignored ones
+# (a seeded file inside an ignored folder counts as unchanged), nothing hidden by the flags
+cp include-cfg home/Projects/repo-a/github/acme/billing/.worktreeinclude
+cp exclude-cfg home/Projects/repo-a/github/acme/billing/.git/info/exclude
+mkdir home/Projects/repo-a/github/acme/billing/cfg
+cp env home/Projects/repo-a/github/acme/billing/cfg/a.txt
+exec ct ws add MAN-10 github-acme-billing --base main --desc ten
+env W=home/Projects/work-a/MAN-10/github-acme-billing
+exists $W/cfg/a.txt
+cp env $W/cfg/b.txt
+cp change.txt $W/README.md
+cp change.txt $W/new.txt
+! exec ct ws rm MAN-10
+stderr 'modified files: README.md \(commit or stash them\)'
+stderr 'untracked files: new.txt \(commit or stash them\)'
+stderr 'ignored files that removing it would delete: cfg/b.txt \('
+! stderr 'cfg/a.txt'
+! exec ct ws rm MAN-10 --drop-ignored
+stderr 'modified files: README.md'
+stderr 'untracked files: new.txt'
+! stderr 'ignored files'
+exists $W/cfg/b.txt
+exec git -C $W checkout -- README.md
+rm $W/new.txt
+! exec ct ws rm MAN-10
+stderr 'ignored files that removing it would delete: cfg/b.txt \('
+! stderr 'modified files'
+exec ct ws rm MAN-10 --drop-ignored
+stdout 'ignored files removed with it: cfg/b.txt$'
+! exists $W
+
+# a shared clone with a changed ignored .env and an unpushed commit: both are named
+exec git clone -q --shared --no-checkout home/Projects/repo-a/github/acme/billing home/Projects/work-a/MAN-11/github-acme-billing
+exec git -C home/Projects/work-a/MAN-11/github-acme-billing checkout -q --no-track -B feature/MAN-11 origin/main
+exec git -C home/Projects/work-a/MAN-11/github-acme-billing remote set-url origin git@github.com:acme/billing.git
+expand ws-man-11.json
+cp ws-man-11.json home/Projects/work-a/MAN-11/workspace.json
+env C=home/Projects/work-a/MAN-11/github-acme-billing
+cp change.txt $C/.env
+cp change.txt $C/lonely.txt
+exec git -C $C add lonely.txt
+exec git -C $C commit -q -m lonely
+! exec ct ws rm MAN-11
+stderr 'ignored files that removing it would delete: \.env \('
+stderr 'commits that aren.t on origin or stashed changes: [0-9a-f]+ lonely \(push them\)'
+! exec ct ws rm MAN-11 --drop-ignored
+stderr 'lonely'
+! stderr 'ignored files'
+exec git -C $C push -q origin feature/MAN-11
+exec ct ws rm MAN-11 --drop-ignored
+stdout 'removed .*/MAN-11/github-acme-billing \(shared clone\); ignored files removed with it: \.env$'
 
 -- gitconfig --
 # Trusted only because it is the user's global config (ct checks a repo's
@@ -198,6 +353,27 @@ grep '"branch": "feature/fix-the-thing"' home/Projects/work-a/MAN-5/workspace.js
     }
   ]
 }
+-- ws-man-11.json --
+{
+  "id": "MAN-11",
+  "repos": [
+    {
+      "provider": "github",
+      "owner": "acme",
+      "repo": "billing",
+      "slug": "github-acme-billing",
+      "path": "$WORK/home/Projects/work-a/MAN-11/github-acme-billing",
+      "base": "main",
+      "branch": "feature/MAN-11",
+      "mode": "clone"
+    }
+  ]
+}
+-- include-cfg --
+.env
+cfg/
+-- exclude-cfg --
+cfg/
 -- man-1.md --
 ---
 summary: First
@@ -211,6 +387,10 @@ status: in-progress
 ---
 -- env --
 SECRET=1
+-- exclude-other --
+other.env
+-- exclude-lib --
+lib/
 -- change.txt --
 changed
 -- seed/README.md --

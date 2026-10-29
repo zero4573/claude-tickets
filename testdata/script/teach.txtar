@@ -44,7 +44,7 @@ grep '^# Teaching session: rust-async$' home/Projects/work-a/.teach-a/rust-async
 grep '^- Topic: `rust-async`. This session writes \*\*only\*\* `.*/Obsidian/a/learning/rust-async/`,$' home/Projects/work-a/.teach-a/rust-async/CLAUDE.md
 grep 'teach-rust-async` around writes' home/Projects/work-a/.teach-a/rust-async/CLAUDE.md
 grep '"Bash\(git commit:\*\)"' home/Projects/work-a/.teach-a/rust-async/.claude/settings.json
-grep '"Edit\(//.*/home/Projects/repo-a/\*\*\)"' home/Projects/work-a/.teach-a/rust-async/.claude/settings.json
+grep '"Edit\(//.*/home/Projects/repo-a/\*/\*/\*/\*\*\)"' home/Projects/work-a/.teach-a/rust-async/.claude/settings.json
 grep '"hasTrustDialogAccepted": true' home/.claude.json
 exec ct status
 ! stdout 'rust-async'

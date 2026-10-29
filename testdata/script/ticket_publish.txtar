@@ -1,0 +1,296 @@
+# ct ticket publish: the description with its ## Spec change section rebuilt
+# from the ticket's and its covered tickets' spec diffs; nothing is written.
+env GIT_AUTHOR_NAME=x GIT_AUTHOR_EMAIL=x@example.com GIT_COMMITTER_NAME=x GIT_COMMITTER_EMAIL=x@example.com
+env V=home/Documents/Obsidian/a
+env W=home/Projects/work-a
+mkdir $V/.obsidian $V/tickets/jira/PROJ-1 $V/tickets/jira/PROJ-2 $V/tickets/jira/PROJ-3 $W/PROJ-1 $W/PROJ-2 $W/PROJ-3
+cp proj-1.md $V/tickets/jira/PROJ-1/PROJ-1.md
+cp proj-2.md $V/tickets/jira/PROJ-2/PROJ-2.md
+cp proj-3.md $V/tickets/jira/PROJ-3/PROJ-3.md
+expand ws1.json
+cp ws1.json $W/PROJ-1/workspace.json
+expand ws2.json
+cp ws2.json $W/PROJ-2/workspace.json
+expand ws3.json
+cp ws3.json $W/PROJ-3/workspace.json
+exec git init -q -b main $W/PROJ-1/billing
+mkdir $W/PROJ-1/billing/specs/orders
+cp orders-base.md $W/PROJ-1/billing/specs/orders/spec.md
+exec git -C $W/PROJ-1/billing add -A
+exec git -C $W/PROJ-1/billing commit -q -m base
+exec git -C $W/PROJ-1/billing checkout -q -b feature/PROJ-1
+exec git init -q -b main $W/PROJ-2/ledger
+mkdir $W/PROJ-2/ledger/specs/posting
+cp posting-base.md $W/PROJ-2/ledger/specs/posting/spec.md
+exec git -C $W/PROJ-2/ledger add -A
+exec git -C $W/PROJ-2/ledger commit -q -m base
+exec git -C $W/PROJ-2/ledger checkout -q -b feature/PROJ-2
+cp posting-new.md $W/PROJ-2/ledger/specs/posting/spec.md
+cp orders-new.md $W/PROJ-1/billing/specs/orders/spec.md
+
+# replaced in place from the live description; sections around it untouched; the covered ticket's change included
+exec ct ticket publish PROJ-1 --description-file live1.md
+stdout '^Intro text\.$'
+stdout '^## Spec change$'
+stdout '^### github-acme-billing . orders$'
+stdout '^### github-acme-ledger . posting$'
+stdout 'REQ-LED-2'
+! stdout 'stale'
+stdout '^## Notes$'
+stdout '^keep this$'
+stdout '^\*\*Field:\*\* x$'
+stdout '^_No description\._$'
+! stdout 'Recent comments'
+! stdout 'a comment'
+
+# a stdin description that differs from the note is the one rewritten
+stdin live-stdin.md
+exec ct ticket publish PROJ-1 --description-file -
+stdout '^Edited at the source\.$'
+! stdout 'Intro text'
+! stdout 'keep this'
+stdout 'REQ-LED-2'
+
+# --dry-run with a file: old and new section only, not approximate
+exec ct ticket publish PROJ-1 --dry-run --description-file live1.md
+stdout '^--- old ---$'
+stdout '^stale$'
+stdout '^--- new ---$'
+stdout 'REQ-LED-2'
+! stdout 'Intro text'
+! stdout 'approximate'
+
+# --dry-run without a file reads the note and says so
+exec ct ticket publish PROJ-1 --dry-run
+stdout '^\(approximate: '
+stdout '^stale$'
+
+# without a file nothing is printed to publish
+! exec ct ticket publish PROJ-1
+stderr '--description-file'
+! stdout .
+
+# a description without the section gets it appended; nothing changes on disk
+exec ct ticket publish PROJ-3 --description-file live3.md
+stdout '^Plain description\.$'
+stdout '^## Spec change$'
+stdout 'No spec change\.'
+exec ct ticket publish PROJ-3 --dry-run --description-file live3.md
+stdout '^\(none\)$'
+grep 'stale' $V/tickets/jira/PROJ-1/PROJ-1.md
+
+# an empty change never blanks a non-empty section
+! exec ct ticket publish PROJ-3 --description-file live-nonempty.md
+stderr 'no spec change was found'
+stderr 'left as is'
+! exec ct ticket publish PROJ-3 --dry-run --description-file live-nonempty.md
+stderr 'no spec change was found'
+
+# refusals
+! exec ct ticket publish nope
+stderr 'invalid ticket ID'
+! exec ct ticket publish PROJ-9 --description-file live3.md
+stderr 'no note for PROJ-9'
+! exec ct ticket publish PROJ-2 --dry-run
+stderr 'no source block'
+! exec ct ticket publish PROJ-1 --description-file missing.md
+stderr 'missing.md'
+
+-- live1.md --
+Intro text.
+
+**Field:** x
+
+_No description._
+
+## Spec change
+stale
+
+## Notes
+keep this
+-- live-stdin.md --
+Edited at the source.
+-- live3.md --
+Plain description.
+-- proj-1.md --
+---
+title: PROJ-1
+type: ticket
+covers: ["[[PROJ-2]]"]
+tags: [ticket]
+---
+# PROJ-1
+
+<!-- source:start -->
+## Source (Jira)
+
+### Description
+Intro text.
+
+## Spec change
+stale
+
+## Notes
+keep this
+
+### Recent comments
+a comment
+<!-- source:end -->
+-- proj-2.md --
+---
+title: PROJ-2
+type: ticket
+tags: [ticket]
+---
+# PROJ-2
+-- proj-3.md --
+---
+title: PROJ-3
+type: ticket
+tags: [ticket]
+---
+# PROJ-3
+
+<!-- source:start -->
+## Source (Jira)
+
+### Description
+Plain description.
+<!-- source:end -->
+-- ws1.json --
+{"id": "PROJ-1", "vault": "$WORK/home/Documents/Obsidian/a", "repos": [
+  {"provider": "github", "owner": "acme", "repo": "billing", "slug": "github-acme-billing", "path": "$WORK/home/Projects/work-a/PROJ-1/billing", "base": "main", "branch": "feature/PROJ-1", "mode": "worktree", "targetVersion": null}
+]}
+-- ws3.json --
+{"id": "PROJ-3", "vault": "$WORK/home/Documents/Obsidian/a", "repos": []}
+-- ws2.json --
+{"id": "PROJ-2", "vault": "$WORK/home/Documents/Obsidian/a", "repos": [
+  {"provider": "github", "owner": "acme", "repo": "ledger", "slug": "github-acme-ledger", "path": "$WORK/home/Projects/work-a/PROJ-2/ledger", "base": "main", "branch": "feature/PROJ-2", "mode": "worktree", "targetVersion": null}
+]}
+-- orders-base.md --
+---
+capability: orders
+prefix: ORD
+---
+# Orders
+
+## Purpose
+Orders.
+
+## Requirements
+
+### REQ-ORD-1 · Create
+status: proposed
+The system SHALL create an order.
+
+#### Scenario: create
+- WHEN a user orders
+- THEN an order exists
+
+### REQ-ORD-2 · Cancel
+status: proposed
+The system SHALL cancel an order.
+
+#### Scenario: cancel
+- WHEN a user cancels
+- THEN the order is cancelled
+
+### REQ-ORD-3 · Archive
+status: proposed
+The system SHALL archive an order.
+
+#### Scenario: archive
+- WHEN a month passes
+- THEN it is archived
+-- orders-new.md --
+---
+capability: orders
+prefix: ORD
+---
+# Orders
+
+## Purpose
+Orders.
+
+## Requirements
+
+### REQ-ORD-1 · Create
+status: implemented
+The system SHALL create an order.
+
+#### Scenario: create
+- WHEN a user orders
+- THEN an order exists
+
+### REQ-ORD-2 · Cancel
+status: proposed
+The system SHALL cancel an order within a day.
+
+#### Scenario: cancel
+- WHEN a user cancels
+- THEN the order is cancelled
+
+### REQ-ORD-4 · Refund
+status: proposed
+The system SHALL refund a cancelled order.
+
+#### Scenario: refund
+- WHEN an order is cancelled
+- THEN the buyer is refunded
+-- posting-base.md --
+---
+capability: posting
+prefix: LED
+---
+# Posting
+
+## Purpose
+Posting.
+
+## Requirements
+
+### REQ-LED-1 · Post
+status: proposed
+The system SHALL post an entry.
+
+#### Scenario: post
+- WHEN a user posts
+- THEN an entry exists
+-- posting-new.md --
+---
+capability: posting
+prefix: LED
+---
+# Posting
+
+## Purpose
+Posting.
+
+## Requirements
+
+### REQ-LED-1 · Post
+status: proposed
+The system SHALL post an entry.
+
+#### Scenario: post
+- WHEN a user posts
+- THEN an entry exists
+
+### REQ-LED-2 · Reverse
+status: proposed
+The system SHALL reverse an entry.
+
+#### Scenario: reverse
+- WHEN a user reverses
+- THEN the entry is reversed
+-- live-nonempty.md --
+Intro.
+
+## Spec change
+
+### x . y
+
+Removed: REQ-1
+
+## Notes
+keep

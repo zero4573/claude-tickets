@@ -42,7 +42,7 @@ Without --apply it only prints the plan. Moving a repo is a rename on the
 same filesystem, so uncommitted work is kept. Repos with linked worktrees
 are skipped, since moving them breaks the worktrees' links back to the repo
 (fix after a manual move with git worktree repair), and so are repos that
-shared clones in ticket or kb workspaces borrow objects from (remove those
+shared clones in ticket or spec workspaces borrow objects from (remove those
 first: ct ws rm or gc). Repos are staged in a temporary folder under the
 root and then put in place, so nested repos, and repos sitting where a
 provider or owner folder must go (e.g. a repo at <root>/bitbucket), are
@@ -50,14 +50,14 @@ handled. Empty folders left behind are removed.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var ctx vault.Context
+			var err error
 			if root == "" {
-				var err error
 				if ctx, err = vault.Require(); err != nil {
 					return err
 				}
 				root = ctx.ProjectsRoot
-			} else {
-				ctx = vault.Optional()
+			} else if ctx, err = vault.Optional(); err != nil {
+				return err
 			}
 			return layout(ctx, root, apply)
 		},
@@ -102,7 +102,7 @@ func findRepos(root string) []string {
 	return repos
 }
 
-// borrowedRepos is the main clones that shared clones in ticket and kb
+// borrowedRepos is the main clones that shared clones in ticket and spec
 // workspaces borrow objects from (git alternates): moving one breaks those
 // clones. Every vault whose projectsRoot overlaps root counts, not only
 // the current one, since vaults may share their main clones.
@@ -275,7 +275,7 @@ func layout(ctx vault.Context, root string, apply bool) error {
 				continue
 			}
 			if lender, ok := borrowedRepo(r); ok {
-				fmt.Printf("skip   %s -> %s (shared clones in ticket or kb workspaces borrow %s's objects; remove them first with ct ws rm / gc)\n", rel, target, relOf(lender))
+				fmt.Printf("skip   %s -> %s (shared clones in ticket or spec workspaces borrow %s's objects; remove them first with ct ws rm / gc)\n", rel, target, relOf(lender))
 				skipped++
 				continue
 			}

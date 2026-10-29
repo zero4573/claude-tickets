@@ -13,6 +13,7 @@ import (
 
 	"github.com/zero4573/claude-tickets/internal/config"
 	"github.com/zero4573/claude-tickets/internal/fsx"
+	"github.com/zero4573/claude-tickets/internal/gitx"
 )
 
 // List names every vault: a directory under the Obsidian root holding
@@ -184,8 +185,29 @@ func Require() (Context, error) {
 	if err != nil {
 		return Context{}, err
 	}
+	return use(v)
+}
+
+// use validates v's locations, exports v as CLAUDE_TICKETS_VAULT and
+// tells gitx the roots its worktrees' clones live in.
+func use(v string) (Context, error) {
+	l := LocationsOf(v)
+	if err := l.Validate(); err != nil {
+		return Context{}, err
+	}
 	os.Setenv("CLAUDE_TICKETS_VAULT", v)
-	return Context{v, LocationsOf(v)}, nil
+	gitx.TrustRoots(l.ProjectsRoot, l.WorkRoot)
+	return Context{v, l}, nil
+}
+
+// Validate refuses a workRoot inside projectsRoot: the deny rules for kb and
+// teach sessions assume repos sit exactly three levels under projectsRoot,
+// so a nested workRoot would make them deny their own exploration clones.
+func (l Locations) Validate() error {
+	if fsx.Within(canonical(l.WorkRoot), canonical(l.ProjectsRoot)) {
+		return fmt.Errorf("workRoot %s is inside projectsRoot %s: set them to separate folders in .workflow.json", l.WorkRoot, l.ProjectsRoot)
+	}
+	return nil
 }
 
 // PathsOverlap reports whether a and b are the same or one is inside the
@@ -212,11 +234,11 @@ func canonical(p string) string {
 	return p
 }
 
-// Optional is the current vault when there is one (exported as
-// CLAUDE_TICKETS_VAULT, as Require does), else no vault and the default
+// Optional is the current vault when there is one (validated and exported
+// as Require does; its error is Validate's), else no vault and the default
 // locations (~/Projects/work, ~/Projects), for the commands that work
 // without one.
-func Optional() Context {
+func Optional() (Context, error) {
 	v, ok, _ := Default()
 	if !ok {
 		if vs := List(); len(vs) == 1 {
@@ -224,14 +246,13 @@ func Optional() Context {
 		}
 	}
 	if ok {
-		os.Setenv("CLAUDE_TICKETS_VAULT", v)
-		return Context{v, LocationsOf(v)}
+		return use(v)
 	}
 	home := config.Home()
 	return Context{Locations: Locations{
 		WorkRoot:     filepath.Join(home, "Projects", "work"),
 		ProjectsRoot: filepath.Join(home, "Projects"),
-	}}
+	}}, nil
 }
 
 // PathsSame reports whether a and b are the same folder (after ~

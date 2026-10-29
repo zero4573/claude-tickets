@@ -11,7 +11,7 @@ func TestDevSettingsNeverSetPath(t *testing.T) {
 	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
 	t.Setenv("CLAUDE_TICKETS_SESSION_SETTINGS", "")
 	dir := t.TempDir()
-	if err := WriteSettings(dir, t.TempDir()); err != nil {
+	if err := WriteSettings(dir); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))

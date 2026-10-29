@@ -4,11 +4,14 @@
 package repo
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/zero4573/claude-tickets/internal/fsx"
 )
 
 var nonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
@@ -83,17 +86,111 @@ func RemoteIdentity(url string) (Identity, bool) {
 	if i <= 0 || i == len(path)-1 {
 		return Identity{}, false
 	}
-	owner := strings.ReplaceAll(path[:i], "/", "-")
 	repoName := path[i+1:]
+	for _, part := range append(strings.Split(path[:i], "/"), repoName, provider) {
+		// \ and : would be a separator or a volume on Windows
+		if part == "" || part == "." || part == ".." || strings.HasPrefix(part, "-") || strings.ContainsAny(part, `\:`) {
+			return Identity{}, false
+		}
+	}
+	owner := strings.ReplaceAll(path[:i], "/", "-")
 	if provider == "bitbucket" && host != "bitbucket.org" {
 		owner = strings.ToUpper(owner)
 	}
 	return Identity{provider, owner, repoName}, true
 }
 
+// CloneDest is where id's main clone goes: exactly
+// <provider>/<owner>/<repo> inside projectsRoot, compared lexically (see
+// CheckCloneParent for symlinks).
+func CloneDest(projectsRoot string, id Identity) (string, error) {
+	dest := filepath.Join(projectsRoot, filepath.FromSlash(id.Clone()))
+	rel, err := filepath.Rel(projectsRoot, dest)
+	if err != nil || !fsx.Inside(dest, projectsRoot) || fsx.Depth(rel) != 3 {
+		return "", fmt.Errorf("'%s' does not resolve to <provider>/<owner>/<repo> under %s", id.Clone(), projectsRoot)
+	}
+	return dest, nil
+}
+
+// CheckCloneParent refuses dest when its parent folder, symlinks resolved,
+// isn't <provider>/<owner> inside projectsRoot (resolved too): a symlinked
+// provider or owner folder would have a clone land elsewhere.
+func CheckCloneParent(projectsRoot, dest string) error {
+	root, err := filepath.EvalSymlinks(projectsRoot)
+	if err != nil {
+		return err
+	}
+	parent, err := filepath.EvalSymlinks(filepath.Dir(dest))
+	if err != nil {
+		return err
+	}
+	rel, err := filepath.Rel(root, parent)
+	if err != nil || !fsx.Inside(parent, root) || fsx.Depth(rel) != 2 {
+		return fmt.Errorf("%s resolves to %s, outside <provider>/<owner> under %s; remove the symlink", filepath.Dir(dest), parent, root)
+	}
+	return nil
+}
+
+// CheckCloneAncestors refuses dest when the deepest part of its parent that
+// already exists, symlinks resolved, is outside projectsRoot (resolved too):
+// run it before MkdirAll, which would otherwise create the missing folders
+// wherever a planted symlink leads.
+func CheckCloneAncestors(projectsRoot, dest string) error {
+	if _, err := os.Lstat(projectsRoot); err != nil {
+		return nil // nothing under it exists to follow; the root's own path is trusted
+	}
+	root, err := filepath.EvalSymlinks(projectsRoot)
+	if err != nil {
+		return err
+	}
+	p := filepath.Dir(dest)
+	for {
+		if _, err := os.Lstat(p); err == nil {
+			break
+		}
+		next := filepath.Dir(p)
+		if next == p {
+			return fmt.Errorf("%s: no existing parent folder", dest)
+		}
+		p = next
+	}
+	res, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		return err
+	}
+	if !fsx.Within(res, root) {
+		return fmt.Errorf("%s resolves to %s, outside %s; remove the symlink", p, res, root)
+	}
+	return nil
+}
+
 // Slug names a repo wherever the vault or the graph does
 // (<provider>-<owner>-<repo>, kebab-case), from <provider>/<owner>/<repo>.
 func Slug(clone string) string { return Kebab(strings.ReplaceAll(clone, "/", "-")) }
+
+// Narrow is the folder to start from in root: it goes down the provider
+// and owner levels while a level holds exactly one folder (dot-folders
+// aside), and never into a repo.
+func Narrow(root string) string {
+	dir := root
+	for depth := 0; depth < 2; depth++ {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			break
+		}
+		var only []string
+		for _, e := range entries {
+			if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+				only = append(only, e.Name())
+			}
+		}
+		if len(only) != 1 {
+			break
+		}
+		dir = filepath.Join(dir, only[0])
+	}
+	return dir
+}
 
 func MainClones(root string) []string {
 	matches, _ := filepath.Glob(filepath.Join(root, "*", "*", "*", ".git"))

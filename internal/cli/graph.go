@@ -104,7 +104,10 @@ also logged to ` + logPath(graph.IndexLog) + `; repos that fail become
 follow-up tasks in the vault's inbox.`,
 		ValidArgsFunction: completeRepos,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := vault.Optional()
+			ctx, err := vault.Optional()
+			if err != nil {
+				return err
+			}
 			var repos []string
 			for _, s := range args {
 				c, ok := repo.Resolve(ctx.ProjectsRoot, s)

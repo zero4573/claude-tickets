@@ -35,7 +35,7 @@ one. `--branch` checks out an existing branch instead, for example an open PR's 
 manual ticket's branch that another workspace has already recorded is refused, so two
 tickets never share a branch.
 
-Each `ct start`, `ct ws add`, `ct kb` and `ct teach` writes `<workRoot>/<ID>/.tool-versions`
+Each `ct start`, `ct ws add`, `ct spec` and `ct teach` writes `<workRoot>/<ID>/.tool-versions`
 (golang from the repos' `go.mod`, python and others from `toolVersions` in
 `.workflow.json`; a tool with no installed version gets a warning and is left out). The
 workspace's `CLAUDE.md` is regenerated on every start and names the vault, the repos, the
@@ -43,8 +43,9 @@ code graph and the Git rules.
 
 Task worktrees live under `<ID>/tasks/<slug>-<n>`, are created and removed by the lead,
 and are merged into the ticket branch. `ct ws rm` removes a workspace (refusing dirty or
-unpushed work without `--force`), `ct ws gc` frees disk, `ct ws fetch` refreshes the main
-clones on the host. `ct ws refresh <ID>` rewrites the workspace's `CLAUDE.md` from the vault
+unpushed work, and ignored files such as a changed `.env` unless `--drop-ignored`; commit, push or stash the rest: there is no force), `ct ws gc` and `ct clean` free disk, moving ignored files of yours to the vault's `.trash/<ID>-ignored-files/` instead of deleting them, `ct ws fetch` refreshes the main
+clones. A session can clone a repo it needs into the projects root (`ct ws clone`, never
+twice), then make its worktree with `ct ws add`; there are no other copies of a repo. A session can write the repo directory (`projectsRoot`): it may clone repos and add worktrees there. The sandbox keeps the `.git/hooks`, `.git/config` and git pointer files (`.git` files, `commondir`, `gitdir`) of clones that already exist read-only. ct's own git (`gitx`) first reads the repo's own config files in Go (`config`, `config.worktree`, and the submodules' under `modules/`) and refuses the repo when any key is off a safe list, so a planted `core.fsmonitor`, `core.sshCommand`, `core.hooksPath`, `core.pager`, an `include`, an external filter or diff driver, a `protocol` or `url.*.insteadOf` rewrite and the like never run; it refuses a symlinked or oversized config file and a worktree whose git pointer files lead outside `projectsRoot`/`workRoot` (a layout check, not proof: a session can write both folders). Only `https`, `ssh` and scp-like `user@host:path` URLs are allowed for remotes, and only `lfs` filters with git-lfs's own commands. On top of that git runs with hooks, fsmonitor, `core.gitProxy`, credential helpers (`credential.helper=` resets the list, so one from your own git config is off for ct too), signing, submodule recursion and every protocol but https and ssh off, `--no-ext-diff --no-textconv` on diffs and logs that read patches, `GIT_SSH_COMMAND` yours or plain `ssh`, and `GIT_DIR`, `GIT_WORK_TREE` and `GIT_CONFIG*` removed from the environment. `ct ws clone` clones with `--no-checkout`, then checks out in the new clone, which ct checks like any other. The allowlist reads your global and system config as trusted. Not covered: your own git in a clone made during a session, whose config the sandbox doesn't make read-only until the next launch (run it with `-c core.hooksPath=/dev/null` or read `.git/config` first); `.lfsconfig` in the work tree, which can redirect LFS URLs (network only, no program); the milliseconds between ct's check and git reading the file; a submodule's `core.worktree` pointing inside the work tree; a local shared-clone source that passes the check; and an origin written as a `host-alias:path` (refused outright, not rewritten). `ct ws refresh <ID>` rewrites the workspace's `CLAUDE.md` from the vault
 exactly as `ct start` does and touches nothing else; the kickoff runs it once `board.md`
 names the ticket's commit style, so the Git rules in `CLAUDE.md` are current. The tidy skill's scratch clones (`tasks/tidy-<slug>`) are removed with
 `ct ws tidy-clean <ID>`.
@@ -108,7 +109,7 @@ and `git status` never see it. `ct ws add` seeds that folder from the main clone
 `graphify-out` (cache, manifest, and `graph.json` last, so a half copy is retried). `ct ws gc`
 drops `.cache`; the next start re-seeds each worktree from its main clone and runs an
 incremental update. A `<worktree>/graphify-out` left by an older version is moved to the new
-place, or removed when the new one already has content. Main clones and `ct kb repo`
+place, or removed when the new one already has content. Main clones and `ct spec repo`
 exploration clones keep `<repo>/graphify-out`. A path not listed in `workspace.json` is
 skipped, and logged once. The merge is in [the architecture](architecture.md#code-graph).
 

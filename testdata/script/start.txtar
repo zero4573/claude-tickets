@@ -30,8 +30,8 @@ grep '/tickets:po-refresh. checkpoints them' home/Projects/work-a/MAN-1/CLAUDE.m
 grep 'board.md' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^Run `/tickets:work-ticket MAN-1` to \(re\)start the workflow \(`ct start MAN-1`$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^opens a new conversation, which resumes from `board.md`; `ct start$' home/Projects/work-a/MAN-1/CLAUDE.md
-# settings: the main clones and the cache are read-only, merged with the user's
-grep '"Edit\(//.*/home/Projects/repo-a/\*\*\)"' home/Projects/work-a/MAN-1/.claude/settings.json
+# settings: the cache is read-only (the repo directory isn't: ticket sessions clone and add worktrees), merged with the user's
+! grep 'repo-a' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"Write\(//.*/home/.cache/claude-tickets/\*\*\)"' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"Bash\(git push:\*\)"' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"defaultMode": "auto"' home/Projects/work-a/MAN-1/.claude/settings.json

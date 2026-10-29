@@ -11,7 +11,9 @@ import (
 // QA (MAN-15): Read's "not inside the workspace" warning goes to Warnings
 // (os.Stderr by default), so ct status --watch can keep it in its frame.
 func TestReadWarnsToWarnings(t *testing.T) {
-	if Warnings != os.Stderr {
+	// go test -json swaps the os.Stderr variable after init, not the file
+	// Warnings captured, so check that file by name ("/dev/stderr" on every OS)
+	if f, ok := Warnings.(*os.File); !ok || f == nil || f.Name() != "/dev/stderr" {
 		t.Fatalf("Warnings defaults to %v, want os.Stderr", Warnings)
 	}
 	dir := t.TempDir()

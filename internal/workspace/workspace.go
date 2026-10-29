@@ -1,4 +1,4 @@
-// Package workspace manages a ticket or kb session's workspace and its
+// Package workspace manages a ticket or spec session's workspace and its
 // workspace.json: the ID, the vault, and the repos checked out in it.
 package workspace
 
@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/zero4573/claude-tickets/internal/fsx"
@@ -81,6 +82,71 @@ func Ensure(dir, id, vault string) error {
 		}
 		return nil
 	})
+}
+
+// Migrate moves a workspace directory from oldDir to newDir when oldDir
+// exists and newDir doesn't (the clones inside move with it), and points
+// the repo paths in its workspace.json at the new location. It reports
+// whether it moved anything.
+func Migrate(oldDir, newDir string) (bool, error) {
+	if _, err := os.Stat(oldDir); err != nil {
+		return false, nil
+	}
+	if _, err := os.Stat(newDir); err == nil {
+		fmt.Fprintf(warnOut, "warning: %s is left over next to %s and ct no longer lists it; move what you need out of it and remove it\n", oldDir, newDir)
+		return false, nil
+	}
+	if Running(oldDir) {
+		return false, fmt.Errorf("a session is running in %s: close it first, then run ct again", oldDir)
+	}
+	if err := os.Rename(oldDir, newDir); err != nil {
+		return false, err
+	}
+	oldReal := evalLoose(oldDir)
+	err := Update(File(newDir), func(doc map[string]any) error {
+		repos, _ := doc["repos"].([]any)
+		for _, r := range repos {
+			m, _ := r.(map[string]any)
+			p, _ := m["path"].(string)
+			// oldDir is gone now, so resolve the repo's parent chain
+			// against the old location's resolved spelling
+			if rel, ok := under(oldReal, evalLoose(p)); ok {
+				m["path"] = filepath.Join(newDir, rel)
+			}
+		}
+		return nil
+	})
+	return true, err
+}
+
+// warnOut receives Migrate's warning.
+var warnOut io.Writer = os.Stderr
+
+// under reports p relative to dir when p is dir or inside it.
+func under(dir, p string) (string, bool) {
+	rel, err := filepath.Rel(dir, p)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return rel, true
+}
+
+// evalLoose is p with symlinks resolved as far as it exists: the longest
+// existing prefix resolved, the rest appended.
+func evalLoose(p string) string {
+	p = filepath.Clean(p)
+	rest := ""
+	for cur := p; ; {
+		if r, err := filepath.EvalSymlinks(cur); err == nil {
+			return filepath.Join(r, rest)
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return p
+		}
+		rest = filepath.Join(filepath.Base(cur), rest)
+		cur = parent
+	}
 }
 
 type Info struct {
@@ -166,7 +232,7 @@ type Status struct {
 }
 
 // Session tells whether a workspace's session is running, in this order:
-//  1. its recorded process (.sessions.json: ct start, ct teach, ct kb) is
+//  1. its recorded process (.sessions.json: ct start, ct teach, ct spec) is
 //     alive on this host; when every record is provably dead, it isn't
 //     running, whatever .agent-state says;
 //  2. when no record can be checked (none, another host, a container, an
@@ -212,20 +278,20 @@ func ReadState(dir string) State {
 	return s
 }
 
-// List is every workspace under workRoot (ticket workspaces only, or kb
+// List is every workspace under workRoot (ticket workspaces only, or spec
 // ones too), as directories holding workspace.json.
-func List(workRoot string, withKB bool) []string {
+func List(workRoot string, withSpec bool) []string {
 	all, _ := filepath.Glob(filepath.Join(workRoot, "*", "workspace.json"))
 	var matches []string
 	for _, m := range all {
-		// Go's * also matches dot-dirs: those are kb workspaces
+		// Go's * also matches dot-dirs: those are spec workspaces
 		if b := filepath.Base(filepath.Dir(m)); b[0] != '.' {
 			matches = append(matches, m)
 		}
 	}
-	if withKB {
-		kb, _ := filepath.Glob(filepath.Join(workRoot, ".kb-*", "workspace.json"))
-		matches = append(matches, kb...)
+	if withSpec {
+		spec, _ := filepath.Glob(filepath.Join(workRoot, ".spec-*", "workspace.json"))
+		matches = append(matches, spec...)
 	}
 	var dirs []string
 	for _, m := range matches {
