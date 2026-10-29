@@ -171,3 +171,134 @@ func TestMoveTrees(t *testing.T) {
 		t.Error("a destination inside the source")
 	}
 }
+
+func renameVault(t *testing.T) string {
+	v := t.TempDir()
+	write(t, v, "tickets/manual/MAN-3/MAN-3.md", "see [[MAN-3-01-x]]\n")
+	write(t, v, "tickets/manual/MAN-3/MAN-3-01-x.md", "back [[MAN-3]]\n")
+	write(t, v, "tickets/manual/MAN-3/logs/s.md", "")
+	write(t, v, "projects/p.md", "[[MAN-3]] [[tickets/manual/MAN-3/MAN-3-01-x|alias]] [[MAN-3#Goal]] [[tickets/manual/MAN-3/logs/s]] [[MAN-3-01-x#H|a]]\n")
+	return v
+}
+
+func renameMan(b string) string { return strings.Replace(b, "MAN-3", "ABC-9", 1) }
+
+const renamedP = "[[ABC-9]] [[tickets/jira/ABC-9/ABC-9-01-x|alias]] [[ABC-9#Goal]] [[tickets/jira/ABC-9/logs/s]] [[ABC-9-01-x#H|a]]\n"
+
+func TestRenameTree(t *testing.T) {
+	v := renameVault(t)
+	if err := RenameTree(v, filepath.Join(v, "tickets/manual/MAN-3"), filepath.Join(v, "tickets/jira/ABC-9"), renameMan, ""); err != nil {
+		t.Fatal(err)
+	}
+	if exists(v, "tickets/manual/MAN-3") || !exists(v, "tickets/jira/ABC-9/ABC-9.md") || !exists(v, "tickets/jira/ABC-9/ABC-9-01-x.md") || !exists(v, "tickets/jira/ABC-9/logs/s.md") {
+		t.Error("tree not moved and renamed")
+	}
+	if got := read(t, v, "projects/p.md"); got != renamedP {
+		t.Errorf("p.md: %q", got)
+	}
+	if got := read(t, v, "tickets/jira/ABC-9/ABC-9.md"); got != "see [[ABC-9-01-x]]\n" {
+		t.Errorf("note: %q", got)
+	}
+	if got := read(t, v, "tickets/jira/ABC-9/ABC-9-01-x.md"); got != "back [[ABC-9]]\n" {
+		t.Errorf("task: %q", got)
+	}
+	if n := len(Problems(v, nil)); n != 0 {
+		t.Errorf("%d broken links", n)
+	}
+}
+
+func TestRenameTreeDestinationExists(t *testing.T) {
+	v := renameVault(t)
+	write(t, v, "tickets/jira/ABC-9/ABC-9.md", "")
+	err := RenameTree(v, filepath.Join(v, "tickets/manual/MAN-3"), filepath.Join(v, "tickets/jira/ABC-9"), renameMan, "")
+	if err == nil || !strings.Contains(err.Error(), "destination exists") {
+		t.Fatalf("err = %v", err)
+	}
+	if !exists(v, "tickets/manual/MAN-3/MAN-3.md") || read(t, v, "projects/p.md") == renamedP {
+		t.Error("changed despite the refusal")
+	}
+}
+
+func TestRenameTreeRerunAfterFailure(t *testing.T) {
+	v := renameVault(t)
+	n := 0
+	orig := moveFile
+	moveFile = func(s, d string) error {
+		if n++; n == 2 {
+			return errors.New("injected")
+		}
+		return orig(s, d)
+	}
+	src, dst := filepath.Join(v, "tickets/manual/MAN-3"), filepath.Join(v, "tickets/jira/ABC-9")
+	err := RenameTree(v, src, dst, renameMan, "")
+	moveFile = orig
+	if err == nil {
+		t.Fatal("want the injected failure")
+	}
+	if err := RenameTree(v, src, dst, renameMan, ""); err != nil {
+		t.Fatal(err)
+	}
+	if exists(v, "tickets/manual/MAN-3") || !exists(v, "tickets/jira/ABC-9/ABC-9.md") || !exists(v, "tickets/jira/ABC-9/ABC-9-01-x.md") || !exists(v, "tickets/jira/ABC-9/logs/s.md") {
+		t.Error("not finished")
+	}
+	if got := read(t, v, "projects/p.md"); got != renamedP {
+		t.Errorf("p.md: %q", got)
+	}
+	if n := len(Problems(v, nil)); n != 0 {
+		t.Errorf("%d broken links", n)
+	}
+}
+
+func TestRenameTreeLastMovesNoteLast(t *testing.T) {
+	v := renameVault(t)
+	var moved []string
+	orig := moveFile
+	moveFile = func(s, d string) error {
+		moved = append(moved, filepath.Base(s))
+		if len(moved) == 2 {
+			return errors.New("injected")
+		}
+		return orig(s, d)
+	}
+	src, dst := filepath.Join(v, "tickets/manual/MAN-3"), filepath.Join(v, "tickets/jira/ABC-9")
+	err := RenameTree(v, src, dst, renameMan, "MAN-3.md")
+	moveFile = orig
+	if err == nil {
+		t.Fatal("want the injected failure")
+	}
+	if !exists(v, "tickets/manual/MAN-3/MAN-3.md") {
+		t.Errorf("the note moved before the other files (moves: %v)", moved)
+	}
+	if err := RenameTree(v, src, dst, renameMan, "MAN-3.md"); err != nil {
+		t.Fatal(err)
+	}
+	if exists(v, "tickets/manual/MAN-3") || !exists(v, "tickets/jira/ABC-9/ABC-9.md") {
+		t.Error("not finished")
+	}
+}
+
+func TestRedirectLinks(t *testing.T) {
+	v := treeVault(t)
+	rs := []Redirect{{Src: "tickets/MAN-4/logs/x.md", Dst: "archive/x.md"}}
+	got, n := RewriteText(filepath.Join(v, "a.md"), "[[tickets/MAN-4/logs/x|log]] [[x]] `[[tickets/MAN-4/logs/x]]`", rs)
+	if n != 1 || got != "[[archive/x|log]] [[x]] `[[tickets/MAN-4/logs/x]]`" {
+		t.Errorf("RewriteText: %d %q", n, got)
+	}
+	res, err := RedirectLinks(v, rs)
+	if err != nil || res.Rewritten != 2 || len(res.Moves) != 0 {
+		t.Fatalf("RedirectLinks: %+v %v", res, err)
+	}
+	if want := []string{"projects/p/p.md", "tickets/MAN-4/MAN-4.md"}; !reflect.DeepEqual(res.Changed, want) {
+		t.Errorf("Changed = %v, want %v", res.Changed, want)
+	}
+	if !exists(v, "tickets/MAN-4/logs/x.md") || exists(v, "archive/x.md") {
+		t.Error("RedirectLinks moved a file")
+	}
+	if got := read(t, v, "projects/p/p.md"); got != "[[MAN-4]] [[archive/x|log]] [[requirements]] `[[tickets/MAN-4/logs/x]]`\n" {
+		t.Errorf("p.md: %q", got)
+	}
+	// a rerun finds nothing left to rewrite
+	if res, err := RedirectLinks(v, rs); err != nil || res.Rewritten != 0 || res.Changed != nil {
+		t.Errorf("rerun: %+v %v", res, err)
+	}
+}
