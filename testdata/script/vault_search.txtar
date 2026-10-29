@@ -72,6 +72,104 @@ exec ct vault related projects/acme/crossing.md
 stderr 'ct: vault index not updated'
 rm home/Documents/Obsidian/v/.ct/index.lock
 
+# Specs: a repo's specs/ (read from its default branch), a vault-located spec,
+# --type spec, --no-specs, a refresh after an edit, a clone without specs.
+env CLAUDE_TICKETS_EMBEDDER=stub
+expand gitconfig
+exec git init -q -b main seed
+exec git -C seed add -A
+exec git -C seed commit -q -m init
+exec git clone -q --bare seed remote/acme/billing.git
+exec git clone -q git@github.com:acme/billing.git home/Projects/repo-v/github/acme/billing
+exec git init -q -b main plain
+exec git -C plain commit -q --allow-empty -m init
+exec git clone -q plain home/Projects/repo-v/github/acme/plain
+mkdir home/Documents/Obsidian/v/projects/beta/specs/payout
+cp beta.md home/Documents/Obsidian/v/projects/beta/beta.md
+cp payout.md home/Documents/Obsidian/v/projects/beta/specs/payout/spec.md
+
+exec ct vault search quokka --json
+stdout '"path":"github-acme-billing:specs/ledger/spec\.md"'
+stdout '"note":"ledger"'
+stdout '"type":"spec","project":"github-acme-billing"'
+exists home/.cache/claude-tickets/spec-index/github-acme-billing/.ct/index/meta.json
+! exists home/.cache/claude-tickets/spec-index/github-acme-plain
+
+# A vault-located spec is a vault note.
+exec ct vault search wombat --json
+stdout '"path":"projects/beta/specs/payout/spec\.md"'
+! stdout 'github-acme-billing'
+
+# --type spec: both kinds of spec, no other note.
+exec ct vault search zebra --type spec
+! stdout 'crossing'
+exec ct vault search quokka wombat --type spec
+stdout 'github-acme-billing:specs/ledger/spec\.md'
+stdout 'projects/beta/specs/payout/spec\.md'
+exec ct vault search quokka --type spec --project github-acme-billing --json
+stdout '"project":"github-acme-billing"'
+! stdout 'payout'
+
+# --no-specs leaves both out; --path leaves the repo specs out.
+exec ct vault search quokka wombat --no-specs
+! stdout 'spec\.md'
+exec ct vault search quokka --path projects --no-update
+! stdout 'github-acme-billing'
+exec ct vault search quokka --type note
+! stdout 'ledger'
+
+# A changed tree rebuilds the index; the working tree is not read.
+exec git -C home/Projects/repo-v/github/acme/billing checkout -q -b elsewhere
+cp ledger2.md home/Projects/repo-v/github/acme/billing/specs/ledger/spec.md
+exec ct vault search platypus
+! stdout 'ledger'
+exec git -C home/Projects/repo-v/github/acme/billing checkout -q -- specs
+exec git -C home/Projects/repo-v/github/acme/billing checkout -q main
+cp ledger2.md seed/specs/ledger/spec.md
+exec git -C seed commit -q -am 'edit spec'
+exec git -C seed push -q ../remote/acme/billing.git main
+exec git -C home/Projects/repo-v/github/acme/billing fetch -q origin
+exec ct vault search platypus --json
+stdout '"path":"github-acme-billing:specs/ledger/spec\.md"'
+exec ct vault search quokka --type spec
+! stdout 'ledger'
+
+# --no-update searches what is there.
+exec ct vault search platypus --no-update --type spec
+stdout 'ledger'
+
+-- gitconfig --
+[url "$WORK/remote/"]
+	insteadOf = git@github.com:
+-- seed/specs/ledger/spec.md --
+# Ledger
+
+### Requirement: Ledger entries
+The quokka ledger records every entry.
+
+#### Scenario: Entry
+- **WHEN** an entry is posted
+- **THEN** it is listed
+-- ledger2.md --
+# Ledger
+
+### Requirement: Ledger entries
+The platypus ledger records every entry.
+
+#### Scenario: Entry
+- **WHEN** an entry is posted
+- **THEN** it is listed
+-- beta.md --
+---
+type: project
+specs: vault
+---
+# Beta
+-- payout.md --
+# Payout
+
+### Requirement: Payouts
+The wombat payout runs nightly.
 -- acme.md --
 ---
 type: project

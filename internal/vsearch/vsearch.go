@@ -47,6 +47,7 @@ type Options struct {
 	Budget  int    // 0 = none
 	Mode    string // "" → hybrid
 	NoLinks bool
+	NoSpecs bool // leave out vault-located specs (projects/<slug>/specs/<capability>/spec.md)
 }
 
 // Scores are the parts of a result's score.
@@ -68,6 +69,8 @@ type Result struct {
 	Score     float64  `json:"score"`
 	Scores    Scores   `json:"scores"`
 	Excerpt   string   `json:"excerpt"`
+	Type      string   `json:"type,omitempty"`    // "spec" for a repo's spec
+	Project   string   `json:"project,omitempty"` // the repo's slug, for a repo's spec
 	Text      string   `json:"text,omitempty"`
 }
 
@@ -268,7 +271,11 @@ func matches(n vindex.NoteMeta, o Options) bool {
 			return false
 		}
 	}
-	if o.Type != "" && n.Type != o.Type {
+	vs := vaultSpec(n.Path)
+	if vs && o.NoSpecs {
+		return false
+	}
+	if o.Type != "" && n.Type != o.Type && !(vs && o.Type == vindex.SpecType) {
 		return false
 	}
 	if o.Project != "" && !contains(n.Projects, o.Project) && !strings.HasPrefix(n.Path, "projects/"+o.Project+"/") {
@@ -387,4 +394,10 @@ func meanSemanticN(cand []int, sem []float64, noVec func(int) bool) (float64, in
 		return 0, 0
 	}
 	return sum / float64(n), n
+}
+
+// vaultSpec says whether a vault-relative path is a vault-located spec.
+func vaultSpec(p string) bool {
+	s := strings.Split(p, "/")
+	return len(s) == 5 && s[0] == "projects" && s[2] == "specs" && s[4] == "spec.md"
 }

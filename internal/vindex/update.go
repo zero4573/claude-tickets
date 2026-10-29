@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -47,48 +46,6 @@ type UpdateStats struct {
 	Took                                      time.Duration
 }
 
-// skippedTop are the vault's top-level folders that are not indexed.
-var skippedTop = map[string]bool{"raw": true, "archive": true, "templates": true}
-
-// indexable says whether a vault-relative, "/"-separated path is indexed.
-func indexable(rel string) bool {
-	if !strings.HasSuffix(rel, ".md") {
-		return false
-	}
-	parts := strings.Split(rel, "/")
-	for _, p := range parts {
-		if strings.HasPrefix(p, ".") {
-			return false
-		}
-	}
-	return len(parts) == 1 || !skippedTop[parts[0]]
-}
-
-func walk(vault string) []string {
-	var out []string
-	_ = filepath.WalkDir(vault, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		rel, _ := filepath.Rel(vault, p)
-		if rel == "." {
-			return nil
-		}
-		if d.IsDir() {
-			if strings.HasPrefix(d.Name(), ".") || (filepath.Dir(rel) == "." && skippedTop[d.Name()]) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if r := filepath.ToSlash(rel); d.Type().IsRegular() && indexable(r) {
-			out = append(out, r)
-		}
-		return nil
-	})
-	sort.Strings(out)
-	return out
-}
-
 // built is a note of the index being written, with its chunks and vectors.
 type built struct {
 	meta   NoteMeta
@@ -112,6 +69,13 @@ func embedInput(name string, c chunk.Chunk) string {
 // without vectors stays without. Update holds index.lock for its whole run, and
 // index.commit.lock (the one Load takes) only around the final renames.
 func Update(vault string, o UpdateOptions) (UpdateStats, error) {
+	return UpdateSource(vault, VaultSource(vault), o)
+}
+
+// UpdateSource is Update with the documents taken from src. The index files
+// live under Dir(root) and the locks under root/.ct, so one root holds one
+// index; for the vault, root is the vault and src is VaultSource(vault).
+func UpdateSource(vault string, src Source, o UpdateOptions) (UpdateStats, error) {
 	start := time.Now()
 	var st UpdateStats
 	ct := filepath.Join(vault, ".ct")
@@ -123,12 +87,12 @@ func Update(vault string, o UpdateOptions) (UpdateStats, error) {
 			return st, err
 		}
 	}
-	err := lock.With(filepath.Join(ct, "index.lock"), func() error { return update(vault, o, &st) })
+	err := lock.With(filepath.Join(ct, "index.lock"), func() error { return update(vault, src, o, &st) })
 	st.Took = time.Since(start)
 	return st, err
 }
 
-func update(vault string, o UpdateOptions, st *UpdateStats) error {
+func update(vault string, src Source, o UpdateOptions, st *UpdateStats) error {
 	logf := func(f string, a ...any) {
 		if o.Log != nil {
 			fmt.Fprintf(o.Log, f+"\n", a...)
@@ -203,13 +167,7 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 	if old != nil && o.Files != nil {
 		set := map[string]bool{}
 		for _, f := range o.Files {
-			f = filepath.ToSlash(f)
-			if filepath.IsAbs(f) {
-				if r, err := filepath.Rel(vault, filepath.FromSlash(f)); err == nil {
-					f = filepath.ToSlash(r)
-				}
-			}
-			if !set[f] && indexable(f) {
+			if f, ok := src.Normalize(f); ok && !set[f] {
 				set[f] = true
 				paths = append(paths, f)
 			}
@@ -220,7 +178,11 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 			}
 		}
 	} else {
-		paths = walk(vault)
+		var err error
+		if paths, err = src.List(); err != nil {
+			return err
+		}
+		sort.Strings(paths)
 	}
 
 	// Reusable vectors by chunk hash.
@@ -283,55 +245,35 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 		notes = append(notes, oldChunksOf(i))
 	}
 	exists := map[string]bool{}
-	realVault, _ := filepath.EvalSymlinks(vault)
-	dirOK := map[string]bool{}
 	for _, rel := range paths {
-		abs := filepath.Join(vault, filepath.FromSlash(rel))
-		if o.Files != nil {
-			// A Files refresh gets caller-supplied paths: skip notes under a
-			// symlinked directory, as the full walk does (W3 C02).
-			// The check compares against realVault + dir, so a vault that is itself
-			// reached through a symlink works, while a notes dir symlinked to another
-			// place (even inside the vault) is skipped, like the full walk (W4 C01).
-			d := filepath.Dir(rel)
-			ok, seen := dirOK[d]
-			if !seen {
-				r, err := filepath.EvalSymlinks(filepath.Join(vault, filepath.FromSlash(d)))
-				ok = err == nil && r == filepath.Join(realVault, filepath.FromSlash(d))
-				dirOK[d] = ok
-			}
-			if !ok {
-				continue
-			}
-		}
-		fi, err := os.Lstat(abs)
-		if err != nil || !fi.Mode().IsRegular() {
+		fi, err := src.Stat(rel)
+		if err != nil {
 			continue
 		}
 		exists[rel] = true
 		oi, had := oldByPath[rel]
-		if had && old.Notes[oi].MTime == fi.ModTime().UnixNano() && old.Notes[oi].Size == fi.Size() {
+		if had && old.Notes[oi].MTime == fi.MTime && old.Notes[oi].Size == fi.Size {
 			notes = append(notes, oldChunksOf(oi))
 			continue
 		}
-		src, err := os.ReadFile(abs)
+		data, err := src.Read(rel)
 		if err != nil {
 			continue
 		}
-		h := sum(src)
+		h := sum(data)
 		if had && old.Notes[oi].SHA256 == h {
 			b := oldChunksOf(oi)
-			b.meta.MTime, b.meta.Size = fi.ModTime().UnixNano(), fi.Size()
+			b.meta.MTime, b.meta.Size = fi.MTime, fi.Size
 			notes = append(notes, b)
 			rewriteNotes = true
 			continue
 		}
 		st.Changed++
 		name := strings.TrimSuffix(filepath.Base(rel), ".md")
-		fmLines := note.Lines(src)
-		fm := note.FrontmatterFrom(bytes.NewReader(src))
+		fmLines := note.Lines(data)
+		fm := note.FrontmatterFrom(bytes.NewReader(data))
 		nm := NoteMeta{
-			Path: rel, Name: name, MTime: fi.ModTime().UnixNano(), Size: fi.Size(), SHA256: h,
+			Path: rel, Name: name, MTime: fi.MTime, Size: fi.Size, SHA256: h,
 			Type:     fm["type"],
 			Tags:     orEmpty(note.ListFieldLines(fmLines, "tags")),
 			Projects: orEmpty(note.ListFieldLines(fmLines, "projects")),
@@ -343,7 +285,7 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 				nm.Links = append(nm.Links, t)
 			}
 		}
-		for _, t := range links.Targets(string(src)) {
+		for _, t := range links.Targets(string(data)) {
 			add(t)
 		}
 		for _, f := range []string{"depends-on", "groups"} {
@@ -352,9 +294,14 @@ func update(vault string, o UpdateOptions, st *UpdateStats) error {
 			}
 		}
 		nm.Links = orEmpty(nm.Links)
+		if d, ok := src.(Describer); ok {
+			nm.Name, nm.Type, nm.Projects = d.Describe(rel)
+			nm.Projects = orEmpty(nm.Projects)
+			name = nm.Name
+		}
 		b := &built{meta: nm}
 		p := pending{b: b}
-		for _, c := range chunk.Split(src, chunk.Options{MaxTokens: chunkTokens}) {
+		for _, c := range chunk.Split(data, chunk.Options{MaxTokens: chunkTokens}) {
 			in := embedInput(name, c)
 			cm := ChunkMeta{
 				Heading: orEmpty(c.Heading), StartLine: c.StartLine, EndLine: c.EndLine,
