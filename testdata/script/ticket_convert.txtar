@@ -1,0 +1,305 @@
+# ct ticket convert: a manual ticket filed at the fake Jira, its vault folder
+# and workspace moved to the new key (real git, fake Jira from mcptest).
+mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/tickets/manual/MAN-1/tasks home/Documents/Obsidian/a/tickets/manual/MAN-2 home/Documents/Obsidian/a/tickets/manual/MAN-3 home/Documents/Obsidian/a/tickets/jira/PROJ-2 home/Documents/Obsidian/a/tickets/manual/MAN-4
+cp proj-2.md home/Documents/Obsidian/a/tickets/jira/PROJ-2/PROJ-2.md
+cp sources.json home/Documents/Obsidian/a/tickets/.sources.json
+cp man-1.md home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
+cp man-1-status.md home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1-status.md
+cp man-1-task.md home/Documents/Obsidian/a/tickets/manual/MAN-1/tasks/MAN-1-01-first.md
+expand home/Documents/Obsidian/a/tickets/manual/MAN-1/tasks/MAN-1-01-first.md
+cp man-2.md home/Documents/Obsidian/a/tickets/manual/MAN-2/MAN-2.md
+cp man-3.md home/Documents/Obsidian/a/tickets/manual/MAN-3/MAN-3.md
+expand gitconfig
+exec git init -q -b main seed
+exec git -C seed add -A
+exec git -C seed commit -q -m init
+exec git clone -q --bare seed remote/acme/billing.git
+exec git -C seed remote add origin $WORK/remote/acme/billing.git
+exec ct ws clone github/acme/billing
+exec ct ws add MAN-1 github-acme-billing --base main --desc 'Fix the Thing'
+exec git -C home/Projects/repo-a/github/acme/billing worktree add -q -b task/MAN-1-01-first $WORK/home/Projects/work-a/MAN-1/tasks/billing-01 main
+exists home/Projects/work-a/MAN-1/tasks/billing-01/README.md
+fakejira jira.json
+
+# refusals change nothing
+! exec ct ticket convert MAN-1
+stderr '--to <source> is required'
+! exec ct ticket convert MAN-1 --to nope
+stderr 'no source .nope.'
+! exec ct ticket convert MAN-1 --to manual
+stderr 'not a synced source'
+! exec ct ticket convert MAN-1 --to off
+stderr 'disabled'
+! exec ct ticket convert MAN-1 --to local
+stderr '"sync": false'
+! exec ct ticket convert PROJ-9 --to jira
+stderr 'no ticket PROJ-9'
+! exec ct ticket convert MAN-2 --to jira --project PROJ
+stderr 'MAN-2 is not a manual ticket'
+live-session home/Projects/work-a/MAN-1
+! exec ct ticket convert MAN-1 --to jira --project PROJ
+stderr 'MAN-1.s session is running'
+! exists home/Documents/Obsidian/a/tickets/jira/PROJ-8
+rm home/Projects/work-a/MAN-1/.sessions.json
+rm home/Projects/work-a/MAN-1/.agent-state
+
+# no project given, none on the source
+! exec ct ticket convert MAN-1 --to jira
+stderr 'no project to file in'
+# a type the project doesn't have
+! exec ct ticket convert MAN-1 --to jira --project PROJ --type Saga
+stderr 'no issue type .Saga.'
+# a failed create changes nothing
+fakejira jira-fail.json
+! exec ct ticket convert MAN-1 --to jira --project PROJ
+stderr 'nothing changed'
+stderr 'no permission to create'
+exists home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
+exists home/Projects/work-a/MAN-1/workspace.json
+! grep 'convert-key' home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
+fakejira jira.json
+
+# --dry-run shows what would be filed and changes nothing
+exec ct ticket convert MAN-1 --to jira --project PROJ --dry-run
+stdout 'MAN-1 -> jira'
+stdout 'project:  PROJ'
+stdout 'type:     Story'
+stdout 'summary:  Fix the thing'
+stdout 'assignee: you \(u-me\)'
+stdout 'parent:   PROJ-2'
+stdout 'Acceptance criteria'
+stdout '- \\\[ \\\] it works'
+stdout 'dry run: nothing filed'
+exists home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
+! exists home/Documents/Obsidian/a/tickets/jira/PROJ-8
+
+# a full convert
+exec ct ticket convert MAN-1 --to jira --project PROJ
+stdout 'filed PROJ-8 at jira: https://acme.atlassian.net/browse/PROJ-8'
+stdout 'moved tickets/manual/MAN-1 to tickets/jira/PROJ-8'
+stdout 'renamed workspace .*/work-a/MAN-1 to .*/work-a/PROJ-8'
+stdout 'converted MAN-1 to PROJ-8'
+stdout 'starts fresh'
+stdout 'next: ct sync --source jira'
+! exists home/Documents/Obsidian/a/tickets/manual/MAN-1
+! exists home/Projects/work-a/MAN-1
+exists home/Documents/Obsidian/a/tickets/jira/PROJ-8/PROJ-8.md
+exists home/Documents/Obsidian/a/tickets/jira/PROJ-8/PROJ-8-status.md
+exists home/Documents/Obsidian/a/tickets/jira/PROJ-8/tasks/PROJ-8-01-first.md
+# the note is a synced one with an empty source block
+grep '^source: jira$' home/Documents/Obsidian/a/tickets/jira/PROJ-8/PROJ-8.md
+grep '^source-id: PROJ-8$' home/Documents/Obsidian/a/tickets/jira/PROJ-8/PROJ-8.md
+grep '^source-url: https://acme.atlassian.net/browse/PROJ-8$' home/Documents/Obsidian/a/tickets/jira/PROJ-8/PROJ-8.md
+grep '^tags: \[ticket, jira, proj\]$' home/Documents/Obsidian/a/tickets/jira/PROJ-8/PROJ-8.md
+grep '^title: PROJ-8$' home/Documents/Obsidian/a/tickets/jira/PROJ-8/PROJ-8.md
+grep '^# PROJ-8: Fix the thing$' home/Documents/Obsidian/a/tickets/jira/PROJ-8/PROJ-8.md
+grep '## Source \(Jira\)' home/Documents/Obsidian/a/tickets/jira/PROJ-8/PROJ-8.md
+! grep 'convert-|converted-from' home/Documents/Obsidian/a/tickets/jira/PROJ-8/PROJ-8.md
+# the ID inside the folder follows; the branch names don't
+grep 'work-a/PROJ-8/tasks/billing-01' home/Documents/Obsidian/a/tickets/jira/PROJ-8/tasks/PROJ-8-01-first.md
+grep '^branch: task/MAN-1-01-first$' home/Documents/Obsidian/a/tickets/jira/PROJ-8/tasks/PROJ-8-01-first.md
+grep 'Ticket PROJ-8 is' home/Documents/Obsidian/a/tickets/jira/PROJ-8/PROJ-8-status.md
+grep 'MAN-10 stays' home/Documents/Obsidian/a/tickets/jira/PROJ-8/PROJ-8-status.md
+# links from another ticket follow
+grep 'blocked-by: \["\[\[PROJ-8\]\]"\]' home/Documents/Obsidian/a/tickets/manual/MAN-3/MAN-3.md
+grep 'See \[\[PROJ-8-status\]\] and \[\[PROJ-8\|the first\]\]' home/Documents/Obsidian/a/tickets/manual/MAN-3/MAN-3.md
+# the workspace
+grep '"id": "PROJ-8"' home/Projects/work-a/PROJ-8/workspace.json
+grep '"path": ".*/work-a/PROJ-8/github-acme-billing"' home/Projects/work-a/PROJ-8/workspace.json
+grep '"branch": "feature/fix-the-thing"' home/Projects/work-a/PROJ-8/workspace.json
+# the worktrees still work with git, and keep their branches
+exec git -C home/Projects/work-a/PROJ-8/github-acme-billing status --short
+exec git -C home/Projects/work-a/PROJ-8/github-acme-billing rev-parse --abbrev-ref HEAD
+stdout '^feature/fix-the-thing$'
+exec git -C home/Projects/work-a/PROJ-8/tasks/billing-01 rev-parse --abbrev-ref HEAD
+stdout '^task/MAN-1-01-first$'
+cp change.txt home/Projects/work-a/PROJ-8/tasks/billing-01/change.txt
+exec git -C home/Projects/work-a/PROJ-8/tasks/billing-01 add change.txt
+exec git -C home/Projects/work-a/PROJ-8/tasks/billing-01 commit -q -m change
+exec git -C home/Projects/repo-a/github/acme/billing worktree list
+stdout 'work-a/PROJ-8/github-acme-billing'
+stdout 'work-a/PROJ-8/tasks/billing-01'
+! stdout 'work-a/MAN-1'
+# once done there is nothing left to resume
+! exec ct ticket convert MAN-1 --to jira --project PROJ
+stderr 'no ticket MAN-1'
+
+# a failure past the create: the workspace's new name is taken. The vault side
+# is done, the message names the key, and a re-run finishes without filing again
+exec ct ws add MAN-4 github-acme-billing --base main --desc 'Second thing'
+cp man-4.md home/Documents/Obsidian/a/tickets/manual/MAN-4/MAN-4.md
+mkdir home/Projects/work-a/PROJ-9
+! exec ct ticket convert MAN-4 --to jira --project PROJ --type Task
+stdout 'filed PROJ-9 at jira'
+stderr 'ct: MAN-4 was moved in the vault, but its workspace wasn.t renamed'
+stderr 'the issue PROJ-9 exists at jira'
+stderr 'run again: ct ticket convert MAN-4 --to jira'
+exists home/Documents/Obsidian/a/tickets/jira/PROJ-9/PROJ-9.md
+grep '^converted-from: MAN-4$' home/Documents/Obsidian/a/tickets/jira/PROJ-9/PROJ-9.md
+exists home/Projects/work-a/MAN-4/workspace.json
+rm home/Projects/work-a/PROJ-9
+exec ct ticket convert MAN-4 --to jira --project PROJ --type Task
+stdout 'already filed and moved as PROJ-9'
+stdout 'converted MAN-4 to PROJ-9'
+! stdout 'filed PROJ-10'
+! exists home/Projects/work-a/MAN-4
+grep '"id": "PROJ-9"' home/Projects/work-a/PROJ-9/workspace.json
+! grep 'converted-from' home/Documents/Obsidian/a/tickets/jira/PROJ-9/PROJ-9.md
+exec git -C home/Projects/work-a/PROJ-9/github-acme-billing status --short
+! exec ct ticket convert MAN-4 --to jira --project PROJ
+stderr 'no ticket MAN-4'
+
+# a lost create response: the message says the issue may exist, and nothing changes
+fakejira jira-drop.json
+mkdir home/Documents/Obsidian/a/tickets/manual/MAN-5
+cp man-5.md home/Documents/Obsidian/a/tickets/manual/MAN-5/MAN-5.md
+! exec ct ticket convert MAN-5 --to jira --project PROJ --type Task
+stderr 'may exist'
+stderr 'check the PROJ project'
+! stderr 'nothing changed'
+! grep 'convert-key' home/Documents/Obsidian/a/tickets/manual/MAN-5/MAN-5.md
+
+# convert holds the vault lock while it works and releases it: a lock it
+# already holds as its own owner is taken over, then freed
+fakejira jira-high.json
+exec ct vault lock acquire home/Documents/Obsidian/a 'ct ticket convert'
+exec ct ticket convert MAN-5 --to jira --project PROJ --type Task
+stdout 'converted MAN-5 to PROJ-31'
+exec ct vault lock status home/Documents/Obsidian/a
+! stdout 'ct ticket convert'
+
+-- sources.json --
+{"sources": {
+  "manual": {"enabled": true, "sync": false, "idPrefix": "MAN"},
+  "local": {"enabled": true, "sync": false},
+  "off": {"enabled": false, "mcp": "atlassian"},
+  "jira": {"enabled": true, "mcp": "atlassian", "query": "assignee = currentUser()"}}}
+-- jira.json --
+{"me": "u-me",
+ "resources": [{"cloudId": "cloud-1", "url": "https://acme.atlassian.net/", "products": [{"id": "jira"}]}],
+ "open": [],
+ "issues": {"PROJ-7": {"fields": {"summary": "Old"}}},
+ "issueTypes": {"PROJ": ["Story", "Bug", "Task", "Epic"]}}
+-- jira-fail.json --
+{"me": "u-me",
+ "resources": [{"cloudId": "cloud-1", "url": "https://acme.atlassian.net/", "products": [{"id": "jira"}]}],
+ "open": [],
+ "issues": {},
+ "issueTypes": {"PROJ": ["Story", "Bug", "Task", "Epic"]},
+ "failCreate": "no permission to create issues in PROJ"}
+-- jira-high.json --
+{"me": "u-me",
+ "resources": [{"cloudId": "cloud-1", "url": "https://acme.atlassian.net/", "products": [{"id": "jira"}]}],
+ "open": [],
+ "issues": {"PROJ-30": {"fields": {"summary": "Old"}}},
+ "issueTypes": {"PROJ": ["Story", "Bug", "Task", "Epic"]}}
+-- jira-drop.json --
+{"me": "u-me",
+ "resources": [{"cloudId": "cloud-1", "url": "https://acme.atlassian.net/", "products": [{"id": "jira"}]}],
+ "open": [],
+ "issues": {},
+ "issueTypes": {"PROJ": ["Story", "Bug", "Task", "Epic"]},
+ "dropAfterCreate": true}
+-- proj-2.md --
+---
+title: PROJ-2
+summary: Epic
+source: jira
+source-id: PROJ-2
+ticket-type: epic
+---
+# PROJ-2
+-- man-1.md --
+---
+title: MAN-1
+summary: "Fix the thing"
+status: in-progress
+type: ticket
+ticket-type: dev
+source: manual
+source-id: MAN-1
+covered-by: "[[PROJ-2]]"
+tags: [ticket, manual]
+---
+# MAN-1: Fix the thing
+
+<!-- a comment that is not part of the description -->
+
+## Description
+It is broken.
+
+## Acceptance criteria
+- [ ] it works
+
+## Context / links
+Not filed.
+-- man-1-status.md --
+---
+title: MAN-1 status
+---
+Ticket MAN-1 is going. MAN-10 stays.
+-- man-1-task.md --
+---
+id: "01"
+ticket: "[[MAN-1]]"
+branch: task/MAN-1-01-first
+worktree: $WORK/home/Projects/work-a/MAN-1/tasks/billing-01
+---
+# Task
+-- man-2.md --
+---
+title: MAN-2
+summary: Other
+source: jira
+source-id: MAN-2
+---
+-- man-3.md --
+---
+title: MAN-3
+summary: Third
+source: manual
+ticket-type: dev
+blocked-by: ["[[MAN-1]]"]
+---
+See [[MAN-1-status]] and [[MAN-1|the first]].
+-- man-4.md --
+---
+title: MAN-4
+summary: "Second thing"
+status: new
+source: manual
+source-id: MAN-4
+ticket-type: chore
+tags: [ticket, manual]
+---
+# MAN-4: Second thing
+
+## Description
+Do it.
+-- man-5.md --
+---
+title: MAN-5
+summary: "Third thing"
+status: new
+source: manual
+source-id: MAN-5
+ticket-type: chore
+tags: [ticket, manual]
+---
+# MAN-5: Third thing
+
+## Description
+Do it.
+-- gitconfig --
+# Trusted only because it is the user's global config (ct checks a repo's
+# own config, never this): the local remotes stand in for real hosts
+[protocol "file"]
+	allow = always
+[url "$WORK/remote/"]
+	insteadOf = git@github.com:
+[advice]
+	detachedHead = false
+-- change.txt --
+changed
+-- seed/README.md --
+# billing

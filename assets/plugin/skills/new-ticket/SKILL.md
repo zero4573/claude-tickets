@@ -71,6 +71,8 @@ note's path. Write the new note's initial content yourself, in that note only: `
 `## Acceptance criteria`, `## Context / links` (`[[<ID>]]`), `projects:`, the tag
 `from-ticket` (`from-kb` in a `kb` session), and under a lead `covered-by: "[[<lead>]]"` and
 `parent: "[[<lead>]]"`. From then on it is the user's.
+Tell the user it can be filed at a source later with `ct ticket convert <MAN-n> --to <source>` (run
+on the host, with its session closed).
 
 ## 5. Link it into the vault
 The new ticket's own note is never yours to write before `/tickets:save` (the vault's

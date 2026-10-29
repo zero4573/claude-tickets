@@ -42,6 +42,7 @@ vault (ct vault default; else the only vault).`,
 		layoutCmd(),
 		hookCmd(),
 		dirCmd(),
+		ticketCmd(),
 	)
 	return root
 }

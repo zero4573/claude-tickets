@@ -13,7 +13,14 @@
 //	     "changelog": {"total": 1, "histories": [...]},
 //	     "evidence": {"appliedContentFormat": "markdown", "fields": {"description": ..., "customFields": {...}}},
 //	     "comments": {"appliedContentFormat": "markdown", "comments": [...]},
-//	     "failGet": true}}}           // getJiraIssue fails for it
+//	     "failGet": true}},           // getJiraIssue fails for it
+//	 "issueTypes": {"PROJ": ["Story", "Bug"]},  // getJiraProjectIssueTypesMetadata
+//	 "failCreate": "message",         // createJiraIssue fails with it
+//	 "dropAfterCreate": true}         // createJiraIssue creates, then drops the connection
+//
+// createJiraIssue adds the issue to the fixture under the project's next
+// key (one past the highest PROJ-n there), with its summary, description,
+// issue type, assignee and parent as fields; the call is in Calls.
 //
 // Searches: "key in (A,B)" returns those issues, "parent in (E,F)" their
 // children (by fields.parent.key, sorted by key), any other JQL the open
@@ -22,6 +29,7 @@ package mcptest
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -40,6 +48,16 @@ type Fixture struct {
 	PageSize  int                        `json:"pageSize"`
 	SSE       bool                       `json:"sse"`
 	Issues    map[string]json.RawMessage `json:"issues"`
+	// IssueTypes are the issue type names of each project
+	IssueTypes map[string][]string `json:"issueTypes"`
+	// FailCreate, when set, is the error createJiraIssue answers
+	FailCreate string `json:"failCreate"`
+	// DropAfterCreate, when set, makes createJiraIssue create the issue and
+	// then close the connection without answering (a lost response)
+	DropAfterCreate bool `json:"dropAfterCreate"`
+	// CreateKey, when set, is the key createJiraIssue answers (the issue is
+	// stored under the generated one)
+	CreateKey string `json:"createKey"`
 }
 
 type issueData struct {
@@ -124,6 +142,14 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 		args, _ := json.Marshal(req.Params.Arguments)
 		s.Calls = append(s.Calls, req.Params.Name+" "+string(args))
 		data, err := s.tool(req.Params.Name, req.Params.Arguments)
+		if err == nil && req.Params.Name == "createJiraIssue" && s.fixture.DropAfterCreate {
+			if hj, ok := w.(http.Hijacker); ok {
+				if conn, _, herr := hj.Hijack(); herr == nil {
+					conn.Close()
+					return
+				}
+			}
+		}
 		if err != nil {
 			result = map[string]any{"isError": true, "content": []any{map[string]any{"type": "text", "text": err.Error()}}}
 		} else {
@@ -241,6 +267,55 @@ func (s *Server) tool(name string, args map[string]any) (any, error) {
 			out["changelog"] = cl
 		}
 		return out, nil
+	case "getJiraProjectIssueTypesMetadata":
+		proj, _ := args["projectIdOrKey"].(string)
+		names, ok := s.fixture.IssueTypes[proj]
+		if !ok {
+			return nil, fmt.Errorf("project %s does not exist or you do not have permission to see it", proj)
+		}
+		types := []any{}
+		for i, n := range names {
+			types = append(types, map[string]any{"id": strconv.Itoa(10000 + i), "name": n})
+		}
+		return map[string]any{"issueTypes": types}, nil
+	case "createJiraIssue":
+		if s.fixture.FailCreate != "" {
+			return nil, errors.New(s.fixture.FailCreate)
+		}
+		proj, _ := args["projectKey"].(string)
+		typ, _ := args["issueTypeName"].(string)
+		summary, _ := args["summary"].(string)
+		if proj == "" || typ == "" || summary == "" {
+			return nil, errors.New("projectKey, issueTypeName and summary are required")
+		}
+		n := 0
+		for k := range s.fixture.Issues {
+			if v, ok := strings.CutPrefix(k, proj+"-"); ok {
+				if i, err := strconv.Atoi(v); err == nil {
+					n = max(n, i)
+				}
+			}
+		}
+		key := fmt.Sprintf("%s-%d", proj, n+1)
+		fields := map[string]any{"summary": summary, "issuetype": map[string]any{"name": typ}, "project": map[string]any{"key": proj}}
+		if d, ok := args["description"]; ok {
+			fields["description"] = d
+		}
+		if a, ok := args["assignee_account_id"].(string); ok && a != "" {
+			fields["assignee"] = map[string]any{"accountId": a}
+		}
+		if p, ok := args["parent"].(string); ok && p != "" {
+			fields["parent"] = map[string]any{"key": p}
+		}
+		raw, _ := json.Marshal(map[string]any{"fields": fields})
+		if s.fixture.Issues == nil {
+			s.fixture.Issues = map[string]json.RawMessage{}
+		}
+		s.fixture.Issues[key] = raw
+		if s.fixture.CreateKey != "" {
+			return map[string]any{"id": strconv.Itoa(20000 + n + 1), "key": s.fixture.CreateKey}, nil
+		}
+		return map[string]any{"id": strconv.Itoa(20000 + n + 1), "key": key}, nil
 	case "executeRead":
 		if args["name"] != "listJiraIssueComments" {
 			return nil, fmt.Errorf("unknown read %v", args["name"])
