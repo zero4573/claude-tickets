@@ -18,6 +18,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zero4573/claude-tickets/internal/gitx"
 	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/platform"
 	"github.com/zero4573/claude-tickets/internal/vault"
@@ -338,7 +339,7 @@ func statusRows(ctx vault.Context) []statusRow {
 				continue
 			}
 			total++
-			if out, _ := exec.Command("git", "-C", r.Path, "status", "--porcelain").Output(); len(out) > 0 {
+			if out, _ := gitx.Command("-C", r.Path, "status", "--porcelain").Output(); len(out) > 0 {
 				dirty++
 			}
 		}
@@ -378,7 +379,10 @@ func openCmd() *cobra.Command {
 		Use:   "open <ID> | --list",
 		Short: "Open a ticket's workspace in your editor",
 		Long: `Opens a ticket's workspace in your editor: $CLAUDE_TICKETS_EDITOR, a command
-with any arguments (default: code, VS Code).
+with any arguments; when unset, ttt if it is on PATH, else code (VS Code).
+
+ttt gets each worktree path, then the ticket's vault folder, as a multi-root
+open.
 
 For VS Code and its forks (code, codium, cursor, ...), it writes and opens
 <ID>.code-workspace in the workspace: a multi-root workspace with one folder
@@ -418,6 +422,9 @@ func openWorkspace(ctx vault.Context, key string) error {
 	editor := strings.Fields(os.Getenv("CLAUDE_TICKETS_EDITOR"))
 	if len(editor) == 0 {
 		editor = []string{"code"}
+		if _, err := exec.LookPath("ttt"); err == nil {
+			editor = []string{"ttt"}
+		}
 	}
 	path, err := exec.LookPath(editor[0])
 	if err != nil {
@@ -425,6 +432,12 @@ func openWorkspace(ctx vault.Context, key string) error {
 	}
 	target := dir
 	switch filepath.Base(editor[0]) {
+	case "ttt":
+		argv := append([]string{}, editor...)
+		for _, r := range info.Repos {
+			argv = append(argv, r.Path)
+		}
+		return execReplaceOrRun(path, append(argv, note.TicketDir(ctx.Vault, key)))
 	case "code", "code-insiders", "codium", "vscodium", "cursor", "windsurf":
 		type folder struct {
 			Name string `json:"name"`

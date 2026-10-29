@@ -30,7 +30,7 @@ flowchart TB
 | Package | Role |
 |---|---|
 | `internal/cli` | the cobra commands: `start`, `status`, `ws`, `vault`, `kb`, `teach`, `clean`, `sync`, `graph`, `layout`, `claude`, `hook` |
-| `internal/workspace` | a ticket workspace: `workspace.json` (repos, bases, branches, target versions), the docs and tidy marks, the live sessions, the `.tool-versions` stamp |
+| `internal/workspace` | a ticket workspace: `workspace.json` (repos, bases, branches, target versions), the tidy mark, the live sessions, the `.tool-versions` stamp |
 | `internal/gitx`, `internal/repo` | git helpers (worktrees, unpushed commits) and the repo slug rules |
 | `internal/vault`, `internal/config` | finding the current vault, its `.workflow.json`, tool versions |
 | `internal/links`, `internal/lock`, `internal/vaultlock` | moving notes without breaking wikilinks, and the vault lock `/tickets:save` takes |
@@ -43,7 +43,7 @@ flowchart TB
 ## The plugin
 
 `assets/plugin/` is the Claude Code plugin `tickets`. Its skills are the playbooks: the PO
-(`work-ticket`), the lead, the task agent, the reviewer, and the closing steps `docs`,
+(`work-ticket`), the lead, the task agent, the reviewer, and the closing steps
 `tidy` and `save`. Its agents (`lead`, `task`, `mechanical`, `reviewer`, `reviewer-deep`,
 `analyst`) and hooks are what `ct` passes to `claude` with `--plugin-dir`. The flow is in
 [the ticket workflow](ticket-workflow.md).
