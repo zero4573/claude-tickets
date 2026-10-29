@@ -36,7 +36,7 @@ in
       type = lib.types.listOf lib.types.package;
       default = built.sessionTools;
       readOnly = true;
-      description = "The commands sessions run themselves (ct: ct ws, ct kb repo, ct new, ct graph mcp, ct vault lock, ct vault links), e.g. for a sandbox's PATH.";
+      description = "The commands sessions run themselves (ct: ct ws, ct spec repo, ct new, ct graph mcp, ct vault lock, ct vault links), e.g. for a sandbox's PATH.";
     };
 
     claude = lib.mkOption {
@@ -49,7 +49,7 @@ in
       type = lib.types.attrs;
       default = { };
       example = lib.literalExpression ''{ permissions.deny = [ "Bash(git push:*)" ]; }'';
-      description = "Claude settings merged into every ticket and kb session's .claude/settings.json (CLAUDE_TICKETS_SESSION_SETTINGS). See the README for recommended rules.";
+      description = "Claude settings merged into every ticket and spec session's .claude/settings.json (CLAUDE_TICKETS_SESSION_SETTINGS). See the README for recommended rules.";
     };
 
     mcpConfig = lib.mkOption {

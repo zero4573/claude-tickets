@@ -37,6 +37,13 @@ reworded line passes):
 
 Lines are per commit in rev-list order, its size lines first.
 
+For a range A..B or A...B it also checks the repo's specs/<capability>/spec.md:
+a requirement ID that B adds (not defined at the merge base) but A already
+defines, or that B defines twice, is flagged, one line per definition, after
+the commit lines (a repo without specs/ is skipped):
+
+  spec-id  <REQ-ID>  <short sha of B>  <spec file>
+
 Exits 0 when clean, 3 when something is flagged, 1 on a usage error, a
 directory that is not a git checkout, or a bad range.`,
 		Args: cobra.ExactArgs(1),
@@ -73,6 +80,10 @@ directory that is not a git checkout, or a bad range.`,
 					return fmt.Errorf("diff-check: %w", err)
 				}
 			}
+			specHits, err := diffcheck.CheckSpecIDs(dir, args[0])
+			if err != nil {
+				return fmt.Errorf("diff-check: %w", err)
+			}
 			// per commit in rev-list order: its size lines, then its ID lines
 			revs, err := diffcheck.Revs(dir, args[0])
 			if err != nil {
@@ -94,6 +105,9 @@ directory that is not a git checkout, or a bad range.`,
 			if fi != len(found) || hi != len(hits) {
 				return fmt.Errorf("diff-check: the range changed while it was checked")
 			}
+			for _, h := range specHits {
+				fmt.Fprintf(&b, "spec-id\t%s\n", h)
+			}
 			fmt.Fprint(cmd.OutOrStdout(), b.String())
 			if len(found) > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "ct ws diff-check: %d file(s) flagged (binary or > %s)\n", len(found), maxSize)
@@ -101,7 +115,10 @@ directory that is not a git checkout, or a bad range.`,
 			if len(hits) > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "ct ws diff-check: %d vault-only ID(s) of %s in the range\n", len(hits), ticket)
 			}
-			if len(found) > 0 || len(hits) > 0 {
+			if len(specHits) > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "ct ws diff-check: %d requirement ID(s) taken twice in specs/ (renumber the later one)\n", len(specHits))
+			}
+			if len(found) > 0 || len(hits) > 0 || len(specHits) > 0 {
 				return exitError(3)
 			}
 			return nil

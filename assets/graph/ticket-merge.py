@@ -62,7 +62,7 @@ base_env = dict(os.environ, GRAPHIFY_FORCE="1")
 watchers: dict[Path, subprocess.Popen] = {}
 # worktree path -> slug, refreshed from workspace.json by worktrees()
 slugs: dict[Path, str] = {}
-# kb exploration clones (mode "explore") keep <clone>/graphify-out
+# spec exploration clones (mode "explore") keep <clone>/graphify-out
 explore: set[Path] = set()
 # Unknown paths already logged by out_dir (the poll loop asks often)
 unknown: set[Path] = set()
@@ -214,13 +214,13 @@ def build_worktree(path: Path) -> None:
 
 def ensure_watchers() -> None:
     current = {path for _, path in worktrees()}
-    # Stop watching repos that left the workspace (ct kb repo reset, ct ws rm)
+    # Stop watching repos that left the workspace (ct spec repo reset, ct ws rm)
     for path in list(watchers):
         if path not in current:
             watchers.pop(path).terminate()
             log(f"stopped watching {path}")
     for path in current:
-        # ct kb repo graph asks for a rebuild by touching this file
+        # ct spec repo graph asks for a rebuild by touching this file
         dest = out_dir(path)
         if dest is None:
             continue

@@ -14,9 +14,9 @@ import (
 )
 
 // SessionsFile records the sessions ct ran in a workspace (ct start,
-// ct kb): which process, on which host, so Running can tell a live
+// ct spec): which process, on which host, so Running can tell a live
 // session from a dead one. A
-// list, as a kb workspace can host several sessions at once. Kept apart
+// list, as a spec workspace can host several sessions at once. Kept apart
 // from workspace.json, whose format stays stable.
 func SessionsFile(dir string) string { return filepath.Join(dir, ".sessions.json") }
 
@@ -42,7 +42,7 @@ var (
 )
 
 // RecordSession records this process as a session of dir (command: start,
-// feedback, kb), dropping the records of dead sessions on this host. Call
+// feedback, spec), dropping the records of dead sessions on this host. Call
 // it just before exec: the process that replaces ct keeps its PID and
 // start time.
 func RecordSession(dir, command string) error {

@@ -1,4 +1,4 @@
-# .tool-versions: written at the workspace root by ct start, ct kb and ct
+# .tool-versions: written at the workspace root by ct start, ct spec and ct
 # teach, from the repos' go.mod and the vault's toolVersions setting, with
 # installed versions only; ct ws rm removes it. ct ws add isn't scripted here
 # (it needs a real clone with commits; ws.txtar has those, the unit tests
@@ -37,12 +37,12 @@ exec ct-tty start --no-fetch --force MAN-1
 stderr 'ct: .tool-versions: python 9.9.9 isn.t installed \(asdf install python 9.9.9\)'
 ! grep '^python' home/Projects/work-a/MAN-1/.tool-versions
 
-# ct kb and ct teach write it too
+# ct spec and ct teach write it too
 mkdir home/Documents/Obsidian/a/learning/rust-async
 cp workflow.json home/Documents/Obsidian/a/.workflow.json
-exec ct kb --no-fetch
-grep '^golang 1.26.1$' home/Projects/work-a/.kb-a/.tool-versions
-grep '^python 3.13.7$' home/Projects/work-a/.kb-a/.tool-versions
+exec ct spec --no-fetch
+grep '^golang 1.26.1$' home/Projects/work-a/.spec-a/.tool-versions
+grep '^python 3.13.7$' home/Projects/work-a/.spec-a/.tool-versions
 exec ct-tty teach rust-async
 grep '^golang 1.26.1$' home/Projects/work-a/.teach-a/rust-async/.tool-versions
 

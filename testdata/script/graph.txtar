@@ -22,7 +22,7 @@ cp ws.json home/Projects/work-a/MAN-1/workspace.json
 exec ct graph mcp home/Projects/work-a/MAN-1
 grep '^run --rm --security-opt label=disable -i -v .*/home/Projects/work-a/MAN-1:.*/home/Projects/work-a/MAN-1 -e PROJECT_ROOT=.* -e PROJECTS_ROOT=.*/home/Projects/repo-a -v .*/home/Projects/repo-a:.*/home/Projects/repo-a:ro localhost/claude-tickets-graphify:[0-9a-f]+ /opt/graphify/serve.sh$' calls/podman
 ! exec ct graph mcp home/Projects/work-a
-stderr 'must be a ticket or kb workspace'
+stderr 'must be a ticket or spec workspace'
 # without the image: the unpacked filesystem
 rm podman-built
 exec ct graph mcp home/Projects/work-a/MAN-1

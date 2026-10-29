@@ -9,7 +9,7 @@ exec ct graph build
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/work-a/MAN-1 home/Projects/repo-a
 cp ws.json home/Projects/work-a/MAN-1/workspace.json
 ! exec ct graph merge home/Projects/work-a
-stderr 'must be a ticket or kb workspace'
+stderr 'must be a ticket or spec workspace'
 exec ct graph merge home/Projects/work-a/MAN-1
 grep '^run --rm --security-opt label=disable .*localhost/claude-tickets-graphify:[0-9a-f]+ /opt/graphify/serve.sh --merge$' calls/podman
 

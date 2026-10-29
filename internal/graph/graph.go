@@ -1,4 +1,4 @@
-// Package graph is the code graph of ticket and kb sessions: the graphify
+// Package graph is the code graph of ticket and spec sessions: the graphify
 // image (built from assets/graph with podman or docker), its unpacked filesystem
 // for runtimes that start without images, the MCP server merging a
 // workspace's graphs, and the main clones' graphs.
@@ -251,7 +251,7 @@ func Merge(ws, projectsRoot string) error {
 // flag "-i"), or with --merge (no stdin flag).
 func serveCommand(ws, projectsRoot, stdin string) ([]string, error) {
 	if _, err := os.Stat(filepath.Join(ws, "workspace.json")); ws == "" || err != nil {
-		return nil, errors.New("mcp: <workspace> must be a ticket or kb workspace (with workspace.json)")
+		return nil, errors.New("mcp: <workspace> must be a ticket or spec workspace (with workspace.json)")
 	}
 	var pre, post []string
 	if stdin != "" {

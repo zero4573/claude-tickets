@@ -1,6 +1,6 @@
 ---
 name: save
-description: End-of-session save to the Obsidian vault. In a ticket workspace (~/work/<ID>), writes session logs, promotes the ticket's kb-drafts into projects/ (repos and groups), knowledge-base/ and references/ without breaking links, records dependencies between projects, tags the ticket with <project>-<target-version>, appends the ticket summary (this replaces the old /summarize), then pushes each workspace repo's feature branch (signed commits only, never forced). In a repo session started with ct claude, or a kb session, writes a session log and promotes the session's inbox/ drafts. Use when the user runs /tickets:save or asks to save, document or summarize the session.
+description: End-of-session save to the Obsidian vault. In a ticket workspace (~/work/<ID>), writes session logs, promotes the ticket's kb-drafts into projects/ (repos and groups), knowledge-base/ and references/ without breaking links, records dependencies between projects, tags the ticket with <project>-<target-version>, appends the ticket summary (this replaces the old /summarize), then pushes each workspace repo's feature branch (signed commits only, never forced). In a repo session started with ct claude, or a spec session, writes a session log and promotes the session's inbox/ drafts. Use when the user runs /tickets:save or asks to save, document or summarize the session.
 ---
 
 # /tickets:save
@@ -22,13 +22,13 @@ never delete notes without asking.
   (`~/Projects/work-<vault>/<ID>` by default;
   the vault's `.workflow.json` can move it). Its `CLAUDE.md` names the
   vault and the ticket. Follow all the steps below.
-- **Knowledge-base session:** the cwd is a `kb` workspace
-  (`<workRoot>/.kb-<vault>`, `workspace.json` id `KB`). Its `CLAUDE.md`
-  names the vault and the session id (`kb-<vault>-<stamp>`). There's no
+- **Spec session:** the cwd is a `spec` workspace
+  (`<workRoot>/.spec-<vault>`). Its `CLAUDE.md`
+  names the vault and the session id (`spec-<vault>-<stamp>`). There's no
   project:
   - take the lock (step 2) with the session id as the owner;
   - write a session log in the vault's `logs/`, as
-    `yyyy-MM-dd-kb-<topic>.md`: the questions asked, the answers in short,
+    `yyyy-MM-dd-spec-<topic>.md`: the questions asked, the answers in short,
     and what's still unknown;
   - promote this session's `inbox/` drafts (step 4, with its dependency
     and group rules);
@@ -36,7 +36,7 @@ never delete notes without asking.
 - **Project mode:** anything else, e.g. `ct claude` in a repo. The vault
   is the knowledge base named in the system prompt. If there's none, the
   session wasn't started with `ct claude`: say so (relaunch with
-  `ct claude`, or use `kb`) and stop. The project is
+  `ct claude`, or use `ct spec`) and stop. The project is
   the repo's slug, `<provider>-<owner>-<repo>`, as the system prompt names
   it (or from its path under `~/Projects`, or its origin URL). Then:
   - take the lock (step 2) with `repo-<slug>` as the owner;
@@ -49,11 +49,11 @@ never delete notes without asking.
     the dependency and group rules of step 4 apply to them too;
   - release the lock (step 7).
 
-  **Inbox drafts** are the notes the `kb` skill wrote in `inbox/` with
+  **Inbox drafts** are the notes the `spec` skill wrote in `inbox/` with
   `session:` set to this session. Promote them exactly like a ticket's
   `kb-drafts/` (same `target:` and `update-of:` rules, `ct vault links move`).
   Drafts from other sessions stay where they are: mention them, so the user
-  can `/tickets:save` them from a `kb` session. Notes with `type: follow-ups`
+  can `/tickets:save` them from a `spec` session. Notes with `type: follow-ups`
   (task lists that unattended commands such as ct sync leave for the
   user) aren't drafts: never promote, move or edit them.
 
@@ -95,12 +95,21 @@ Re-read each shared note right before editing it.
 
 ### 3. Session logs
 
+`/tickets:save` can run several times during a ticket, so every write below is
+repeat-safe: look for what an earlier save wrote and update it in place.
+One log per session: the log carries `session: <session id>` in its frontmatter
+(the ticket's session, or `$CLAUDE_SESSION_ID`/the transcript name when set; else the date and
+time, `date +%FT%H%M%S`, never the bare date: two sessions on one day must not share a log key).
+Before creating a log, `rg -l '^session: <id>$'` the folder; when one exists,
+update that file (new date in `updated:`, the text rewritten to what is true now)
+instead of creating another.
+
 - `tickets/<source>/<ID>/logs/yyyy-MM-dd-<ID>-<short-description>.md` (template
   `templates/session-log.md`): what was done, decisions made (linked),
   pending items, notes created or modified (linked).
 - For each repo **with changes**, `projects/<slug>/logs/yyyy-MM-dd-<ID>-<slug>-<short-description>.md`:
   a short log of what changed in that repo and why, linking the ticket and
-  the feature, sequence and decision notes.
+  the feature index, group sequence and decision notes.
 
 ### 4. Promote knowledge
 
@@ -123,12 +132,17 @@ from its type):
 
 Where things go:
 - `projects/<slug>/`:
-  - `features/`: what the feature does, projects touched, version
-    introduced per project, tickets
-  - `sequences/`: flows within the project, or between it and one other
-    project without a shared group
+  - `features/`: an index of a feature's tickets, versions per project
+    and links to its spec sections (what it does is the spec's)
+  - `specs/<capability>/spec.md`: only for `specs: vault`; run
+    `ct spec baseline <ID>` first (it records `projects/<slug>/specs/` as it is in
+    `tickets/<source>/<ID>/specs-base/<slug>/`, and keeps one that exists), then promote the
+    ticket's copy `tickets/<source>/<ID>/specs/<slug>/` here with `ct vault links move`
+    (an existing spec there is updated, not duplicated). Do it in this step, so step 5
+    checks the moved links
+  - no single-repo `sequences/` or `data/` notes any more (the spec holds
+    them); existing ones stay as they are
   - `architecture/`: conventions, structure
-  - `data/`: schemas, data models
   - Create the project's folders and its index note
     `projects/<slug>/<slug>.md` (template `templates/project.md`, with
     `repo: <provider>/<owner>/<repo>` and `aliases: [<repo>]` so the short
@@ -233,10 +247,15 @@ user.
   the frontmatter list `versions: [bitbucket-sops-orders-service@2.4.0, ...]`.
 - A `## Knowledge` section linking every note created or updated, grouped
   by project.
-- Append the summary **at the very end of the note**, in exactly this form
-  (time from `date +%FT%T`):
+- Write the summary **at the very end of the note**, in exactly this form
+  (time from `date +%FT%T`). It is the block that starts at the
+  `<!-- save-summary -->` marker line: when the marker is there (an earlier
+  save), replace everything from it to the end of the note with the new block,
+  keeping the first `created:`; never append a second block. Without the marker
+  (first save), append it:
 
   ```
+  <!-- save-summary -->
   ---
   created: *yyyy-MM-ddTHH:mm:ss*
 
@@ -255,18 +274,26 @@ user.
   The lead's own summary lists each covered ticket and any open
   `## Follow-ups`.
 
+### 6b. The note's `specs:` and `requirements:`
+
+Write them in the ticket note's frontmatter from `ct spec diff <ID>` (the capabilities touched;
+the requirement IDs added or changed). Vault-located specs were promoted in step 4; `ct spec diff <ID>` still shows their change, against the baseline step 4 recorded.
+
 ### 7. Release the lock and finish
 
 Run `ct vault lock release <vault> <ID>`. Then, in the ticket's frontmatter
 (for a lead, in each covered ticket's too):
 - set `saved: <date +%FT%T>`, adding the field after `status` if it's
   missing. `ct clean` reads it to know the ticket's work is in the vault;
-- set `status: done`, **unless it's `closed`** (the source, or the user,
-  closed it), which stays: `/tickets:save` ends the lead's work; step 8
-  pushes the ticket branches.
+- set `status: done` only after the lead's hand-over: `board.md` shows the
+  hand-over done (`Next: handover-done`, the hand-over line in `## Tasks`
+  `[x]`) or the note's `status` is `review`. Before that (a mid-ticket save)
+  keep the status as it is (`in-progress`) and say the ticket is still open.
+  `closed` (the source, or the user, closed it) always stays. Step 8 pushes
+  the ticket branches.
 
 Before the final status, in a ticket workspace run `ct ws marks <ID>`. On exit 3 ask with
-AskUserQuestion: stop and run `/tickets:docs` and `/tickets:tidy` first (recommended), or save
+AskUserQuestion: stop and run `/tickets:tidy` first (recommended), or save
 anyway; go on only on the second, and remember that the user chose it (step 8 asks again
 before pushing).
 
@@ -281,13 +308,18 @@ manual ticket's: `feature/<description>`):
 1. **Only the feature branch.** Never push a task branch (`tasks/*`
    worktrees, `task/*` branches), another branch, or tags. Skip a repo
    whose worktree is missing or not on `<branch>`, and say so.
-2. **The marks gate.** `ct ws marks <ID>` exited 0 in step 7. If the user
+2. **Mid-ticket warning.** When the hand-over is not done (step 7), tell
+   the user before pushing that pushed commits can't be rewritten by
+   `/tickets:tidy` afterwards, and ask with AskUserQuestion: push now, or
+   don't push (recommended: finish the ticket, tidy, then save). Push only
+   on a yes; headless, push nothing mid-ticket.
+3. **The marks gate.** `ct ws marks <ID>` exited 0 in step 7. If the user
    chose to save anyway, ask once more with AskUserQuestion before
-   pushing: push anyway, or don't push (recommended: run `/tickets:docs`
-   and `/tickets:tidy` first). Push only on a yes.
-3. **Nothing to push:** `git -C <path> rev-list --count <branch> --not --remotes`
+   pushing: push anyway, or don't push (recommended: run `/tickets:tidy`
+   first). Push only on a yes.
+4. **Nothing to push:** `git -C <path> rev-list --count <branch> --not --remotes`
    is 0 and the branch has an upstream: say it's up to date.
-4. **Every commit signed.** `git -C <path> log --format='%h %G? %s' <branch> --not --remotes`:
+5. **Every commit signed.** `git -C <path> log --format='%h %G? %s' <branch> --not --remotes`:
    any commit whose `%G?` is `N` (unsigned) or `B` (bad signature) means
    this repo is **not pushed**. (`E`, signed but not checkable here, e.g.
    no `gpg.ssh.allowedSignersFile`, counts as signed; `G`, `U`, `X`, `Y`,
@@ -297,11 +329,11 @@ manual ticket's: `feature/<description>`):
    (`<base>` from `workspace.json`; `--rebase-merges` too when the branch
    has the lead's `--no-ff` merges), then `git -C <path> push -u origin <branch>`,
    or that the session's signing agent needs fixing. No ct command does it.
-5. **Push.** `git -C <path> push -u <remote> <branch>`, where `<remote>`
+6. **Push.** `git -C <path> push -u <remote> <branch>`, where `<remote>`
    is `git -C <path> config branch.<branch>.remote` when set, else
    `origin`. Never `--force`, `--force-with-lease`, `+<branch>`,
    `--delete`, `:<ref>`, `--mirror`, `--tags` or `--prune`.
-6. **Rejected** (not a fast-forward, or the host's push broker refuses it:
+7. **Rejected** (not a fast-forward, or the host's push broker refuses it:
    it rejects force pushes, branch deletes and tag deletes or moves): stop
    for this repo, don't retry with other options, fetch, rebase or merge
    to make it pass. Tell the user what git said and the exact command to
@@ -324,3 +356,33 @@ Tell them:
   command to run on the host
 - that `ct ws rm <ID>` cleans up the worktrees after merge, and `ct clean`
   the ticket once it is closed
+
+### 9. Publish the descriptions and offer transitions
+
+After step 8, with the vault lock already released (step 7), so a question to the user never
+holds it. Only when the push succeeded: every repo of the ticket pushed or up to date. A repo
+not pushed (the user said no, marks, unsigned, rejected) skips this whole step; say so. Without
+AskUserQuestion (headless) skip it too. Decide **per ticket**, for the ticket and each ticket in
+its `covers`: a synced ticket gets 1 and 2; a manual one has no remote description, so name it
+and skip it (a manual lead such as this one still publishes for its synced children). Skip
+all of it, saying what, when the source's Jira MCP tools (`editJiraIssue`,
+`getJiraIssue`, `getTransitionsForJiraIssue`, `transitionJiraIssue`) are not reachable in this
+session. Call them directly (the session's own MCP server; ct only prints). It is
+repeat-safe: `ct ticket publish` replaces the `## Spec change` section, so a second save writes
+the same text.
+
+1. **Descriptions.** Per synced ticket: read the remote description with `getJiraIssue` right
+   before the edit and write it once to a scratch file `<f>`. Run
+   `ct ticket publish <ID> --dry-run --description-file <f>` for the preview (the old and new
+   section, to show the user) and, on their OK, `ct ticket publish <ID> --description-file <f>`
+   for the text to write (without the file, publish is dry-run only); both read the same fetch.
+   Write that printed description with `editJiraIssue` (`contentFormat: "html"` when
+   the description has a task list, as the `new-ticket` skill says; else markdown). Nothing is
+   written without the OK; a refusal skips that ticket.
+2. **Transitions.** Read each synced ticket's options with `getTransitionsForJiraIssue`, propose
+   one per ticket (the work is done and handed over: the review or done status; mid-ticket:
+   none), then ask **once** with AskUserQuestion with every ticket's proposal (and "leave as it
+   is"). Apply only the chosen ones with `transitionJiraIssue`.
+
+Add what was published and transitioned, and which manual tickets were skipped, to what you tell
+the user.

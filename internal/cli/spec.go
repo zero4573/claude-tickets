@@ -1,0 +1,858 @@
+package cli
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/zero4573/claude-tickets/internal/config"
+	"github.com/zero4573/claude-tickets/internal/fsx"
+	"github.com/zero4573/claude-tickets/internal/gitx"
+	"github.com/zero4573/claude-tickets/internal/graph"
+	"github.com/zero4573/claude-tickets/internal/modelcache"
+	"github.com/zero4573/claude-tickets/internal/note"
+	"github.com/zero4573/claude-tickets/internal/repo"
+	"github.com/zero4573/claude-tickets/internal/session"
+	"github.com/zero4573/claude-tickets/internal/spec"
+	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/claude-tickets/internal/workspace"
+)
+
+func specCmd() *cobra.Command {
+	var cont, print, noFetch bool
+	cmd := &cobra.Command{
+		Use:   `spec [--continue] [--print] [--no-fetch] ["<question>"]`,
+		Short: "Ask about the projects the vault describes, without a ticket",
+		Long: `Ask about the projects the vault describes (the current vault, ct vault
+default): repos, how they work together, architecture, data flows, past
+tickets, without creating a ticket.
+It runs a Claude session (the spec skill) with:
+  * the vault, read-write, as the knowledge base
+  * every repo in its projectsRoot, read-only, freshly fetched on the host; the
+    session explores branches in its own clones (ct spec repo), where it may
+    build and test, but never commits or pushes
+  * ct new, to turn issues it finds into manual tickets
+  * one code graph (graphify) merged from all the main clones
+  * the MCP servers your claude command provides
+
+Unknowns get investigated. What's learned is drafted into the vault's
+inbox/, and /tickets:save in the session promotes it into projects/,
+knowledge-base/ and references/.
+
+--print answers one question and exits (claude -p), no session; progress
+is shown live and logged to ` + logPath("spec-<vault>") + `.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			question := strings.Join(args, " ")
+			if print && question == "" {
+				return errors.New("--print needs a question")
+			}
+			ctx, err := vault.Require()
+			if err != nil {
+				return err
+			}
+			return specSession(ctx, question, cont, print, !noFetch)
+		},
+	}
+	cmd.Flags().BoolVarP(&cont, "continue", "c", false, "continue the last spec conversation for this vault")
+	cmd.Flags().BoolVarP(&print, "print", "p", false, "answer one question and exit")
+	cmd.Flags().BoolVar(&noFetch, "no-fetch", false, "skip fetching every main clone from its remote first")
+	cmd.AddCommand(specRepoCmd(), specLocationCmd(), specCheckCmd(), specDiffCmd(), specBaselineCmd())
+	return cmd
+}
+
+func specSession(ctx vault.Context, question string, cont, print, fetch bool) error {
+	// A session may have no git credentials (e.g. sandboxed), so bring every
+	// main clone's remote branches up to date here; ct spec repo fetch passes
+	// them on to the session
+	if fetch {
+		if err := wsFetch(ctx, nil); err != nil {
+			return err
+		}
+	}
+	name := filepath.Base(ctx.Vault)
+	// A workspace like a ticket's, but with no repos of its own: its graph
+	// (ct graph mcp) then merges every main clone (hidden, so ct status and
+	// ct ws ls skip it)
+	dir := filepath.Join(ctx.WorkRoot, ".spec-"+name)
+	// The workspace was once called .kb-<vault>: keep its clones
+	if moved, err := workspace.Migrate(filepath.Join(ctx.WorkRoot, ".kb-"+name), dir); err != nil {
+		return err
+	} else if moved {
+		warnf("renamed %s to %s", ".kb-"+name, filepath.Base(dir))
+	}
+	if err := workspace.Ensure(dir, "SPEC", ctx.Vault); err != nil {
+		return err
+	}
+	if err := workspace.Update(workspace.File(dir), func(doc map[string]any) error {
+		doc["id"] = "SPEC"
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := session.Trust(dir); err != nil {
+		warnf("couldn't mark %s as trusted in %s: %v", dir, session.ClaudeConfig(), err)
+	}
+	// Identifies this session's inbox/ drafts for /tickets:save
+	sessionID := "spec-" + name + "-" + time.Now().Format("20060102-1504")
+	// The exploration clones (in this directory) are the session's own, so it
+	// may edit, build and test in them. The main clones stay untouched, and
+	// nothing is committed or pushed.
+	if err := session.WriteSettings(dir, append(session.ReposReadOnly(ctx.ProjectsRoot), "Bash(git commit:*)", "Bash(git push:*)")...); err != nil {
+		return err
+	}
+	writeToolVersions(ctx, dir)
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(specClaudeMD(ctx, dir, sessionID)), 0o644); err != nil {
+		return err
+	}
+
+	argv, err := session.Command(ctx.Vault, ctx.ProjectsRoot, filepath.Join(config.CacheDir(), "graphify"), modelcache.Dir())
+	if err != nil {
+		return err
+	}
+	if _, err := graph.Build(false); err == nil {
+		mcp, err := session.WriteGraphMCP(dir, ctx.Vault)
+		if err != nil {
+			return err
+		}
+		argv = append(argv, "--mcp-config", mcp)
+	} else {
+		warnf("%v", err)
+		warnf("the graphify image couldn't be built; starting without the code graph")
+	}
+	argv = append(argv, "--permission-mode", "auto")
+	if cont {
+		argv = append(argv, "--continue")
+	}
+	switch {
+	case print:
+		argv = append(argv, "-p", "/tickets:spec "+question, "--output-format", "stream-json", "--verbose")
+	case question != "":
+		argv = append(argv, "/tickets:spec "+question)
+	}
+	if err := os.Chdir(dir); err != nil {
+		return err
+	}
+	if !print {
+		path, err := exec.LookPath(argv[0])
+		if err != nil {
+			return err
+		}
+		// So ct ws gc sees the session running while its process lives
+		if err := workspace.RecordSession(dir, "spec"); err != nil {
+			warnf("couldn't record the session in %s: %v", workspace.SessionsFile(dir), err)
+		}
+		return passExit(execReplaceOrRun(path, argv))
+	}
+	// One-shot answer: progress as it happens, also logged
+	log := config.StateLog("spec-" + name)
+	if f, err := os.OpenFile(log, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600); err == nil {
+		fmt.Fprintf(f, "=== spec %s vault=%s: %s\n", time.Now().Format(time.RFC3339), ctx.Vault, question)
+		f.Close()
+	}
+	return passExit(session.Headless(log, argv))
+}
+
+func specClaudeMD(ctx vault.Context, dir, sessionID string) string {
+	return fmt.Sprintf("# Spec session\n\n"+
+		"Written by ct spec; regenerated on every start, so don't edit it.\n\n"+
+		"- Vault (knowledge base, read-write): `%[1]s`. Read its `AGENTS.md`.\n"+
+		"- Repos: main clones at `%[2]s/<provider>/<owner>/<repo>`, read-only,\n"+
+		"  fetched from their remotes when this session started. `ct ws repos`\n"+
+		"  lists every repo with its slug.\n"+
+		"- **Exploring branches:** `ct spec repo checkout <repo> [<branch>|<tag>|<commit>]`\n"+
+		"  gives you an exploration clone at `%[3]s/<slug>` on that ref. The code graph\n"+
+		"  swaps it in for the main clone and rebuilds it as the checkout changes.\n"+
+		"  `ct spec repo fetch` refreshes remote branches, `ct spec repo graph <repo>` forces a\n"+
+		"  rebuild, `ct spec repo ls` shows what's checked out, `ct spec repo reset` drops\n"+
+		"  clones.\n"+
+		"- **Experiments are fine, changes aren't kept:** in your exploration clones\n"+
+		"  you may edit, build, run tests and add debug output to check how something\n"+
+		"  behaves. Those edits stay in this session: never commit or push (both\n"+
+		"  denied), and `ct spec repo checkout --force` discards them. The main clones in\n"+
+		"  `%[2]s` are never edited.\n"+
+		"- **Issues become tickets:** when you find something that should be\n"+
+		"  investigated or fixed, create a manual ticket with\n"+
+		"  `ct new \"<summary>\"` and fill it in (see the `spec`\n"+
+		"  skill), so the work goes through the ticket workflow.\n"+
+		"- `ct vault groups %[1]s` shows which projects work together (groups,\n"+
+		"  `depends-on`) and which are unrelated.\n"+
+		"- Code graph: the `graphify` MCP server holds every repo, with node ids\n"+
+		"  prefixed by the repo's slug (`bitbucket-acme-billing-service::…`).\n"+
+		"- Follow the `spec` skill: answer from the vault, then the graph, then the\n"+
+		"  code. Investigate unknowns, draft what you learn into `%[1]s/inbox/`,\n"+
+		"  and run `/tickets:save` before the session ends to promote the drafts.\n"+
+		"- Session id (put it in the `session:` field of your inbox/ drafts):\n"+
+		"  `%[4]s`\n",
+		ctx.Vault, ctx.ProjectsRoot, dir, sessionID)
+}
+
+// specRepo is an exploration clone of a spec session.
+type specRepo struct {
+	ctx               vault.Context
+	dir, ws           string // the spec workspace and its workspace.json
+	clone, slug, main string
+	path              string
+}
+
+// specWorkspace finds the spec workspace: $SPEC_DIR, else the nearest folder up
+// from here whose workspace.json is the spec's (so it also works from inside
+// an exploration clone).
+func specWorkspace() (string, error) {
+	start := os.Getenv("SPEC_DIR")
+	if start == "" {
+		start, _ = os.Getwd()
+	}
+	for d := start; ; d = filepath.Dir(d) {
+		if info, err := workspace.Read(d); err == nil && info.ID == "SPEC" {
+			return d, nil
+		}
+		if d == filepath.Dir(d) {
+			return "", fmt.Errorf("not in a spec session (no spec workspace.json above %s)", start)
+		}
+	}
+}
+
+func specRepoOf(ctx vault.Context, dir, arg string) (specRepo, error) {
+	clone, ok := repo.Resolve(ctx.ProjectsRoot, arg)
+	if !ok {
+		return specRepo{}, fmt.Errorf("no main clone '%s' (see ct ws repos)", arg)
+	}
+	slug := repo.Slug(clone)
+	return specRepo{ctx, dir, workspace.File(dir), clone, slug, filepath.Join(ctx.ProjectsRoot, clone), filepath.Join(dir, slug)}, nil
+}
+
+// refresh copies remote branches and tags from the main clone, then from
+// the remote itself where it can be reached.
+func (r specRepo) refresh() {
+	_ = gitx.RefreshSharedClone(r.main, r.path)
+	c, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	git := gitx.CommandContext(c, "-C", r.path, "fetch", "--quiet", "--prune", "origin")
+	// Never prompt: no credentials, no host-key questions, just fail fast
+	git.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_SSH_COMMAND=ssh -o BatchMode=yes -o ConnectTimeout=10")
+	if git.Run() != nil {
+		fmt.Fprintf(os.Stderr, "ct spec repo: %s: can't reach origin from here; using the main clone's fetch (run ct ws fetch %s on the host for newer)\n", r.slug, r.slug)
+	}
+}
+
+func (r specRepo) lastCommit() string {
+	s, _ := gitx.Out(r.path, "log", "-1", "--format=%h %cs %s")
+	return s
+}
+
+func (r specRepo) exists() bool { return fsx.IsDir(filepath.Join(r.path, ".git")) }
+
+func exploreSlugs(ws string) []string {
+	info, _ := workspace.Read(filepath.Dir(ws))
+	var out []string
+	for _, r := range info.Repos {
+		if r.Mode == "explore" {
+			out = append(out, r.Slug)
+		}
+	}
+	return out
+}
+
+func specRepoCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "repo",
+		Short: "Exploration clones of a spec session (inside one)",
+		Long: `Exploration clones for a spec session: look at any branch or commit of a repo
+without touching its main clone (read-only here). Each is a shared clone (it
+borrows the main clone's objects) at <workRoot>/.spec-<vault>/<slug>, registered in the session's workspace.json, so
+the session's code graph swaps it in for the main clone and rebuilds it as
+the checkout changes. A <repo> is a slug or <provider>/<owner>/<repo>.
+
+The clones are the session's own: edit, build and test in them as needed to
+check how things behave, but never commit or push (both denied). Edits stay
+in the session; checkout --force or reset throws them away.`,
+	}
+	with := func(fn func(ctx vault.Context, dir string, args []string) error) func(*cobra.Command, []string) error {
+		return func(cmd *cobra.Command, args []string) error {
+			dir, err := specWorkspace()
+			if err != nil {
+				return err
+			}
+			ctx, err := vault.Require()
+			if err != nil {
+				return err
+			}
+			return fn(ctx, dir, args)
+		}
+	}
+	var force, all bool
+	checkout := &cobra.Command{
+		Use:   "checkout [--force] <repo> [<branch>|<tag>|<commit>]",
+		Short: "Check out a ref in the repo's exploration clone (created if needed)",
+		Long: `Checks out a branch (origin's, as a local branch), a tag or a commit,
+creating the exploration clone if needed. Default: the remote's default
+branch. Refuses while the clone has local edits; --force discards them.`,
+		Args:              cobra.RangeArgs(1, 2),
+		ValidArgsFunction: completeRepos,
+		RunE: with(func(ctx vault.Context, dir string, args []string) error {
+			r, err := specRepoOf(ctx, dir, args[0])
+			if err != nil {
+				return err
+			}
+			ref := ""
+			if len(args) == 2 {
+				ref = args[1]
+			}
+			return r.checkout(ref, force)
+		}),
+	}
+	checkout.Flags().BoolVar(&force, "force", false, "discard local edits in the clone")
+	fetch := &cobra.Command{
+		Use:   "fetch [<repo>...]",
+		Short: "Refresh remote branches and tags (default: every exploration clone)",
+		Long: `Refreshes remote branches and tags: from the main clone (as fetched on the
+host), then from the remote itself where it can be reached. A clean
+checked-out branch is fast-forwarded. Default: every exploration clone.`,
+		ValidArgsFunction: completeRepos,
+		RunE: with(func(ctx vault.Context, dir string, args []string) error {
+			if len(args) == 0 {
+				args = exploreSlugs(workspace.File(dir))
+			}
+			for _, a := range args {
+				r, err := specRepoOf(ctx, dir, a)
+				if err != nil {
+					return err
+				}
+				if !r.exists() {
+					warnf("%s has no exploration clone (ct spec repo checkout %s)", r.slug, r.slug)
+					continue
+				}
+				r.refresh()
+				if up, err := gitx.Out(r.path, "rev-parse", "--abbrev-ref", "@{u}"); err == nil && !gitx.Dirty(r.path) {
+					if gitx.Timeout(time.Minute, r.path, "merge", "--quiet", "--ff-only", up) != nil {
+						warnf("%s: can't fast-forward to %s", r.slug, up)
+					}
+				}
+				fmt.Printf("ct spec repo: %s fetched (%s)\n", r.slug, r.lastCommit())
+			}
+			return nil
+		}),
+	}
+	graphC := &cobra.Command{
+		Use:               "graph <repo>",
+		Short:             "Rebuild the repo's code graph now",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeRepos,
+		RunE: with(func(ctx vault.Context, dir string, args []string) error {
+			r, err := specRepoOf(ctx, dir, args[0])
+			if err != nil {
+				return err
+			}
+			if !r.exists() {
+				return fmt.Errorf("%s has no exploration clone (ct spec repo checkout %s)", r.slug, r.slug)
+			}
+			out := filepath.Join(r.path, "graphify-out")
+			if err := os.MkdirAll(out, 0o755); err != nil {
+				return err
+			}
+			now := time.Now()
+			if err := os.WriteFile(filepath.Join(out, ".rebuild"), nil, 0o644); err != nil {
+				return err
+			}
+			_ = os.Chtimes(filepath.Join(out, ".rebuild"), now, now)
+			fmt.Printf("ct spec repo: asked the graph sidecar to rebuild %s\n", r.slug)
+			return nil
+		}),
+	}
+	ls := &cobra.Command{
+		Use:   "ls",
+		Short: "Exploration clones: what's checked out, how far behind the remote",
+		Args:  cobra.NoArgs,
+		RunE: with(func(ctx vault.Context, dir string, args []string) error {
+			info, _ := workspace.Read(dir)
+			w := table()
+			fmt.Fprintln(w, "REPO\tAT\tBEHIND\tCOMMIT")
+			for _, r := range info.Repos {
+				if r.Mode != "explore" {
+					continue
+				}
+				behind := "-"
+				if gitx.HasRef(r.Path, "@{u}") {
+					behind, _ = gitx.Out(r.Path, "rev-list", "--count", "HEAD..@{u}")
+				}
+				commit, _ := gitx.Out(r.Path, "log", "-1", "--format=%h %cs %s")
+				if rs := []rune(commit); len(rs) > 60 {
+					commit = string(rs[:60])
+				}
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", r.Slug, r.Branch, behind, commit)
+			}
+			return w.Flush()
+		}),
+	}
+	reset := &cobra.Command{
+		Use:               "reset <repo> | --all",
+		Short:             "Remove exploration clones; the graph falls back to the main clone",
+		ValidArgsFunction: completeRepos,
+		RunE: with(func(ctx vault.Context, dir string, args []string) error {
+			ws := workspace.File(dir)
+			if all {
+				args = exploreSlugs(ws)
+			} else if len(args) != 1 {
+				return errors.New("reset: name a <repo>, or --all")
+			}
+			for _, a := range args {
+				r, err := specRepoOf(ctx, dir, a)
+				if err != nil {
+					return err
+				}
+				if err := os.RemoveAll(r.path); err != nil {
+					return err
+				}
+				if err := workspace.Drop(ws, r.slug); err != nil {
+					return err
+				}
+				fmt.Printf("ct spec repo: removed %s's exploration clone\n", r.slug)
+			}
+			return nil
+		}),
+	}
+	reset.Flags().BoolVar(&all, "all", false, "remove every exploration clone")
+	cmd.AddCommand(checkout, fetch, graphC, ls, reset)
+	return cmd
+}
+
+func (r specRepo) checkout(ref string, force bool) error {
+	// A new clone has nothing checked out yet (its status lists every file
+	// as deleted): only an existing one can have edits
+	fresh := !r.exists()
+	done := false
+	if fresh {
+		// A clone this run made goes again if anything below fails: left
+		// behind unrecorded and with nothing checked out, it would block the
+		// next checkout
+		defer func() {
+			if !done {
+				_ = fsx.RemoveAll(r.path)
+			}
+		}()
+		if err := gitx.SharedClone(r.main, r.path); err != nil {
+			return fmt.Errorf("making an exploration clone of %s failed", r.slug)
+		}
+		graph.Seed(r.main, filepath.Join(r.path, "graphify-out"))
+	}
+	r.refresh()
+	if !fresh && gitx.Dirty(r.path) {
+		if !force {
+			return fmt.Errorf("%s has local edits; ct spec repo checkout --force %s ... discards them", r.slug, r.slug)
+		}
+		_ = gitx.Run(r.path, "reset", "--quiet", "--hard")
+		_ = gitx.Run(r.path, "clean", "--quiet", "-fd", "-e", "graphify-out/")
+	}
+	if ref == "" {
+		ref, _ = gitx.Out(r.path, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+		ref = strings.TrimPrefix(ref, "origin/")
+		if ref == "" {
+			ref, _ = gitx.Out(r.main, "rev-parse", "--abbrev-ref", "HEAD")
+		}
+	}
+	switch {
+	case gitx.HasRef(r.path, "refs/remotes/origin/"+ref):
+		if err := gitx.Run(r.path, "checkout", "--quiet", "-B", ref, "origin/"+ref); err != nil {
+			return err
+		}
+		_ = gitx.Run(r.path, "branch", "--quiet", "--set-upstream-to", "origin/"+ref)
+	case gitx.HasRef(r.path, ref+"^{commit}"):
+		if err := gitx.Run(r.path, "checkout", "--quiet", "--detach", ref); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("no branch, tag or commit '%s' in %s (ct spec repo fetch %s, or ct ws fetch %s on the host)", ref, r.slug, r.slug, r.slug)
+	}
+	parts := strings.SplitN(r.clone, "/", 3)
+	if err := workspace.Put(r.ws, workspace.Repo{
+		Provider: parts[0], Owner: parts[1], Repo: parts[2], Slug: r.slug,
+		Path: r.path, Base: ref, Branch: ref, Mode: "explore",
+	}); err != nil {
+		return err
+	}
+	fmt.Printf("ct spec repo: %s at %s (%s)\n", r.slug, ref, r.lastCommit())
+	fmt.Printf("ct spec repo: path %s; the code graph picks it up within ~15s\n", r.path)
+	done = true
+	return nil
+}
+
+func specLocationCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "location <slug> [repo|vault]",
+		Short: "Print or record where a repo's specs live",
+		Long: `Without an argument prints where the repo's specs live: "repo <dir>",
+"vault <dir>", or "unset" (neither the project note's specs: field nor a
+specs/ in the repo: ask the user once). With repo or vault, writes the
+project note's specs: field, the answer to that question. The project note
+must exist (/tickets:save creates it).`,
+		Args: cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, err := vault.Require()
+			if err != nil {
+				return err
+			}
+			slug := args[0]
+			clone, ok := repo.Resolve(ctx.ProjectsRoot, slug)
+			if !ok {
+				return fmt.Errorf("no main clone '%s' (see ct ws repos)", slug)
+			}
+			slug = repo.Slug(clone)
+			pn := spec.ProjectNote(ctx.Vault, slug)
+			if len(args) == 2 {
+				if args[1] != spec.InRepo && args[1] != spec.InVault {
+					return fmt.Errorf("location must be repo or vault, got %q", args[1])
+				}
+				if _, err := os.Stat(pn); err != nil {
+					return fmt.Errorf("no project note %s yet: it is created by /tickets:save", config.TildePath(pn))
+				}
+				if err := note.Set(pn, "specs", args[1]); err != nil {
+					return err
+				}
+			}
+			loc, err := spec.Resolve(ctx.Vault, slug, filepath.Join(ctx.ProjectsRoot, clone))
+			if err != nil {
+				return err
+			}
+			if loc.Kind == spec.Unset {
+				fmt.Fprintln(cmd.OutOrStdout(), "unset")
+				return nil
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s %s\n", loc.Kind, loc.Dir)
+			return nil
+		},
+	}
+}
+
+func specCheckCmd() *cobra.Command {
+	var asJSON bool
+	var dir string
+	cmd := &cobra.Command{
+		Use:   "check [--json] [--dir <path>] [<slug>...]",
+		Short: "Check specs: duplicate IDs, malformed blocks, open markers, untested requirements, unmatched interfaces",
+		Long: `Reads the specs (where each repo's project note says they live, else the
+repo's specs/) and reports, without changing anything:
+  * duplicate requirement IDs in a repo
+  * malformed requirement blocks
+  * requirements with a [NEEDS CLARIFICATION] marker
+  * implemented requirements no test file in the repo's main clone cites by ID
+  * provides/consumes rows with no matching row in the other repo's spec
+Default: every repo with specs; or name repos by slug. Exit status 1 when
+there are findings. --json prints them as {"findings": [...]}.
+
+--dir <path> checks a drafts folder laid out like specs/ (<capability>/spec.md
+below it) instead, as a repo named after the folder; the repos' own specs are
+still read, so its interface rows are matched against them.`,
+		ValidArgsFunction: completeRepos,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, err := vault.Require()
+			if err != nil {
+				return err
+			}
+			targets, err := specTargets(ctx)
+			if err != nil {
+				return err
+			}
+			var only []string
+			if dir != "" {
+				if len(args) > 0 {
+					return errors.New("--dir takes no repo names")
+				}
+				abs, err := filepath.Abs(dir)
+				if err != nil {
+					return err
+				}
+				if st, err := os.Stat(abs); err != nil || !st.IsDir() {
+					return fmt.Errorf("--dir %s is not a folder", dir)
+				}
+				slug := filepath.Base(abs)
+				kept := targets[:0:0]
+				for _, t := range targets {
+					if t.Slug == slug {
+						fmt.Fprintf(cmd.OutOrStdout(), "ct spec check: %s replaces the specs of %s\n", dir, slug)
+						continue
+					}
+					kept = append(kept, t)
+				}
+				targets = append(kept, spec.Target{Slug: slug, Specs: abs})
+				only = []string{slug}
+			}
+			for _, a := range args {
+				slug := a
+				if clone, ok := repo.Resolve(ctx.ProjectsRoot, a); ok {
+					slug = repo.Slug(clone)
+				} else if _, err := os.Stat(spec.ProjectNote(ctx.Vault, a)); err != nil {
+					return fmt.Errorf("no repo '%s' (see ct ws repos)", a)
+				}
+				only = append(only, slug)
+			}
+			findings := spec.Check(targets, only)
+			out := cmd.OutOrStdout()
+			if asJSON {
+				if findings == nil {
+					findings = []spec.Finding{}
+				}
+				b, err := json.MarshalIndent(map[string]any{"findings": findings}, "", "  ")
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(out, string(b))
+			} else if len(findings) == 0 {
+				fmt.Fprintf(out, "ct spec check: no findings (%d repos with specs)\n", len(targets))
+			} else {
+				for _, f := range findings {
+					fmt.Fprintf(out, "[%s] %s\n", f.Repo, f)
+				}
+				fmt.Fprintf(out, "ct spec check: %d findings\n", len(findings))
+			}
+			if len(findings) > 0 {
+				return exitError(1)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&asJSON, "json", false, "print the findings as JSON")
+	cmd.Flags().StringVar(&dir, "dir", "", "check a drafts folder laid out like specs/ instead of the repos' specs")
+	return cmd
+}
+
+// specTargets lists the repos that have specs: those of the vault's
+// project notes (a repo: field names the main clone) and every main clone,
+// by slug, wherever Resolve says their specs live.
+func specTargets(ctx vault.Context) ([]spec.Target, error) {
+	clones := map[string]string{} // slug -> <provider>/<owner>/<repo>
+	for _, c := range repo.MainClones(ctx.ProjectsRoot) {
+		clones[repo.Slug(c)] = c
+	}
+	slugs := map[string]bool{}
+	for s := range clones {
+		slugs[s] = true
+	}
+	ents, _ := os.ReadDir(filepath.Join(ctx.Vault, "projects"))
+	for _, e := range ents {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		pn := spec.ProjectNote(ctx.Vault, e.Name())
+		if _, err := os.Stat(pn); err != nil {
+			continue
+		}
+		slugs[e.Name()] = true
+		if c, ok := repo.Resolve(ctx.ProjectsRoot, note.Get(pn, "repo")); ok && clones[e.Name()] == "" {
+			clones[e.Name()] = c
+		}
+	}
+	var names []string
+	for s := range slugs {
+		names = append(names, s)
+	}
+	sort.Strings(names)
+	var out []spec.Target
+	for _, slug := range names {
+		dir := ""
+		if c := clones[slug]; c != "" {
+			dir = filepath.Join(ctx.ProjectsRoot, c)
+		}
+		loc, err := spec.Resolve(ctx.Vault, slug, dir)
+		if err != nil {
+			return nil, err
+		}
+		if loc.Kind == spec.Unset {
+			continue
+		}
+		caps, err := spec.Capabilities(loc.Dir)
+		if err != nil {
+			return nil, err
+		}
+		if len(caps) == 0 {
+			continue
+		}
+		out = append(out, spec.Target{Slug: slug, Dir: dir, Specs: loc.Dir})
+	}
+	return out, nil
+}
+
+func specDiffCmd() *cobra.Command {
+	var stat bool
+	cmd := &cobra.Command{
+		Use:   "diff [--stat] <ID>",
+		Short: "Show a ticket's spec change in every repo of its workspace",
+		Long: `Prints the ticket's spec change for every repo of its workspace, wherever the
+repo's specs live:
+  * repo specs: the repo's specs/ against its base (from the commit the ticket
+    branch left the base at), working tree included
+  * vault specs: the ticket's copy under tickets/<source>/<ID>/specs/<slug>/
+    against projects/<slug>/specs/; capabilities the copy lacks are unchanged.
+    Once ct spec baseline has recorded tickets/<source>/<ID>/specs-base/<slug>/,
+    that snapshot is the before side and projects/<slug>/specs/ the after
+    side, so the change stays visible after the copy was promoted
+Per repo: the requirement-level changes (added, changed, removed, status
+flips; changed interfaces), then the raw diff. --stat prints the counts and
+the changed files only.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, err := vault.Require()
+			if err != nil {
+				return err
+			}
+			id := args[0]
+			if !note.ValidKey(id) {
+				return fmt.Errorf("invalid ticket ID %q", id)
+			}
+			info, err := workspace.Read(filepath.Join(ctx.WorkRoot, id))
+			if err != nil {
+				return fmt.Errorf("no workspace for %s: %w", id, err)
+			}
+			out := cmd.OutOrStdout()
+			for _, r := range info.Repos {
+				d, kind, err := specDiffRepo(ctx, id, r)
+				if err != nil {
+					return fmt.Errorf("%s: %w", r.Slug, err)
+				}
+				printSpecDiff(out, r.Slug, kind, d, stat)
+			}
+			if len(info.Repos) == 0 {
+				fmt.Fprintf(out, "%s has no repos\n", id)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&stat, "stat", false, "print the counts and the changed files only, not the raw diff")
+	return cmd
+}
+
+// specDiffRepo computes one repo's spec change; kind is where its specs
+// live (spec.InRepo, spec.InVault, or spec.Unset for none).
+func specDiffRepo(ctx vault.Context, id string, r workspace.Repo) (spec.Diff, string, error) {
+	loc, err := spec.Resolve(ctx.Vault, r.Slug, r.Path)
+	if err != nil {
+		return spec.Diff{}, "", err
+	}
+	switch loc.Kind {
+	case spec.InRepo:
+		mb, err := spec.MergeBase(r.Path, r.Base)
+		if err != nil {
+			return spec.Diff{}, "", err
+		}
+		before, err := spec.GitTree(r.Path, mb, "specs")
+		if err != nil {
+			return spec.Diff{}, "", err
+		}
+		after, err := spec.ReadTree(loc.Dir)
+		if err != nil {
+			return spec.Diff{}, "", err
+		}
+		return spec.DiffTrees(r.Slug, before, after), loc.Kind, nil
+	case spec.InVault:
+		current, err := spec.ReadTree(loc.Dir)
+		if err != nil {
+			return spec.Diff{}, "", err
+		}
+		before := current
+		if st, err := os.Lstat(specBaseDir(ctx, id, r.Slug)); err == nil && st.IsDir() {
+			if before, err = spec.ReadTree(specBaseDir(ctx, id, r.Slug)); err != nil {
+				return spec.Diff{}, "", err
+			}
+		}
+		over, err := spec.ReadTree(filepath.Join(note.TicketDir(ctx.Vault, id), "specs", r.Slug))
+		if err != nil {
+			return spec.Diff{}, "", err
+		}
+		return spec.DiffTrees(r.Slug, before, spec.Overlay(current, over)), loc.Kind, nil
+	}
+	return spec.Diff{Slug: r.Slug}, spec.Unset, nil
+}
+
+// specBaseDir is where ct spec baseline records a vault spec's state from
+// before the ticket's change was promoted.
+func specBaseDir(ctx vault.Context, id, slug string) string {
+	return filepath.Join(note.TicketDir(ctx.Vault, id), "specs-base", slug)
+}
+
+func specBaselineCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "baseline <ID>",
+		Short: "Record the vault specs as they were before save promotes the ticket's copy",
+		Long: `For every repo of the ticket's workspace whose specs live in the vault, copies
+projects/<slug>/specs/ to tickets/<source>/<ID>/specs-base/<slug>/, so ct spec
+diff and ct ticket publish still show the change once the ticket's copy has
+been moved into projects/. Run it before that move. A baseline that exists is
+kept (a second run changes nothing), so a repeated save gives the same change.
+Repos with their specs in the repo, or none, are skipped.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, err := vault.Require()
+			if err != nil {
+				return err
+			}
+			id := args[0]
+			if !note.ValidKey(id) {
+				return fmt.Errorf("invalid ticket ID %q", id)
+			}
+			info, err := workspace.Read(filepath.Join(ctx.WorkRoot, id))
+			if err != nil {
+				return fmt.Errorf("no workspace for %s: %w", id, err)
+			}
+			out := cmd.OutOrStdout()
+			for _, r := range info.Repos {
+				loc, err := spec.Resolve(ctx.Vault, r.Slug, r.Path)
+				if err != nil {
+					return fmt.Errorf("%s: %w", r.Slug, err)
+				}
+				if loc.Kind != spec.InVault {
+					continue
+				}
+				dst := specBaseDir(ctx, id, r.Slug)
+				if st, err := os.Lstat(dst); err == nil && st.IsDir() {
+					fmt.Fprintf(out, "%s: baseline kept\n", r.Slug)
+					continue
+				}
+				t, err := spec.ReadTree(loc.Dir)
+				if err != nil {
+					return fmt.Errorf("%s: %w", r.Slug, err)
+				}
+				if err := spec.WriteTree(dst, t); err != nil {
+					return fmt.Errorf("%s: %w", r.Slug, err)
+				}
+				fmt.Fprintf(out, "%s: baseline recorded (%d files)\n", r.Slug, len(t))
+			}
+			return nil
+		},
+	}
+}
+
+func printSpecDiff(out io.Writer, slug, kind string, d spec.Diff, stat bool) {
+	switch {
+	case kind == spec.Unset:
+		fmt.Fprintf(out, "%s: no specs\n", slug)
+		return
+	case d.Empty():
+		fmt.Fprintf(out, "%s (%s specs): no spec change\n", slug, kind)
+		return
+	}
+	fmt.Fprintf(out, "%s (%s specs)\n", slug, kind)
+	n := d.Counts()
+	fmt.Fprintf(out, "  %d added, %d changed, %d removed, %d status\n", n[spec.Added], n[spec.Changed], n[spec.Removed], n[spec.Flipped])
+	for _, s := range d.Summary() {
+		fmt.Fprintf(out, "  %s\n", s)
+	}
+	for _, f := range d.Files {
+		if stat {
+			fmt.Fprintf(out, "  %s | +%d -%d\n", f.Path, f.Added, f.Removed)
+		} else {
+			fmt.Fprintf(out, "\n%s", f.Diff)
+		}
+	}
+	if !stat {
+		fmt.Fprintln(out)
+	}
+}

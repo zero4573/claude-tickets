@@ -2,6 +2,7 @@ package assets
 
 import (
 	"io/fs"
+	"os"
 	"strings"
 	"testing"
 )
@@ -49,7 +50,7 @@ func TestPluginAgents(t *testing.T) {
 			t.Errorf("role agent %s.md still ships", gone)
 		}
 	}
-	want := map[string]bool{"task": true, "mechanical": true, "reviewer": true, "reviewer-deep": true, "lead": true, "analyst": true}
+	want := map[string]bool{"task": true, "mechanical": true, "reviewer": true, "reviewer-deep": true, "lead": true, "analyst": true, "spec-writer": true}
 	entries, err := fs.ReadDir(Files, "plugin/agents")
 	if err != nil {
 		t.Fatal(err)
@@ -107,13 +108,22 @@ func TestPluginAgents(t *testing.T) {
 			if !has["mcp__graphify__query_graph"] || !has["mcp__fff__grep"] {
 				t.Error("analyst.md: needs the graphify and fff tools")
 			}
+		case "spec-writer":
+			for _, tool := range []string{"Edit", "NotebookEdit", "SendMessage"} {
+				if has[tool] {
+					t.Errorf("spec-writer.md: writes one file only, but has %s", tool)
+				}
+			}
+			if !has["Write"] || !has["Read"] {
+				t.Error("spec-writer.md: needs Read and Write")
+			}
 		case "task", "mechanical":
 			if !has["SendMessage"] {
 				t.Errorf("%s: no SendMessage for blocking questions to the lead", e.Name())
 			}
 		}
 		_, skills, _ := field(fm, "skills")
-		if len(skills) == 0 && name != "analyst" {
+		if len(skills) == 0 && name != "analyst" && name != "spec-writer" {
 			t.Errorf("%s: preloads no brief skill", e.Name())
 		}
 		for _, s := range skills {
@@ -275,18 +285,25 @@ func TestPOAndLeadSkills(t *testing.T) {
 	// /clear may orphan the lead and the workers: every line that offers or
 	// mentions it carries the guard (no active lead, no running row).
 	for _, l := range strings.Split(refresh, "\n") {
-		if strings.Contains(l, "/clear") && !strings.Contains(l, "running") {
+		if strings.Contains(l, "/clear") && l != "/clear" && !strings.Contains(l, "running") {
 			t.Errorf("po-refresh: /clear without the running/lead guard: %q", l)
 		}
 	}
 	if !strings.Contains(refresh, "only when `lead:` is `none` and no board row is `running`") {
 		t.Error("po-refresh: /clear guard missing")
 	}
+	// it picks by itself, or takes clear|compact; an unsafe clear waits or compacts
+	for _, s := range []string{"/tickets:po-refresh [clear|compact]", "**Wait**", "**Compact now**", "Safe now:",
+		"/clear\n/tickets:work-ticket <ID>\n", "**on your own**", "`autoCompactWindow`"} {
+		if !strings.Contains(refresh, s) {
+			t.Errorf("po-refresh: missing %q", s)
+		}
+	}
 }
 
-// The ticket docs and tidy skills: model-invocable, at most 100 lines.
-func TestDocsTidySkillFrontmatter(t *testing.T) {
-	for _, name := range []string{"docs", "tidy"} {
+// The ticket tidy skill: model-invocable, at most 100 lines.
+func TestTidySkillFrontmatter(t *testing.T) {
+	for _, name := range []string{"tidy"} {
 		data, err := fs.ReadFile(Files, "plugin/skills/"+name+"/SKILL.md")
 		if err != nil {
 			t.Errorf("%s: %v", name, err)
@@ -311,7 +328,7 @@ func TestDocsTidySkillFrontmatter(t *testing.T) {
 
 // The skills adapted from mattpocock/skills (MIT; MAN-16 addendum): each
 // ships with its name, a description, the attribution footer and a size
-// cap; grill, retro and teach are user-invoked only; the notices file
+// cap; retro and teach are user-invoked only; the notices file
 // carries the license; the PO, the lead and the task brief hook into them.
 func TestAdaptedSkills(t *testing.T) {
 	read := func(p string) string {
@@ -334,8 +351,8 @@ func TestAdaptedSkills(t *testing.T) {
 		cap         int
 		userInvoked bool
 	}{
-		{"grilling", 40, false}, {"grill", 30, true}, {"diagnose", 90, false},
-		{"retro", 45, true}, {"questionnaire", 50, false}, {"teach", 120, true},
+		{"clarify", 90, false}, {"diagnose", 90, false},
+		{"retro", 45, true}, {"teach", 120, true},
 	} {
 		s := read("plugin/skills/" + sk.name + "/SKILL.md")
 		fm := frontmatter(t, s)
@@ -360,24 +377,24 @@ func TestAdaptedSkills(t *testing.T) {
 		}
 	}
 
-	grilling := read("plugin/skills/grilling/SKILL.md")
+	clarify := read("plugin/skills/clarify/SKILL.md")
 	for _, s := range []string{"AskUserQuestion", "**≤4 questions**", "(Recommended)", "`tickets:analyst`",
-		"frontier", "skip", "user→lead · decision", "## Questions", "Brief:"} {
-		if !strings.Contains(grilling, s) {
-			t.Errorf("grilling: missing %q", s)
+		"frontier", "skip", "--from user --to lead", "## Questions", "Brief:", "[NEEDS CLARIFICATION]",
+		"/tickets:clarify questionnaire <who>", "tickets/<source>/<ID>/<ID>-questionnaire-<slug>.md"} {
+		if !strings.Contains(clarify, s) {
+			t.Errorf("clarify: missing %q", s)
 		}
 	}
-	if !strings.Contains(read("plugin/skills/grill/SKILL.md"), "`tickets:grilling`") {
-		t.Error("grill: doesn't load tickets:grilling")
+	for _, gone := range []string{"kb", "grill", "grilling", "questionnaire", "docs"} {
+		if _, err := fs.ReadFile(Files, "plugin/skills/"+gone+"/SKILL.md"); err == nil {
+			t.Errorf("skill %s was renamed or removed", gone)
+		}
 	}
 	po := read("plugin/skills/work-ticket/SKILL.md") + read("plugin/skills/work-ticket/kickoff.md")
-	for _, s := range []string{"`tickets:grilling`", "`tickets:questionnaire`", "<ID>-questionnaire-<slug>.md", "#follow-up"} {
+	for _, s := range []string{"`tickets:clarify`", "/tickets:clarify questionnaire", "<ID>-questionnaire-<slug>.md", "#follow-up"} {
 		if !strings.Contains(po, s) {
 			t.Errorf("PO (work-ticket, kickoff): missing %q", s)
 		}
-	}
-	if !strings.Contains(read("plugin/skills/questionnaire/SKILL.md"), "tickets/<source>/<ID>/<ID>-questionnaire-<slug>.md") {
-		t.Error("questionnaire: wrong file path")
 	}
 
 	diagnose := read("plugin/skills/diagnose/SKILL.md")
@@ -388,7 +405,7 @@ func TestAdaptedSkills(t *testing.T) {
 		}
 	}
 	lead := read("plugin/skills/lead/SKILL.md") + read("plugin/skills/lead/reference.md")
-	for _, s := range []string{"`tickets:diagnose`", "build the feedback loop", "`plan.md ## Root cause`", "`tickets:grilling`"} {
+	for _, s := range []string{"`tickets:diagnose`", "build the feedback loop", "`plan.md ## Root cause`", "`tickets:clarify`"} {
 		if !strings.Contains(lead, s) {
 			t.Errorf("lead: missing %q", s)
 		}
@@ -464,7 +481,7 @@ func TestScaffoldForPOAndTeach(t *testing.T) {
 			}
 		}
 	}
-	for _, sk := range []string{"kb", "recall", "save", "teach", "work-ticket", "lead", "task-agent", "wave-review"} {
+	for _, sk := range []string{"spec", "recall", "save", "teach", "work-ticket", "lead", "task-agent", "wave-review"} {
 		b, err := fs.ReadFile(Files, "plugin/skills/"+sk+"/SKILL.md")
 		if err != nil {
 			t.Fatal(err)
@@ -483,15 +500,15 @@ func TestScaffoldForPOAndTeach(t *testing.T) {
 	}
 	// The workflow prose moved out of AGENTS.md into the skills (task 10).
 	workflow, _ := fs.ReadFile(Files, "plugin/skills/work-ticket/workflow.md")
-	for _, s := range []string{"`tickets:lead`", "`tickets:analyst`", "`tickets:grilling`", "`tickets:diagnose`",
+	for _, s := range []string{"`tickets:lead`", "`tickets:analyst`", "`tickets:clarify`", "`tickets:diagnose`",
 		"/tickets:po-refresh", "`/tickets:retro`", "`lead:` and\n`po:`"} {
 		if !strings.Contains(string(workflow), s) {
 			t.Errorf("work-ticket/workflow.md: missing %q", s)
 		}
 	}
-	// AGENTS.md is a short rulebook: at most 200 lines, the headings code cites kept.
-	if n := strings.Count(agents, "\n"); n > 200 {
-		t.Errorf("vault AGENTS.md has %d lines, want at most 200", n)
+	// AGENTS.md is a short rulebook: at most 215 lines, the headings code cites kept.
+	if n := strings.Count(agents, "\n"); n > 215 {
+		t.Errorf("vault AGENTS.md has %d lines, want at most 215", n)
 	}
 	for _, h := range []string{"\n### Who writes what\n", "\n### Ticket sources\n", "\n### Task lists\n", "\n## Note Rules\n"} {
 		if !strings.Contains(agents, h) {
@@ -597,6 +614,273 @@ func TestLeadRefPointers(t *testing.T) {
 		}
 		if !strings.Contains(string(ref), "\n## "+h) {
 			t.Errorf("lead/reference.md: no heading %q", h)
+		}
+	}
+}
+
+// The spec skill's planning and analyze flows and the new-ticket epic flow.
+func TestSpecPlanningFlows(t *testing.T) {
+	read := func(name string) string {
+		b, err := fs.ReadFile(Files, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	spec := read("plugin/skills/spec/SKILL.md")
+	for _, s := range []string{"## Planning a change", "## Analyze", "`tickets:clarify`", "`ct spec location <slug>`",
+		"`## Spec change`", "[NEEDS CLARIFICATION", "blocks filing", "`spec-draft.md`", "`ct spec check", "--json",
+		"`/tickets:new-ticket`", "copy in the ticket folder", "`/tickets:save` promotes", "Never edit a spec in analyze"} {
+		if !strings.Contains(spec, s) {
+			t.Errorf("spec skill: missing %q", s)
+		}
+	}
+	nt := read("plugin/skills/new-ticket/SKILL.md")
+	epic := read("plugin/skills/new-ticket/epic.md")
+	if !strings.Contains(nt, "`epic.md`") {
+		t.Error("new-ticket skill does not point to epic.md")
+	}
+	for _, s := range []string{"Epic", "`## Spec change`", "[NEEDS CLARIFICATION", "blocks filing", "`spec-draft.md`", "parent", "first"} {
+		if !strings.Contains(epic, s) {
+			t.Errorf("new-ticket epic flow: missing %q", s)
+		}
+	}
+}
+
+// The lead, task agent and reviewer sides of the spec workflow and the retro
+// rules: ready specs, requirement IDs, review against ct spec diff, relay
+// entries only through ct relay, quoted heredocs, fixture sync at merge, and
+// the task agent's report discipline.
+func TestSpecWorkflowLeadSide(t *testing.T) {
+	read := func(p string) string {
+		data, err := fs.ReadFile(Files, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+	lead := read("plugin/skills/lead/SKILL.md")
+	specs := read("plugin/skills/lead/specs.md")
+	has := func(name, text string, want ...string) {
+		for _, s := range want {
+			if !strings.Contains(text, s) {
+				t.Errorf("%s: missing %q", name, s)
+			}
+		}
+	}
+	has("lead/SKILL.md", lead, "`specs.md`", "ct relay add <ID>", "ct relay state <ID>", "never `>>` or `sed -i` on `relay.md`",
+		"<<'EOF'", "never an unquoted heredoc", "fixture sync", "goldens or fixtures another repo copies")
+	has("lead/specs.md", specs, "ct spec diff", "## Specs", "`ready`", "`requirements:`", "`## Interfaces`",
+		"only shapes private to this ticket's tasks", "never edit `specs/`", "`implemented`", "waits until that one is `merged`")
+	has("lead/handover.md", read("plugin/skills/lead/handover.md"), "## Specs", "`specs.md`")
+	has("agents/lead.md", read("plugin/agents/lead.md"), "ready specs")
+	task := read("plugin/skills/task-agent/SKILL.md")
+	has("task-agent", task, "`requirements:`", "cites each ID", "never edits `specs/`", "sed -n '/^## Report/,$p'",
+		"never hand back without it", "never a shell redirect that rewrites the task file")
+	has("wave-review", read("plugin/skills/wave-review/SKILL.md"), "`ct spec diff <ID>`", "`proposed` requirement",
+		"`implemented` one", "the PO flips them to `implemented`", "ticket-private shapes only")
+	if strings.Contains(lead, "`relay.md`: `R-nn") || strings.Contains(lead, "rg -o 'R-[0-9]+' relay.md") {
+		t.Error("lead/SKILL.md still allocates relay ids by hand")
+	}
+	has("AGENTS.md", read2(t, "../AGENTS.md"), "Specs over contracts", "`requirements:`")
+}
+
+func read2(t *testing.T, p string) string {
+	t.Helper()
+	b, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+// The spec-init skill: the gate, the draft paths, the writer subagent and the
+// architecture skeleton it takes over from the removed docs skill.
+func TestSpecInitSkill(t *testing.T) {
+	read := func(p string) string {
+		b, err := fs.ReadFile(Files, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	skill := read("plugin/skills/spec-init/SKILL.md")
+	if n := strings.Count(skill, "\n"); n > 100 {
+		t.Errorf("spec-init: %d lines, cap 100", n)
+	}
+	for _, f := range []string{"name: spec-init\n", "description: ", "argument-hint: "} {
+		if !strings.Contains(skill, f) {
+			t.Errorf("spec-init: frontmatter lacks %q", f)
+		}
+	}
+	for _, s := range []string{"ct vault search", "get_community", "## 2. Gate", "Draft nothing before the approval",
+		"ct spec location", "/tickets:new-ticket", "tickets:spec-writer", "one message",
+		"tickets/<source>/<ID>/specs/<slug>/", "tickets/<source>/<ID>/spec-init/", "<capability>/spec.md",
+		"status: inferred", "file:line", "NEEDS CLARIFICATION", "depends-on", "docs/architecture.md",
+		"<out>README.md", "ct spec check --dir <out>", "tickets/<source>/<ID>/docs-architecture.md", "Shallow on purpose", "never a commit"} {
+		if !strings.Contains(skill, s) {
+			t.Errorf("spec-init: missing %q", s)
+		}
+	}
+	w := read("plugin/agents/spec-writer.md")
+	for _, s := range []string{"status: inferred", "evidence:", "tests:", "at most 3", "depends-on", "file:line", "Write only the output path"} {
+		if !strings.Contains(w, s) {
+			t.Errorf("spec-writer: missing %q", s)
+		}
+	}
+	readme, err := os.ReadFile("../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(readme), "`/tickets:spec-init`") {
+		t.Error("README skill table doesn't list /tickets:spec-init")
+	}
+}
+
+// Save publishes the spec change and offers transitions; new-ticket stubs a
+// child filed under the lead.
+func TestSaveAndNewTicketSpecSide(t *testing.T) {
+	read := func(p string) string {
+		data, err := fs.ReadFile(Files, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(strings.Fields(string(data)), " ")
+	}
+	save := read("plugin/skills/save/SKILL.md")
+	for _, s := range []string{"`ct ticket publish <ID> --dry-run --description-file <f>`", "`ct ticket publish <ID> --description-file <f>`", "`ct spec baseline <ID>`", "`editJiraIssue`", "`getTransitionsForJiraIssue`",
+		"`transitionJiraIssue`", "ask **once** with AskUserQuestion", "`ct spec diff <ID>`", "`specs:` and `requirements:`",
+		"`ct vault links move`", "has no remote description", "are not reachable in this session"} {
+		if !strings.Contains(save, s) {
+			t.Errorf("save: missing %q", s)
+		}
+	}
+	nt := read("plugin/skills/new-ticket/SKILL.md")
+	for _, s := range []string{"`ct ticket stub <NEW-ID> --source <source> --summary \"<title>\" --covered-by <lead>`",
+		"don't write that note by hand", "The PO tells the lead"} {
+		if !strings.Contains(nt, s) {
+			t.Errorf("new-ticket: missing %q", s)
+		}
+	}
+}
+
+// Skills add relay entries only through ct relay add, never by hand.
+func TestSkillsNeverAppendRelayByHand(t *testing.T) {
+	err := fs.WalkDir(Files, "plugin/skills", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".md") {
+			return err
+		}
+		data, err := fs.ReadFile(Files, p)
+		if err != nil {
+			return err
+		}
+		text := strings.Join(strings.Fields(string(data)), " ")
+		for _, bad := range []string{"append `relay.md` line", "append one `relay.md` entry", "append a `relay.md` entry"} {
+			if strings.Contains(text, bad) {
+				t.Errorf("%s: %q (use ct relay add)", p, bad)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{"clarify", "retro", "tidy"} {
+		data, err := fs.ReadFile(Files, "plugin/skills/"+p+"/SKILL.md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), "ct relay add") {
+			t.Errorf("%s: no ct relay add", p)
+		}
+	}
+	data, _ := fs.ReadFile(Files, "plugin/skills/clarify/SKILL.md")
+	text := strings.Join(strings.Fields(string(data)), " ")
+	for _, s := range []string{"at most 200 characters", "plan.md` under `## Scope`", "a pointer"} {
+		if !strings.Contains(text, s) {
+			t.Errorf("clarify: missing %q", s)
+		}
+	}
+}
+
+// Every skill names a capability spec as specs/<capability>/spec.md.
+func TestSkillsSpecPath(t *testing.T) {
+	err := fs.WalkDir(Files, "plugin/skills", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".md") {
+			return err
+		}
+		data, err := fs.ReadFile(Files, p)
+		if err != nil {
+			return err
+		}
+		if strings.Contains(string(data), "specs/<capability>.md") {
+			t.Errorf("%s: names specs/<capability>.md, want specs/<capability>/spec.md", p)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := fs.ReadFile(Files, "plugin/skills/lead/specs.md")
+	if !strings.Contains(string(data), "specs/<capability>/spec.md") {
+		t.Error("lead/specs.md: lacks specs/<capability>/spec.md")
+	}
+}
+
+// Save's order: specs promoted before the link check, publish and transitions
+// after the push, per ticket, and the lock released before any question.
+func TestSaveStepOrder(t *testing.T) {
+	data, err := fs.ReadFile(Files, "plugin/skills/save/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	idx := func(s string) int {
+		i := strings.Index(text, s)
+		if i < 0 {
+			t.Fatalf("save: missing %q", s)
+		}
+		return i
+	}
+	promote := idx("promote the\n    ticket's copy")
+	links := idx("### 5. Check links")
+	push := idx("### 8. Push the ticket branches")
+	publish := idx("### 9. Publish the descriptions and offer transitions")
+	lock := idx("Run `ct vault lock release <vault> <ID>`")
+	if !(promote < links && links < lock && lock < push && push < publish) {
+		t.Errorf("save: step order wrong: promote %d links %d lock %d push %d publish %d", promote, links, lock, push, publish)
+	}
+	for _, s := range []string{"`getTransitionsForJiraIssue`", "`transitionJiraIssue`", "`editJiraIssue`", "ct ticket publish"} {
+		if i := strings.Index(text, s); i < push {
+			t.Errorf("save: %s appears before the push step", s)
+		}
+	}
+	flat := strings.Join(strings.Fields(text), " ")
+	for _, s := range []string{"Decide **per ticket**", "each ticket in its `covers`", "name it and skip it", "never the bare date",
+		"`getJiraIssue` right before the edit", "never holds it"} {
+		if !strings.Contains(flat, s) {
+			t.Errorf("save: missing %q", s)
+		}
+	}
+}
+
+// New-ticket: the stub covers a synced child under a lead; a manual child is
+// not stubbed and keeps the covers line.
+func TestNewTicketStubWording(t *testing.T) {
+	data, err := fs.ReadFile(Files, "plugin/skills/new-ticket/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(strings.Fields(string(data)), " ")
+	for _, bad := range []string{"is never yours to write before", "ct sync` writes a synced ticket's note at", "never write the note yourself"} {
+		if strings.Contains(text, bad) {
+			t.Errorf("new-ticket: stale %q", bad)
+		}
+	}
+	for _, s := range []string{"never a manual child, which `ct ticket stub` refuses", "filed at a synced source",
+		"don't add a follow-up \"add to `covers`\" line", "Under a manual lead, a manual child"} {
+		if !strings.Contains(text, s) {
+			t.Errorf("new-ticket: missing %q", s)
 		}
 	}
 }

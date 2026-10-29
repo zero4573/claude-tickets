@@ -70,6 +70,49 @@ exec ct ws diff-check -C repo main..topic
 ! exec ct ws diff-check -C repo --ticket NOPE-1 main..topic
 stderr 'not found'
 
+# spec-id: a requirement ID taken twice in specs/
+exec git init -q -b main srepo
+mkdir srepo/specs/orders srepo/specs/billing
+cp spec-orders srepo/specs/orders/spec.md
+exec git -C srepo add -A
+exec git -C srepo commit -q -m init
+exec git -C srepo checkout -q -b topic
+
+# clean: a new ID
+cp spec-orders-2 srepo/specs/orders/spec.md
+exec git -C srepo commit -q -am 'add req 2'
+exec ct ws diff-check -C srepo main..topic
+! stdout .
+! stderr .
+
+# a duplicate within the range
+cp spec-billing-dup srepo/specs/billing/spec.md
+exec git -C srepo add -A
+exec git -C srepo commit -q -m 'billing reuses the id'
+! exec ct ws diff-check -C srepo main..topic
+stdout '^spec-id\tREQ-ORD-2\t[0-9a-f]+\tspecs/billing/spec.md$'
+stdout '^spec-id\tREQ-ORD-2\t[0-9a-f]+\tspecs/orders/spec.md$'
+stderr '2 requirement ID\(s\) taken twice'
+
+# a clash with the base: main took REQ-ORD-2 while topic added it too
+exec git -C srepo checkout -q topic
+exec git -C srepo reset -q --hard main
+exec git -C srepo checkout -q -b other
+cp spec-orders-2 srepo/specs/orders/spec.md
+exec git -C srepo commit -q -am 'other adds req 2'
+exec git -C srepo checkout -q topic
+cp spec-orders-2 srepo/specs/orders/spec.md
+exec git -C srepo commit -q -am 'topic adds req 2'
+! exec ct ws diff-check -C srepo other..topic
+stdout '^spec-id\tREQ-ORD-2\t[0-9a-f]+\tspecs/orders/spec.md$'
+# against the unchanged main it is clean
+exec ct ws diff-check -C srepo main..topic
+! stdout .
+
+# no specs/: skipped silently
+exec ct ws diff-check -C repo main..topic
+! stdout 'spec-id'
+
 -- empty --
 -- readme --
 acme
@@ -89,3 +132,43 @@ the R-9093 decision, finding W1-acme-M01
 [user]
 	name = Jane Doe
 	email = jane@example.com
+-- spec-orders --
+---
+capability: orders
+prefix: ORD
+---
+# Orders
+
+## Requirements
+
+### REQ-ORD-1 · First
+status: proposed
+The system SHALL do one.
+-- spec-orders-2 --
+---
+capability: orders
+prefix: ORD
+---
+# Orders
+
+## Requirements
+
+### REQ-ORD-1 · First
+status: proposed
+The system SHALL do one.
+
+### REQ-ORD-2 · Second
+status: proposed
+The system SHALL do two.
+-- spec-billing-dup --
+---
+capability: billing
+prefix: BIL
+---
+# Billing
+
+## Requirements
+
+### REQ-ORD-2 · Taken
+status: proposed
+The system SHALL bill.

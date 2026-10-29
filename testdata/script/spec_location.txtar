@@ -1,0 +1,39 @@
+# ct spec location: where a repo's specs live, and the ask-once answer
+mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/projects/github-acme-billing home/Documents/Obsidian/a/projects/github-acme-ledger home/Projects/repo-a/github/acme/billing/.git home/Projects/repo-a/github/acme/ledger/.git home/Projects/repo-a/github/acme/ledger/specs
+cp billing.md home/Documents/Obsidian/a/projects/github-acme-billing/github-acme-billing.md
+
+# neither the field nor a specs/: unset
+exec ct spec location github-acme-billing
+stdout '^unset$'
+
+# a specs/ in the repo and no project note: in the repo
+exec ct spec location github-acme-ledger
+stdout '^repo .*/github/acme/ledger/specs$'
+
+# record the answer
+exec ct spec location github-acme-billing vault
+stdout '^vault .*/Obsidian/a/projects/github-acme-billing/specs$'
+grep '^specs: vault$' home/Documents/Obsidian/a/projects/github-acme-billing/github-acme-billing.md
+grep '^repo: github/acme/billing$' home/Documents/Obsidian/a/projects/github-acme-billing/github-acme-billing.md
+exec ct spec location github/acme/billing
+stdout '^vault '
+exec ct spec location github-acme-billing repo
+stdout '^repo .*/github/acme/billing/specs$'
+grep -count=1 '^specs:' home/Documents/Obsidian/a/projects/github-acme-billing/github-acme-billing.md
+
+# refusals
+! exec ct spec location github-acme-billing nowhere
+stderr 'must be repo or vault'
+! exec ct spec location github-acme-ledger vault
+stderr 'no project note'
+! exec ct spec location nope
+stderr 'no main clone'
+-- billing.md --
+---
+title: github-acme-billing
+type: project
+repo: github/acme/billing
+specs:
+tags: [project]
+---
+# github-acme-billing

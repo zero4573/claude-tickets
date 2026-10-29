@@ -25,6 +25,7 @@ ROOT
 │       ├── tasks/         #     PROJ-12-NN-<slug>.md: one task each, with the agent's ## Report
 │       ├── contracts/     #     <name>-v<N>.md: exact shapes that tasks share
 │       ├── reviews/       #     wave-N-<slug>.md: one capped review per wave and repo, ending in `## Dispositions`
+│       ├── spec-draft.md, specs/<slug>/ # the spec change in full; the PO's copy of a vault spec (see "Specs")
 │       └── kb-drafts/, logs/, conventions.md, features-and-deviations.md, investigation.md, pr-feedback.md, PROJ-12-questionnaire-<slug>.md
 ├── learning/<topic>/      # one folder per topic you learn (ct teach; see "Learning topics and finding context")
 ├── inbox/                 # knowledge drafts from non-ticket sessions (promoted by /tickets:save),
@@ -32,11 +33,20 @@ ROOT
 ├── knowledge-base/, references/, logs/, archive/ # findings, reference material, global logs, ct clean's leavings (never edit)
 ├── projects/              # one project per repo, named by its slug; optional groups (below)
 │   ├── <slug>/            #   <slug>.md index (project.md), architecture/ (+ <slug>-decisions.md),
-│   │                      #   sequences/ (mermaid), data/, features/, logs/
+│   │                      #   specs/<capability>/spec.md (only when `specs: vault`), features/ (an
+│   │                      #   index of tickets and versions), logs/
 │   └── <group>/           #   (optional) <group>.md (group.md), architecture/ (<group>-decisions.md,
-│                          #   <group>-compatibility.md), sequences/, features/, logs/
+│                          #   <group>-compatibility.md), sequences/ (flows across members), logs/
 └── AGENTS.md              # global instructions for AI Agents
 ```
+
+### Specs
+A repo's specs are `specs/<capability>/spec.md` in the repo, unless its project note says
+`specs: vault`: then they live at `projects/<slug>/specs/` (same layout) and nothing spec-related
+goes into the repo. Empty `specs:` means nobody asked yet: the first reader that finds no
+`specs/` in the repo asks you once and records it with `ct spec location <slug> [repo|vault]`.
+Single-repo `sequences/` and `data/` notes and the feature note as a description are retired
+(existing notes stay).
 
 ### Repo slugs
 Every repo is named by its **slug**, `<provider>-<owner>-<repo>` in kebab-case, from its git origin
@@ -73,9 +83,9 @@ Every repo is a **project**, `projects/<slug>/`, and stands alone unless its not
 
 ### Templates
 `templates/<type>.md`, one per note type: `base`, `session-log`, `ticket-synced`, `ticket-manual`,
-`project`, `group`, `feature`, `sequence` (mermaid), `decision`, `investigation`, `knowledge`,
+`project`, `group`, `feature` (an index), `sequence` (mermaid, across a group's projects), `decision`, `investigation`, `knowledge`,
 `reference`, `pr-feedback`, `learning-topic`, `lesson`, `learning-record`, `learning-reference`,
-and for `tickets/<source>/<ID>/` `plan`, `board`, `relay`, `backlog`, `status`, `task` and `review`.
+and for `tickets/<source>/<ID>/` `spec-draft`, `plan`, `board`, `relay`, `backlog`, `status`, `task` and `review`.
 
 ### Standard frontmatter
 `title`, `created`, `updated` (`yyyy-MM-dd`), `status: active`, `type: permanent`,
@@ -114,7 +124,7 @@ state lives in `tickets/<source>/<ID>/`. How it works (kickoff, plan, contracts,
 hand-over, `relay.md`, the agents), the dependency fields, lead tickets and the status
 lifecycle: `work-ticket/workflow.md`, "Workflow", and the skills `work-ticket`, `lead`,
 `task-agent` and `wave-review`. The skills ship with the plugin, not in the vault. Session
-commands: `/tickets:save` (session log, promotes drafts, appends the summary), `/tickets:recall` (read-only recap), `/tickets:kb` (answers from the vault,
+commands: `/tickets:save` (session log, promotes drafts, appends the summary), `/tickets:recall` (read-only recap), `/tickets:spec` (answers from the vault,
 drafts into `inbox/`) and `/tickets:teach` (learning topics). Paths: `workRoot` (in `.workflow.json`) holds the ticket workspaces `<workRoot>/<ID>`, `projectsRoot` the
 main clones; `~/work/<ID>` in skills stands for the former, `~/Projects` for the latter (a session's
 `CLAUDE.md` gives the real paths).
@@ -174,15 +184,20 @@ these rules (a write outside the session's area is refused, exit 3; `/tickets:sa
    `board.md`, `backlog.md`, the task files, `contracts/` and `kb-drafts/`. A task agent writes
    only its own task file's `## Report` (plus the code in its `owns`); a reviewer only its
    `reviews/` file; an analyst nothing.
+   **Vault specs:** a ticket session never writes `projects/<slug>/specs/`: the PO edits a copy under
+   `tickets/<source>/<ID>/specs/<slug>/…`, and `/tickets:save` promotes it (the copy against
+   `projects/` is the change). The PO writes the note's `specs:` (`<slug>/<capability>`) and
+   `requirements:` (IDs); `ct sync` keeps them. The one write outside the ticket folder is the
+   project note's `specs:` field, through `ct spec location`, after your answer.
    Agents never file a follow-up ticket on their own: the lead asks you, for items it would not
    fix in this ticket (options: A, this ticket; B, a new ticket; C, an existing ticket (name it); D, leave it in the backlog (backlog items only)), and only for a new ticket runs
    `ct new` (tag `from-ticket`), writing its initial content.
    **Exception, lead tickets:** a lead's session also writes the work sections (`## Workspace`,
    `## Tasks`, `## Questions`, `## Follow-ups`, `## Review`) and the `status` of the tickets it
    `covers`, never their content or `source-*` fields.
-   Sessions outside tickets (a repo session, `kb`) write only new drafts in `inbox/`, each under
-   its own name, until `/tickets:save`; a `kb` session may create a manual ticket (`ct new`, tag
-   `from-kb`) once you have said yes, and it is yours from then on. A **teach session** owns only
+   Sessions outside tickets (a repo session, `spec`) write only new drafts in `inbox/`, each under
+   its own name, until `/tickets:save`; a `spec` session may create a manual ticket (`ct new`, tag
+   `from-spec`) once you have said yes, and it is yours from then on. A **teach session** owns only
    `learning/<topic>/` and writes it directly, one session per topic, holding the vault lock
    (`ct vault lock acquire <vault> teach-<topic>`) around writes that touch more than one file.
    **Unattended commands** (`ct sync`, `ct graph index`, `ct ws gc`) write a new
@@ -190,7 +205,7 @@ these rules (a write outside the session's area is refused, exit 3; `/tickets:sa
    something for you: one task per item, listed in `inbox.md`. Agents never edit or promote
    these; they're yours to tick off and delete.
 4. **`/tickets:save`** is the only writer of `projects/`, `knowledge-base/` and `references/`.
-   It holds the vault lock (`ct vault lock acquire <vault> <owner>`: the ticket ID, the `kb`
+   It holds the vault lock (`ct vault lock acquire <vault> <owner>`: the ticket ID, the `spec`
    session's id, or `repo-<slug>`) while it does, re-reads notes before editing them, and moves
    drafts with `ct vault links move`. Its last step sets the ticket's `saved:` timestamp (and
    `status: done`, unless the ticket is `closed`).

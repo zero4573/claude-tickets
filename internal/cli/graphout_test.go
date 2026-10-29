@@ -16,7 +16,7 @@ func TestGraphOutDirsCovered(t *testing.T) {
 	want := []string{
 		filepath.Join(projects, "bb", "o", "r", "graphify-out"),
 		filepath.Join(work, "MAN-1", "slug", "graphify-out"),
-		filepath.Join(work, ".kb-x", "slug", "graphify-out"),
+		filepath.Join(work, ".spec-x", "slug", "graphify-out"),
 		filepath.Join(work, "MAN-1", ".cache", "graphify", "slug", "graphify-out"),
 	}
 	skipped := []string{

@@ -24,7 +24,7 @@ func claudeCmd() *cobra.Command {
 		Short: "Claude in the current repo, with the vault as its knowledge base",
 		Long: `Runs claude in the current repo with the current vault (ct vault default)
 as its knowledge base: the vault is added (--add-dir), the ticket plugin's
-skills are loaded (/tickets:kb, /tickets:recall, /tickets:save), and the
+skills are loaded (/tickets:spec, /tickets:recall, /tickets:save), and the
 system prompt names the vault and this repo's notes in it. The arguments
 are claude's own. Without ct claude a session knows nothing of the vault.`,
 		DisableFlagParsing: true,
@@ -81,15 +81,15 @@ func vaultPrompt(ctx vault.Context, slug string) string {
 	fmt.Fprintf(&b, "# Knowledge base\n\nThis session's knowledge base is the Obsidian vault at `%s` (added to\nthis session, read-write). Read its `AGENTS.md` before writing anything there.\n", ctx.Vault)
 	if slug != "" {
 		if _, err := os.Stat(filepath.Join(ctx.Vault, "projects", slug, slug+".md")); err == nil {
-			fmt.Fprintf(&b, "- This repo is `%[1]s`. Its notes are in `projects/%[1]s/`: the index `%[1]s.md`, `architecture/%[1]s-decisions.md`, `features/`, `sequences/`, `logs/`.\n", slug)
+			fmt.Fprintf(&b, "- This repo is `%[1]s`. Its notes are in `projects/%[1]s/`: the index `%[1]s.md`, `architecture/%[1]s-decisions.md`, `features/` (an index), `specs/` when its `specs:` field says `vault`, `logs/`.\n", slug)
 			relationsPrompt(&b, ctx.Vault, slug)
 		} else {
 			fmt.Fprintf(&b, "- This repo is `%[1]s`. It has no notes yet; `/tickets:save` creates `projects/%[1]s/`.\n", slug)
 		}
 	}
 	b.WriteString("- `knowledge-base/` and `references/` hold findings outside any project; `tickets/` holds the history of past work.\n" +
-		"- For questions about this repo or the projects it works with, and before non-trivial changes, use the `kb` skill. Check the vault first, then the code graph, then the code.\n" +
-		"- Don't edit `projects/`, `knowledge-base/` or `references/` directly. Record what you learn as drafts in `inbox/` (see the `kb` skill); `/tickets:save` promotes them at the end of the session.\n" +
+		"- For questions about this repo or the projects it works with, and before non-trivial changes, use the `spec` skill. Check the vault first, then the code graph, then the code.\n" +
+		"- Don't edit `projects/`, `knowledge-base/` or `references/` directly. Record what you learn as drafts in `inbox/` (see the `spec` skill); `/tickets:save` promotes them at the end of the session.\n" +
 		"- `/tickets:recall` loads this repo's recent history and decisions. Run `/tickets:save` before ending the session.")
 	return b.String()
 }

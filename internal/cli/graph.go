@@ -20,7 +20,7 @@ func graphCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "graph",
 		Short: "The code graph: graphify image, MCP server, main-clone graphs",
-		Long: `The code graph of ticket and kb sessions: one graph merging the workspace's
+		Long: `The code graph of ticket and spec sessions: one graph merging the workspace's
 checkouts with every main clone's graph, served as an MCP server (named
 graphify) over stdin/stdout. graphify runs in an image built here, with
 podman or docker (CLAUDE_TICKETS_CONTAINER, else detected).`,
@@ -32,7 +32,7 @@ podman or docker (CLAUDE_TICKETS_CONTAINER, else detected).`,
 		Long: `Builds localhost/claude-tickets-graphify:<hash> (pinned Python image + the
 hashed graphify lock), and unpacks its filesystem into
 ` + config.TildePath(filepath.Join(config.CacheDir(), "graphify")) + `/rootfs-<hash> (Linux). Run it on the host; ct start,
-ct kb and ct graph index run it when needed. Only rebuilt when the image's
+ct spec and ct graph index run it when needed. Only rebuilt when the image's
 sources change (or with --force). Prints the image's tag.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

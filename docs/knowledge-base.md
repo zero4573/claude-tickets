@@ -6,7 +6,7 @@ reading code, and `/tickets:save` writes new facts back.
 
 ```mermaid
 sequenceDiagram
-  participant A as agent or ct kb session
+  participant A as agent or ct spec session
   participant S as ct vault search
   participant X as index (.ct/)
   participant N as ct vault note
@@ -35,9 +35,9 @@ leaves every other byte as it was.
 
 ## Without a ticket
 
-`ct kb "<question>"` opens a session with the vault, every main clone read-only and a graph
+`ct spec "<question>"` opens a session with the vault, every main clone read-only and a graph
 merged from all of them. It answers from the vault first, then the graph, then code.
-`ct kb repo checkout <repo> <ref>` makes an exploration clone to build and test in; it is
+`ct spec repo checkout <repo> <ref>` makes an exploration clone to build and test in; it is
 never committed. A durable fact becomes a draft in `inbox/`; an issue worth following up
 becomes a manual ticket with `ct new`. `ct claude` gives a plain repo session the same
 skills.

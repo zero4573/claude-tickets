@@ -27,7 +27,7 @@ func hookCmd() *cobra.Command {
 	cmd.AddCommand(&cobra.Command{
 		Use:   "agent-state needs-input|working|idle|exited",
 		Short: "Record what a session is doing, for ct status",
-		Long: `Records what a ticket or kb session is doing in <workspace>/.agent-state,
+		Long: `Records what a ticket or spec session is doing in <workspace>/.agent-state,
 for ct status, with the hook's JSON payload on stdin. The workspace is the
 nearest folder at or above the session's cwd whose workspace.json has an
 id; outside one this does nothing. Never fails: a hook error would only get

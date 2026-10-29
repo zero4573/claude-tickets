@@ -75,10 +75,10 @@ func TestRecordSession(t *testing.T) {
 	}
 	// a second record, and a dead one dropped on the way
 	writeRecords(t, dir, self(t), Record{PID: deadPID(t), Host: self(t).Host, Proc: "linux:x:1"})
-	if err := RecordSession(dir, "kb"); err != nil {
+	if err := RecordSession(dir, "spec"); err != nil {
 		t.Fatal(err)
 	}
-	if recs := readSessions(SessionsFile(dir)).Sessions; len(recs) != 2 || recs[1].Command != "kb" {
+	if recs := readSessions(SessionsFile(dir)).Sessions; len(recs) != 2 || recs[1].Command != "spec" {
 		t.Errorf("records: %+v", recs)
 	}
 }
@@ -257,5 +257,38 @@ func TestClaimSessionRace(t *testing.T) {
 	}
 	if recs := readSessions(SessionsFile(dir)).Sessions; len(recs) != 1 {
 		t.Errorf("records: %+v", recs)
+	}
+}
+
+func TestMigrate(t *testing.T) {
+	root := t.TempDir()
+	oldDir, newDir := filepath.Join(root, ".kb-a"), filepath.Join(root, ".spec-a")
+	if err := Ensure(oldDir, "KB", "/v"); err != nil {
+		t.Fatal(err)
+	}
+	clone := filepath.Join(oldDir, "slug")
+	if err := os.MkdirAll(clone, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := Put(File(oldDir), Repo{Slug: "slug", Path: clone, Mode: "explore"}); err != nil {
+		t.Fatal(err)
+	}
+	moved, err := Migrate(oldDir, newDir)
+	if err != nil || !moved {
+		t.Fatalf("Migrate = %v, %v", moved, err)
+	}
+	if _, err := os.Stat(clone); err == nil {
+		t.Error("old clone still there")
+	}
+	info, _ := Read(newDir)
+	if len(info.Repos) != 1 || info.Repos[0].Path != filepath.Join(newDir, "slug") {
+		t.Errorf("repo path not rewritten: %+v", info.Repos)
+	}
+	if _, err := os.Stat(filepath.Join(newDir, "slug")); err != nil {
+		t.Error("clone not kept")
+	}
+	// Nothing to do once moved, and an existing target is left alone
+	if moved, err := Migrate(oldDir, newDir); err != nil || moved {
+		t.Errorf("second Migrate = %v, %v", moved, err)
 	}
 }
