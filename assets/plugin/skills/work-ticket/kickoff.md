@@ -3,8 +3,8 @@
 Read by the PO (`/tickets:work-ticket <ID>`) when the ticket note's `## Workspace` is
 empty, and again for a repo that turns out to be needed later (the lead asks for it through
 `relay.md`). It ends with the worktrees created, `## Workspace`, `relay.md`, `board.md` and `<ID>-status.md`
-written and the grill (4) done; then spawn the lead ("1. Spawn the lead" in `SKILL.md`). A
-repo added later skips the grill.
+written and the clarify round (4) done; then spawn the lead ("1. Spawn the lead" in `SKILL.md`). A
+repo added later skips the clarify round.
 
 ## 1. Load context
 
@@ -49,7 +49,7 @@ every ticket in its `covers` list. Those are the children assigned to the user, 
      it> #follow-up ➕ <today>`. The user tracks these in the Tasks views. Mark one `[x]` with
      `✅` once it's no longer blocking.
    - **Owned by someone else and needs answers from them:** offer the user a questionnaire
-     for that person (the `tickets:questionnaire` skill). It writes
+     for that person (`/tickets:clarify questionnaire <who>`). It writes
      `tickets/<source>/<ID>/<ID>-questionnaire-<slug>.md` and links it from the `#follow-up` line.
    - **If an open blocker stops real progress**, ask the user with AskUserQuestion:
      - **wait:** keep the ticket's `status` (`blocked` means waiting on the user;
@@ -115,7 +115,7 @@ every ticket in its `covers` list. Those are the children assigned to the user, 
    - the kickoff line in `## Tasks` marked `[x]` with `✅ <today>`.
 6. If a repo turns out to be needed later, local or not, run this same gate for it before
    adding it (and before any task names it as `repo`).
-7. Create, whether or not a grill follows, each of `relay.md`, `board.md` and `<ID>-status.md`
+7. Create, whether or not a clarify round follows, each of `relay.md`, `board.md` and `<ID>-status.md`
    in `<vault>/tickets/<source>/<ID>/` that is missing, from `<vault>/templates/relay.md`, `board.md` and
    `status.md`, and never overwrite one that exists (`ct vault update` pre-creates status files).
    Fill `{{title}}`, `{{date}}`, `TICKET-ID` and the board's `provider-owner-repo` (the first
@@ -124,12 +124,17 @@ every ticket in its `covers` list. Those are the children assigned to the user, 
    Once `board.md` exists (with `commit-style:`), run `ct ws refresh <ID>` so the workspace `CLAUDE.md`
    states it; an older `ct` without it: say so in your reply.
 
-## 4. Grill (always on a new ticket, before the lead)
+## 3b. Specs
 
-Load the `tickets:grilling` skill and grill the user on the ticket's scope, scaled to it: one
+If the ticket carries `spec-draft.md` or touches a repo with specs, read the draft and the affected
+specs, then write the spec diff (`specs.md`). Clarify then runs per capability.
+
+## 4. Clarify (always on a new ticket, before the lead)
+
+Load the `tickets:clarify` skill and clarify with the user the ticket's scope, scaled to it: one
 round for a clear `chore` or a well-specified bug, several for a vague `dev` ticket or an
 epic. Start from what the ticket, the linked tickets and the kickoff left open (behaviour,
 edge cases, acceptance criteria, compatibility, what's out of scope); never re-ask the repos,
 branches or versions. Facts go to a background `tickets:analyst`. The user can say "skip" at
-any round. Record the results as grilling's "In a ticket" says (`relay.md` decision entries,
+any round. Record the results as clarify's "In a ticket" says (`relay.md` decision entries,
 the first carrying the `Brief:`, and `## Questions`); the lead copies them into `plan.md`.

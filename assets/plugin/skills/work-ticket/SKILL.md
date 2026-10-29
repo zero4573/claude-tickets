@@ -35,7 +35,7 @@ in full. State lives in `tickets/<source>/<ID>/` (`<source>`: the note's `source
 3. `rg -n '^(status|ticket-type):|^## Workspace' -A3 <vault>/tickets/<source>/<ID>/<ID>.md`
 
 `## Workspace` has no data rows (only `| Repo (slug) |…` and `|---|`): read `kickoff.md` (next
-to this file; only then) and do it (it creates `relay.md` and `board.md`, ends with a grill), then spawn the lead (1). Otherwise liveness goes by **session id**, never by a ping timeout
+to this file; only then) and do it (it creates `relay.md` and `board.md`, ends with a clarify round), then spawn the lead (1). Otherwise liveness goes by **session id**, never by a ping timeout
 (subagents die with their session):
 - `po: session:` differs from `$CLAUDE_CODE_SESSION_ID` (a new session): every agent of the old
   one is gone. Mark its `running` lines `orphaned` (any box; sed: `workflow.md`, "Orphaned tasks"), set `agents: []` and `lead: none`, and spawn one fresh
@@ -61,6 +61,7 @@ Each event gets one short action; never forward report bodies.
   it to `po: agents:` with its `wave:`; turn `Ask user:` into the gate (3); give the user
   `Status:` (5). `Next:` `wait-tasks` → wait for notices; `wait-user` → the gate; `rotate` → the
   lead has finished: spawn a fresh one (1), never two at once; `handover-done` → `handover.md`.
+- **Stopping a task** (the user asks, or a rotate or contract change needs it): first SendMessage the agent "stop: commit what you have as a WIP commit on your task branch (subject `wip: <task title>`), write ## Report with status partial, then end". Hard-stop it only if it doesn't answer within its next tool round or so.
 - **Lead messages `main` mid-run:** act on it like a block item.
 - **Completion notice of a task or reviewer: batch it per wave.** Each lead resume re-reads its
   whole transcript, so wake it **once per wave**. Take the notice's first line and move the agent
@@ -75,9 +76,9 @@ Each event gets one short action; never forward report bodies.
   (`sed -n '/^## Report/,$p'`); add `NO REPORT: NN, …` for each that doesn't. Until then send
   nothing (no early merge, no timeout). A finished analyst: its answer to the user.
 - **User input:**
-  - new requirement, feature or feedback: append a `relay.md` entry (`request`, `feature` or
-    `feedback`, `user→lead`, `open`). While a task of the current wave runs, hold it: list it in `po:` `held: [R-91]` and send the lead only the next wave line ("…; new: R-91, R-92"), then clear `held:`. Urgent ones (an answer to a pending `Ask user`, a change to a running task's contract or files, anything the user calls urgent) go at once. No lead
-    (after hand-over): spawn one. Vague new scope or a feature: grill it first (`tickets:grilling`).
+  - new requirement, feature or feedback: add a `relay.md` entry with `ct relay add <ID> --from user --to lead --kind <request|feature|feedback> "<text>"`
+    (prints its `R-nn`; never `>>`). While a task of the current wave runs, hold it: list it in `po:` `held: [R-91]` and send the lead only the next wave line ("…; new: R-91, R-92"), then clear `held:`. Urgent ones (an answer to a pending `Ask user`, a change to a running task's contract or files, anything the user calls urgent) go at once. No lead
+    (after hand-over): spawn one. Vague new scope or a feature: clarify it first (`tickets:clarify`).
   - a question: answer it from `board.md`, `relay.md` and `plan.md` when they cover it, else
     spawn `tickets:analyst` with `Ticket <ID>. Workspace: <ws>. Vault: <vault>. Question: <…>`
     (read-only, ≤20 lines with file:line). Work it needs becomes a `request` for the lead.
@@ -94,9 +95,13 @@ you need the user to answer goes through AskUserQuestion, never only as text: it
 pings the user (a turn ending on a plain question pings only when no agent is running). Follow-up items (the lead's deferral candidates and open backlog; never fix tasks or `kept:`): asked as the lead's `Ask user:` says, rules in `workflow.md`, "Follow-up questions". Rule: nothing is filed with `ct new` before the answer. A ticket to file: `/tickets:new-ticket`.
 
 ## 4. relay.md (capped)
-`## Closed`, then `## Open` (last, so `tail` reads it; append with `>>`), one line per entry; format,
+Append only with `ct relay add` (allocates the id under a lock, so the lead's concurrent entries never collide) and change a state with `ct relay state <ID> R-nn <state>`; never `>>` or `sed -i` on it.
+`## Closed`, then `## Open` (last, so `tail` reads it), one line per entry; format,
 next id and caps: `workflow.md`, "relay.md format". Trimming: `workflow.md`,
 "Trimming relay.md". No checkboxes.
+
+## 4b. Specs
+You own the ticket's spec diff, `ct spec diff <ID>`, and mark capabilities `ready` on the board's `## Specs`, telling the lead at once; recipe and location rules: `specs.md`.
 
 ## 5. Talking to the user
 - Status updates: ≤8 lines, decisions and risks first, no per-file lists or agent reports.

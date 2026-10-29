@@ -76,8 +76,8 @@ func TestUserInvokedSkillsNotModelLoaded(t *testing.T) {
 		}
 		userOnly = append(userOnly, strings.TrimSuffix(strings.TrimPrefix(p, "plugin/skills/"), "/SKILL.md"))
 	}
-	if len(userOnly) < 3 {
-		t.Fatalf("expected at least grill, retro and teach to be user-invoked, got %v", userOnly)
+	if len(userOnly) < 2 {
+		t.Fatalf("expected at least retro and teach to be user-invoked, got %v", userOnly)
 	}
 	for _, name := range userOnly {
 		re := regexp.MustCompile(`(^|[^/a-z])tickets:` + regexp.QuoteMeta(name) + `\b`)
@@ -195,7 +195,7 @@ func TestPOLeadQAFixes(t *testing.T) {
 	}
 
 	// D4: the PO creates relay.md and board.md from their templates at kickoff.
-	has("kickoff", kickoff, "`<vault>/templates/relay.md`, `board.md` and", "whether or not a grill follows")
+	has("kickoff", kickoff, "`<vault>/templates/relay.md`, `board.md` and", "whether or not a clarify round follows")
 	has("PO", po, "it creates `relay.md` and `board.md`", "At once record it")
 	has("lead", lead, "the PO did the kickoff and created `board.md`")
 
@@ -521,7 +521,7 @@ func TestFollowUpsAskedPerItem(t *testing.T) {
 	for p, want := range map[string]string{
 		"plugin/skills/lead/SKILL.md":        "Never file a ticket on your own",
 		"plugin/skills/lead/handover.md":     "Never run `ct new` unasked",
-		"plugin/skills/kb/SKILL.md":          "Never run `ct new` without that answer",
+		"plugin/skills/spec/SKILL.md":        "Never run `ct new` without that answer",
 		"plugin/skills/retro/SKILL.md":       "never file unasked",
 		"plugin/skills/work-ticket/SKILL.md": "nothing is filed with `ct new` before the answer",
 	} {
@@ -565,7 +565,7 @@ func TestNewTicketSkill(t *testing.T) {
 	}
 	for p, want := range map[string]string{
 		"plugin/skills/work-ticket/SKILL.md": "`/tickets:new-ticket`",
-		"plugin/skills/kb/SKILL.md":          "`/tickets:new-ticket`",
+		"plugin/skills/spec/SKILL.md":        "`/tickets:new-ticket`",
 	} {
 		if !strings.Contains(texts[p], want) {
 			t.Errorf("%s: missing %q", p, want)
@@ -814,4 +814,53 @@ func TestLeadGitRecipes(t *testing.T) {
 	if out := must("git log --merges --format=%s -1"); !strings.Contains(out, "title db") {
 		t.Errorf("merge commit gone after revert: %q", out)
 	}
+}
+
+// A stopped task keeps its work: the PO asks first, the task agent commits a
+// WIP commit, the lead commits a dirty worktree before a plain remove.
+func TestGracefulTaskStop(t *testing.T) {
+	texts := pluginTexts(t)
+	has := func(name string, parts ...string) {
+		t.Helper()
+		for _, p := range parts {
+			if !strings.Contains(texts[name], p) {
+				t.Errorf("%s: missing %q", name, p)
+			}
+		}
+	}
+	has("plugin/skills/work-ticket/SKILL.md", "Stopping a task", "commit what you have as a WIP commit", "wip: <task title>", "Hard-stop it only if")
+	has("plugin/skills/task-agent/SKILL.md", "On \"stop:", "git add -A", "wip: <task title>", "status `partial`")
+	has(leadWithRef, "A stopped or dropped task whose worktree is dirty", "add -A", "commit -m \"wip: <task title>\"", "never `--force`", "deleting it is the user's call")
+}
+
+// The PO's side of the spec workflow, and the task and board templates.
+func TestPOSpecSideAndTemplates(t *testing.T) {
+	read := func(p string) string {
+		b, err := fs.ReadFile(Files, p)
+		if err != nil {
+			b, err = fs.ReadFile(Scaffold, p)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	has := func(name, body string, want ...string) {
+		for _, w := range want {
+			if !strings.Contains(body, w) {
+				t.Errorf("%s: missing %q", name, w)
+			}
+		}
+	}
+	skill := read("plugin/skills/work-ticket/SKILL.md")
+	has("work-ticket", skill, "ct relay add <ID> --from user --to lead", "`ct relay state <ID> R-nn <state>`", "never `>>`", "`ct spec diff <ID>`", "`specs.md`")
+	if strings.Contains(skill, "append with `>>`") {
+		t.Error("work-ticket still appends to relay.md with >>")
+	}
+	has("specs.md", read("plugin/skills/work-ticket/specs.md"), "ct spec diff <ID>", "`## Specs`", "tickets/<source>/<ID>/specs/<slug>/", "promotes it", "at once", "`ready`", "`implemented`")
+	has("kickoff", read("plugin/skills/work-ticket/kickoff.md"), "`spec-draft.md`", "write the spec diff")
+	has("workflow", read("plugin/skills/work-ticket/workflow.md"), "`ct relay add`", "`ct relay state`")
+	has("board template", read("vault-scaffold/templates/board.md"), "## Specs\n", "draft|ready|building|merged", "needs <slug>/<capability>")
+	task := read("vault-scaffold/templates/task.md")
+	has("task template", task, "`board.md` `commit-style:`", "never the ticket ID", "full check set", "DB\nsuites included")
 }

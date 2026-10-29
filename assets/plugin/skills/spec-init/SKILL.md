@@ -8,7 +8,7 @@ argument-hint: "<repo slug>"
 
 Runs in a `ct spec` session: every repo is read-only, so the output is a ticket plus
 drafts in the vault, never a commit. Spec format: `docs/spec-workflow.md`
-("Spec format"); the `tickets:spec` skill has it too. Without a repo, ask which.
+("Layout and format"); the `tickets:spec` skill has it too. Without a repo, ask which.
 Shallow on purpose: capabilities, interfaces, the main requirements. A spec deepens
 when a ticket touches it.
 

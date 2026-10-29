@@ -1,6 +1,6 @@
-# Finishing a ticket: docs, tidy, save and push
+# Finishing a ticket: tidy, save and push
 
-The order is fixed: docs, then tidy, then `/tickets:save`, which pushes the ticket
+The order is fixed: tidy, then `/tickets:save`, which pushes the ticket
 branches. Sessions commit (signed, when the session has a signing key) on the ticket
 branches and push only through `/tickets:save`: never a force push, a branch or tag
 delete, or a task branch.
@@ -12,9 +12,6 @@ sequenceDiagram
   participant L as lead
   participant W as ct ws
   participant H as host
-  U->>P: /tickets:docs
-  P->>L: docs task per repo, then a review per repo
-  L->>W: ct ws mark ID docs
   U->>P: /tickets:tidy
   P->>L: tidy task per repo with unpushed commits (jj, scratch clone)
   L->>L: same tree check, backup ref, move the branch
@@ -27,13 +24,6 @@ sequenceDiagram
   P->>H: git push -u origin feature branch (fast-forward only)
   H-->>P: pushed, or rejected: you push or re-sign on the host
 ```
-
-## Docs
-
-`/tickets:docs` writes or updates markdown under `docs/` (an architecture page with a
-mermaid flowchart, one page per main flow with a sequence diagram) and the README's
-`## Documentation` section. Each page stays under 300 lines and every diagram label is
-quoted.
 
 ## Tidy
 
@@ -49,13 +39,12 @@ nonzero with a warning; `--force` drops it, `--dry-run` only lists). It works in
 
 ## Marks
 
-`ct ws mark <ID> <docs|tidy> [<slug>...]` records, per repo, HEAD, its tree and the time.
+`ct ws mark <ID> <tidy> [<slug>...]` records, per repo, HEAD, its tree and the time.
 A repo with uncommitted changes is skipped with a warning and the command exits 1. A repo
 whose worktree is missing is skipped with a warning. `ct ws marks <ID>` prints one line per
-repo (`docs ok|stale|none tidy ok|stale|none`): `ok` means the marked tree is the current
+repo (`tidy ok|stale|none`): `ok` means the marked tree is the current
 one, `stale` means commits came after it, `none` means never marked. It exits 3 unless
-every mark is `ok`. Because any later commit makes a mark stale, docs and tidy run last,
-and tidy keeps the tree, so its mark follows docs.
+every mark is `ok`. Because any later commit makes the mark stale, tidy runs last.
 
 ## The push gate
 

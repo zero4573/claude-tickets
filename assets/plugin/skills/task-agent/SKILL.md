@@ -24,7 +24,7 @@ worktree) names the vault and the ticket.
    sections your task file names or your repo and area need (`sed -n a,bp`). It holds the
    ticket's binding rules (local stack, test databases and env vars, data never to touch)
    and wins over the repo's `AGENTS.md` where they differ; your task file wins over both.
-3. The contracts your task names: `tickets/<source>/<ID>/contracts/<name>.md` in the vault.
+3. The contracts your task names: `tickets/<source>/<ID>/contracts/<name>.md` in the vault. A task with `requirements:` (IDs) instead reads those requirements and their capability's `## Interfaces` in the spec (`ct spec diff <ID>` shows the change; `ct spec location <slug>` finds the file), cites each ID in the test that covers it, and never edits `specs/` (the PO does); a spec that is wrong or missing something goes in the report, as a wrong contract does.
 3b. Other vault context (decisions, how a feature works): `ct vault search "<topic>" --project <slug>
    --budget 1500`, then `ct vault note get <note> "<section>"`, not whole notes.
 4. Code by excerpt: find files and symbols with the fff tools (`mcp__fff__find_files`,
@@ -74,7 +74,7 @@ report `partial` with what's left instead of going on.
   fails before the fix (say so in the report).
 - Commit in your worktree, on your task branch, in coherent steps: subject in the ticket's commit
   style (`board.md` `commit-style:` wins: `conventional`, `repo` or `ticket`; else the workspace `CLAUDE.md`: `<ID> <summary>` for a synced ticket, else no ID), body says why.
-  Commits are signed when the session has a signing key.
+  Commit signed (`git commit -S`); `--no-gpg-sign` only after a signed commit failed, and say so under `Checks:` in the report.
 - Vault-only IDs (task numbers, waves, `R-`/`B-` entries, review findings, a manual ticket's key)
   never go into code, comments, test names, docs or commit messages; only the vault's files carry them.
 - Never push, merge, rebase, reset, switch branches, or add or remove worktrees: the lead
@@ -87,7 +87,7 @@ report `partial` with what's left instead of going on.
   commit what works and report `blocked`.
 
 ## Report (the only thing the lead reads; ≤40 lines, ≤15 for tickets:mechanical)
-Write it under the task file's existing `## Report` heading, the line that is exactly `## Report` (never at a `## Report` quoted inside the task's text; task files already have one: fill it, never append a second), then re-read it (`sed -n '/^## Report/,$p' <task file>`) and reply with the same text; if the write failed or the section is still empty, start the reply with `REPORT NOT WRITTEN: <reason>` (the reply goes to
+Write it under the task file's existing `## Report` heading, the line that is exactly `## Report` (never at a `## Report` quoted inside the task's text; task files already have one: fill it, never append a second), by Edit or by appending inside that section, never a shell redirect that rewrites the task file, then re-read it (`sed -n '/^## Report/,$p' <task file>`) (`sed -n '/^## Report/,$p'`; never hand back without it) and reply with the same text; if the write failed or the section is still empty, start the reply with `REPORT NOT WRITTEN: <reason>` (the reply goes to
 the PO, which tells the lead; the lead reads the task file):
 ```
 Task NN: done | partial | blocked
@@ -100,6 +100,12 @@ Open / follow-ups: <≤5 bullets, or "none">
 ```
 No narrative, no per-file walkthroughs, no restating the task. Plain bullets only: no `- [ ]`
 checkboxes anywhere in the ticket folder.
+
+## Stop message
+Write the report only into your own task file: first check its frontmatter `id:` is your task number.
+Never hand back while a command you started in the background still runs (a test run, a watcher, a server): wait for it or stop it first, and say which in the report.
+
+On "stop: ..." from the PO or lead: `git add -A` (untracked files in `owns` included), commit as `wip: <task title>`, write `## Report` with status `partial` and what is left, then end.
 
 ## Before you report
 - `git -C <worktree> status --short` is empty (everything committed), and the full check ran after the last commit.

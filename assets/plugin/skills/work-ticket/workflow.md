@@ -14,10 +14,10 @@ to `tickets:analyst` (read-only, ≤20-line answers). State lives in the bounded
 `tickets/<source>/<ID>/`, so a new session (`ct start <ID>`, a new conversation by default) resumes in a
 few calls; `ct start --continue <ID>` reopens the last one.
 1. **Kickoff:** the user picks the repos (from the code graph, or Bitbucket repos cloned with
-   `ct ws clone`), the base branch and target version of each. Then the PO **grills** the user
-   (`tickets:grilling`): rounds of questions with recommended answers, one round for a clear
+   `ct ws clone`), the base branch and target version of each. Then the PO **clarifies** with the user
+   (`tickets:clarify`): rounds of questions with recommended answers, one round for a clear
    chore, several for a vague feature; facts are looked up, never asked; "skip" ends it.
-   `/tickets:grill` does the same for new scope later.
+   `/tickets:clarify` does the same for new scope later.
 2. **Plan:** `plan.md` (≤150 lines), each wave 2-6 task files with exact `owns`. `ticket-type`
    shapes it: a `bug` is diagnosed first (`tickets:diagnose`: a feedback loop, `## Root cause`,
    a regression test), an `investigation` gets an `investigation.md` (code only if asked), a
@@ -46,9 +46,10 @@ trimmed by the PO; one line each, `R-nn · <date> · <from>→<to> · <type> · 
 counters) are the PO's; the PO wakes the lead once per wave, when no agent of it is left (a
 blocked or failed task at once). When `po: session:` isn't the current session, its agents are
 gone: their `running` rows become `orphaned` and a fresh lead picks them up. The lead rotates
-after each reviewed wave. A heavy PO context: `/tickets:po-refresh` checkpoints board and relay
-and prints the `/compact` to type (the lead and workers keep running); the PO suggests it at
-quiet points.
+after each reviewed wave. A heavy PO context: `/tickets:po-refresh [clear|compact]` checkpoints board and
+relay and prints the command to type, `/clear` only when nothing is running, else `/compact`
+(the lead and workers keep running); the PO suggests it at quiet points and when ct's context
+warning (150k, 200k, 250k tokens; past 250k on every prompt) appears.
 
 **Agents:** `tickets:task`, `tickets:mechanical`, `tickets:reviewer`, `tickets:analyst`
 (sonnet), `tickets:reviewer-deep` (opus, for contract or security waves), `tickets:lead` (the
@@ -144,7 +145,7 @@ Follow-up items (the lead's deferral candidates and open backlog; never fix task
 
 ## relay.md format
 One line per entry: `R-nn · <date> · <from>→<to> · <request|feature|feedback|question|answer|decision> · <text ≤200 chars> · <open|planned|answered|copied>`.
-Next free id: `rg -o 'R-[0-9]+' relay.md | sort -V | tail -1`. Caps: `## Open` holds **≤30** entries, `## Closed` **≤40**,
+Add entries with `ct relay add` (it takes the next free id under a lock) and set states with `ct relay state`; never edit by hand. Caps: `## Open` holds **≤30** entries, `## Closed` **≤40**,
 about 100 lines; the lead marks `decision` and `answer` entries `copied`.
 
 ## Orphaned tasks

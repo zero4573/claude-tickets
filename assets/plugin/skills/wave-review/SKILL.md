@@ -8,7 +8,7 @@ description: Diff-scoped, capped wave review of one repo for a ticket (architect
 Read-only: no code edits, no commits, no branch changes. The lead's prompt (the PO session
 spawns you with it) passes: the ticket, wave
 `N`, the repo slug and its ticket worktree, the range `<last-reviewed>..<head>`, the previous
-fix-task IDs, the previous review file (if any), and a ≤5-line graph impact note.
+fix-task IDs, the previous review file (if any), and a ≤5-line graph impact note. With specs it adds the capability and its requirement IDs: read `ct spec diff <ID>` and check that every `proposed` requirement of that capability is implemented and a test cites it, and that the code doesn't contradict an `implemented` one; a miss is a finding. List the IDs that pass in your summary (the PO flips them to `implemented`; you never write specs).
 
 ## Scope it before reading anything
 1. `git -C <worktree> log --oneline --merges <range>`: the wave's merges.
@@ -17,6 +17,13 @@ fix-task IDs, the previous review file (if any), and a ≤5-line graph impact no
    Previous findings: read the previous review's `## Dispositions`; any ID whose line says `open` or `fixing`
    is still open (`rg -n '^- \[.\] W[0-9]+-.* · (open|fixing)' <prev review>`). Check
    those against the fix tasks the lead named. Don't re-review unchanged code.
+   **Origin per finding:** tag each one `new`, `pre-existing` (`git blame` puts its lines before the
+   range) or `regression of <earlier ID>` (lines from the last fix range that reopen or contradict an
+   earlier finding), so the lead can spot fix loops. Judge by behaviour, not only by line age: a
+   finding in code from the last fix range that breaks behaviour an earlier finding or a recorded
+   user decision secured is `regression of <earlier ID>` even when its lines are new. Name the
+   earlier ID and what it secured. Tag `new` only when no earlier finding or decision covered
+   that behaviour.
 3b. Vault-only IDs (contract `commit-rules-v1`): `ct ws diff-check -C <worktree> --ticket <ID> <range>`
    flags the ticket's own IDs (its key, the relay's `R-nn`, the backlog's `B-nn`, finding IDs) in added
    lines and commit messages; a `vault-id` line is a must-fix, except a hit on a line kept from the base or in a fixture
@@ -30,7 +37,7 @@ fix-task IDs, the previous review file (if any), and a ≤5-line graph impact no
 
 ## What to look for (both hats)
 - **Architect:** boundaries and dependency direction, the ticket's contracts
-  (`tickets/<source>/<ID>/contracts/`) kept exactly, the repo's conventions in its `AGENTS.md` and the
+  (`tickets/<source>/<ID>/contracts/`, ticket-private shapes only; shared interfaces are the spec's `## Interfaces`) kept exactly, the repo's conventions in its `AGENTS.md` and the
   ticket's `tickets/<source>/<ID>/conventions.md` if it exists (by section), and
   whether the next planned tasks (the board's `planned` rows) fit without rework.
 - **Senior:** correctness, error handling, races and resource leaks, input limits, injection

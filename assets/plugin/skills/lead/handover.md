@@ -7,7 +7,7 @@ Ends with the ticket at `status: review` and `Next: handover-done`. Never run `/
 ## 0. Disposition gate (precondition)
 Run the gate of `SKILL.md` section 7 (script: `reference.md`, "Gate script") from the vault root (including its `no Dispositions`
 line and the open-line and `#deferred` checks): its output must be empty. If it prints anything, go back to planning fix waves
-(or `kept:`/deferral dispositions); never hand over with an `open` or `fixing` finding.
+(or `kept:`/deferral dispositions); never hand over with an `open` or `fixing` finding. With a `board.md ## Specs` list, every line must be `merged` and the PO must have flipped the passed requirement IDs (`specs.md`, "Review").
 
 ## 1. Workspace clean
 In one chain per repo:
@@ -68,10 +68,10 @@ meets: read the section with `ct vault note get` first, then write it back with
 are named in `## Review`. Never edit a covered ticket's criteria or a synced ticket's source block.
 
 ## 5c. Docs and tidy marks
-Run `ct ws marks <ID>`. Exit 0 (every repo `ok` for `docs` and `tidy`): go on. Otherwise ask
-through the gate (`SKILL.md`): run the docs wave and tidy now? A (recommended): docs, then tidy;
-B: tidy only; C: neither (`/tickets:save` will warn and ask before pushing). End with `Next: wait-user`,
-and on the answer run what was chosen per `tickets:docs` and `tickets:tidy` (the lead marks them
+Run `ct ws marks <ID>`. Exit 0 (every repo `ok` for `tidy`): go on. Otherwise ask
+through the gate (`SKILL.md`): run tidy now? A (recommended): tidy;
+B: neither (`/tickets:save` will warn and ask before pushing). End with `Next: wait-user`,
+and on the answer run what was chosen per `tickets:tidy` (the lead marks it
 with `ct ws mark`) before Finish.
 
 ## 6. Finish

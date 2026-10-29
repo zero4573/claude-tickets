@@ -37,9 +37,8 @@ on the reviewer side.
 At most **8** candidates, most severe first, one line each:
 `<category> · <evidence: task NN, review finding or path:line> · <change> · <where>`.
 Ask the user (AskUserQuestion, multi-select) which to keep. In a ticket session (you are the
-PO; `backlog.md` is the lead's), append one `relay.md` entry per kept candidate,
-`R-nn · <date> · user→lead · request · retro: <change> (<where>) · open`, and message a running
-lead; it files them as `- [ ] B-nn · w<N> · <repo|plugin|vault> · retro: <change> ➕ <date>` (a retro item only becomes
+PO; `backlog.md` is the lead's), add one relay entry per kept candidate with
+`ct relay add <ID> --from user --to lead --kind request "retro: <change> (<where>)"` (≤200 characters; never edit `relay.md` by hand), and message a running lead; it files them as `- [ ] B-nn · w<N> · <repo|plugin|vault> · retro: <change> ➕ <date>` (a retro item only becomes
 a backlog item; the hand-over answer decides where it goes). Outside a ticket, ask per kept candidate whether to file `ct new --type chore "<summary>"`; never file unasked.
 
 Adapted from mattpocock/skills (MIT); see THIRD_PARTY_NOTICES.md.

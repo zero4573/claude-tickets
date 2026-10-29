@@ -15,6 +15,7 @@ branch: task/TICKET-ID-NN-slug
 worktree:
 context_budget: 80k
 contracts: []
+requirements: []
 skills: []
 db: none
 fixes: []
@@ -26,7 +27,7 @@ tags: [task]
 repo: a slug, or vault for a vault-only task (no branch or worktree). agent: task | mechanical.
 owns: exact repo-relative files or dir/** (vault: tickets/<source>/<ID>/<file>); the only paths the agent
 writes. depends_on: task IDs. context_budget: 80k (60k for follow-ups). contracts: names in
-contracts/. skills: skills the agent loads, e.g. [tickets:diagnose]. db: none | heavy (heavy: runs DB suites on a shared stack, one at a time per repo). fixes: IDs (B-nn, W<N>-<repo>-<M|S|C>nn) the task closes at merge. Epic only: add for:
+contracts/ (shapes private to this ticket's tasks). requirements: requirement IDs the task implements; its tests cite them. skills: skills the agent loads, e.g. [tickets:diagnose]. db: none | heavy (heavy: runs DB suites on a shared stack, one at a time per repo). fixes: IDs (B-nn, W<N>-<repo>-<M|S|C>nn) the task closes at merge. Epic only: add for:
 "[[<covered ID>]]". Commit prefix and style: from `board.md` `commit-style:` and `conventions.md`, stated in ## Do. Plain bullets only, no checkboxes. -->
 
 Task of [[TICKET-ID]] in [[provider-owner-repo]].

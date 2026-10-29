@@ -250,11 +250,11 @@ func TestPOAndLeadSkills(t *testing.T) {
 	}
 
 	leadSkill := read("plugin/skills/lead/SKILL.md")
-	if n := lines(leadSkill); n > 233 {
-		t.Errorf("lead/SKILL.md is %d lines, cap 233", n)
+	if n := lines(leadSkill); n > 236 {
+		t.Errorf("lead/SKILL.md is %d lines, cap 236", n)
 	}
-	if n := lines(read("plugin/skills/lead/reference.md")); n > 75 {
-		t.Errorf("lead/reference.md is %d lines, cap 75", n)
+	if n := lines(read("plugin/skills/lead/reference.md")); n > 80 {
+		t.Errorf("lead/reference.md is %d lines, cap 80", n)
 	}
 	lead := leadSkill + read("plugin/skills/lead/handover.md") + read("plugin/agents/lead.md")
 	if strings.Contains(lead, "AskUserQuestion") {

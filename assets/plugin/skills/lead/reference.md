@@ -57,3 +57,24 @@ awk -F ' · ' -v W=<W> '/^- \[[x-]\] / && $2 ~ /^(merged|dropped)/ { n=$5; sub(/
 awk -F ' · ' -v W=<W> '/^- w[0-9]+ / { n=$1; sub(/^- w/, "", n); if (n+0 < W) print }' board.md > "$r"
 ```
 Append `"$t"`/`"$r"` under the archive's headings, drop them from `board.md` (`grep -vxFf`), check `wc -l`.
+
+## Fix loops
+At triage, check every finding's origin tag (`new`, `pre-existing`, `regression of <ID>`) against the
+previous fix range: `git blame` its lines, then read the previous review's findings and the
+`plan.md ## Decisions` entries that touch the same code.
+
+Stop patching in an area when either holds:
+- the finding is a regression of the last fix round (it breaks behaviour that round or an earlier
+  finding secured);
+- two fixes keep undoing each other: the same area was fixed in consecutive rounds, or the fix
+  would reverse an earlier one.
+
+Then write no fix task for that finding. Record the triage in `plan.md ## Decisions` (the finding,
+the earlier fixes it loops with) and ask the user through the gate in one `Ask user:` with a design
+option, the recommended design first. The review's other findings are fixed as usual.
+
+## Crash-window contract
+For a step that writes several files or trees, the contract (`contracts/<name>-v<N>.md`) has a table, one row per write:
+`step | what a crash right after it leaves | how a rerun finishes or undoes it`. Every row needs a rerun path that
+converges without manual repair; a missing one is a must-fix before any build task starts.
+

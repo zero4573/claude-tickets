@@ -12,7 +12,7 @@ Read-only. Never write to the vault.
 - **Ticket workspace** (the cwd or a folder above it has a `workspace.json`
   whose `id` is the ticket ID; `~/Projects/work-<vault>/<ID>` by default): `CLAUDE.md` names
   the vault and the ticket.
-- **A `kb` session** (`workspace.json` id `KB`, `<workRoot>/.kb-<vault>`):
+- **A `spec` session** (`<workRoot>/.spec-<vault>`):
   `CLAUDE.md` names the vault.
 - **Otherwise:** the knowledge-base vault named in the system prompt
   (`ct claude`). Failing that, the vaults are the folders under

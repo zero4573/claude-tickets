@@ -21,5 +21,5 @@ of accepting. Each printed `<file>: <ID>` needs a fix task, a `kept:` reason or 
 
 ## 2. Accept
 If it prints nothing, set `lead: none`, tell the user the ticket is ready for review
-(`ct ws diff <ID>`, changes can be asked for here; then, in the user's order, docs, tidy,
-`/tickets:save`, which pushes the ticket branches (it asks again if they chose to skip docs or tidy)), and suggest a refresh (`SKILL.md` 6).
+(`ct ws diff <ID>`, changes can be asked for here; then, in the user's order, tidy,
+`/tickets:save`, which pushes the ticket branches (it asks again if they chose to skip tidy)), and suggest a refresh (`SKILL.md` 6).

@@ -5,7 +5,7 @@ description: File a new ticket from a session, at a ticket source (e.g. Jira, th
 
 # /tickets:new-ticket [what]
 
-Files one ticket the user asked for. Only a session the user talks to runs it (the PO, a `kb`
+Files one ticket the user asked for. Only a session the user talks to runs it (the PO, a `spec`
 or repo session): it needs **AskUserQuestion**. Without it (headless, `-p`, a subagent),
 create nothing: say what you would file and stop. A lead or task agent never files tickets;
 it asks through `relay.md` (`lead` skill, "Never file a ticket on your own").
@@ -14,7 +14,7 @@ it asks through `relay.md` (`lead` skill, "Never file a ticket on your own").
 - **The session's ticket** `<ID>`: the workspace `CLAUDE.md` names it, its note and its folder
   (`tickets/<source>/<ID>/`). Read its frontmatter: `source`, `ticket-type`, `covers`,
   `covered-by`, `parent`, `projects`. A **lead ticket** is one with `ticket-type: epic` (its
-  `covers` lists the tickets its workspace does). A `kb` or repo session has no ticket.
+  `covers` lists the tickets its workspace does). A `spec` or repo session has no ticket.
 - **Sources:** `tickets/.sources.json` in the vault: each source's key, `enabled`, `sync`,
   `mcp` (the MCP server name) and `idPrefix`. The manual source files with `ct new`.
 - **Create tool:** the source's MCP server (its `mcp` name; never another server) must
@@ -69,29 +69,41 @@ the readable markdown draft, and what is filed must say exactly the same. Keep t
 `ct new --type <dev|bug|investigation|chore|epic> [--priority <p>] "<title>"`. It prints the new
 note's path. Write the new note's initial content yourself, in that note only: `## Description`,
 `## Acceptance criteria`, `## Context / links` (`[[<ID>]]`), `projects:`, the tag
-`from-ticket` (`from-kb` in a `kb` session), and under a lead `covered-by: "[[<lead>]]"` and
+`from-ticket` (`from-spec` in a `spec` session), and under a lead `covered-by: "[[<lead>]]"` and
 `parent: "[[<lead>]]"`. From then on it is the user's.
 Tell the user it can be filed at a source later with `ct ticket convert <MAN-n> --to <source>` (run
 on the host, with its session closed).
 
 ## 5. Link it into the vault
-The new ticket's own note is never yours to write before `/tickets:save` (the vault's
-`AGENTS.md`, "Who writes what"): `ct sync` writes a synced ticket's note at
-`tickets/<source>/<NEW-ID>/<NEW-ID>.md`, `ct new` a manual one.
+Who writes the new ticket's note depends on where it was filed:
+- **A synced source:** under a lead `ct ticket stub` writes it (step 2), else `ct sync` does, at
+  `tickets/<source>/<NEW-ID>/<NEW-ID>.md`.
+- **Manual** (`ct new`): step 4 wrote it, and it is the user's from then on.
 1. In the session ticket's note, add a line to `## Follow-ups` (the work section you may
    write; `ct vault note append <ID> "## Follow-ups"`):
    - at a source: `- [ ] Filed [[<NEW-ID>]] at <source> from this ticket: <title> (<url>); ct sync brings its note in #follow-up ➕ <today>`
    - manual: `- [ ] Filed [[<MAN-n>]] from this ticket: <title>; review it #follow-up ➕ <today>`
-   The wikilink resolves once the note exists. Outside a ticket, the `kb` session's draft or
+   The wikilink resolves once the note exists. Outside a ticket, the `spec` session's draft or
    the answer names it instead.
-2. **Under a lead:** a synced epic's `covers` (and the child's `covered-by`) come from the
-   source: `ct sync` adds the new child once it's assigned to the user and open. A manual
-   lead's `covers` is the user's field: say "add `[[<MAN-n>]]` to `covers` of [[<lead>]]" in
-   the follow-up line. A lead running in this workspace hears of it in your next message to it
-   (new covered work: `New since the last lead: filed <NEW-ID>`), never by editing its files.
-3. **Sync:** a synced ticket's note appears with the next `ct sync` (`ct sync --source <source>`
-   on the host, where its MCP config is). Tell the user to run it; never write the note
-   yourself in the ticket-sync format.
+2. **Under a lead, filed at a synced source** (never a manual child, which `ct ticket stub`
+   refuses): right after the create, run
+   `ct ticket stub <NEW-ID> --source <source> --summary "<title>" --covered-by <lead>`. It writes
+   the child's note in the synced layout and the child's `covered-by`, and, for a manual lead,
+   adds the child to the lead's `covers`; don't add a follow-up "add to `covers`" line for it,
+   and don't write that note by hand. A synced epic's `covers` comes from the source: `ct sync`
+   keeps it. The PO tells the lead in its next message. A lead running in this workspace hears
+   of it in your next message to it (new covered work: `New since the last lead: filed <NEW-ID>`),
+   never by editing its files.
+   **Under a manual lead, a manual child** (`ct new`): you write the note (step 4) with its
+   `covered-by`, and say "add `[[<MAN-n>]]` to `covers` of [[<lead>]]" in the follow-up line:
+   a manual lead's `covers` is the user's field there.
+3. **Sync:** `ct sync --source <source>` on the host (where its MCP config is) brings a synced
+   note in; tell the user to run it.
+
+## 5b. Epic flow (a feature with specs)
+Planned work from `/tickets:spec plan` files an epic and children: read `epic.md` in this skill's
+folder before step 3. Each child description has a `## Spec change` section; a requirement with a
+`[NEEDS CLARIFICATION]` marker blocks filing that child.
 
 ## 6. Report
 One line per filed ticket: the ID, where (source or manual), its URL or note path, the parent,

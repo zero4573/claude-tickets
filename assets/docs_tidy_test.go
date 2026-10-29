@@ -6,10 +6,9 @@ import (
 	"testing"
 )
 
-func TestDocsTidySkills(t *testing.T) {
-	const order = "docs → tidy → `/tickets:save` (which pushes)"
+func TestTidySkill(t *testing.T) {
+	const order = "tidy → `/tickets:save` (which pushes)"
 	want := map[string][]string{
-		"docs": {"ct ws mark <ID> docs", "sequenceDiagram", "flowchart", "## Documentation", "without `;` or `#`", order},
 		"tidy": {"ct ws mark <ID> tidy", "^{tree}", "update-ref", "--not --remotes",
 			"immutable_heads()", "jj absorb --from", "jj abandon", "jj git clone --colocate",
 			"--boundary", "--is-ancestor", "--allow-backwards", "ct ws tidy-clean <ID>", "tasks/tidy-<slug>", order},
