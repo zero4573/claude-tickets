@@ -15,7 +15,7 @@ sequenceDiagram
   participant R as reviewers
   U->>P: ct start ID
   P->>P: resume from board.md, or kickoff: repos, base, version, ct ws add, ct ws refresh
-  P->>U: grill: rounds of questions with a recommended answer
+  P->>U: clarify (tickets:clarify): rounds of questions with a recommended answer
   P->>L: spawn (plan.md, contracts/, tasks/, board.md)
   L-->>P: Spawn: wave of tasks
   P->>T: one agent per task, in parallel (up to 4)
@@ -89,6 +89,8 @@ ignored, so a file added and removed within the range is still reported. Each fl
 one stdout line, tab separated: `binary`, `large` or `binary,large`, the size in bytes, the
 short sha and the path. Exit 0 means clean, 3 means something was flagged (with a count on
 stderr), 1 means a usage error, a directory that is not a git checkout or a bad range.
+
+It also prints two informational line kinds that never change the exit code: `note test-changed <name> <short sha> <path>` when a commit changes or removes a Go `Test*`, `Benchmark*`, `Fuzz*` or `Example*` func that its first parent had (or, with name `-`, an existing `testdata/**/*.txtar` file), and `note unsigned - <short sha> :commit` for a commit with no signature when `commit.gpgsign` is true.
 
 With `--ticket <ID>` it also flags the ticket's own vault-only IDs that a commit introduces. The
 set is the ID itself, the `R-nn` of the relay's entry lines (`R-nn · …`), the `B-nn` of the
