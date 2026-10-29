@@ -1,0 +1,278 @@
+# ct spec start: the ticket's copy of a vault spec and the snapshot promote compares against
+env V=home/Documents/Obsidian/a
+env C1=$V/tickets/manual/MAN-1/specs/github-acme-ledger
+env B1=$V/tickets/manual/MAN-1/specs-base/github-acme-ledger
+env W1=home/Projects/work-a/MAN-1
+mkdir $V/.obsidian $V/projects/github-acme-ledger/specs/posting/notes $V/projects/github-acme-ledger/specs/journal $V/projects/github-acme-plain $V/tickets/manual/MAN-1
+cp man.md $V/tickets/manual/MAN-1/MAN-1.md
+cp ledger.md $V/projects/github-acme-ledger/github-acme-ledger.md
+cp plain.md $V/projects/github-acme-plain/github-acme-plain.md
+cp posting-v1.md $V/projects/github-acme-ledger/specs/posting/spec.md
+cp extra.md $V/projects/github-acme-ledger/specs/posting/notes/extra.md
+cp journal-v1.md $V/projects/github-acme-ledger/specs/journal/spec.md
+mkdir $W1
+expand ws1.json
+cp ws1.json $W1/workspace.json
+
+# errors, before anything is written
+! exec ct spec start MAN-1 github-acme-plain
+stderr 'github-acme-plain: its specs are not in the vault'
+! exec ct spec start MAN-9 github-acme-ledger
+stderr 'no ticket MAN-9 in the vault'
+! exec ct spec start MAN-1 ../github-acme-ledger
+stderr 'invalid repo slug'
+! exec ct spec start MAN-1 github-acme-ledger posting nope
+stderr 'no capability nope in projects/github-acme-ledger/specs/'
+stderr 'run ct spec start MAN-1 github-acme-ledger without it first, then write it in the copy folder'
+! exec ct spec start MAN-1 github-acme-ledger ..
+stderr 'invalid capability'
+! exists $V/tickets/manual/MAN-1/specs
+! exists $V/tickets/manual/MAN-1/specs-base
+
+# the first start: the named capability copied whole, the whole of projects/ snapshotted
+exec ct spec start MAN-1 github-acme-ledger posting
+stdout '^github-acme-ledger: snapshot tickets/manual/MAN-1/specs-base/github-acme-ledger/ taken$'
+stdout '^github-acme-ledger: copy tickets/manual/MAN-1/specs/github-acme-ledger/$'
+stdout '^  copied posting/notes/extra.md$'
+stdout '^  copied posting/spec.md$'
+cmp $C1/posting/spec.md posting-v1.md
+cmp $C1/posting/notes/extra.md extra.md
+! exists $C1/journal
+cmp $B1/posting/spec.md posting-v1.md
+cmp $B1/journal/spec.md journal-v1.md
+exec ls -a $V/tickets/manual/MAN-1
+! stdout '\.specs-base'
+
+# the copy is edited and another ticket's change reaches projects/
+cp posting-ours.md $C1/posting/spec.md
+cp posting-v2.md $V/projects/github-acme-ledger/specs/posting/spec.md
+cp journal-v2.md $V/projects/github-acme-ledger/specs/journal/spec.md
+
+# the diff shows only this ticket's change, against the copy's start
+exec ct spec diff MAN-1
+stdout '^  added REQ-LED-2 · Reverse \(posting, proposed\)$'
+! stdout 'REQ-LED-3'
+! stdout 'REQ-JRN'
+
+# a repeat start adds a capability (from projects/ as it is now), keeps the
+# edited copy and the snapshot of what the copy already held, and rebases the
+# snapshot of each file it copies, decided per file: an empty journal/
+# folder in the copy doesn't count as holding journal/spec.md
+mkdir $C1/journal
+exec ct spec start MAN-1 github-acme-ledger journal posting
+stdout '^github-acme-ledger: snapshot tickets/manual/MAN-1/specs-base/github-acme-ledger/ kept \(taken by the first start\) but for the files rebased below$'
+stdout '^  rebased journal/spec.md in the snapshot onto projects/$'
+! stdout 'rebased posting'
+stdout '^  copied journal/spec.md$'
+stdout '^  kept posting/spec.md \(already in the copy\)$'
+cmp $C1/journal/spec.md journal-v2.md
+cmp $C1/posting/spec.md posting-ours.md
+cmp $B1/posting/spec.md posting-v1.md
+cmp $B1/journal/spec.md journal-v2.md
+exec ct spec diff MAN-1
+stdout 'REQ-LED-2'
+! stdout 'REQ-JRN'
+
+# a repeat start that copies nothing new leaves the snapshot as it is
+exec ct spec start MAN-1 github-acme-ledger journal
+stdout '^github-acme-ledger: snapshot tickets/manual/MAN-1/specs-base/github-acme-ledger/ kept \(taken by the first start\)$'
+! stdout rebased
+
+# the other ticket's journal change is not ours: not in the diff, no refusal
+rm $C1/posting
+cp journal-ours.md $C1/journal/spec.md
+exec ct spec diff MAN-1
+stdout 'REQ-JRN-3'
+! stdout 'REQ-JRN-2'
+exec ct spec promote MAN-1
+cmp $V/projects/github-acme-ledger/specs/journal/spec.md journal-ours.md
+
+# no capability: an empty copy folder, for new capabilities only
+exec ct spec start MAN-1 github-acme-ledger
+stdout 'kept'
+! stdout copied
+
+-- man.md --
+---
+title: T
+type: ticket
+tags: [ticket]
+---
+# T
+-- ledger.md --
+---
+title: github-acme-ledger
+type: project
+repo: github/acme/ledger
+specs: vault
+tags: [project]
+---
+# github-acme-ledger
+-- plain.md --
+---
+title: github-acme-plain
+type: project
+repo: github/acme/plain
+tags: [project]
+---
+# github-acme-plain
+-- ws1.json --
+{"id": "MAN-1", "vault": "$WORK/home/Documents/Obsidian/a", "repos": [
+  {"provider": "github", "owner": "acme", "repo": "ledger", "slug": "github-acme-ledger", "path": "$WORK/home/Projects/work-a/MAN-1/ledger", "base": "main", "branch": "feature/MAN-1", "mode": "worktree", "targetVersion": null}
+]}
+-- extra.md --
+Notes on posting.
+-- posting-v1.md --
+---
+capability: posting
+prefix: LED
+---
+# Posting
+
+## Purpose
+Posting.
+
+## Requirements
+
+### REQ-LED-1 · Post
+status: proposed
+The system SHALL post an entry.
+
+#### Scenario: post
+- WHEN an entry is posted
+- THEN the ledger holds it
+-- posting-ours.md --
+---
+capability: posting
+prefix: LED
+---
+# Posting
+
+## Purpose
+Posting.
+
+## Requirements
+
+### REQ-LED-1 · Post
+status: proposed
+The system SHALL post an entry.
+
+#### Scenario: post
+- WHEN an entry is posted
+- THEN the ledger holds it
+
+### REQ-LED-2 · Reverse
+status: proposed
+The system SHALL reverse an entry.
+
+#### Scenario: reverse
+- WHEN an entry is reversed
+- THEN the ledger holds its opposite
+-- posting-v2.md --
+---
+capability: posting
+prefix: LED
+---
+# Posting
+
+## Purpose
+Posting.
+
+## Requirements
+
+### REQ-LED-1 · Post
+status: proposed
+The system SHALL post an entry.
+
+#### Scenario: post
+- WHEN an entry is posted
+- THEN the ledger holds it
+
+### REQ-LED-3 · Void
+status: proposed
+The system SHALL void an entry.
+
+#### Scenario: void
+- WHEN an entry is voided
+- THEN the ledger drops it
+-- journal-v1.md --
+---
+capability: journal
+prefix: JRN
+---
+# Journal
+
+## Purpose
+Journal.
+
+## Requirements
+
+### REQ-JRN-1 · Record
+status: proposed
+The system SHALL record a line.
+
+#### Scenario: record
+- WHEN posted
+- THEN recorded
+-- journal-ours.md --
+---
+capability: journal
+prefix: JRN
+---
+# Journal
+
+## Purpose
+Journal.
+
+## Requirements
+
+### REQ-JRN-1 · Record
+status: proposed
+The system SHALL record a line.
+
+#### Scenario: record
+- WHEN posted
+- THEN recorded
+
+### REQ-JRN-2 · Replay
+status: proposed
+The system SHALL replay a line.
+
+#### Scenario: replay
+- WHEN asked
+- THEN replayed
+
+### REQ-JRN-3 · Rewind
+status: proposed
+The system SHALL rewind a line.
+
+#### Scenario: rewind
+- WHEN rewound
+- THEN restored
+-- journal-v2.md --
+---
+capability: journal
+prefix: JRN
+---
+# Journal
+
+## Purpose
+Journal.
+
+## Requirements
+
+### REQ-JRN-1 · Record
+status: proposed
+The system SHALL record a line.
+
+#### Scenario: record
+- WHEN posted
+- THEN recorded
+
+### REQ-JRN-2 · Replay
+status: proposed
+The system SHALL replay a line.
+
+#### Scenario: replay
+- WHEN asked
+- THEN replayed

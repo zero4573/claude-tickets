@@ -982,8 +982,10 @@ var beforeRename = func() {}
 // It first checks that no parent of n resolves outside dir and that n itself
 // is a folder, not a symlink. The rename then opens n's parent through an
 // os.Root of dir (renameIn), so a parent swapped for a symlink after the
-// check can't lead it outside dir; the copy reads through the same root,
-// which keeps every open inside n.
+// check can't lead it outside dir (on unix only: Windows has no renameat, so
+// renameIn there is a plain rename after checkInside and a junction swapped
+// in that gap can still lead it outside dir); the copy reads through the
+// same root, which keeps every open inside n.
 func moveTree(dir, n, dest string) error {
 	n = filepath.Clean(n)
 	if !filepath.IsLocal(n) {

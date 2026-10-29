@@ -106,6 +106,30 @@ func Acquire(vault, owner string) error {
 	}
 }
 
+// TryAcquire is Acquire without the wait: it takes a free lock, refreshes
+// our own, takes over an abandoned one, and otherwise fails at once naming
+// the holder.
+func TryAcquire(vault, owner string) error {
+	dir, err := Dir(vault)
+	if err != nil {
+		return err
+	}
+	if owner == "" {
+		return errors.New("acquire: <owner> is required")
+	}
+	if take(dir, owner) {
+		return nil
+	}
+	if Holder(dir) == owner {
+		now := time.Now()
+		return os.Chtimes(filepath.Join(dir, "owner"), now, now)
+	}
+	if age(dir) > Stale && takeOver(dir, owner) {
+		return nil
+	}
+	return fmt.Errorf("the vault lock is held by '%s'", Holder(dir))
+}
+
 func Release(vault, owner string) error {
 	dir, err := Dir(vault)
 	if err != nil {

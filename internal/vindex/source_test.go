@@ -117,11 +117,12 @@ func TestVaultSourceMatchesUpdate(t *testing.T) {
 
 func TestIndexableSkipsSpecSnapshots(t *testing.T) {
 	for p, want := range map[string]bool{
-		"tickets/manual/MAN-1/specs-base/x/a.md":  false,
-		"tickets/manual/MAN-1/specs-after/x/a.md": false,
-		"tickets/manual/MAN-1/specs/x/a.md":       true,
-		"tickets/manual/MAN-1/MAN-1.md":           true,
-		"projects/x/specs-base/a.md":              true,
+		"tickets/manual/MAN-1/specs-base/x/a.md":        false,
+		"tickets/manual/MAN-1/specs-after/x/a.md":       false,
+		"tickets/manual/MAN-1/specs-stage/x/moves/a.md": false,
+		"tickets/manual/MAN-1/specs/x/a.md":             true,
+		"tickets/manual/MAN-1/MAN-1.md":                 true,
+		"projects/x/specs-base/a.md":                    true,
 	} {
 		if got := indexable(p); got != want {
 			t.Errorf("indexable(%q) = %v, want %v", p, got, want)

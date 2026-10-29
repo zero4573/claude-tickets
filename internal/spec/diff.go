@@ -234,24 +234,6 @@ func MergeBase(dir, base string) (string, error) {
 	return ref, nil
 }
 
-// WriteTree writes t under root (created, with its folders), replacing
-// nothing outside it. An empty Tree still creates the folder.
-func WriteTree(root string, t Tree) error {
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		return err
-	}
-	for _, p := range t.paths() {
-		dst := filepath.Join(root, filepath.FromSlash(p))
-		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-			return err
-		}
-		if err := os.WriteFile(dst, t[p], 0o644); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Overlay is before with the files of over laid on top: a ticket's vault
 // copy of a spec folder replaces the capabilities it holds and leaves the
 // others as they are.

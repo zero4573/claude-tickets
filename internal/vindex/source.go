@@ -53,8 +53,9 @@ func indexable(rel string) bool {
 	if skippedTop[parts[0]] {
 		return false
 	}
-	// tickets/<source>/<ID>/specs-base|specs-after/...: old copies of specs.
-	if len(parts) > 4 && parts[0] == "tickets" && (parts[3] == "specs-base" || parts[3] == "specs-after") {
+	// tickets/<source>/<ID>/specs-base|specs-after/...: old copies of specs;
+	// specs-stage/...: a promote's staged files.
+	if len(parts) > 4 && parts[0] == "tickets" && (parts[3] == "specs-base" || parts[3] == "specs-after" || parts[3] == "specs-stage") {
 		return false
 	}
 	return true

@@ -2,6 +2,7 @@
 env GIT_AUTHOR_NAME=x GIT_AUTHOR_EMAIL=x@example.com GIT_COMMITTER_NAME=x GIT_COMMITTER_EMAIL=x@example.com
 env V=home/Documents/Obsidian/a
 env W=home/Projects/work-a/MAN-1
+env W2=home/Projects/work-a/MAN-2
 mkdir $V/.obsidian $V/tickets/manual/MAN-1 $W $V/projects/github-acme-ledger/specs/posting $V/projects/github-acme-plain
 cp man-1.md $V/tickets/manual/MAN-1/MAN-1.md
 cp ledger.md $V/projects/github-acme-ledger/github-acme-ledger.md
@@ -42,7 +43,7 @@ stdout '^--- a/refunds/spec.md$'
 stdout 'github-acme-ledger \(vault specs\): no spec change'
 
 # the vault copy: the ticket's version of one capability against projects/
-mkdir $V/tickets/manual/MAN-1/specs/github-acme-ledger/posting
+exec ct spec start MAN-1 github-acme-ledger posting
 cp posting-new.md $V/tickets/manual/MAN-1/specs/github-acme-ledger/posting/spec.md
 exec ct spec diff MAN-1
 stdout 'github-acme-ledger \(vault specs\)'
@@ -62,26 +63,55 @@ stdout '^  posting/spec.md \| \+\d+ -\d+$'
 exec ct spec diff MAN-1
 cmp $V/projects/github-acme-ledger/specs/posting/spec.md posting.md
 
-# promotion: record the baseline, then move the ticket's copy into projects/
-exec ct spec baseline MAN-1
-stdout 'github-acme-ledger: baseline recorded \(1 files\)'
+# promotion: ct spec promote checks against the start's snapshot, moves the copy in and writes the version
+exec ct spec promote MAN-1
+stdout '^github-acme-ledger: promoted 1 files \(posting\); version projects/github-acme-ledger/spec-versions/github-acme-ledger-spec-MAN-1.md$'
 ! stdout 'billing'
 cmp $V/tickets/manual/MAN-1/specs-base/github-acme-ledger/posting/spec.md posting.md
-cp $V/tickets/manual/MAN-1/specs/github-acme-ledger/posting/spec.md $V/projects/github-acme-ledger/specs/posting/spec.md
-rm $V/tickets/manual/MAN-1/specs
+cmp $V/tickets/manual/MAN-1/specs-after/github-acme-ledger/posting/spec.md posting-new.md
+cmp $V/projects/github-acme-ledger/specs/posting/spec.md posting-new.md
+! exists $V/tickets/manual/MAN-1/specs/github-acme-ledger/posting/spec.md
 exec ct spec diff MAN-1
 stdout 'github-acme-ledger \(vault specs\)'
 stdout '^  added REQ-LED-2 · Reverse \(posting, proposed\)$'
 stdout '^  changed interfaces \(posting\)$'
 ! stdout 'no spec change.*ledger'
-# a repeat run keeps the baseline and gives the same change
-exec ct spec baseline MAN-1
-stdout 'github-acme-ledger: baseline kept'
+# a repeat run promotes nothing and gives the same change
+exec ct spec promote MAN-1
+stdout 'github-acme-ledger: nothing to promote'
 cmp $V/tickets/manual/MAN-1/specs-base/github-acme-ledger/posting/spec.md posting.md
 exec ct spec diff MAN-1
 stdout '^  added REQ-LED-2 · Reverse \(posting, proposed\)$'
-! exec ct spec baseline MAN-99
+! exec ct spec promote MAN-99
 stderr 'no workspace for MAN-99'
+
+# another ticket promotes a new capability and changes posting on top: neither
+# shows up in this ticket's change
+mkdir $V/tickets/manual/MAN-2 $W2
+cp man-1.md $V/tickets/manual/MAN-2/MAN-2.md
+exec ct spec start MAN-2 github-acme-ledger posting
+mkdir $V/tickets/manual/MAN-2/specs/github-acme-ledger/journal
+cp journal.md $V/tickets/manual/MAN-2/specs/github-acme-ledger/journal/spec.md
+cp posting-other.md $V/tickets/manual/MAN-2/specs/github-acme-ledger/posting/spec.md
+expand ws2.json
+cp ws2.json $W2/workspace.json
+exec ct spec promote MAN-2
+stdout '^github-acme-ledger: promoted 2 files \(journal, posting\); version projects/github-acme-ledger/spec-versions/github-acme-ledger-spec-MAN-2.md$'
+exec ct spec diff MAN-1
+stdout '^  added REQ-LED-2 · Reverse \(posting, proposed\)$'
+! stdout 'REQ-JRN-1'
+! stdout 'REQ-LED-3'
+exec ct spec diff MAN-2
+stdout '^  added REQ-JRN-1 · Record \(journal, proposed\)$'
+stdout '^  added REQ-LED-3 · Void \(posting, proposed\)$'
+! stdout 'REQ-LED-2'
+
+# a ticket promoted before snapshots had an after side (base only): the old rule,
+# projects/ with the copy laid on
+rm $V/tickets/manual/MAN-1/specs-after
+exec ct spec diff MAN-1
+stdout '^  added REQ-JRN-1 · Record \(journal, proposed\)$'
+stdout '^  added REQ-LED-2 · Reverse \(posting, proposed\)$'
 
 # a base that only exists on origin (no local branch of that name)
 exec git init -q -b main $W/remote
@@ -145,6 +175,71 @@ tags: [project]
   {"provider": "github", "owner": "acme", "repo": "remote", "slug": "github-acme-remote", "path": "$WORK/home/Projects/work-a/MAN-1/remote", "base": "release", "branch": "feature/MAN-1", "mode": "worktree", "targetVersion": null},
   {"provider": "github", "owner": "acme", "repo": "gone", "slug": "github-acme-gone", "path": "$WORK/home/Projects/work-a/MAN-1/gone", "base": "nope", "branch": "feature/MAN-1", "mode": "worktree", "targetVersion": null}
 ]}
+-- ws2.json --
+{"id": "MAN-2", "vault": "$WORK/home/Documents/Obsidian/a", "repos": [
+  {"provider": "github", "owner": "acme", "repo": "ledger", "slug": "github-acme-ledger", "path": "$WORK/home/Projects/work-a/MAN-2/ledger", "base": "main", "branch": "feature/MAN-2", "mode": "worktree", "targetVersion": null}
+]}
+-- journal.md --
+---
+capability: journal
+prefix: JRN
+---
+# Journal
+
+## Purpose
+Journal.
+
+## Requirements
+
+### REQ-JRN-1 · Record
+status: proposed
+The system SHALL record a journal line.
+
+#### Scenario: record
+- WHEN an entry is posted
+- THEN a line is recorded
+-- posting-other.md --
+---
+capability: posting
+prefix: LED
+---
+# Posting
+
+## Purpose
+Posting.
+
+## Requirements
+
+### REQ-LED-1 · Post
+status: proposed
+The system SHALL post an entry.
+
+#### Scenario: post
+- WHEN an order arrives
+- THEN an entry is posted
+
+### REQ-LED-2 · Reverse
+status: proposed
+The system SHALL reverse an entry.
+
+#### Scenario: reverse
+- WHEN a refund arrives
+- THEN the entry is reversed
+
+### REQ-LED-3 · Void
+status: proposed
+The system SHALL void an entry.
+
+#### Scenario: void
+- WHEN an entry is wrong
+- THEN it is voided
+
+## Interfaces
+
+### Provides
+| Interface | Kind | Where | With |
+|---|---|---|---|
+| POST /reverse | http | api | github-acme-billing |
 -- orders-base.md --
 ---
 capability: orders

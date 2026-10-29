@@ -135,11 +135,24 @@ Where things go:
   - `features/`: an index of a feature's tickets, versions per project
     and links to its spec sections (what it does is the spec's)
   - `specs/<capability>/spec.md`: only for `specs: vault`; run
-    `ct spec baseline <ID>` first (it records `projects/<slug>/specs/` as it is in
-    `tickets/<source>/<ID>/specs-base/<slug>/`, and keeps one that exists), then promote the
-    ticket's copy `tickets/<source>/<ID>/specs/<slug>/` here with `ct vault links move`
-    (an existing spec there is updated, not duplicated). Do it in this step, so step 5
-    checks the moved links
+    `ct spec promote <ID> --json` (it checks against the snapshot `ct spec start` took, moves
+    the ticket's copy `tickets/<source>/<ID>/specs/<slug>/` into here atomically and writes a
+    version note; an existing spec there is updated, not duplicated). A copy made by hand has
+    no snapshot: promote fails before writing and names the `ct spec start <ID> <slug>` to run;
+    run it, tell the user another ticket's change promoted before it can't be caught, and promote again. Do it in this step, so step 5
+    checks the moved links. Check the JSON's `error` (or a non-zero exit) first: when it is
+    there the run failed, so act on it (e.g. the `ct spec start` it names), never read the repos as
+    nothing to promote. Per repo the JSON `status` is `promoted`, `nothing` or
+    `refused`. A refusal means another ticket changed the same files in
+    `projects/<slug>/specs/` since this ticket's snapshot: ask the user with
+    AskUserQuestion, **one question per clashing repo**. Say what changed on both sides
+    (`conflict.theirs` and `conflict.ours`, and the tickets in `conflict.others`; when `others` is empty, say `projects/` was edited by hand or by an unknown ticket), what
+    clashes (`conflict.clashes`), and offer three options: keep theirs, keep ours, merge by
+    hand. Keep theirs or ours: re-run `ct spec promote <ID> --resolve <slug>=theirs` (or
+    `ours`; repeat the flag per repo). Merge by hand: tell the
+    user to edit `conflict.copy` (the ticket's copy), and once merged, re-run
+    `ct spec promote <ID> --resolve <slug>=merged`. Without
+    AskUserQuestion (headless), promote nothing for a refused repo and say so
   - no single-repo `sequences/` or `data/` notes any more (the spec holds
     them); existing ones stay as they are
   - `architecture/`: conventions, structure
@@ -277,7 +290,7 @@ user.
 ### 6b. The note's `specs:` and `requirements:`
 
 Write them in the ticket note's frontmatter from `ct spec diff <ID>` (the capabilities touched;
-the requirement IDs added or changed). Vault-located specs were promoted in step 4; `ct spec diff <ID>` still shows their change, against the baseline step 4 recorded.
+the requirement IDs added or changed). Vault-located specs were promoted in step 4; `ct spec diff <ID>` still shows their change, against the snapshot `ct spec start` took.
 
 ### 7. Release the lock and finish
 
@@ -347,6 +360,12 @@ say why.
 Force pushes, rewriting pushed commits, and deleting branches or tags are
 always the user's manual steps: never do them, even when asked mid-save;
 give the command instead.
+
+After the pushes, run `ct spec pin <ID>`: it checks each repo's push itself and pins the
+version notes of the vault specs promoted in step 4 to the pushed commit. Then run
+`ct ws fetch` and `ct spec pin --refresh <slug>` per vault-spec slug (it records a merge or a
+tag; it doesn't fetch, and fails at once on a held vault lock, leaving the next save to pin). A repo not
+pushed stays unpinned; say so. Run it in step 8's own flow, repeat-safe.
 
 Tell them:
 - what was written, as wikilinks

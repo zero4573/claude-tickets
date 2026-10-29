@@ -6,14 +6,15 @@ argument-hint: "[repo slug ...; default: every repo with unpushed commits]"
 
 # /tickets:tidy [repo ...]
 
-Order: docs → tidy → `/tickets:save` (which pushes). Run it after the docs wave: tidy
-only rewrites history, never content.
+Order: tidy → `/tickets:save` (which pushes). Tidy only rewrites history, never content.
+Tidy before the save that pushes: a rewrite gives unpushed commits new SHAs, and save pins each vault spec version to the pushed SHA, so the pinned one is the final one.
 
 ## Started by the PO
 
 The user runs `/tickets:tidy` in the PO session. Outside a ticket workspace (no `board.md`
-next to `CLAUDE.md`), say so and stop. Otherwise append a `relay.md` entry
-`R-nn · <date> · user→lead · request · tidy history: <repos or "all"> · open` and wake the
+next to `CLAUDE.md`), say so and stop. Otherwise add a relay entry with
+`ct relay add <ID> --from user --to lead --kind request "tidy history: <repos or all>"` (never
+edit `relay.md` by hand; it prints `R-nn`) and wake the
 lead (SendMessage "new request R-nn"; no live lead: planned when the next one is spawned).
 
 ## The lead's part

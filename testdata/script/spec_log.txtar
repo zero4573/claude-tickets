@@ -1,0 +1,350 @@
+# ct spec log and ct spec show: a vault spec's versions, resolved at read
+# time, and the spec at a version, tag or commit; a repo spec's git history
+[windows] skip 'real git and sh stubs'
+env V=home/Documents/Obsidian/a
+env R=home/Projects/repo-a/github/acme/orders
+env P=home/Projects/repo-a/github/acme/plain
+env SV=$V/projects/github-acme-orders/spec-versions
+mkdir $V/.obsidian $V/projects/github-acme-orders/specs/orders $V/projects/github-acme-orders/specs/billing $SV $V/projects/github-acme-empty $V/projects/github-acme-plain
+cp orders.md $V/projects/github-acme-orders/github-acme-orders.md
+cp empty.md $V/projects/github-acme-empty/github-acme-empty.md
+cp orders-v2.md $V/projects/github-acme-orders/specs/orders/spec.md
+cp billing-v1.md $V/projects/github-acme-orders/specs/billing/spec.md
+
+# three tickets' snapshots: MAN-1 flips REQ-ORD-1, MAN-2 adds billing, MAN-3 changes orders again
+mkdir $V/tickets/manual/MAN-1/specs-base/github-acme-orders/orders $V/tickets/manual/MAN-1/specs-after/github-acme-orders/orders
+mkdir $V/tickets/manual/MAN-2/specs-base/github-acme-orders/orders $V/tickets/manual/MAN-2/specs-after/github-acme-orders/orders $V/tickets/manual/MAN-2/specs-after/github-acme-orders/billing
+mkdir $V/tickets/manual/MAN-3/specs-base/github-acme-orders/orders $V/tickets/manual/MAN-3/specs-base/github-acme-orders/billing $V/tickets/manual/MAN-3/specs-after/github-acme-orders/orders $V/tickets/manual/MAN-3/specs-after/github-acme-orders/billing
+cp man.md $V/tickets/manual/MAN-1/MAN-1.md
+cp man.md $V/tickets/manual/MAN-2/MAN-2.md
+cp man.md $V/tickets/manual/MAN-3/MAN-3.md
+cp orders-v0.md $V/tickets/manual/MAN-1/specs-base/github-acme-orders/orders/spec.md
+cp orders-v1.md $V/tickets/manual/MAN-1/specs-after/github-acme-orders/orders/spec.md
+cp orders-v1.md $V/tickets/manual/MAN-2/specs-base/github-acme-orders/orders/spec.md
+cp orders-v1.md $V/tickets/manual/MAN-2/specs-after/github-acme-orders/orders/spec.md
+cp billing-v1.md $V/tickets/manual/MAN-2/specs-after/github-acme-orders/billing/spec.md
+cp orders-v1.md $V/tickets/manual/MAN-3/specs-base/github-acme-orders/orders/spec.md
+cp billing-v1.md $V/tickets/manual/MAN-3/specs-base/github-acme-orders/billing/spec.md
+cp orders-v2.md $V/tickets/manual/MAN-3/specs-after/github-acme-orders/orders/spec.md
+cp billing-v1.md $V/tickets/manual/MAN-3/specs-after/github-acme-orders/billing/spec.md
+
+# the main clone: MAN-1 merged with a merge commit and released as v1.0.0, a
+# commit in between, MAN-3 squash-merged and released as v2.0.0
+exec git init -q -b main $R
+cp app.txt $R/app.txt
+exec git -C $R add -A
+exec git -C $R commit -q -m base
+exec git -C $R rev-parse HEAD
+cp stdout c0.txt
+exec git -C $R checkout -q -b feature/MAN-1
+cp one.txt $R/one.txt
+exec git -C $R add -A
+exec git -C $R commit -q -m one
+exec git -C $R rev-parse HEAD
+cp stdout c1.txt
+exec git -C $R checkout -q main
+exec git -C $R merge -q --no-ff -m 'merge MAN-1' feature/MAN-1
+exec git -C $R tag v1.0.0
+cp app.txt $R/between.txt
+exec git -C $R add -A
+exec git -C $R commit -q -m between
+exec git -C $R rev-parse HEAD
+cp stdout mid.txt
+exec git -C $R checkout -q -b feature/MAN-3
+cp one.txt $R/three.txt
+exec git -C $R add -A
+exec git -C $R commit -q -m three
+exec git -C $R rev-parse HEAD
+cp stdout c3.txt
+exec git -C $R checkout -q main
+exec git -C $R merge -q --squash feature/MAN-3
+exec git -C $R commit -q -m 'MAN-3 squashed'
+exec git -C $R tag v2.0.0
+exec git -C $R update-ref refs/remotes/origin/main HEAD
+exec git -C $R symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
+exec sh -c 'sed "s/@C@/$(cat c1.txt)/" n1.md > '$SV/github-acme-orders-spec-MAN-1.md
+cp n2.md $SV/github-acme-orders-spec-MAN-2.md
+exec sh -c 'sed "s/@C@/$(cat c3.txt)/" n3.md > '$SV/github-acme-orders-spec-MAN-3.md
+
+# log: newest first, merged resolved (a merge commit, a squash), the first tag, the change
+exec ct spec log github-acme-orders
+stdout '^github-acme-orders: vault specs, 3 versions$'
+stdout '^MAN-3  2026-10-29  [0-9a-f]{7} feature/MAN-3  merged [0-9a-f]{7}  v2.0.0$'
+stdout '^       orders: ~REQ-ORD-1 \+REQ-ORD-2$'
+stdout '^MAN-2  2026-10-02  unpinned$'
+stdout '^       billing: \+REQ-BIL-1$'
+stdout '^MAN-1  2026-09-11  [0-9a-f]{7} feature/MAN-1  merged [0-9a-f]{7}  v1.0.0$'
+stdout '^       orders: REQ-ORD-1 proposed→implemented$'
+stdout '(?s)MAN-3.*MAN-2.*MAN-1'
+exec sh -c 'ct spec log --json github-acme-orders | grep -q "\"merged\": \"$(cat c1.txt)\""'
+exec ct spec log github/acme/orders
+stdout '^github-acme-orders: vault specs, 3 versions$'
+grep '^merged: ""$' $SV/github-acme-orders-spec-MAN-3.md
+
+# a capability: only the versions that promoted it, and its change alone
+exec ct spec log github-acme-orders billing
+stdout '^github-acme-orders: vault specs, 1 version$'
+stdout '^MAN-2  2026-10-02  unpinned$'
+stdout '^       billing: \+REQ-BIL-1$'
+! stdout 'MAN-[13]'
+exec ct spec log github-acme-orders nope
+stdout '^github-acme-orders: no spec versions$'
+
+# --json
+exec ct spec log --json github-acme-orders
+stdout '"location": "vault"'
+stdout '"id": "MAN-3"'
+stdout '"state": "merged"'
+stdout '"state": "unpinned"'
+stdout '"tags": \[\s*"v2.0.0"'
+stdout '"note": "projects/github-acme-orders/spec-versions/github-acme-orders-spec-MAN-1.md"'
+
+# show at a ticket ID: that version's after snapshot
+exec ct spec show github-acme-orders@MAN-1
+stdout '^github-acme-orders@MAN-1: version MAN-1 \(Pinned to [0-9a-f]{7} on feature/MAN-1\)$'
+stdout '^== orders/spec.md ==$'
+stdout '^status: implemented$'
+! stdout 'REQ-ORD-2'
+exec ct spec show github-acme-orders@MAN-3 billing
+stdout '^== billing/spec.md ==$'
+! stdout 'orders/spec.md'
+
+# at a tag: the release's version
+exec ct spec show github-acme-orders@v1.0.0
+stdout 'version MAN-1 \(Pinned to [0-9a-f]{7} on feature/MAN-1, merged as [0-9a-f]{7}, in v1.0.0\)'
+exec ct spec show github-acme-orders@v2.0.0
+stdout 'version MAN-3 '
+stdout '^### REQ-ORD-2 · Cancel$'
+
+# at a commit between the two: the older version
+exec sh -c 'ct spec show github-acme-orders@$(cut -c1-9 mid.txt)'
+stdout 'version MAN-1 '
+
+# --diff: the version's change
+exec ct spec show github-acme-orders@MAN-3 --diff
+stdout '^github-acme-orders \(vault specs\)$'
+stdout '^  added REQ-ORD-2 · Cancel \(orders, proposed\)$'
+stdout '^\+### REQ-ORD-2 · Cancel$'
+
+# nothing at the base commit, an unknown rev, a malformed argument
+! exec sh -c 'ct spec show github-acme-orders@$(cat c0.txt)'
+stderr 'no spec version at [0-9a-f]{40}$'
+! exec ct spec show github-acme-orders@nope
+stderr 'no spec version at nope \(not a ticket'
+! exec ct spec show github-acme-orders
+stderr 'want <slug>@'
+
+# MAN-2's rebase marker blocks only MAN-2: log lists every version and
+# annotates it, show and diff of the others work, MAN-2's own refuses
+cp marker.txt $V/tickets/manual/MAN-2/specs-base/.github-acme-orders.rebase
+exec ct spec log github-acme-orders
+stdout '^MAN-2  2026-10-02  unpinned$'
+stdout '^       refresh pending: run ct spec start MAN-2 github-acme-orders$'
+stdout '^MAN-3  2026-10-29 '
+stdout '^       orders: ~REQ-ORD-1 \+REQ-ORD-2$'
+stdout '^       orders: REQ-ORD-1 proposed→implemented$'
+! stdout 'billing: \+REQ-BIL-1'
+exec ct spec log --json github-acme-orders
+stdout '"refresh": "refresh pending: run ct spec start MAN-2 github-acme-orders"'
+exec ct spec show github-acme-orders@MAN-1
+stdout '^status: implemented$'
+exec ct spec show github-acme-orders@MAN-3 --diff
+stdout '^  added REQ-ORD-2 . Cancel'
+! exec ct spec show github-acme-orders@MAN-2
+stderr 'part way rebased'
+stderr 'run ct spec start MAN-2 github-acme-orders again'
+! exec ct spec show github-acme-orders@MAN-2 --diff
+stderr 'part way rebased'
+rm $V/tickets/manual/MAN-2/specs-base/.github-acme-orders.rebase
+exec ct spec log github-acme-orders
+! stdout 'refresh pending'
+stdout '^       billing: \+REQ-BIL-1$'
+
+# a vault spec without versions, and a slug with no specs at all
+exec ct spec log github-acme-empty
+stdout '^github-acme-empty: no spec versions$'
+! exec ct spec log github-acme-none
+stderr 'github-acme-none: no specs'
+
+# a repo spec: the base's git log of specs/, and git's tree at a rev
+exec git init -q -b main $P
+mkdir $P/specs/orders
+cp orders-v0.md $P/specs/orders/spec.md
+exec git -C $P add -A
+exec git -C $P commit -q -m 'add specs'
+cp app.txt $P/app.txt
+exec git -C $P add -A
+exec git -C $P commit -q -m 'not a spec change'
+cp orders-v1.md $P/specs/orders/spec.md
+exec git -C $P commit -q -am 'implement orders'
+exec ct spec log github-acme-plain
+stdout '^github-acme-plain: repo specs, 2 commits on main$'
+stdout '^[0-9a-f]{7,} \d{4}-\d\d-\d\d implement orders$'
+stdout '^[0-9a-f]{7,} \d{4}-\d\d-\d\d add specs$'
+! stdout 'not a spec change'
+exec ct spec log --json github-acme-plain orders
+stdout '"subject": "implement orders"'
+exec ct spec show github-acme-plain@HEAD~1
+stdout '^== orders/spec.md ==$'
+stdout '^status: proposed$'
+exec ct spec show github-acme-plain@HEAD --diff
+stdout '^  status REQ-ORD-1 · Create \(orders, proposed -> implemented\)$'
+! exec ct spec show github-acme-plain@MAN-1
+stderr 'must be a tag or a commit, not a ticket'
+
+-- marker.txt --
+orders/spec.md
+-- man.md --
+---
+title: T
+type: ticket
+tags: [ticket]
+---
+# T
+-- orders.md --
+---
+title: github-acme-orders
+type: project
+repo: github/acme/orders
+specs: vault
+tags: [project]
+---
+# github-acme-orders
+-- empty.md --
+---
+title: github-acme-empty
+type: project
+specs: vault
+tags: [project]
+---
+# github-acme-empty
+-- app.txt --
+app
+-- one.txt --
+one
+-- n1.md --
+---
+type: spec-version
+slug: github-acme-orders
+ticket: "[[MAN-1]]"
+project: "[[github-acme-orders]]"
+promoted: 2026-09-11T10:00:00
+files: [orders/spec.md]
+branch: feature/MAN-1
+commit: @C@
+pinned: 2000-01-01T00:00:00
+merged: ""
+tags: []
+---
+-- n2.md --
+---
+type: spec-version
+slug: github-acme-orders
+ticket: "[[MAN-2]]"
+project: "[[github-acme-orders]]"
+promoted: 2026-10-02T10:00:00
+files: [billing/spec.md]
+branch: feature/MAN-2
+commit: ""
+pinned: ""
+merged: ""
+tags: []
+---
+-- n3.md --
+---
+type: spec-version
+slug: github-acme-orders
+ticket: "[[MAN-3]]"
+project: "[[github-acme-orders]]"
+promoted: 2026-10-29T10:00:00
+files: [orders/spec.md]
+branch: feature/MAN-3
+commit: @C@
+pinned: 2000-01-01T00:00:00
+merged: ""
+tags: []
+---
+-- orders-v0.md --
+---
+capability: orders
+prefix: ORD
+---
+# Orders
+
+## Purpose
+Orders.
+
+## Requirements
+
+### REQ-ORD-1 · Create
+status: proposed
+The system SHALL create an order.
+
+#### Scenario: create
+- WHEN asked
+- THEN done
+-- orders-v1.md --
+---
+capability: orders
+prefix: ORD
+---
+# Orders
+
+## Purpose
+Orders.
+
+## Requirements
+
+### REQ-ORD-1 · Create
+status: implemented
+The system SHALL create an order.
+
+#### Scenario: create
+- WHEN asked
+- THEN done
+-- orders-v2.md --
+---
+capability: orders
+prefix: ORD
+---
+# Orders
+
+## Purpose
+Orders.
+
+## Requirements
+
+### REQ-ORD-1 · Create
+status: implemented
+The system SHALL create an order once.
+
+#### Scenario: create
+- WHEN asked
+- THEN done
+
+### REQ-ORD-2 · Cancel
+status: proposed
+The system SHALL cancel an order.
+
+#### Scenario: cancel
+- WHEN asked
+- THEN done
+-- billing-v1.md --
+---
+capability: billing
+prefix: BIL
+---
+# Billing
+
+## Purpose
+Billing.
+
+## Requirements
+
+### REQ-BIL-1 · Charge
+status: proposed
+The system SHALL charge.
+
+#### Scenario: charge
+- WHEN asked
+- THEN done

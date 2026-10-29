@@ -66,7 +66,8 @@ is shown live and logged to ` + logPath("spec-<vault>") + `.`,
 	cmd.Flags().BoolVarP(&cont, "continue", "c", false, "continue the last spec conversation for this vault")
 	cmd.Flags().BoolVarP(&print, "print", "p", false, "answer one question and exit")
 	cmd.Flags().BoolVar(&noFetch, "no-fetch", false, "skip fetching every main clone from its remote first")
-	cmd.AddCommand(specRepoCmd(), specLocationCmd(), specCheckCmd(), specDiffCmd(), specBaselineCmd())
+	cmd.AddCommand(specRepoCmd(), specLocationCmd(), specCheckCmd(), specDiffCmd(), specStartCmd(), specPromoteCmd(),
+		specPinCmd(), specLogCmd(), specShowCmd())
 	return cmd
 }
 
@@ -692,9 +693,10 @@ repo's specs live:
     branch left the base at), working tree included
   * vault specs: the ticket's copy under tickets/<source>/<ID>/specs/<slug>/
     against projects/<slug>/specs/; capabilities the copy lacks are unchanged.
-    Once ct spec baseline has recorded tickets/<source>/<ID>/specs-base/<slug>/,
-    that snapshot is the before side and projects/<slug>/specs/ the after
-    side, so the change stays visible after the copy was promoted
+    Once ct spec promote has moved the copy into projects/, the before side is
+    tickets/<source>/<ID>/specs-base/<slug>/ and the after side that snapshot
+    with the files this ticket promoted (from specs-after/<slug>/) and the
+    copy laid on, so another ticket's later promotion never shows up here
 Per repo: the requirement-level changes (added, changed, removed, status
 flips; changed interfaces), then the raw diff. --stat prints the counts and
 the changed files only.`,
@@ -753,81 +755,47 @@ func specDiffRepo(ctx vault.Context, id string, r workspace.Repo) (spec.Diff, st
 		}
 		return spec.DiffTrees(r.Slug, before, after), loc.Kind, nil
 	case spec.InVault:
-		current, err := spec.ReadTree(loc.Dir)
+		before, after, err := vaultSpecSides(ctx, id, r.Slug, loc.Dir)
 		if err != nil {
 			return spec.Diff{}, "", err
 		}
-		before := current
-		if st, err := os.Lstat(specBaseDir(ctx, id, r.Slug)); err == nil && st.IsDir() {
-			if before, err = spec.ReadTree(specBaseDir(ctx, id, r.Slug)); err != nil {
-				return spec.Diff{}, "", err
-			}
-		}
-		over, err := spec.ReadTree(filepath.Join(note.TicketDir(ctx.Vault, id), "specs", r.Slug))
-		if err != nil {
-			return spec.Diff{}, "", err
-		}
-		return spec.DiffTrees(r.Slug, before, spec.Overlay(current, over)), loc.Kind, nil
+		return spec.DiffTrees(r.Slug, before, after), loc.Kind, nil
 	}
 	return spec.Diff{Slug: r.Slug}, spec.Unset, nil
 }
 
-// specBaseDir is where ct spec baseline records a vault spec's state from
-// before the ticket's change was promoted.
-func specBaseDir(ctx vault.Context, id, slug string) string {
-	return filepath.Join(note.TicketDir(ctx.Vault, id), "specs-base", slug)
-}
-
-func specBaselineCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "baseline <ID>",
-		Short: "Record the vault specs as they were before save promotes the ticket's copy",
-		Long: `For every repo of the ticket's workspace whose specs live in the vault, copies
-projects/<slug>/specs/ to tickets/<source>/<ID>/specs-base/<slug>/, so ct spec
-diff and ct ticket publish still show the change once the ticket's copy has
-been moved into projects/. Run it before that move. A baseline that exists is
-kept (a second run changes nothing), so a repeated save gives the same change.
-Repos with their specs in the repo, or none, are skipped.`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, err := vault.Require()
-			if err != nil {
-				return err
-			}
-			id := args[0]
-			if !note.ValidKey(id) {
-				return fmt.Errorf("invalid ticket ID %q", id)
-			}
-			info, err := workspace.Read(filepath.Join(ctx.WorkRoot, id))
-			if err != nil {
-				return fmt.Errorf("no workspace for %s: %w", id, err)
-			}
-			out := cmd.OutOrStdout()
-			for _, r := range info.Repos {
-				loc, err := spec.Resolve(ctx.Vault, r.Slug, r.Path)
-				if err != nil {
-					return fmt.Errorf("%s: %w", r.Slug, err)
-				}
-				if loc.Kind != spec.InVault {
-					continue
-				}
-				dst := specBaseDir(ctx, id, r.Slug)
-				if st, err := os.Lstat(dst); err == nil && st.IsDir() {
-					fmt.Fprintf(out, "%s: baseline kept\n", r.Slug)
-					continue
-				}
-				t, err := spec.ReadTree(loc.Dir)
-				if err != nil {
-					return fmt.Errorf("%s: %w", r.Slug, err)
-				}
-				if err := spec.WriteTree(dst, t); err != nil {
-					return fmt.Errorf("%s: %w", r.Slug, err)
-				}
-				fmt.Fprintf(out, "%s: baseline recorded (%d files)\n", r.Slug, len(t))
-			}
-			return nil
-		},
+// vaultSpecSides reads a vault spec's projects/ folder, the ticket's
+// snapshots, copy and version note, and gives the two sides of its change
+// (spec.Sides). It refuses while the snapshots are part way rebased
+// (spec.PendingRebase) or a promote of them is pending (spec.PendingPromote).
+func vaultSpecSides(ctx vault.Context, id, slug, dir string) (before, after spec.Tree, err error) {
+	if err := spec.Pending(ctx.Vault, id, slug); err != nil {
+		return nil, nil, err
 	}
+	projects, err := spec.ReadTree(dir)
+	if err != nil {
+		return nil, nil, err
+	}
+	base, err := spec.ReadSnapshot(spec.BaseDir(ctx.Vault, id, slug))
+	if err != nil {
+		return nil, nil, err
+	}
+	snap, err := spec.ReadSnapshot(spec.AfterDir(ctx.Vault, id, slug))
+	if err != nil {
+		return nil, nil, err
+	}
+	copy, err := spec.ReadTree(spec.CopyDir(ctx.Vault, id, slug))
+	if err != nil {
+		return nil, nil, err
+	}
+	var promoted []string
+	if v, err := spec.ReadVersion(spec.VersionPath(ctx.Vault, slug, id)); err == nil {
+		promoted = v.Files
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, nil, err
+	}
+	before, after = spec.Sides(projects, base, snap, copy, promoted)
+	return before, after, nil
 }
 
 func printSpecDiff(out io.Writer, slug, kind string, d spec.Diff, stat bool) {

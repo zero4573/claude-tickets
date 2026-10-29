@@ -158,7 +158,7 @@ description into the ticket through the session's MCP tools.`,
 			}
 			body := spec.RenderChange(diffs...)
 			if strings.TrimSpace(body) == "" && spec.HasChange(desc) && !allowEmpty {
-				return errors.New("no spec change was found, but the description's ## Spec change section has one (a missing baseline? see ct spec baseline); the section is left as is. If the change was really reverted, pass --allow-empty to clear it")
+				return errors.New("no spec change was found, but the description's ## Spec change section has one (a missing baseline? see ct spec promote); the section is left as is. If the change was really reverted, pass --allow-empty to clear it")
 			}
 			out := cmd.OutOrStdout()
 			updated := spec.ReplaceChange(desc, body)

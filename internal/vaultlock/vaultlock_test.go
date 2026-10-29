@@ -63,3 +63,26 @@ func TestLockWithoutOwner(t *testing.T) {
 		t.Fatal(s)
 	}
 }
+
+func TestTryAcquire(t *testing.T) {
+	v := t.TempDir()
+	os.Mkdir(filepath.Join(v, ".obsidian"), 0o755)
+	if err := TryAcquire(v, "A"); err != nil {
+		t.Fatal(err)
+	}
+	if err := TryAcquire(v, "A"); err != nil {
+		t.Fatal("same owner:", err)
+	}
+	start := time.Now()
+	if err := TryAcquire(v, "B"); err == nil || !strings.Contains(err.Error(), "'A'") || time.Since(start) > time.Second {
+		t.Fatal("held by another must fail at once:", err)
+	}
+	old := time.Now().Add(-time.Hour)
+	os.Chtimes(filepath.Join(v, ".vault.lock.d", "owner"), old, old)
+	if err := TryAcquire(v, "B"); err != nil {
+		t.Fatal("a stale lock must be taken over:", err)
+	}
+	if s, _ := Status(v); s != "locked by 'B'" {
+		t.Fatal(s)
+	}
+}

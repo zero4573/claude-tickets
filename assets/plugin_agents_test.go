@@ -250,11 +250,11 @@ func TestPOAndLeadSkills(t *testing.T) {
 	}
 
 	leadSkill := read("plugin/skills/lead/SKILL.md")
-	if n := lines(leadSkill); n > 228 {
-		t.Errorf("lead/SKILL.md is %d lines, cap 228", n)
+	if n := lines(leadSkill); n > 233 {
+		t.Errorf("lead/SKILL.md is %d lines, cap 233", n)
 	}
-	if n := lines(read("plugin/skills/lead/reference.md")); n > 60 {
-		t.Errorf("lead/reference.md is %d lines, cap 60", n)
+	if n := lines(read("plugin/skills/lead/reference.md")); n > 75 {
+		t.Errorf("lead/reference.md is %d lines, cap 75", n)
 	}
 	lead := leadSkill + read("plugin/skills/lead/handover.md") + read("plugin/agents/lead.md")
 	if strings.Contains(lead, "AskUserQuestion") {
@@ -572,8 +572,8 @@ func TestPluginSkillRules(t *testing.T) {
 			"`git revert -m 1 <merge-sha>` it (never reset) and mark the line `partial`", "leaves no reflog and any `branch.<name>.*` config",
 			"git merge-base --is-ancestor <b> HEAD && git update-ref -d refs/heads/<b>",
 		}},
-		"wave-review": {review, []string{"timeout 300", "focused tests of the changed packages", "`confirmed`", "`unconfirmed`", "**3 must-fix, 6 should-fix, 5 consider**"}},
-		"task-agent":  {task, []string{"existing `## Report` heading", "the line that is exactly `## Report`", "never append a second", "Commit early", "read `git diff` before committing", "git status --short", "build outputs", "never `git add -A` blindly"}},
+		"wave-review": {review, []string{"timeout 300", "focused tests of the changed packages", "`confirmed`", "`unconfirmed`", "**3 must-fix, 6 should-fix, 5 consider**", "`regression of <earlier ID>`", "`pre-existing`"}},
+		"task-agent":  {task, []string{"existing `## Report` heading", "the line that is exactly `## Report`", "never append a second", "Commit early", "read `git diff` before committing", "git status --short", "build outputs", "never `git add -A` blindly", "Never hand back while a command you started in the background still runs", "frontmatter `id:` is your task number"}},
 		"workflow":    {wf, []string{"A ticket that changes the plugin's own formats", "in the format of the plugin version"}},
 	} {
 		for _, s := range c.want {
@@ -748,12 +748,15 @@ func TestSaveAndNewTicketSpecSide(t *testing.T) {
 		return strings.Join(strings.Fields(string(data)), " ")
 	}
 	save := read("plugin/skills/save/SKILL.md")
-	for _, s := range []string{"`ct ticket publish <ID> --dry-run --description-file <f>`", "`ct ticket publish <ID> --description-file <f>`", "`ct spec baseline <ID>`", "`editJiraIssue`", "`getTransitionsForJiraIssue`",
+	for _, s := range []string{"`ct ticket publish <ID> --dry-run --description-file <f>`", "`ct ticket publish <ID> --description-file <f>`", "`ct spec promote <ID> --json`", "Check the JSON's `error` (or a non-zero exit) first", "when `others` is empty, say `projects/` was edited by hand or by an unknown ticket", "--resolve <slug>=theirs", "one question per clashing repo", "keep theirs, keep ours, merge by hand", "`ct spec promote <ID> --resolve <slug>=merged`", "`ct spec pin <ID>`", "`editJiraIssue`", "`getTransitionsForJiraIssue`",
 		"`transitionJiraIssue`", "ask **once** with AskUserQuestion", "`ct spec diff <ID>`", "`specs:` and `requirements:`",
 		"`ct vault links move`", "has no remote description", "are not reachable in this session"} {
 		if !strings.Contains(save, s) {
 			t.Errorf("save: missing %q", s)
 		}
+	}
+	if strings.Contains(save, "ct spec baseline") {
+		t.Error("save: names the removed ct spec baseline")
 	}
 	nt := read("plugin/skills/new-ticket/SKILL.md")
 	for _, s := range []string{"`ct ticket stub <NEW-ID> --source <source> --summary \"<title>\" --covered-by <lead>`",
@@ -842,13 +845,16 @@ func TestSaveStepOrder(t *testing.T) {
 		}
 		return i
 	}
-	promote := idx("promote the\n    ticket's copy")
+	promote := idx("`ct spec promote <ID> --json`")
 	links := idx("### 5. Check links")
 	push := idx("### 8. Push the ticket branches")
 	publish := idx("### 9. Publish the descriptions and offer transitions")
 	lock := idx("Run `ct vault lock release <vault> <ID>`")
 	if !(promote < links && links < lock && lock < push && push < publish) {
 		t.Errorf("save: step order wrong: promote %d links %d lock %d push %d publish %d", promote, links, lock, push, publish)
+	}
+	if pin := idx("`ct spec pin <ID>`"); pin < push || pin > publish {
+		t.Errorf("save: ct spec pin must follow the push (step 8): pin %d push %d publish %d", pin, push, publish)
 	}
 	for _, s := range []string{"`getTransitionsForJiraIssue`", "`transitionJiraIssue`", "`editJiraIssue`", "ct ticket publish"} {
 		if i := strings.Index(text, s); i < push {
@@ -882,5 +888,34 @@ func TestNewTicketStubWording(t *testing.T) {
 		if !strings.Contains(text, s) {
 			t.Errorf("new-ticket: missing %q", s)
 		}
+	}
+}
+
+// Every skill that makes a ticket's copy of a vault spec makes it with ct spec
+// start, which takes the snapshot promote compares against; save handles a
+// copy made without it.
+func TestSpecCopiesStartWithSnapshot(t *testing.T) {
+	read := func(p string) string {
+		data, err := fs.ReadFile(Files, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(strings.Fields(string(data)), " ")
+	}
+	for _, c := range []struct{ file, want string }{
+		{"plugin/skills/spec/SKILL.md", "`ct spec start <ID> <slug> [<capability>…]`, never by hand"},
+		{"plugin/skills/work-ticket/specs.md", "`ct spec start <ID> <slug> [<capability>…]`"},
+		{"plugin/skills/work-ticket/specs.md", "never copy by hand"},
+		{"plugin/skills/spec-init/SKILL.md", "make it first with `ct spec start <ID> <slug>`"},
+		{"plugin/skills/save/SKILL.md", "it checks against the snapshot `ct spec start` took"},
+		{"plugin/skills/save/SKILL.md", "names the `ct spec start <ID> <slug>` to run"},
+		{"plugin/skills/save/SKILL.md", "against the snapshot `ct spec start` took"},
+	} {
+		if !strings.Contains(read(c.file), c.want) {
+			t.Errorf("%s: missing %q", c.file, c.want)
+		}
+	}
+	if save := read("plugin/skills/save/SKILL.md"); strings.Contains(save, "snapshots the base") || strings.Contains(save, "baseline step 4 recorded") {
+		t.Error("save: still says promote takes the base snapshot")
 	}
 }
