@@ -16,6 +16,8 @@
   "parent": "text",
   "children": "multitext",
   "covers": "multitext",
+  "specs": "multitext",
+  "requirements": "multitext",
   "covered-by": "text",
   "blocked-by": "multitext",
   "blocks": "multitext",

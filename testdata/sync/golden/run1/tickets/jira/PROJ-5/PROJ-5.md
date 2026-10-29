@@ -23,6 +23,8 @@ ignore-reason:
 parent: "[[PROJ-4]]"
 children: []
 covers: []
+specs: []
+requirements: []
 covered-by:
 blocked-by: []
 blocks: []

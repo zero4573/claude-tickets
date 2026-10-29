@@ -17,8 +17,8 @@ knowledge base: say so (relaunch with `ct claude`, or use `kb`) and answer from 
    hit, then `ct vault note outline <note>` and `ct vault note get <note>
    "<section>"`; read a whole note only when the section isn't enough. Where
    to look when search comes up short:
-   - **One repo:** its project notes `projects/<slug>/` (index, features,
-     sequences, data, `<slug>-decisions.md`, recent logs).
+   - **One repo:** its project notes `projects/<slug>/` (index, features as an index, specs when `specs: vault`,
+     `<slug>-decisions.md`, recent logs). Where its specs live: `ct spec location <slug>`.
    - **Across projects:** `ct vault groups <vault> <slug>` gives the
      repo's `depends-on`, used-by and groups. Read its neighbours' index
      notes, and for each group it belongs to the group's notes
@@ -101,13 +101,13 @@ Don't edit `projects/`, `knowledge-base/` or `references/` directly. Other
 sessions may be writing there, and only `/tickets:save` writes them, under the vault
 lock. Instead, for each durable fact that the vault lacked or had wrong:
 - Write a draft note in `<vault>/inbox/`, using the matching template
-  (`feature.md`, `sequence.md` with a mermaid diagram for a flow,
+  (`feature.md` as an index, `sequence.md` with a mermaid diagram for a flow across a group,
   `decision.md`, `knowledge.md`, `reference.md`, `project.md` for a repo
   with no notes yet).
 - **Filename:** final, vault-unique and kebab-case, so `/tickets:save` can move it
   as-is.
 - **Frontmatter:**
-  - `target:` where it belongs (`projects/<slug>/sequences`,
+  - `target:` where it belongs (`projects/<slug>/features`,
     `projects/<group>/sequences` for a flow across a group's members,
     `knowledge-base/<topic>`, `references`, ...). A new dependency between
     projects is an `update-of` the dependent's index note (`depends-on`

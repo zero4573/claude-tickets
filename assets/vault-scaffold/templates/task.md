@@ -27,7 +27,7 @@ repo: a slug, or vault for a vault-only task (no branch or worktree). agent: tas
 owns: exact repo-relative files or dir/** (vault: tickets/<source>/<ID>/<file>); the only paths the agent
 writes. depends_on: task IDs. context_budget: 80k (60k for follow-ups). contracts: names in
 contracts/. skills: skills the agent loads, e.g. [tickets:diagnose]. db: none | heavy (heavy: runs DB suites on a shared stack, one at a time per repo). fixes: IDs (B-nn, W<N>-<repo>-<M|S|C>nn) the task closes at merge. Epic only: add for:
-"[[<covered ID>]]". Plain bullets only, no checkboxes. -->
+"[[<covered ID>]]". Commit prefix and style: from `board.md` `commit-style:` and `conventions.md`, stated in ## Do. Plain bullets only, no checkboxes. -->
 
 Task of [[TICKET-ID]] in [[provider-owner-repo]].
 
@@ -35,10 +35,12 @@ Task of [[TICKET-ID]] in [[provider-owner-repo]].
 ≤5 lines: what changes and why.
 
 ## Do
-Exact steps, ≤25 lines.
+Exact steps, ≤25 lines. Commit subjects follow `board.md` `commit-style:` and `conventions.md` (name
+the prefix, e.g. `feat(scope): …`); never the ticket ID when they say otherwise.
 
 ## Checks
-The commands to run.
+The repo's full check set: every command of its AGENTS.md "Checking" and of `conventions.md`, DB
+suites included (with their env); no subset.
 
 ## Done when
 - ≤5 plain bullets

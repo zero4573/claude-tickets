@@ -23,6 +23,8 @@ ignore-reason:
 parent:
 children: []
 covers: []
+specs: []
+requirements: []
 covered-by:
 blocked-by: []
 blocks: []

@@ -10,7 +10,8 @@ tags: [sequence, data-flow]
 ---
 # {{title}}
 
-What triggers this flow and what it achieves.
+A flow across projects of a group (a flow inside one repo belongs in its
+spec, not here). What triggers it and what it achieves.
 
 ```mermaid
 sequenceDiagram
