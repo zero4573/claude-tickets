@@ -47,10 +47,22 @@ bench:
 # unavailable". -p 4 stays well under it. Override: make check TESTFLAGS="-p 8"
 TESTFLAGS ?= -p 4
 
+# make check TESTLOG=<file> also writes the tests' `go test -json` output to <file>, keeping
+# the plain output on the terminal, so a failure's log survives the rerun.
+TESTLOG ?=
+
 check:
 	$(GO) vet ./...
 	@out=$$(gofmt -l .); if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi
+ifeq ($(TESTLOG),)
 	$(GO) test $(TESTFLAGS) ./...
+else
+	@# one run: the json goes to the file, jq prints its output lines (the plain text). jq is
+	@# required: without it the pipe would die of SIGPIPE and leave the log empty, so fail first.
+	@command -v jq >/dev/null 2>&1 || { echo "make check TESTLOG needs jq on PATH; run make check without TESTLOG" >&2; exit 1; }
+	@rc=$$(mktemp); { $(GO) test $(TESTFLAGS) -json ./... ; echo $$? > $$rc; } | tee '$(TESTLOG)' | jq -j 'select(.Action=="output" or .Action=="build-output").Output // empty'; \
+	  r=$$(cat $$rc); rm -f $$rc; exit $$r
+endif
 
 install: ct
 	install -d '$(DESTDIR)$(BINDIR)' '$(DESTDIR)$(ZSHDIR)' '$(DESTDIR)$(BASHDIR)' '$(DESTDIR)$(FISHDIR)'

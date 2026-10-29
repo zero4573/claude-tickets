@@ -31,9 +31,11 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
   never edited; spec and teach sessions also keep out of the repos; the repo
   directory is writable, protected on the host by the sandbox's read-only
   `.git/hooks`, `.git/config` and pointer files of existing clones and by `gitx.Command`, which
-  every ct git call uses: git runs with hooks, fsmonitor, sshCommand, credential helpers and
-  signing off, refuses non-lfs filters, and diff/log that read patches pass `--no-ext-diff
-  --no-textconv`). Everything else (git rules, MCP cost
+  every ct git call uses: the repo's own config is read in Go and refused unless every key is on
+  the allowlist (`internal/gitx/allow.go`), then git runs with hooks, fsmonitor, sshCommand, credential
+  helpers, signing, submodule recursion and non-https/ssh protocols off, and diff/log that read patches pass
+  `--no-ext-diff --no-textconv`; not covered: the user's own git in a fresh clone, `.lfsconfig`,
+  the check-to-read window). Everything else (git rules, MCP cost
   guards) is the user's, through `CLAUDE_TICKETS_SESSION_SETTINGS`, and
   recommended in the README.
 - **Plugin names are namespaced:** skills are `/tickets:<skill>`, agents
@@ -45,6 +47,10 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
   testscript CLI tests in `testdata/script/*.txtar` (stub `claude`,
   `podman`, `notify-send` and editor commands, real git), unit
   tests next to the code. User-facing names are always `ct …`.
+- **Specs over contracts:** a ticket's `contracts/` holds only shapes private to
+  its own tasks (an internal signature). What another capability or repo uses
+  lives in the capability spec's `## Interfaces`, and tasks cite requirement
+  IDs (`requirements:`), not contract files (`docs/spec-workflow.md`, item 10).
 - **ct sync is pinned by golden vaults:** `testdata/sync/` holds a fake
   Jira (`state<n>.json`, built by `fixtures.jq`, served by
   `internal/mcp/mcptest`) and the vaults three runs must leave
@@ -95,6 +101,7 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
 ```sh
 go generate ./assets          # after changing assets/vault-scaffold/: its hash history
 make check                    # the one command: go vet, gofmt, go test $(TESTFLAGS) (default -p 4)
+make check TESTLOG=$(mktemp)  # also keeps `go test -json` output in that file (needs jq; a unique path per run or task, never a fixed shared one like /tmp/t.json); plain output stays on screen
 # inside a ct workspace its .tool-versions (asdf) pins Go and python; elsewhere set ASDF_GOLANG_VERSION
 make cross                    # every OS/arch into dist/
 nix build .#default           # builds ct (runs go test)
