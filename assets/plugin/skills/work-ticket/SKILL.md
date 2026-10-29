@@ -42,6 +42,8 @@ to this file; only then) and do it (it creates `relay.md` and `board.md`, ends w
   lead (1) (a sandbox or container wipe is the same case) with `New since the last lead: orphaned tasks NN, MM; finished, not sent: <the po: finished: entries>`, then set `finished: []`.
 - The same session (after `/compact` or a refresh): the lead is alive. SendMessage it "PO
   refreshed; send status" and wait; replace it only after its completion notice arrived.
+  **A compaction is always the same session** (ct's hook says "just compacted"), even if
+  `po: session:` differs: take this path and set `po: session:` to the current id.
 - `lead: none` with `status: review` or `done`: spawn no lead unless the user brings new work
   or review feedback (then 2, "User input").
 
@@ -87,7 +89,9 @@ The lead writes `R-nn · … · lead→user · question · … · open` to `rela
 and ends with `Ask user:`. Recipe (note `## Questions`, AskUserQuestion batch, recording answers,
 SendMessage "R-nn answered (R-mm)"): `workflow.md`, "The gate". Ask all pending questions in one
 batch, recommended option first, tradeoffs in the option descriptions.
-Kickoff questions (`kickoff.md`) are yours, asked directly without relay entries. Follow-up items (the lead's deferral candidates and open backlog; never fix tasks or `kept:`): asked as the lead's `Ask user:` says, rules in `workflow.md`, "Follow-up questions". Rule: nothing is filed with `ct new` before the answer. A ticket to file: `/tickets:new-ticket`.
+Kickoff questions (`kickoff.md`) are yours, asked directly without relay entries. Anything
+you need the user to answer goes through AskUserQuestion, never only as text: it is what
+pings the user (a turn ending on a plain question pings only when no agent is running). Follow-up items (the lead's deferral candidates and open backlog; never fix tasks or `kept:`): asked as the lead's `Ask user:` says, rules in `workflow.md`, "Follow-up questions". Rule: nothing is filed with `ct new` before the answer. A ticket to file: `/tickets:new-ticket`.
 
 ## 4. relay.md (capped)
 `## Closed`, then `## Open` (last, so `tail` reads it; append with `>>`), one line per entry; format,

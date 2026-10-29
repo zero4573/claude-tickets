@@ -17,8 +17,9 @@ What it gives you:
   small task agents, each in its own task worktree, with a review agent
   after each wave. New requirements, feedback and questions go to the PO at
   any time. Each session keeps a board of its tasks in the ticket folder
-  and gets its own git worktrees, and you get a desktop notification when
-  it needs you.
+  and gets its own git worktrees, and you get one desktop notification
+  when it needs you (a question, a permission prompt, or waiting for your
+  reply with no agent running), which stays until you dismiss it.
 - **Knowledge base:** the vault holds what the sessions learn: projects
   named by repo slug, the features and versions they shipped in, which
   projects work together (`depends-on`, optional groups), and flows across

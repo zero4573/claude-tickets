@@ -225,6 +225,7 @@ func TestPOAndLeadSkills(t *testing.T) {
 		"`tickets:lead`", "`tickets:analyst`", "`relay.md`", "/tickets:po-refresh", "≤3 calls",
 		"`lead:`", "`po:`", "AskUserQuestion", "Lead: <agentId>",
 		"`wait-tasks`", "`wait-user`", "`rotate`", "`handover-done`", "never two at once",
+		"**A compaction is always the same session**",
 	} {
 		if !strings.Contains(po, s) {
 			t.Errorf("work-ticket (PO): missing %q", s)

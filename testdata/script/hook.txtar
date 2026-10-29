@@ -1,19 +1,65 @@
 # ct hook agent-state: what a session is doing, for ct status
 mkdir home/work/a/MAN-1/repo/sub
+expand ws.json ask.json posttool.json prompt.json notify.json outside.json idle.json
 cp ws.json home/work/a/MAN-1/workspace.json
-expand ask.json prompt.json notify.json outside.json
 stdin ask.json
 exec ct hook agent-state needs-input
 grep '"state": "needs-input"' home/work/a/MAN-1/.agent-state
 grep '"reason": "Which base branch\?"' home/work/a/MAN-1/.agent-state
 grep '^ *"ts": "20' home/work/a/MAN-1/.agent-state
+# a question pings once, critical and sticky; nothing more until the next prompt
+grep -count=1 '^-a Claude Code -u critical -t 0 Claude Code \(MAN-1\): question Which base branch\?$' calls/notify-send
 stdin notify.json
 exec ct hook agent-state needs-input
 grep '"reason": "Claude needs your permission"' home/work/a/MAN-1/.agent-state
+! grep 'permission' calls/notify-send
 stdin prompt.json
 exec ct hook agent-state working
 grep '"state": "working"' home/work/a/MAN-1/.agent-state
 grep '"reason": ""' home/work/a/MAN-1/.agent-state
+! exists home/work/a/MAN-1/.notified
+# after a prompt, a permission prompt pings again
+stdin notify.json
+exec ct hook agent-state needs-input
+grep 'needs you Claude needs your permission$' calls/notify-send
+stdin prompt.json
+exec ct hook agent-state working
+# a tool finishing after an answered permission prompt re-arms the next ping
+stdin notify.json
+exec ct hook agent-state needs-input
+stdin posttool.json
+exec ct hook agent-state working
+! exists home/work/a/MAN-1/.notified
+stdin notify.json
+exec ct hook agent-state needs-input
+grep -count=3 'needs you Claude needs your permission$' calls/notify-send
+stdin prompt.json
+exec ct hook agent-state working
+# a working after every tool call leaves the file alone while nothing changes
+cp working-state.json home/work/a/MAN-1/.agent-state
+stdin posttool.json
+exec ct hook agent-state working
+grep '"ts": "2000-01-01T00:00:00Z"' home/work/a/MAN-1/.agent-state
+# idle and waiting: pings, but not while the board lists running agents
+mkdir vault/tickets/manual/MAN-1
+cp board-running.md vault/tickets/manual/MAN-1/board.md
+stdin idle.json
+exec ct hook agent-state idle
+! grep 'waiting for you' calls/notify-send
+cp board-idle.md vault/tickets/manual/MAN-1/board.md
+stdin idle.json
+exec ct hook agent-state idle
+grep 'waiting for you Claude is waiting for your input$' calls/notify-send
+stdin prompt.json
+exec ct hook agent-state working
+# CLAUDE_TICKETS_NOTIFY=0: no pings
+env CLAUDE_TICKETS_NOTIFY=0
+stdin ask.json
+exec ct hook agent-state needs-input
+grep -count=1 'question' calls/notify-send
+env CLAUDE_TICKETS_NOTIFY=
+stdin prompt.json
+exec ct hook agent-state working
 # outside a workspace, or garbage: nothing, and never a failure
 stdin outside.json
 exec ct hook agent-state idle
@@ -21,15 +67,46 @@ stdin garbage.txt
 exec ct hook agent-state idle
 grep '"state": "working"' home/work/a/MAN-1/.agent-state
 
+-- working-state.json --
+{
+  "state": "working",
+  "reason": "",
+  "ts": "2000-01-01T00:00:00Z"
+}
 -- ws.json --
-{"id": "MAN-1", "repos": []}
+{"id": "MAN-1", "vault": "$WORK/vault", "repos": []}
 -- ask.json --
 {"cwd": "$WORK/home/work/a/MAN-1/repo/sub", "hook_event_name": "PreToolUse", "tool_input": {"questions": [{"question": "Which base branch?"}]}}
 -- notify.json --
 {"cwd": "$WORK/home/work/a/MAN-1", "hook_event_name": "Notification", "message": "Claude needs your permission"}
 -- prompt.json --
 {"cwd": "$WORK/home/work/a/MAN-1/repo", "hook_event_name": "UserPromptSubmit"}
+-- posttool.json --
+{"cwd": "$WORK/home/work/a/MAN-1/repo", "hook_event_name": "PostToolUse", "tool_name": "Bash"}
 -- outside.json --
 {"cwd": "$WORK/home"}
 -- garbage.txt --
 not json
+-- idle.json --
+{"cwd": "$WORK/home/work/a/MAN-1", "hook_event_name": "Notification", "notification_type": "idle_prompt", "message": "Claude is waiting for your input"}
+-- board-running.md --
+---
+type: board
+lead: a1
+po:
+  session: s1
+  agents:
+    - "a2 · tickets:task · w1 · task 01 · 2026-10-29"
+  finished: []
+tags: [board]
+---
+-- board-idle.md --
+---
+type: board
+lead: a1
+po:
+  session: s1
+  agents: []
+  finished: []
+tags: [board]
+---

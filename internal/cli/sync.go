@@ -389,7 +389,11 @@ func lastLines(s string, n int) string {
 }
 
 func notify(urgency, title, body string) {
-	platform.Notify("ct sync", title, body, urgency == "critical")
+	u := platform.Normal
+	if urgency == "critical" {
+		u = platform.Critical
+	}
+	platform.Notify("ct sync", title, body, u)
 }
 
 // knownChildren is the epics' children the last planned run recorded

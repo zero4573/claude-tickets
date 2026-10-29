@@ -2,19 +2,26 @@
   "hooks": {
     "Notification": [
       { "matcher": "permission_prompt|elicitation_dialog",
-        "hooks": [{ "type": "command", "command": "ct hook agent-state needs-input" }] }
+        "hooks": [{ "type": "command", "command": "ct hook agent-state needs-input" }] },
+      { "matcher": "idle_prompt",
+        "hooks": [{ "type": "command", "command": "ct hook agent-state idle" }] }
     ],
     "PreToolUse": [
       { "matcher": "AskUserQuestion",
         "hooks": [{ "type": "command", "command": "ct hook agent-state needs-input" }] }
     ],
     "PostToolUse": [
-      { "matcher": "AskUserQuestion",
+      { "matcher": "",
         "hooks": [{ "type": "command", "command": "ct hook agent-state working" }] }
     ],
     "UserPromptSubmit": [
       { "matcher": "",
-        "hooks": [{ "type": "command", "command": "ct hook agent-state working" }] }
+        "hooks": [{ "type": "command", "command": "ct hook agent-state working" },
+                  { "type": "command", "command": "ct hook context" }] }
+    ],
+    "SessionStart": [
+      { "matcher": "clear|compact",
+        "hooks": [{ "type": "command", "command": "ct hook resume" }] }
     ],
     "Stop": [
       { "matcher": "",

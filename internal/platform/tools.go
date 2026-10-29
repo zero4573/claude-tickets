@@ -5,17 +5,26 @@ import (
 	"runtime"
 )
 
+// Urgency of a notification.
+type Urgency int
+
+const (
+	Normal   Urgency = iota
+	Critical         // stands out (notify-send -u critical)
+	Sticky           // critical, and stays until dismissed (-t 0) where the daemon allows it
+)
+
 // Notify shows a desktop notification, when the OS has a way to: a
 // failure (or no notifier) is silent.
-func Notify(app, title, body string, urgent bool) {
-	if argv := notifyCommand(runtime.GOOS, app, title, body, urgent); argv != nil {
+func Notify(app, title, body string, u Urgency) {
+	if argv := notifyCommand(runtime.GOOS, app, title, body, u); argv != nil {
 		if path, err := exec.LookPath(argv[0]); err == nil {
 			_ = exec.Command(path, argv[1:]...).Run()
 		}
 	}
 }
 
-func notifyCommand(goos, app, title, body string, urgent bool) []string {
+func notifyCommand(goos, app, title, body string, u Urgency) []string {
 	switch goos {
 	case "windows":
 		return nil // TODO: a toast through PowerShell
@@ -23,8 +32,11 @@ func notifyCommand(goos, app, title, body string, urgent bool) []string {
 		return []string{"osascript", "-e", "on run argv\ndisplay notification (item 2 of argv) with title (item 1 of argv)\nend run", title, body}
 	default:
 		argv := []string{"notify-send", "-a", app}
-		if urgent {
+		if u >= Critical {
 			argv = append(argv, "-u", "critical")
+		}
+		if u == Sticky {
+			argv = append(argv, "-t", "0")
 		}
 		return append(argv, title, body)
 	}
