@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -284,5 +285,15 @@ func TestDevPluginNoAssetsDirSaysSo(t *testing.T) {
 	_, err := prepareDev(dir, devRebuild)
 	if err == nil || err.Error() != "copying the plugin of github-acme-tickets: no assets dir in github-acme-tickets" {
 		t.Fatalf("err = %v, want the missing assets dir named", err)
+	}
+}
+
+func TestGoBuildNoVCS(t *testing.T) {
+	cmd := goBuildCmd("/src", "/out/ct", map[string]string{"GOFLAGS": "-mod=mod"})
+	if !slices.Contains(cmd.Args, "-buildvcs=false") {
+		t.Fatalf("go build runs git in the checkout (no -buildvcs=false): %q", cmd.Args)
+	}
+	if cmd.Dir != "/src" || !slices.Contains(cmd.Env, "GOFLAGS=-mod=mod") {
+		t.Fatalf("dir %q, env lacks GOFLAGS", cmd.Dir)
 	}
 }

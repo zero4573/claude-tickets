@@ -1,5 +1,5 @@
 # ct clean: git safety (stale index on dry run, shared-clone stash, agent state, squash-merged branch pruned, dirty lead blocks covered)
-env GIT_CONFIG_GLOBAL=/dev/null
+expand gitconfig
 env V=home/Documents/Obsidian/a
 env W=home/Projects/work-a
 env M=home/Projects/repo-a/github/acme/x
@@ -11,7 +11,7 @@ cp manual-lead.md $V/tickets/MAN-70/MAN-70.md
 cp manual-covered.md $V/tickets/MAN-71/MAN-71.md
 
 exec git init -q --bare -b main remote.git
-exec git clone -q remote.git $M
+exec git clone -q git@example.invalid:remote.git $M
 cp empty $M/f.txt
 exec git -C $M add f.txt
 exec git -C $M commit -q -m base
@@ -23,7 +23,7 @@ exec git -C $W/PROJ-70/x push -q origin HEAD:feature/PROJ-70
 exec touch -d '2030-01-01' $W/PROJ-70/x/f.txt
 # PROJ-71: a shared clone with a stash
 exec git clone -q --shared $M $WORK/$W/PROJ-71/x
-exec git -C $W/PROJ-71/x remote set-url origin $WORK/remote.git
+exec git -C $W/PROJ-71/x remote set-url origin git@example.invalid:remote.git
 exec git -C $W/PROJ-71/x fetch -q origin
 cp dirt $W/PROJ-71/x/f.txt
 exec git -C $W/PROJ-71/x stash -q
@@ -108,3 +108,10 @@ saved: 2026-10-01T10:00:00
 source: manual
 covered-by: "[[MAN-70]]"
 ---
+-- gitconfig --
+# Trusted only because it is the user's global config (ct checks a repo's
+# own config, never this): the local remotes stand in for real hosts
+[url "$WORK/"]
+	insteadOf = git@example.invalid:
+[protocol "file"]
+	allow = always

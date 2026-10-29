@@ -27,13 +27,20 @@ const devHelp = "run the workspace's sessions on the plugin and ct built from it
 // goBuild builds ct from a claude-tickets checkout into out, with env added
 // to ct's own, and returns go's output. A seam: tests swap it.
 var goBuild = func(checkout, out string, env map[string]string) ([]byte, error) {
-	cmd := exec.Command("go", "build", "-o", out, "./cmd/ct")
+	return goBuildCmd(checkout, out, env).CombinedOutput()
+}
+
+// goBuildCmd is the go build of goBuild. -buildvcs=false: stamping VCS
+// info runs git in the checkout, outside ct's checked git, where the
+// checkout's own config (fsmonitor, filters) could run a program.
+func goBuildCmd(checkout, out string, env map[string]string) *exec.Cmd {
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", out, "./cmd/ct")
 	cmd.Dir = checkout
 	cmd.Env = os.Environ()
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
-	return cmd.CombinedOutput()
+	return cmd
 }
 
 // ctFile is the name of a ct executable on this OS.

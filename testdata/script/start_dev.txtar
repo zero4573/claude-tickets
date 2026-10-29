@@ -38,7 +38,7 @@ exec ct-tty start --no-fetch --dev github-acme-tickets MAN-1
 stdout '^ct start: dev mode: plugin and ct from github-acme-tickets \([0-9a-f]+\)$'
 grep '"dev": \{' $WS/workspace.json
 grep '"slug": "github-acme-tickets"' $WS/workspace.json
-grep '/MAN-1/github-acme-tickets build -o .*/MAN-1/.cache/dev/bin/ct ./cmd/ct$' calls/go
+grep '/MAN-1/github-acme-tickets build -buildvcs=false -o .*/MAN-1/.cache/dev/bin/ct ./cmd/ct$' calls/go
 grep 'GOCACHE=.*/MAN-1/.cache/go/build$' calls/go-env
 ! exists calls/built-ct
 exists $WS/.cache/dev/plugin/.claude-plugin/plugin.json
@@ -111,7 +111,7 @@ package main
 {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "ct hook agent-state idle"}]}]}}
 -- go-stub --
 #!/bin/sh
-# go build -o <out> ./cmd/ct: records the call and writes a fake ct that
+# go build -buildvcs=false -o <out> ./cmd/ct: records the call and writes a fake ct that
 # records any run of it
 echo "$PWD $*" >> "$WORK/calls/go"
 env | grep '^GO' >> "$WORK/calls/go-env"
@@ -119,9 +119,10 @@ if [ -e "$WORK/stub/go-fail" ]; then
   echo 'cmd/ct/main.go:1: syntax error' >&2
   exit 1
 fi
-cat > "$3" <<'CT'
+out=$4
+cat > "$out" <<'CT'
 #!/bin/sh
 echo "$@" >> "$WORK/calls/built-ct"
 exit 2
 CT
-chmod 755 "$3"
+chmod 755 "$out"

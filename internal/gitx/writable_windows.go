@@ -13,3 +13,10 @@ func Writable(dir string) bool {
 	os.Remove(f.Name())
 	return true
 }
+
+// searchable is git for Windows' access(p, X_OK), which drops X_OK: p
+// exists.
+func searchable(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
+}

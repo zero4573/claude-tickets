@@ -18,6 +18,29 @@ exists home/Projects/repo-a/github/acme/billing/.git
 grep 'sh -s -- github/acme/billing' calls/podman
 exec ct ws clone github/acme/billing
 stdout 'already cloned'
+# a pre-existing directory is never touched, even when git clone fails
+mkdir home/Projects/repo-a/github/acme/half
+cp env home/Projects/repo-a/github/acme/half/notes.txt
+! exec ct ws clone github/acme/half
+stderr 'exists and is not a clone'
+exists home/Projects/repo-a/github/acme/half/notes.txt
+# a URL that climbs out of provider/owner/repo is refused
+! exec ct ws clone --url git@bitbucket.org:keep/..
+stderr 'tell provider/owner/repo'
+exists home/Projects/repo-a/github/acme/billing/.git
+# an owner folder symlinked out of the projects root is refused
+mkdir outside
+symlink home/Projects/repo-a/github/evil -> $WORK/outside
+! exec ct ws clone github/evil/billing
+stderr 'outside <provider>/<owner> under'
+! exists outside/billing
+rm home/Projects/repo-a/github/evil
+# a vault whose workRoot sits inside its projectsRoot is refused
+cp nested-workflow.json home/Documents/Obsidian/a/.workflow.json
+! exec ct ws clone github/acme/other
+stderr 'workRoot .* is inside projectsRoot'
+! exists home/Projects/repo-a/github/acme/other
+rm home/Documents/Obsidian/a/.workflow.json
 ! exec ct ws clone gitlab/acme/billing
 stderr 'no default URL for provider .gitlab.'
 exec ct ws repos
@@ -75,14 +98,19 @@ stdout 'change.txt \| 1 \+'
 stdout '^--- untracked files:$'
 stdout '^untracked.txt$'
 
-# a shared clone where the main clone's .git isn't writable
+# never a second copy of the repo: a main clone whose .git isn't writable is refused
 env CLAUDE_TICKETS_WS_SHARED_CLONE=1
-exec ct ws add MAN-2 github-acme-billing --base main
-stdout '\(clone\) on feature/MAN-2 \(from origin/main\)'
+! exec ct ws add MAN-2 github-acme-billing --base main
+stderr 'billing.\.git isn.t writable here, so no worktree can be made; run ct ws add on the host, or restart the session \(ct start MAN-2\)'
+! exists home/Projects/work-a/MAN-2/github-acme-billing
 env CLAUDE_TICKETS_WS_SHARED_CLONE=
-exec git -C home/Projects/work-a/MAN-2/github-acme-billing config remote.origin.url
-stdout '^git@github.com:acme/billing.git$'
-grep '"mode": "clone"' home/Projects/work-a/MAN-2/workspace.json
+
+# an older workspace's shared clone (mode "clone") is still fetched and removed
+exec git clone -q --shared --no-checkout home/Projects/repo-a/github/acme/billing home/Projects/work-a/MAN-2/github-acme-billing
+exec git -C home/Projects/work-a/MAN-2/github-acme-billing checkout -q --no-track -B feature/MAN-2 origin/main
+exec git -C home/Projects/work-a/MAN-2/github-acme-billing remote set-url origin git@github.com:acme/billing.git
+expand ws-man-2.json
+cp ws-man-2.json home/Projects/work-a/MAN-2/workspace.json
 
 # fetch passes new commits on origin to the shared clones
 cp change.txt seed/second.txt
@@ -144,10 +172,32 @@ exec ct ws add MAN-5 github-acme-billing --base main --desc 'Fix the Thing'
 grep '"branch": "feature/fix-the-thing"' home/Projects/work-a/MAN-5/workspace.json
 
 -- gitconfig --
+# Trusted only because it is the user's global config (ct checks a repo's
+# own config, never this): the local remotes stand in for real hosts
+[protocol "file"]
+	allow = always
 [url "$WORK/remote/"]
 	insteadOf = git@github.com:
 [advice]
 	detachedHead = false
+-- nested-workflow.json --
+{"projectsRoot": "~/Projects/repo-a", "workRoot": "~/Projects/repo-a/work"}
+-- ws-man-2.json --
+{
+  "id": "MAN-2",
+  "repos": [
+    {
+      "provider": "github",
+      "owner": "acme",
+      "repo": "billing",
+      "slug": "github-acme-billing",
+      "path": "$WORK/home/Projects/work-a/MAN-2/github-acme-billing",
+      "base": "main",
+      "branch": "feature/MAN-2",
+      "mode": "clone"
+    }
+  ]
+}
 -- man-1.md --
 ---
 summary: First

@@ -86,3 +86,26 @@ func TestNixBuildError(t *testing.T) {
 		t.Errorf("ok: %q %v", out, err)
 	}
 }
+
+func TestNixBuildChecksGitConfig(t *testing.T) {
+	nix := t.TempDir()
+	os.WriteFile(filepath.Join(nix, "nix"), []byte("#!/bin/sh\n"), 0o755)
+	t.Setenv("PATH", nix)
+	old := nixRun
+	defer func() { nixRun = old }()
+	ran := false
+	nixRun = func(*exec.Cmd) ([]byte, error) { ran = true; return []byte("/nix/store/x\n"), nil }
+	tree := t.TempDir()
+	dotgit := filepath.Join(tree, ".git")
+	os.MkdirAll(filepath.Join(dotgit, "objects"), 0o755)
+	os.MkdirAll(filepath.Join(dotgit, "refs"), 0o755)
+	os.WriteFile(filepath.Join(dotgit, "HEAD"), []byte("ref: refs/heads/main\n"), 0o644)
+	os.WriteFile(filepath.Join(dotgit, "config"), []byte("[core]\n\tfsmonitor = /tmp/evil\n"), 0o644)
+	if _, err := nixBuild(tree); err == nil || !strings.Contains(err.Error(), `"core.fsmonitor"`) || ran {
+		t.Fatalf("a tree whose config names a program: err %v, nix ran %v", err, ran)
+	}
+	os.WriteFile(filepath.Join(dotgit, "config"), []byte("[core]\n\tbare = false\n"), 0o644)
+	if out, err := nixBuild(tree); err != nil || out != "/nix/store/x" || !ran {
+		t.Fatalf("a clean tree: %q %v (nix ran %v)", out, err, ran)
+	}
+}

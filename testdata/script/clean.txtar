@@ -1,7 +1,7 @@
 # ct clean: closed tickets go (synced ones to .trash/ with their links
 # rewritten to the source, manual ones to archive/tickets/), after their
 # workspace; open, running, dirty, unpushed and unsaved ones stay
-env GIT_AUTHOR_NAME=x GIT_AUTHOR_EMAIL=x@example.com GIT_COMMITTER_NAME=x GIT_COMMITTER_EMAIL=x@example.com GIT_CONFIG_GLOBAL=/dev/null
+env GIT_AUTHOR_NAME=x GIT_AUTHOR_EMAIL=x@example.com GIT_COMMITTER_NAME=x GIT_COMMITTER_EMAIL=x@example.com
 env V=home/Documents/Obsidian/a
 env W=home/Projects/work-a
 mkdir $V/.obsidian $V/projects/p/logs $V/inbox $V/tickets/jira/PROJ-12/logs $V/tickets/jira/PROJ-13 $V/tickets/manual/MAN-4 $V/tickets/manual/MAN-9
@@ -32,11 +32,12 @@ cp lead-open.md $V/tickets/manual/MAN-23/MAN-23.md
 cp synced-closed.md $V/tickets/jira/PROJ-21/PROJ-21.md
 cp empty $V/tickets/jira/PROJ-21/design.md
 expand ws.json ws-null.json
+expand gitconfig
 
 # A main clone, pushed, with worktrees: PROJ-12 clean and pushed, PROJ-16
 # dirty, PROJ-17 with a commit on no remote
 exec git init -q --bare -b main remote.git
-exec git clone -q remote.git home/Projects/repo-a/github/acme/x
+exec git clone -q git@example.invalid:remote.git home/Projects/repo-a/github/acme/x
 exec git -C home/Projects/repo-a/github/acme/x commit -q --allow-empty -m base
 exec git -C home/Projects/repo-a/github/acme/x push -q origin HEAD:main
 exec git -C home/Projects/repo-a/github/acme/x worktree add -q -b feature/PROJ-12 $WORK/$W/PROJ-12/x
@@ -312,3 +313,10 @@ source: manual
 ticket-type: epic
 covers: ["[[MAN-22]]"]
 ---
+-- gitconfig --
+# Trusted only because it is the user's global config (ct checks a repo's
+# own config, never this): the local remotes stand in for real hosts
+[url "$WORK/"]
+	insteadOf = git@example.invalid:
+[protocol "file"]
+	allow = always

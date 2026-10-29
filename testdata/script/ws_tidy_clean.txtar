@@ -20,6 +20,7 @@ stdout 'ct ws: no tidy clones in .*[/\\]tasks$'
 # a merged clone (the same commits as the ticket branch): removed
 mkdir $T
 exec git clone -q $R $C
+exec git -C $C remote set-url origin git@github.com:acme/billing.git
 exec ct ws tidy-clean MAN-1 --dry-run
 stdout 'ct ws: would remove .*tidy-github-acme-billing'
 exists $C
@@ -29,6 +30,7 @@ stdout 'ct ws: removed .*tidy-github-acme-billing'
 
 # an unmerged clone: kept, exit 1
 exec git clone -q $R $C
+exec git -C $C remote set-url origin git@github.com:acme/billing.git
 cp seed/README.md $C/new.txt
 exec git -C $C add new.txt
 exec git -C $C commit -q -m new
@@ -62,6 +64,7 @@ exists $T/github-acme-billing-01
 
 # a clone without the bookmark
 exec git clone -q $R $C
+exec git -C $C remote set-url origin git@github.com:acme/billing.git
 exec git -C $C branch -m feature/tidy other
 ! exec ct ws tidy-clean MAN-1
 stderr 'no bookmark feature/tidy, not removing'
@@ -98,6 +101,10 @@ summary: First
 status: in-progress
 ---
 -- gitconfig --
+# Trusted only because it is the user's global config (ct checks a repo's
+# own config, never this): the local remotes stand in for real hosts
+[protocol "file"]
+	allow = always
 [url "$WORK/remote/"]
 	insteadOf = git@github.com:
 -- bad.json --

@@ -84,10 +84,17 @@ echo "$@" >> "$WORK/calls/editor"
 	// git is the real one, except in a fake checkout (an empty .git dir):
 	// status says it's dirty when it has a .dirty file
 	"git": `#!/bin/sh
+# ct puts "-c key=value" pairs (hooks and fsmonitor off) before "-C dir"
+d=
+prev=
+for a in "$@"; do
+  [ "$prev" = "-C" ] && d="$a"
+  prev="$a"
+done
 case "$*" in
-  *"status --porcelain"*)
-    if [ -d "$2/.git" ] && [ ! -e "$2/.git/HEAD" ]; then
-      [ -f "$2/.dirty" ] && echo " M file"
+  *" status "*"--porcelain"*)
+    if [ -d "$d/.git" ] && [ ! -e "$d/.git/HEAD" ]; then
+      [ -f "$d/.dirty" ] && echo " M file"
       exit 0
     fi ;;
 esac

@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/zero4573/claude-tickets/internal/gitx"
 )
 
 // NixLibsAttr is the flake output that holds libgomp and libstdc++.
@@ -97,6 +99,13 @@ func nixBuild(root string) (string, error) {
 		return "", fmt.Errorf("nix not found")
 	}
 	cmd, gitTree := nixCmd(nix, root)
+	if gitTree {
+		// nix reads the git tree through git: the repo's own config must
+		// pass ct's allowlist first, as for any git ct runs
+		if err := gitx.Check(root); err != nil {
+			return "", err
+		}
+	}
 	b, err := nixRun(cmd)
 	if err != nil {
 		if gitTree {
