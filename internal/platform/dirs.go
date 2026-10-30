@@ -13,7 +13,7 @@ import (
 
 type Dirs struct {
 	Config string // settings: config.json, default-vault
-	Cache  string // rebuildable: the graph image's filesystem, unpacked assets
+	Cache  string // rebuildable: unpacked assets, the embedding model
 	Logs   string // command logs (ticket-sync-<vault>.log, ...)
 }
 

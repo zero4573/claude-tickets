@@ -10,7 +10,6 @@ sequenceDiagram
   participant S as ct vault search
   participant X as index (.ct/)
   participant N as ct vault note
-  participant G as code graph
   participant D as inbox/ draft
   participant V as /tickets:save
   A->>S: search query, --project slug, --budget
@@ -19,7 +18,7 @@ sequenceDiagram
   S-->>A: notes and sections within the budget
   A->>N: outline, then get note section
   N-->>A: one section, nothing else
-  A->>G: callers, paths between repos
+  A->>A: Grep and Read the code: callers, paths between repos
   A->>D: durable fact found
   V->>D: promote to projects/, knowledge-base/, references/
 ```
@@ -35,8 +34,8 @@ leaves every other byte as it was.
 
 ## Without a ticket
 
-`ct spec "<question>"` opens a session with the vault, every main clone read-only and a graph
-merged from all of them. It answers from the vault first, then the graph, then code.
+`ct spec "<question>"` opens a session with the vault and every main clone read-only. It
+answers from the vault first, then the code.
 `ct spec repo checkout <repo> <ref>` makes an exploration clone to build and test in; it is
 never committed. A durable fact becomes a draft in `inbox/`; an issue worth following up
 becomes a manual ticket with `ct new`. `ct claude` gives a plain repo session the same

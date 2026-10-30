@@ -21,7 +21,6 @@ import (
 	"github.com/zero4573/claude-tickets/internal/followup"
 	"github.com/zero4573/claude-tickets/internal/fsx"
 	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/graph"
 	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/repo"
 	"github.com/zero4573/claude-tickets/internal/session"
@@ -38,7 +37,7 @@ func wsCmd() *cobra.Command {
 default ~/Projects/work-<vault> and ~/Projects/repo-<vault>). Main clones
 live at <projectsRoot>/<provider>/<owner>/<repo>, and each has a slug,
 <provider>-<owner>-<repo> (e.g. bitbucket-acme-billing-service), which is
-how the vault and the code graph name it. A ticket's worktree of a repo is
+how the vault names it. A ticket's worktree of a repo is
 <workRoot>/<ID>/<slug>, on branch feature/<ID>[-<description>] (a manual ticket's: feature/<description>). Each
 workspace's repos are recorded in <workRoot>/<ID>/workspace.json.
 
@@ -107,10 +106,9 @@ func wsCloneCmd() *cobra.Command {
 	var url string
 	cmd := &cobra.Command{
 		Use:   "clone <provider>/<owner>/<repo> | --url <git url>",
-		Short: "Clone a repo into <projectsRoot>/<provider>/<owner>/<repo> and build its code graph",
-		Long: `Clones a repo into <projectsRoot>/<provider>/<owner>/<repo> and builds its
-code graph; a repo already cloned there is left as it is (never cloned
-twice). The default URL is SSH (git@bitbucket.org:<owner>/<repo>.git, with
+		Short: "Clone a repo into <projectsRoot>/<provider>/<owner>/<repo>",
+		Long: `Clones a repo into <projectsRoot>/<provider>/<owner>/<repo>; a repo
+already cloned there is left as it is (never cloned twice). The default URL is SSH (git@bitbucket.org:<owner>/<repo>.git, with
 CLAUDE_TICKETS_BITBUCKET_HOST for another Bitbucket host, or the GitHub
 equivalent). Sessions run it too, then ct ws add makes the ticket's
 worktree from the new clone.`,
@@ -192,9 +190,6 @@ worktree from the new clone.`,
 				return err
 			}
 			fmt.Printf("ct ws: cloned %s (slug %s)\n", clone, repo.Slug(clone))
-			if err := indexGraphs(ctx, []string{clone}); err != nil {
-				warnf("ct graph index failed for %s; run it again later", clone)
-			}
 			return nil
 		},
 	}
@@ -210,11 +205,7 @@ func wsAddCmd() *cobra.Command {
 		Long: `Creates (or reuses) the ticket's worktree of a repo, branched from
 origin/<base> (or the local <base> when there's no such remote branch). The
 branch is reused if it already exists. Copies untracked files matching the
-main clone's .worktreeinclude (gitignore syntax, e.g. .env) and seeds the
-worktree's code graph from the main clone's graphify-out/ so it builds
-incrementally. The worktree's graph lives outside it, in
-<workRoot>/<ID>/.cache/graphify/<slug>/graphify-out, so nothing graphify
-writes lands in the checkout.
+main clone's .worktreeinclude (gitignore syntax, e.g. .env).
 --branch checks out an existing branch instead (local, or origin's,
 tracked), e.g. the source branch of an open PR; --base is then the branch
 it merges into.`,
@@ -375,7 +366,6 @@ func wsAdd(ctx vault.Context, key, spec, base, desc, version, useBranch string) 
 			fmt.Printf("ct ws: created %s (%s) on existing branch %s\n", wt, mode, branch)
 		}
 		copyWorktreeIncludes(main, wt)
-		graph.Seed(main, graph.WorktreeOut(dir, slug))
 	}
 	parts := strings.SplitN(clone, "/", 3)
 	if err := workspace.Put(workspace.File(dir), workspace.Repo{
@@ -755,8 +745,6 @@ func wsRemoveOpts(ctx vault.Context, key string, dropIgnored, merged, keepIgnore
 				fmt.Printf("ct ws: removed %s (shared clone)%s\n", r.Path, ignored)
 				continue
 			}
-			// a legacy in-worktree graphify-out is ignored, so `git worktree remove` would refuse it
-			_ = os.RemoveAll(filepath.Join(r.Path, "graphify-out"))
 			// checked above, so always --force (gitx refuses it without)
 			if err := gitx.Run(main, "worktree", "remove", "--force", r.Path); err != nil {
 				warnf("couldn't remove the worktree %s", r.Path)
@@ -770,7 +758,7 @@ func wsRemoveOpts(ctx vault.Context, key string, dropIgnored, merged, keepIgnore
 	if failed {
 		return fmt.Errorf("rm: some worktrees were kept; workspace %s left in place", dir)
 	}
-	for _, f := range []string{"graphify-out", ".claude", "workspace.json", "workspace.json.lock",
+	for _, f := range []string{".claude", "workspace.json", "workspace.json.lock",
 		"CLAUDE.md", ".ignore", ".tool-versions", ".cache", ".agent-state", ".sessions.json", ".sessions.json.lock", key + ".code-workspace"} {
 		_ = fsx.RemoveAll(filepath.Join(dir, f))
 	}
@@ -1095,8 +1083,8 @@ func copyTree(src *os.Root, dest string) error {
 }
 
 // ignoredFiles names the ignored files (.env, local configs) of the work
-// tree at dir one by one (never a collapsed folder), but not ct's own
-// graphify-out; none when git can't tell.
+// tree at dir one by one (never a collapsed folder); none when git can't
+// tell.
 func ignoredFiles(dir string) []string {
 	out, err := gitx.Out(dir, "--no-optional-locks", "ls-files", "-z", "--others", "--ignored", "--exclude-standard")
 	if err != nil {
@@ -1104,7 +1092,7 @@ func ignoredFiles(dir string) []string {
 	}
 	var names []string
 	for _, n := range strings.Split(out, "\x00") {
-		if n != "" && !strings.HasPrefix(n, "graphify-out/") {
+		if n != "" {
 			names = append(names, n)
 		}
 	}
@@ -1239,14 +1227,11 @@ func wsGcCmd() *cobra.Command {
 	var dry bool
 	cmd := &cobra.Command{
 		Use:   "gc [--days N] [--dry-run]",
-		Short: "Free disk: finished workspaces, idle merged graphs and spec clones, old snapshots",
+		Short: "Free disk: finished workspaces, idle caches and spec clones",
 		Long: `Frees disk in the current vault: removes workspaces of tickets that are
 done or closed and idle for N days (default 14; dirty or unpushed work is
-kept, and left as a follow-up task in the vault's inbox), merged graphs of
-sessions that aren't running, idle spec exploration clones, and graphify's
-dated snapshots older than a week. A stopped session's .cache goes too,
-worktree graphs included: the next start re-seeds each from its main
-clone's graph and updates it.
+kept, and left as a follow-up task in the vault's inbox), the .cache of
+sessions that aren't running, and idle spec exploration clones.
 
 A session counts as running when its process (ct start, ct teach, ct spec)
 is alive on this host, else, when that can't be checked, when its hook
@@ -1312,12 +1297,6 @@ func wsGc(ctx vault.Context, days int, dry bool) error {
 			}
 		}
 
-		if !running && fsx.IsDir(filepath.Join(dir, "graphify-out")) {
-			fmt.Printf("ct ws gc: %sdrop the merged graph of %s\n", act, key)
-			if !dry {
-				_ = os.RemoveAll(filepath.Join(dir, "graphify-out"))
-			}
-		}
 		// Go's module and build caches (session.GoEnv) refill when next used
 		if cache := session.CacheDir(dir); !running && fsx.IsDir(cache) {
 			fmt.Printf("ct ws gc: %sdrop the caches of %s\n", act, key)
@@ -1345,12 +1324,6 @@ func wsGc(ctx vault.Context, days int, dry bool) error {
 		}
 	}
 
-	if !dry {
-		outs := graphOutDirs(ctx)
-		graph.PruneSnapshots(outs...)
-		fmt.Printf("ct ws gc: pruned graphify snapshots older than a week in %d graph folder(s)\n", len(outs))
-	}
-
 	vaults := make([]string, 0, len(kept))
 	for v := range kept {
 		vaults = append(vaults, v)
@@ -1365,25 +1338,4 @@ func wsGc(ctx vault.Context, days int, dry bool) error {
 		}
 	}
 	return nil
-}
-
-// graphOutDirs is every graphify-out of the main clones, of the vault's spec
-// checkouts and legacy ticket worktrees, and the ticket worktrees' graphs
-// under <WorkRoot>/<ID>/.cache/graphify/<slug>/graphify-out.
-func graphOutDirs(ctx vault.Context) []string {
-	var out []string
-	main, _ := filepath.Glob(filepath.Join(ctx.ProjectsRoot, "*", "*", "*", "graphify-out"))
-	ws, _ := filepath.Glob(filepath.Join(ctx.WorkRoot, "*", "*", "graphify-out"))
-	cached, _ := filepath.Glob(filepath.Join(ctx.WorkRoot, "*", ".cache", "graphify", "*", "graphify-out"))
-	for _, d := range append(append(main, ws...), cached...) {
-		rel, _ := filepath.Rel(ctx.WorkRoot, d)
-		if top := strings.Split(rel, string(filepath.Separator))[0]; strings.HasPrefix(d, ctx.WorkRoot+string(filepath.Separator)) &&
-			strings.HasPrefix(top, ".") && !strings.HasPrefix(top, ".spec-") {
-			continue
-		}
-		if fsx.IsDir(d) {
-			out = append(out, d)
-		}
-	}
-	return out
 }

@@ -1,4 +1,4 @@
-# ct start: workspace, settings, trust, graph MCP, the session in this terminal
+# ct start: workspace, settings, trust, the session in this terminal
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a/github/acme/x/.git
 mkdir home/Documents/Obsidian/a/tickets/manual/MAN-1 home/Documents/Obsidian/a/tickets/MAN-2 home/Documents/Obsidian/a/tickets/MAN-3
 cp man-1.md home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
@@ -9,7 +9,7 @@ env CLAUDE_TICKETS_SESSION_SETTINGS=$WORK/user-settings.json
 
 exec ct-tty start --no-fetch MAN-1
 stdout '^ct start: MAN-1 runs in this terminal; ct start MAN-1 later continues it$'
-grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a --add-dir=.*/graphify --mcp-config .*/MAN-1/.claude/graph-mcp.json --permission-mode auto /tickets:work-ticket MAN-1$' calls/claude
+grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a --permission-mode auto /tickets:work-ticket MAN-1$' calls/claude
 grep '/home/Projects/work-a/MAN-1$' calls/claude-cwd
 grep '^CLAUDE_TICKETS_VAULT=.*/Obsidian/a$' calls/claude-env
 grep '"id": "MAN-1"' home/Projects/work-a/MAN-1/workspace.json
@@ -39,17 +39,15 @@ grep '"defaultMode": "auto"' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"GOMODCACHE": ".*/home/Projects/work-a/MAN-1/.cache/go/pkg/mod"' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"GOCACHE": ".*/home/Projects/work-a/MAN-1/.cache/go/build"' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"GOPATH": ".*/home/Projects/work-a/MAN-1/.cache/go"' home/Projects/work-a/MAN-1/.claude/settings.json
-grep '"MCP_TIMEOUT": "600000"' home/Projects/work-a/MAN-1/.claude/settings.json
-# the merged code graph is brought up to date before the session starts
-stderr 'MAN-1: bringing the merged code graph up to date'
-grep '^run --rm --security-opt label=disable -v .*/home/Projects/work-a/MAN-1:.* localhost/claude-tickets-graphify:[0-9a-f]+ /opt/graphify/serve.sh --merge$' calls/podman
+! grep 'MCP_TIMEOUT' home/Projects/work-a/MAN-1/.claude/settings.json
+! stderr 'code graph'
 grep '^/.cache/$' home/Projects/work-a/MAN-1/.ignore
-grep '^graphify-out/$' home/Projects/work-a/MAN-1/.ignore
+! grep 'graphify' home/Projects/work-a/MAN-1/.ignore
+! grep 'Code graph' home/Projects/work-a/MAN-1/CLAUDE.md
+! exists home/Projects/work-a/MAN-1/.claude/graph-mcp.json
 grep '^- Go: `GOPATH`' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '"hasTrustDialogAccepted": true' home/.claude.json
 grep '"keep": 1' home/.claude.json
-grep '"command": ".*ct' home/Projects/work-a/MAN-1/.claude/graph-mcp.json
-grep '"mcp",' home/Projects/work-a/MAN-1/.claude/graph-mcp.json
 
 # a workspace that ran a session gets a new conversation; --continue continues it
 cp state.json home/Projects/work-a/MAN-1/.agent-state
@@ -61,13 +59,12 @@ exec ct-tty start --no-fetch --continue MAN-1
 stdout 'runs in this terminal \(continuing its last session\)'
 grep ' --permission-mode auto --continue ct start --continue: a new process.*step 0 of /tickets:work-ticket MAN-1 from board.md.*run /tickets:work-ticket MAN-1\.$' calls/claude
 
-# a failed merge stops the start: no session without the graph
+# a stale MCP config from an older ct is removed, and not passed to claude
+cp man-1.md home/Projects/work-a/MAN-1/.claude/graph-mcp.json
 rm calls/claude
-cp man-1.md index-fail
-! exec ct-tty start --no-fetch MAN-1
-stderr 'merging the code graph of .*/MAN-1 failed'
-! exists calls/claude
-rm index-fail
+exec ct-tty start --no-fetch MAN-1
+! exists home/Projects/work-a/MAN-1/.claude/graph-mcp.json
+! grep 'mcp-config' calls/claude
 
 # ignored, covered by an open lead, unknown
 ! exec ct-tty start --no-fetch MAN-2

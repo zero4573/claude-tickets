@@ -88,7 +88,7 @@ func vaultPrompt(ctx vault.Context, slug string) string {
 		}
 	}
 	b.WriteString("- `knowledge-base/` and `references/` hold findings outside any project; `tickets/` holds the history of past work.\n" +
-		"- For questions about this repo or the projects it works with, and before non-trivial changes, use the `spec` skill. Check the vault first, then the code graph, then the code.\n" +
+		"- For questions about this repo or the projects it works with, and before non-trivial changes, use the `spec` skill. Check the vault first, then the code.\n" +
 		"- Don't edit `projects/`, `knowledge-base/` or `references/` directly. Record what you learn as drafts in `inbox/` (see the `spec` skill); `/tickets:save` promotes them at the end of the session.\n" +
 		"- `/tickets:recall` loads this repo's recent history and decisions. Run `/tickets:save` before ending the session.")
 	return b.String()

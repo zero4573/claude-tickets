@@ -41,8 +41,6 @@ for t in git claude; do
   printf 'checking for %s... ' "$t"
   if have "$t"; then echo yes; else echo "no (ct needs it at run time)"; fi
 done
-printf 'checking for podman or docker... '
-if have podman; then echo podman; elif have docker; then echo docker; else echo "no (the code graph needs one)"; fi
 printf 'checking for fzf... '
 if have fzf; then echo yes; else echo "no (optional: vaults are picked from a numbered list)"; fi
 [ "$status" -eq 0 ] || { echo "configure: fix the above, then run it again" >&2; exit 1; }

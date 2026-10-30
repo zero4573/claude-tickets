@@ -37,16 +37,6 @@ func TestMaterialize(t *testing.T) {
 		t.Errorf("a second call unpacked again: %s", again)
 	}
 
-	g, err := Materialize("graph")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if st, err := os.Stat(filepath.Join(g, "serve.sh")); err != nil || st.Mode().Perm()&0o100 == 0 {
-		t.Error("serve.sh missing or not executable", err)
-	}
-	if _, err := os.Stat(filepath.Join(g, "Containerfile")); err != nil {
-		t.Error(err)
-	}
 }
 
 func TestHooksFor(t *testing.T) {

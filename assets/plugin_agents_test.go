@@ -43,7 +43,7 @@ func field(lines []string, key string) (string, []string, bool) {
 // agents are gone; each agent lists its tools explicitly without Agent;
 // the workers pin a model and preload a brief skill the plugin ships. The
 // lead inherits the session's model, can message but not spawn or ask the
-// user, and reads the graph; the analyst is read-only.
+// user, and searches with the built-in tools; the analyst is read-only.
 func TestPluginAgents(t *testing.T) {
 	for _, gone := range []string{"product-owner", "architect", "developer", "qa"} {
 		if _, err := fs.Stat(Files, "plugin/agents/"+gone+".md"); err == nil {
@@ -86,15 +86,13 @@ func TestPluginAgents(t *testing.T) {
 		for _, tool := range strings.Split(tools, ",") {
 			tool = strings.TrimSpace(tool)
 			has[tool] = true
-			graph := strings.HasPrefix(tool, "mcp__graphify__")
-			if tool == "Agent" || tool == "Task" || tool == "AskUserQuestion" || strings.HasPrefix(tool, "mcp__atlassian__") ||
-				(graph && name != "lead" && name != "analyst") {
+			if tool == "Agent" || tool == "Task" || tool == "AskUserQuestion" || strings.HasPrefix(tool, "mcp__") {
 				t.Errorf("%s: tool %s isn't allowed", e.Name(), tool)
 			}
 		}
 		switch name {
 		case "lead":
-			for _, tool := range []string{"SendMessage", "Skill", "Edit", "Bash", "mcp__graphify__query_graph", "mcp__fff__grep"} {
+			for _, tool := range []string{"SendMessage", "Skill", "Edit", "Bash", "Grep", "Glob"} {
 				if !has[tool] {
 					t.Errorf("lead.md: no %s tool", tool)
 				}
@@ -105,8 +103,8 @@ func TestPluginAgents(t *testing.T) {
 					t.Errorf("analyst.md: read-only, but has %s", tool)
 				}
 			}
-			if !has["mcp__graphify__query_graph"] || !has["mcp__fff__grep"] {
-				t.Error("analyst.md: needs the graphify and fff tools")
+			if !has["Grep"] || !has["Glob"] || !has["Read"] {
+				t.Error("analyst.md: needs Grep, Glob and Read")
 			}
 		case "spec-writer":
 			for _, tool := range []string{"Edit", "NotebookEdit", "SendMessage"} {
@@ -713,7 +711,7 @@ func TestSpecInitSkill(t *testing.T) {
 			t.Errorf("spec-init: frontmatter lacks %q", f)
 		}
 	}
-	for _, s := range []string{"ct vault search", "get_community", "## 2. Gate", "Draft nothing before the approval",
+	for _, s := range []string{"ct vault search", "top-level packages", "## 2. Gate", "Draft nothing before the approval",
 		"ct spec location", "/tickets:new-ticket", "tickets:spec-writer", "one message",
 		"tickets/<source>/<ID>/specs/<slug>/", "tickets/<source>/<ID>/spec-init/", "<capability>/spec.md",
 		"status: inferred", "file:line", "NEEDS CLARIFICATION", "depends-on", "docs/architecture.md",

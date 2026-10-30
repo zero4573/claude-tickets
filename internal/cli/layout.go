@@ -34,7 +34,7 @@ expects. All three come from each repo's origin URL:
   github     github.com or GitHub Enterprise (owner = user or org)
   gitlab     owner = group, subgroups joined with -
   other      provider = the host name, kebab-cased
-The vault and the code graph name each repo by its slug,
+The vault names each repo by its slug,
 <provider>-<owner>-<repo> (ct ws repos lists them). Repos without a hosted
 origin are left where they are.
 
@@ -79,7 +79,7 @@ func findRepos(root string) []string {
 		rel, _ := filepath.Rel(root, p)
 		depth := strings.Count(rel, string(filepath.Separator)) + 1
 		switch d.Name() {
-		case "node_modules", "graphify-out", ".venv", "vendor":
+		case "node_modules", ".venv", "vendor":
 			return filepath.SkipDir
 		case ".git":
 			if depth >= 2 {

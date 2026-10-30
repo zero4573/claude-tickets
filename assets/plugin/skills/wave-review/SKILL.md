@@ -8,7 +8,7 @@ description: Diff-scoped, capped wave review of one repo for a ticket (architect
 Read-only: no code edits, no commits, no branch changes. The lead's prompt (the PO session
 spawns you with it) passes: the ticket, wave
 `N`, the repo slug and its ticket worktree, the range `<last-reviewed>..<head>`, the previous
-fix-task IDs, the previous review file (if any), and a ≤5-line graph impact note. With specs it adds the capability and its requirement IDs: read `ct spec diff <ID>` and check that every `proposed` requirement of that capability is implemented and a test cites it, and that the code doesn't contradict an `implemented` one; a miss is a finding. List the IDs that pass in your summary (the PO flips them to `implemented`; you never write specs).
+fix-task IDs, the previous review file (if any), and a ≤5-line impact note. With specs it adds the capability and its requirement IDs: read `ct spec diff <ID>` and check that every `proposed` requirement of that capability is implemented and a test cites it, and that the code doesn't contradict an `implemented` one; a miss is a finding. List the IDs that pass in your summary (the PO flips them to `implemented`; you never write specs).
 
 ## Scope it before reading anything
 1. `git -C <worktree> log --oneline --merges <range>`: the wave's merges.
@@ -31,9 +31,8 @@ fix-task IDs, the previous review file (if any), and a ≤5-line graph impact no
    wording only: `git -C <worktree> diff <range> | rg '^\+' | rg 'task [0-9]+|wave [0-9]|\bw[0-9]\b'`
    (fixtures modelling tickets excepted). A hit is a must-fix.
 4. Read by hunk (`git diff <range> -- <file>`); open full files only where a hunk needs
-   context. Find callers with the fff tools (`mcp__fff__grep`, `mcp__fff__multi_grep`) when
-   available, else `rg`, scoped to `<worktree>` (fff indexes the whole workspace, `tasks/`
-   included). Read the repo's `AGENTS.md` by section (`rg -n '^## '`), not whole.
+   context. Find callers with Grep, scoped to `<worktree>` (the workspace holds `tasks/`
+   copies too). Read the repo's `AGENTS.md` by section (`rg -n '^## '`), not whole.
 
 ## What to look for (both hats)
 - **Architect:** boundaries and dependency direction, the ticket's contracts

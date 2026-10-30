@@ -18,7 +18,7 @@ This session owns **only** `learning/<topic>/` and writes it directly (no `/tick
 promotion). One session per topic. Around every write that touches more than one file, hold
 the lock: `ct vault lock acquire <vault> teach-<topic>` … `ct vault lock release <vault>
 teach-<topic>`, releasing it even when something fails. Re-read a note before editing it.
-The repos (read-only) and the code graph can supply examples; never edit them.
+The repos (read-only) can supply examples; never edit them.
 
 ## Layout (`learning/<topic>/`)
 | File | Template | Holds |

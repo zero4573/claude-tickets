@@ -1,7 +1,6 @@
 // Package session prepares the Claude Code sessions the commands start:
 // the claude command line (plugin, directories), the workspace's
-// .claude/settings.json, trust in Claude's own config, and the code graph's
-// MCP config. Sessions are plain Claude Code: only standard flags, and
+// .claude/settings.json and trust in Claude's own config. Sessions are plain Claude Code: only standard flags, and
 // anything environment-specific comes from CLAUDE_TICKETS_* variables.
 package session
 
@@ -10,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -68,18 +66,18 @@ func CommandPlugin(plugin string, dirs ...string) []string {
 
 // WriteSettings writes <dir>/.claude/settings.json, which Claude reads as
 // the project settings:
-//   - what the ticket system needs: the graph cache is never edited (//
+//   - what the ticket system needs: ct's cache is never edited (//
 //     marks an absolute path in a rule), plus extraDeny (ReposReadOnly for
 //     sessions that only read the repos). Ticket sessions may write the
 //     repo directory: they clone repos into it and add worktrees.
 //   - the workspace's own Go caches (GoEnv), so a session (in its
 //     container) fetches and builds Go modules there
-//   - a 10-minute MCP_TIMEOUT, so a slow code graph server comes up late
-//     rather than not at all
 //   - merged with $CLAUDE_TICKETS_SESSION_SETTINGS, the user's own rules
 //     (objects merge, arrays are joined)
 //
-// It also writes <dir>/.ignore (WriteIgnore).
+// It also writes <dir>/.ignore (WriteIgnore), and removes
+// .claude/graph-mcp.json, the code graph server's config that older ct
+// versions wrote (a session given it would still start that server).
 //
 // It never sets PATH: a dev workspace's built ct goes first on the PATH
 // the session starts with (launcher.Session's PathFirst), not on a copy of
@@ -92,11 +90,7 @@ func WriteSettings(dir string, extraDeny ...string) error {
 	for _, r := range extraDeny {
 		deny = append(deny, r)
 	}
-	// Claude gives an MCP server MCP_TIMEOUT (default 30s) to start, then
-	// goes on without it; a session waits for a server still starting when
-	// it needs its tools, so give the code graph's (which loads every main
-	// clone's graph) 10 minutes rather than lose it
-	env := map[string]any{"MCP_TIMEOUT": "600000"}
+	env := map[string]any{}
 	for k, v := range GoEnv(dir) {
 		env[k] = v
 	}
@@ -118,6 +112,9 @@ func WriteSettings(dir string, extraDeny ...string) error {
 	if err := WriteIgnore(dir); err != nil {
 		return err
 	}
+	if err := os.Remove(filepath.Join(dir, ".claude", "graph-mcp.json")); err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	return writeJSON(filepath.Join(dir, ".claude", "settings.json"), settings)
 }
 
@@ -132,9 +129,8 @@ func ReposReadOnly(projectsRoot string) []string {
 }
 
 // CacheDir is a workspace's cache folder, <dir>/.cache: Go's module and
-// build caches (GoEnv). graphify never scans a .cache folder, and .ignore
-// (WriteIgnore) keeps it out of fff and rg (Claude's Grep) searches unless
-// a search names it.
+// build caches (GoEnv). .ignore (WriteIgnore) keeps it out of rg (Claude's
+// Grep) searches unless a search names it.
 func CacheDir(dir string) string { return filepath.Join(dir, ".cache") }
 
 // DevDir is a dev workspace's build of claude-tickets, <dir>/.cache/dev:
@@ -155,16 +151,11 @@ func GoEnv(dir string) map[string]string {
 	}
 }
 
-// ignoreFile is <dir>/.ignore, read by fff and rg (the ignore-file format
-// both share, honoured outside a git repo too): the Go caches, and every
-// graphify-out (the merged graph, the kb clones' and the main clones'), whose
-// JSON and HTML would swamp searches. Ticket worktrees' graphs sit under
-// /.cache/ already. Unanchored: a kb clone's graphify-out is only
-// git-ignored by the user's global excludes, which a sandbox may not have.
+// ignoreFile is <dir>/.ignore, read by rg (honoured outside a git repo
+// too): the workspace's caches.
 const ignoreFile = "# Written by ct; regenerated on every start, so don't edit it.\n" +
-	"# fff and rg (Claude's Grep) skip these unless a search names them.\n" +
-	"/.cache/\n" +
-	"graphify-out/\n"
+	"# rg (Claude's Grep) skips these unless a search names them.\n" +
+	"/.cache/\n"
 
 // WriteIgnore writes <dir>/.ignore.
 func WriteIgnore(dir string) error {
@@ -303,35 +294,4 @@ func trusted(file, dir string) bool {
 		} `json:"projects"`
 	}
 	return json.Unmarshal(data, &cfg) == nil && cfg.Projects[dir].HasTrustDialogAccepted
-}
-
-// WriteGraphMCP writes <dir>/.claude/graph-mcp.json, the MCP config of the
-// workspace's code graph (ct graph mcp <dir>, as the graphify server), and
-// returns its path. A ct on PATH is named bare, not by the path LookPath
-// found: the session may run where that path doesn't exist (a container
-// with its own PATH), and resolves ct on its own PATH instead.
-func WriteGraphMCP(dir, vault string) (string, error) {
-	return WriteGraphMCPWith(dir, vault, "")
-}
-
-// WriteGraphMCPWith is WriteGraphMCP with the server run by the ct at path
-// ct when not "": a dev workspace's built ct (inside the workspace, so
-// wherever the session runs, that path is there too).
-func WriteGraphMCPWith(dir, vault, ct string) (string, error) {
-	if ct == "" {
-		ct = "ct"
-		if _, err := exec.LookPath(ct); err != nil {
-			if ct, err = os.Executable(); err != nil {
-				return "", err
-			}
-		}
-	}
-	file := filepath.Join(dir, ".claude", "graph-mcp.json")
-	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
-		return "", err
-	}
-	return file, writeJSON(file, map[string]any{"mcpServers": map[string]any{"graphify": map[string]any{
-		"type": "stdio", "command": ct, "args": []string{"graph", "mcp", dir},
-		"env": map[string]string{"CLAUDE_TICKETS_VAULT": vault},
-	}}})
 }

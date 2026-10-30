@@ -31,11 +31,8 @@ the vault (`<source>`: the note's `source:`, e.g. `jira`; the workspace `CLAUDE.
   the ticket worktrees: those are the user's manual steps. You add and remove only task worktrees under `<ws>/tasks/`, and delete
   only merged task branches, with `git merge-base --is-ancestor <b> HEAD && git update-ref -d refs/heads/<b>` (never `git branch -d`: a sandboxed main clone's `.git/config` is read-only). Shell commands that don't read input get `</dev/null` (heredoc-fed ones excepted), so none waits on stdin until the tool times out.
 - **No paid Rovo calls** (the vault's `AGENTS.md`, "Cost guard").
-- **Graph first for structure:** the `graphify` tools hold every repo, with this ticket's
-  worktrees in place of their main clones (ids prefixed `<slug>::`); task worktrees aren't in
-  it. For files and content, the fff tools (`mcp__fff__find_files`, `mcp__fff__grep`,
-  `mcp__fff__multi_grep`) when available, else `rg`, scoped to the ticket worktree's path (fff
-  indexes all of `<ws>`, `tasks/` included). Read files by section or line range.
+- **Search:** Glob and Grep for files and content, scoped to the ticket worktree's path
+  (`<ws>` holds `tasks/` copies too); other repos are read in their main clones. Read files by section or line range.
 
 ## 0. Resume (always first; ≤3 calls)
 1. `rg -n '^- \[.\] [0-9]+ · |^(status|wave|last-reviewed):' tickets/<source>/<ID>/board.md tickets/<source>/<ID>/<ID>.md`
@@ -76,8 +73,8 @@ state `copied`), or ask (the gate). A clarify round (`tickets:clarify`, run by t
    `## Waves`, `## Relationships`, `## Root cause` (bugs), `## Risks`.
    Ticket-wide rules that aren't the repo's own (local stack, test DBs and the env a check
    needs, data never to touch) go in `conventions.md` (`##` per topic); task files cite sections. The test DB env (DSN variable, how to start the stack) goes in `## Test DB`.
-4. Pick files with graphify (`query_graph`, `shortest_path`, `get_neighbors`), confirm exact
-   paths with fff/rg, and write wave 1 as 2–6 task files `tasks/<ID>-NN-<slug>.md` (frontmatter
+4. Pick files with Grep (the ticket's key terms, then the callers of what they find), and
+   write wave 1 as 2–6 task files `tasks/<ID>-NN-<slug>.md` (frontmatter
    `id`, `ticket`, `wave`, `repo`, `agent`, `depends_on`, `owns`, `branch`, `worktree`,
    `context_budget`, `contracts`, `db: none|heavy`, `fixes: [B-nn, W<N>-<repo>-<M|S|C>nn]` (set when planning a fix), optional `skills: [tickets:diagnose]`; body `## Goal` ≤5 lines, `## Do` ≤25, `## Checks`,
    `## Done when` ≤5). `owns` is exact repo-relative files or `dir/**`. Write each task file with the Write tool or a quoted heredoc (`<<'EOF'`), never an unquoted heredoc (backticks and `$` expand); substitute values afterwards. With a `board.md ## Specs` list, plan from its `ready` capabilities and cite requirement IDs, not contracts (`specs.md`).
@@ -147,7 +144,7 @@ One reviewer per repo the wave touched, all in one `Spawn:` block: `tickets:revi
 `tickets:reviewer-deep` only for risky waves (security, sandbox, git, data moves, contracts). With specs, one per capability, whose prompt adds the requirement IDs and `ct spec diff` (`specs.md`, "Review"). Prompt:
 ticket, wave N, slug, ticket worktree, range `<last-reviewed>..<head sha>` (first wave:
 `git merge-base <base> HEAD`), the previous fix-task IDs and review file, `conventions.md ## Test DB` (the reviewer runs the DB suites with it), and a ≤5-line impact
-note from graphify `get_neighbors` on the changed symbols (`git diff --stat <range>` for the
+note from searching for the callers of the changed symbols (`git diff --stat <range>` for the
 files). It writes `reviews/wave-N-<slug>.md` and replies to the PO, who tells you once, when
 all the wave's reviews are written ("wave 2 reviews written: <slug>, <slug>"): per file read the
 summary and finding lines, add a `## Reviews` bullet (`- w<N> · <repo> · <from>..<to> · M/S/C <m>/<s>/<c> · [[wave-N-<slug>]] · fix tasks <NN, …|lead <sha>|->`),

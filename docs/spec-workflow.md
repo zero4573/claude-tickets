@@ -97,7 +97,7 @@ sequenceDiagram
 4. Analyze (read-only); findings become tickets.
 
 `/tickets:spec-init <dir>` bootstraps a repo's specs as a ticket: gather the project
-notes, graph communities, docs and tests; gate on a capability list the user approves;
+notes, the code layout, docs and tests; gate on a capability list the user approves;
 one subagent per capability drafts `spec.md` with `inferred` requirements; then
 `specs/README.md` and a `docs/architecture.md` skeleton. It is shallow on purpose.
 
@@ -142,7 +142,7 @@ fills it.
 | `ct spec` | the planning and question session (replaces the old `ct kb`) |
 | `ct spec location`, `check`, `diff [--stat] <ID>` | location, checks, the ticket's spec change in every repo |
 | `ct spec start`, `promote`, `pin`, `log`, `show` | vault spec versions, see [spec versions](spec-versions.md) |
-| `ct spec repo checkout, fetch, ls, graph, reset` | exploration clones for building and testing, never committed |
+| `ct spec repo checkout, fetch, ls, reset` | exploration clones for building and testing, never committed |
 
 `ct vault search` indexes each main clone's `specs/` and the vault's own, and skips the
 version snapshots (`specs-base/`, `specs-after/`, `specs-stage/`): old copies would

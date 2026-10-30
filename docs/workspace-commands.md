@@ -2,7 +2,7 @@
 
 `ct ws` manages the git worktrees of ticket workspaces. A workspace is
 `<workRoot>/<ID>/` with one worktree per repo (branched from the repo's base), task
-worktrees under `tasks/`, `workspace.json` and `.cache/`. Layout and graphs are in
+worktrees under `tasks/`, `workspace.json` and `.cache/`. The layout is in
 [workspaces and the vault](workspace-and-vault.md); the hardening git runs under is in
 [git hardening](git-hardening.md).
 
@@ -20,7 +20,7 @@ flowchart LR
 | Command | Does |
 |---|---|
 | `ct ws repos` | list the main clones: slug and `<provider>/<owner>/<repo>` |
-| `ct ws clone <provider>/<owner>/<repo>` or `--url <git url>` | clone into `<projectsRoot>/<provider>/<owner>/<repo>` and build its graph |
+| `ct ws clone <provider>/<owner>/<repo>` or `--url <git url>` | clone into `<projectsRoot>/<provider>/<owner>/<repo>` |
 | `ct ws add <ID> <repo> --base <branch> ...` | create or reuse the ticket's worktree |
 | `ct ws ls [<ID>]` | worktrees: branch, uncommitted changes, ahead/behind the base |
 | `ct ws diff <ID> [--stat]` | everything changed on the ticket's branches since they left the base |
@@ -40,8 +40,7 @@ ticket and `feature/<description>` for a manual one (so `--desc` or `--branch` i
 required there); a branch another workspace already records for that repo is refused.
 `--branch` checks out an existing branch instead (an open PR's source) and `--base` is
 then what it merges into. It copies untracked files matching the main clone's
-`.worktreeinclude` (such as `.env`), seeds the worktree's code graph from the main clone
-and records repo, base, branch and target version in `workspace.json`. It only creates
+`.worktreeinclude` (such as `.env`) and records repo, base, branch and target version in `workspace.json`. It only creates
 worktrees; it no longer falls back to a shared clone (older workspaces' shared clones still
 work). A session clones a new repo with `ct ws clone` first.
 
@@ -61,10 +60,8 @@ push or stash the work, or remove the directory by hand.
 - workspaces of tickets whose note says `done` or `closed` and that are idle for N days
   (default 14), through the same guards as `rm`. A workspace kept for dirty or unpushed
   work is listed in a follow-up note in the vault's `inbox/`;
-- merged graphs and caches of sessions that aren't running (a stopped session's `.cache`
-  goes too; the next start re-seeds each worktree graph from its main clone);
-- idle `ct spec` exploration clones;
-- graphify's dated snapshots older than a week.
+- the `.cache` of sessions that aren't running (Go's caches refill when next used);
+- idle `ct spec` exploration clones.
 
 A session counts as running when its process (`ct start`, `ct teach`, `ct spec`) is alive on
 this host, else when its hook state (`.agent-state`) is under a day old and not exited.

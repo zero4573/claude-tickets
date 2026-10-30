@@ -13,8 +13,6 @@ let
     CLAUDE_TICKETS_SESSION_SETTINGS = if cfg.sessionSettings == { } then null else "${settingsFile}";
     CLAUDE_TICKETS_MCP_CONFIG = cfg.mcpConfig;
     CLAUDE_TICKETS_MCP_PREPARE = cfg.mcpPrepare;
-    CLAUDE_TICKETS_CONTAINER = cfg.container;
-    CLAUDE_TICKETS_SYSTEMD_SLICE = cfg.systemdSlice;
     CLAUDE_TICKETS_EDITOR = cfg.editor;
     CLAUDE_TICKETS_TASKS_URL = cfg.tasksUrl;
     OBSIDIAN_ROOT = config.programs.claude-tickets.obsidian.vaultRoot or null;
@@ -36,7 +34,7 @@ in
       type = lib.types.listOf lib.types.package;
       default = built.sessionTools;
       readOnly = true;
-      description = "The commands sessions run themselves (ct: ct ws, ct spec repo, ct new, ct graph mcp, ct vault lock, ct vault links), e.g. for a sandbox's PATH.";
+      description = "The commands sessions run themselves (ct: ct ws, ct spec repo, ct new, ct vault lock, ct vault links), e.g. for a sandbox's PATH.";
     };
 
     claude = lib.mkOption {
@@ -68,13 +66,13 @@ in
     container = lib.mkOption {
       type = lib.types.nullOr (lib.types.enum [ "podman" "docker" ]);
       default = null;
-      description = "Container runtime for the code graph (CLAUDE_TICKETS_CONTAINER); detected when null.";
+      description = "Unused: ct no longer runs containers. Kept so existing configurations still evaluate; setting it only warns.";
     };
 
     systemdSlice = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
-      description = "systemd user slice the graph containers run in (CLAUDE_TICKETS_SYSTEMD_SLICE).";
+      description = "Unused: ct no longer runs containers. Kept so existing configurations still evaluate; setting it only warns.";
     };
 
     editor = lib.mkOption {
@@ -93,5 +91,8 @@ in
 
   config = lib.mkIf cfg.enable {
     home.packages = [ cfg.package ];
+    warnings =
+      lib.optional (cfg.container != null) "programs.claude-tickets.container is unused (ct no longer runs containers); remove it."
+      ++ lib.optional (cfg.systemdSlice != null) "programs.claude-tickets.systemdSlice is unused (ct no longer runs containers); remove it.";
   };
 }

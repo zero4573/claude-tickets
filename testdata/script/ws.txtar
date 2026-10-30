@@ -11,11 +11,10 @@ exec git -C seed commit -q -m init
 exec git clone -q --bare seed remote/acme/billing.git
 exec git -C seed remote add origin $WORK/remote/acme/billing.git
 
-# clone: into ~/Projects/<provider>/<owner>/<repo>, then its graph
+# clone: into ~/Projects/<provider>/<owner>/<repo>
 exec ct ws clone github/acme/billing
 stdout 'cloned github/acme/billing \(slug github-acme-billing\)'
 exists home/Projects/repo-a/github/acme/billing/.git
-grep 'sh -s -- github/acme/billing' calls/podman
 exec ct ws clone github/acme/billing
 stdout 'already cloned'
 # a pre-existing directory is never touched, even when git clone fails
@@ -55,16 +54,9 @@ stdout '^github-acme-billing +github/acme/billing$'
 
 # add: a worktree on feature/<ID>-<desc>, with the .worktreeinclude files
 cp env home/Projects/repo-a/github/acme/billing/.env
-mkdir home/Projects/repo-a/github/acme/billing/graphify-out
-cp env home/Projects/repo-a/github/acme/billing/graphify-out/graph.json
 exec ct ws add MAN-1 github-acme-billing --base main --desc 'Fix the Thing' --version 2.1
 stdout 'created .*/work-a/MAN-1/github-acme-billing \(worktree\) on feature/fix-the-thing \(from origin/main\)'
 exists home/Projects/work-a/MAN-1/github-acme-billing/.env
-# the worktree's code graph is seeded outside it: nothing graphify-related in the checkout
-exists home/Projects/work-a/MAN-1/.cache/graphify/github-acme-billing/graphify-out/graph.json
-! exists home/Projects/work-a/MAN-1/github-acme-billing/graphify-out
-exec git -C home/Projects/work-a/MAN-1/github-acme-billing status --ignored --short
-! stdout graphify
 grep '"branch": "feature/fix-the-thing"' home/Projects/work-a/MAN-1/workspace.json
 grep '"mode": "worktree"' home/Projects/work-a/MAN-1/workspace.json
 grep '"targetVersion": "2.1"' home/Projects/work-a/MAN-1/workspace.json
@@ -138,7 +130,6 @@ stderr 'github-acme-billing not removed'
 stderr 'untracked files: untracked.txt'
 exists home/Projects/work-a/MAN-1/workspace.json
 rm home/Projects/work-a/MAN-1/github-acme-billing/untracked.txt
-mkdir home/Projects/work-a/MAN-1/github-acme-billing/graphify-out
 # the Go module cache (read-only folders, as go leaves them) goes too
 mkdir home/Projects/work-a/MAN-1/.cache/go/pkg/mod/example.com/m@v1/sub
 chmod 0555 home/Projects/work-a/MAN-1/.cache/go/pkg/mod/example.com/m@v1
@@ -397,6 +388,5 @@ changed
 # billing
 -- seed/.gitignore --
 .env
-graphify-out/
 -- seed/.worktreeinclude --
 .env

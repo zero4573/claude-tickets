@@ -43,7 +43,7 @@ func overrideContainer() {
 	}
 }
 
-// stubs are fake tools on PATH: claude, podman, notify-send and editor
+// stubs are fake tools on PATH: claude, notify-send and editor
 // record their arguments in $WORK/calls/<name>.
 var stubs = map[string]string{
 	// claude: one line of arguments per run (and its cwd, vault, dev bin,
@@ -71,7 +71,7 @@ esac
 case " $* " in
   *" -p "*)
     echo '{"type":"system","subtype":"init"}'
-    printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"Looking."},{"type":"tool_use","name":"mcp__graphify__query_graph","input":{"query":"billing\nflow"}}]}}'
+    printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"Looking."},{"type":"tool_use","name":"Grep","input":{"pattern":"billing\nflow"}}]}}'
     echo '{"type":"result","is_error":false,"result":"It flows."}' ;;
 esac
 `,
@@ -99,34 +99,6 @@ case "$*" in
     fi ;;
 esac
 exec "$REAL_GIT" "$@"
-`,
-	// podman: images are "built" by touching $WORK/podman-built, export
-	// gives a filesystem with the graphify server, and run (ct graph index)
-	// reports each repo after "--" as ok, or as failed with $WORK/index-fail
-	"podman": `#!/bin/sh
-echo "$@" >> "$WORK/calls/podman"
-case "$1" in
-  info|rm) ;;
-  image) [ -f "$WORK/podman-built" ] ;;
-  build) touch "$WORK/podman-built" ;;
-  create) echo cid1 ;;
-  export)
-    mkdir -p "$WORK/fakeroot/opt/graphify"
-    echo '#!/bin/sh' > "$WORK/fakeroot/opt/graphify/serve.sh"
-    chmod +x "$WORK/fakeroot/opt/graphify/serve.sh"
-    tar -C "$WORK/fakeroot" -cf - . ;;
-  run)
-    cat > /dev/null
-    seen=0
-    for a in "$@"; do
-      if [ $seen = 1 ]; then
-        echo "== $a"
-        if [ -f "$WORK/index-fail" ]; then echo "   failed"; else echo "   ok"; fi
-      fi
-      [ "$a" = -- ] && seen=1
-    done
-    [ ! -f "$WORK/index-fail" ] ;;
-esac
 `,
 }
 
@@ -225,16 +197,6 @@ func TestScripts(t *testing.T) {
 					return err
 				}
 			}
-			// The graphify image's sources (only hashed: podman is a stub)
-			graphDir := filepath.Join(work, "graph-src")
-			if err := os.MkdirAll(graphDir, 0o755); err != nil {
-				return err
-			}
-			for _, f := range []string{"Containerfile", "graphify-requirements.txt", "serve.sh", "ticket-merge.py"} {
-				if err := os.WriteFile(filepath.Join(graphDir, f), []byte(f+"\n"), 0o644); err != nil {
-					return err
-				}
-			}
 			plugin := filepath.Join(work, "plugin")
 			if err := os.MkdirAll(filepath.Join(plugin, ".claude-plugin"), 0o755); err != nil {
 				return err
@@ -267,8 +229,6 @@ func TestScripts(t *testing.T) {
 				env.Setenv("GIT_"+who+"_EMAIL", "jane@example.com")
 			}
 			env.Setenv("CT_TEST_CONTAINER", "0")
-			env.Setenv("CLAUDE_TICKETS_CONTAINER", "podman")
-			env.Setenv("CLAUDE_TICKETS_GRAPH_DIR", graphDir)
 			// ct vault init never reaches the real Tasks releases: this
 			// refuses at once (faketasks serves a fake one)
 			env.Setenv("CLAUDE_TICKETS_TASKS_URL", "http://127.0.0.1:1/tasks")

@@ -18,7 +18,6 @@ import (
 	"github.com/zero4573/claude-tickets/internal/config"
 	"github.com/zero4573/claude-tickets/internal/fsx"
 	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/graph"
 	"github.com/zero4573/claude-tickets/internal/modelcache"
 	"github.com/zero4573/claude-tickets/internal/note"
 	"github.com/zero4573/claude-tickets/internal/repo"
@@ -42,7 +41,6 @@ It runs a Claude session (the spec skill) with:
     session explores branches in its own clones (ct spec repo), where it may
     build and test, but never commits or pushes
   * ct new, to turn issues it finds into manual tickets
-  * one code graph (graphify) merged from all the main clones
   * the MCP servers your claude command provides
 
 Unknowns get investigated. What's learned is drafted into the vault's
@@ -81,9 +79,8 @@ func specSession(ctx vault.Context, question string, cont, print, fetch bool) er
 		}
 	}
 	name := filepath.Base(ctx.Vault)
-	// A workspace like a ticket's, but with no repos of its own: its graph
-	// (ct graph mcp) then merges every main clone (hidden, so ct status and
-	// ct ws ls skip it)
+	// A workspace like a ticket's, but with no repos of its own (hidden, so
+	// ct status and ct ws ls skip it)
 	dir := filepath.Join(ctx.WorkRoot, ".spec-"+name)
 	// The workspace was once called .kb-<vault>: keep its clones
 	if moved, err := workspace.Migrate(filepath.Join(ctx.WorkRoot, ".kb-"+name), dir); err != nil {
@@ -116,19 +113,9 @@ func specSession(ctx vault.Context, question string, cont, print, fetch bool) er
 		return err
 	}
 
-	argv, err := session.Command(ctx.Vault, ctx.ProjectsRoot, filepath.Join(config.CacheDir(), "graphify"), modelcache.Dir())
+	argv, err := session.Command(ctx.Vault, ctx.ProjectsRoot, modelcache.Dir())
 	if err != nil {
 		return err
-	}
-	if _, err := graph.Build(false); err == nil {
-		mcp, err := session.WriteGraphMCP(dir, ctx.Vault)
-		if err != nil {
-			return err
-		}
-		argv = append(argv, "--mcp-config", mcp)
-	} else {
-		warnf("%v", err)
-		warnf("the graphify image couldn't be built; starting without the code graph")
 	}
 	argv = append(argv, "--permission-mode", "auto")
 	if cont {
@@ -171,11 +158,9 @@ func specClaudeMD(ctx vault.Context, dir, sessionID string) string {
 		"  fetched from their remotes when this session started. `ct ws repos`\n"+
 		"  lists every repo with its slug.\n"+
 		"- **Exploring branches:** `ct spec repo checkout <repo> [<branch>|<tag>|<commit>]`\n"+
-		"  gives you an exploration clone at `%[3]s/<slug>` on that ref. The code graph\n"+
-		"  swaps it in for the main clone and rebuilds it as the checkout changes.\n"+
-		"  `ct spec repo fetch` refreshes remote branches, `ct spec repo graph <repo>` forces a\n"+
-		"  rebuild, `ct spec repo ls` shows what's checked out, `ct spec repo reset` drops\n"+
-		"  clones.\n"+
+		"  gives you an exploration clone at `%[3]s/<slug>` on that ref.\n"+
+		"  `ct spec repo fetch` refreshes remote branches, `ct spec repo ls` shows\n"+
+		"  what's checked out, `ct spec repo reset` drops clones.\n"+
 		"- **Experiments are fine, changes aren't kept:** in your exploration clones\n"+
 		"  you may edit, build, run tests and add debug output to check how something\n"+
 		"  behaves. Those edits stay in this session: never commit or push (both\n"+
@@ -187,11 +172,9 @@ func specClaudeMD(ctx vault.Context, dir, sessionID string) string {
 		"  skill), so the work goes through the ticket workflow.\n"+
 		"- `ct vault groups %[1]s` shows which projects work together (groups,\n"+
 		"  `depends-on`) and which are unrelated.\n"+
-		"- Code graph: the `graphify` MCP server holds every repo, with node ids\n"+
-		"  prefixed by the repo's slug (`bitbucket-acme-billing-service::…`).\n"+
-		"- Follow the `spec` skill: answer from the vault, then the graph, then the\n"+
-		"  code. Investigate unknowns, draft what you learn into `%[1]s/inbox/`,\n"+
-		"  and run `/tickets:save` before the session ends to promote the drafts.\n"+
+		"- Follow the `spec` skill: answer from the vault, then the code. Investigate\n"+
+		"  unknowns, draft what you learn into `%[1]s/inbox/`, and run\n"+
+		"  `/tickets:save` before the session ends to promote the drafts.\n"+
 		"- Session id (put it in the `session:` field of your inbox/ drafts):\n"+
 		"  `%[4]s`\n",
 		ctx.Vault, ctx.ProjectsRoot, dir, sessionID)
@@ -270,9 +253,8 @@ func specRepoCmd() *cobra.Command {
 		Short: "Exploration clones of a spec session (inside one)",
 		Long: `Exploration clones for a spec session: look at any branch or commit of a repo
 without touching its main clone (read-only here). Each is a shared clone (it
-borrows the main clone's objects) at <workRoot>/.spec-<vault>/<slug>, registered in the session's workspace.json, so
-the session's code graph swaps it in for the main clone and rebuilds it as
-the checkout changes. A <repo> is a slug or <provider>/<owner>/<repo>.
+borrows the main clone's objects) at <workRoot>/.spec-<vault>/<slug>, registered in the
+session's workspace.json. A <repo> is a slug or <provider>/<owner>/<repo>.
 
 The clones are the session's own: edit, build and test in them as needed to
 check how things behave, but never commit or push (both denied). Edits stay
@@ -344,32 +326,6 @@ checked-out branch is fast-forwarded. Default: every exploration clone.`,
 			return nil
 		}),
 	}
-	graphC := &cobra.Command{
-		Use:               "graph <repo>",
-		Short:             "Rebuild the repo's code graph now",
-		Args:              cobra.ExactArgs(1),
-		ValidArgsFunction: completeRepos,
-		RunE: with(func(ctx vault.Context, dir string, args []string) error {
-			r, err := specRepoOf(ctx, dir, args[0])
-			if err != nil {
-				return err
-			}
-			if !r.exists() {
-				return fmt.Errorf("%s has no exploration clone (ct spec repo checkout %s)", r.slug, r.slug)
-			}
-			out := filepath.Join(r.path, "graphify-out")
-			if err := os.MkdirAll(out, 0o755); err != nil {
-				return err
-			}
-			now := time.Now()
-			if err := os.WriteFile(filepath.Join(out, ".rebuild"), nil, 0o644); err != nil {
-				return err
-			}
-			_ = os.Chtimes(filepath.Join(out, ".rebuild"), now, now)
-			fmt.Printf("ct spec repo: asked the graph sidecar to rebuild %s\n", r.slug)
-			return nil
-		}),
-	}
 	ls := &cobra.Command{
 		Use:   "ls",
 		Short: "Exploration clones: what's checked out, how far behind the remote",
@@ -397,7 +353,7 @@ checked-out branch is fast-forwarded. Default: every exploration clone.`,
 	}
 	reset := &cobra.Command{
 		Use:               "reset <repo> | --all",
-		Short:             "Remove exploration clones; the graph falls back to the main clone",
+		Short:             "Remove exploration clones",
 		ValidArgsFunction: completeRepos,
 		RunE: with(func(ctx vault.Context, dir string, args []string) error {
 			ws := workspace.File(dir)
@@ -423,7 +379,7 @@ checked-out branch is fast-forwarded. Default: every exploration clone.`,
 		}),
 	}
 	reset.Flags().BoolVar(&all, "all", false, "remove every exploration clone")
-	cmd.AddCommand(checkout, fetch, graphC, ls, reset)
+	cmd.AddCommand(checkout, fetch, ls, reset)
 	return cmd
 }
 
@@ -444,7 +400,6 @@ func (r specRepo) checkout(ref string, force bool) error {
 		if err := gitx.SharedClone(r.main, r.path); err != nil {
 			return fmt.Errorf("making an exploration clone of %s failed", r.slug)
 		}
-		graph.Seed(r.main, filepath.Join(r.path, "graphify-out"))
 	}
 	r.refresh()
 	if !fresh && gitx.Dirty(r.path) {
@@ -452,7 +407,7 @@ func (r specRepo) checkout(ref string, force bool) error {
 			return fmt.Errorf("%s has local edits; ct spec repo checkout --force %s ... discards them", r.slug, r.slug)
 		}
 		_ = gitx.Run(r.path, "reset", "--quiet", "--hard")
-		_ = gitx.Run(r.path, "clean", "--quiet", "-fd", "-e", "graphify-out/")
+		_ = gitx.Run(r.path, "clean", "--quiet", "-fd")
 	}
 	if ref == "" {
 		ref, _ = gitx.Out(r.path, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
@@ -482,7 +437,7 @@ func (r specRepo) checkout(ref string, force bool) error {
 		return err
 	}
 	fmt.Printf("ct spec repo: %s at %s (%s)\n", r.slug, ref, r.lastCommit())
-	fmt.Printf("ct spec repo: path %s; the code graph picks it up within ~15s\n", r.path)
+	fmt.Printf("ct spec repo: path %s\n", r.path)
 	done = true
 	return nil
 }

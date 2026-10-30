@@ -1,7 +1,7 @@
 # ct spec: a session in ~/work/<vault>/.spec-<vault>
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a
 exec ct spec --no-fetch
-grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a --mcp-config .*/.spec-a/.claude/graph-mcp.json --permission-mode auto$' calls/claude
+grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a --permission-mode auto$' calls/claude
 grep '/home/Projects/work-a/.spec-a$' calls/claude-cwd
 grep '"id": "SPEC"' home/Projects/work-a/.spec-a/workspace.json
 grep '"command": "spec"' home/Projects/work-a/.spec-a/.sessions.json
@@ -22,10 +22,10 @@ grep '--continue /tickets:spec how does billing work$' calls/claude
 exec ct spec --no-fetch -p 'what calls billing?'
 grep ' -p /tickets:spec what calls billing\? --output-format stream-json --verbose$' calls/claude
 stdout '^Looking.$'
-stdout '^  → query_graph  billing flow$'
+stdout '^  → Grep  billing flow$'
 stdout '^It flows.$'
 grep '=== spec .* vault=.*/Obsidian/a: what calls billing\?' home/.local/state/spec-a.log
-grep '^  → query_graph' home/.local/state/spec-a.log
+grep '^  → Grep' home/.local/state/spec-a.log
 ! exec ct spec --print
 stderr '--print needs a question'
 

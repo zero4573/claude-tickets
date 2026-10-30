@@ -20,7 +20,7 @@ import (
 	"github.com/zero4573/claude-tickets/internal/fsx"
 )
 
-// Materialize unpacks an embedded tree (plugin or graph) into the cache,
+// Materialize unpacks an embedded tree (the plugin) into the cache,
 // at <cache>/<name>-<hash>, and returns that directory. The hash covers the
 // files and, for the plugin, the path of this executable (its hooks run ct
 // by that path), so a new version or a moved ct gets a fresh copy. Copies

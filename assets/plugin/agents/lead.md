@@ -1,7 +1,7 @@
 ---
 name: lead
 description: Lead of one ticket's wave workflow, a background subagent of the PO session (/tickets:work-ticket). Plans waves of task files, writes contracts, merges task branches, triages reviews and hands over. It can't spawn agents or ask the user; it asks the PO through the final block of each run (Spawn, Ask user, Status, Next) and relay.md. At most one per ticket.
-tools: Read, Edit, Write, Bash, Grep, Glob, Skill, SendMessage, mcp__graphify__query_graph, mcp__graphify__get_node, mcp__graphify__get_neighbors, mcp__graphify__get_community, mcp__graphify__shortest_path, mcp__graphify__god_nodes, mcp__graphify__graph_stats, mcp__fff__find_files, mcp__fff__grep, mcp__fff__multi_grep
+tools: Read, Edit, Write, Bash, Grep, Glob, Skill, SendMessage
 model: inherit
 skills:
   - tickets:lead

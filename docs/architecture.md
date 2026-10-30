@@ -2,8 +2,8 @@
 
 claude-tickets is one Go binary, `ct`, plus an Obsidian vault the agents use as long-term
 memory. `ct` prepares workspaces and launches Claude Code sessions; the sessions do the
-work, following the plugin's skills. Everything the plugin, the vault scaffold and the
-graph image need is embedded in `ct` (`assets/`) and unpacked to the cache on first use.
+work, following the plugin's skills. Everything the plugin and the vault scaffold need is
+embedded in `ct` (`assets/`); the plugin is unpacked to the cache on first use.
 
 ```mermaid
 flowchart TB
@@ -13,7 +13,6 @@ flowchart TB
   ct --> sess["sessions: internal/launcher, internal/session, internal/prompt"]
   ct --> vaultcmd["vault tools: internal/vault, internal/links, internal/lock, internal/note"]
   ct --> search["search: internal/vsearch, internal/vindex, internal/embed, internal/chunk"]
-  ct --> graph["code graph: internal/graph, internal/container, assets/graph"]
   sync --> vault[("Obsidian vault")]
   vaultcmd --> vault
   search --> vault
@@ -21,7 +20,6 @@ flowchart TB
   sess --> claude["claude (plugin tickets, MCP servers, hooks)"]
   claude --> work
   claude --> vault
-  claude --> graph
   claude -- "status hooks" --> status["ct status, desktop notifications"]
 ```
 
@@ -29,7 +27,7 @@ flowchart TB
 
 | Package | Role |
 |---|---|
-| `internal/cli` | the cobra commands: `start`, `status`, `ws`, `vault`, `spec`, `ticket`, `teach`, `clean`, `sync`, `graph`, `layout`, `claude`, `hook` |
+| `internal/cli` | the cobra commands: `start`, `status`, `ws`, `vault`, `spec`, `ticket`, `teach`, `clean`, `sync`, `layout`, `claude`, `hook` |
 | `internal/workspace` | a ticket workspace: `workspace.json` (repos, bases, branches, target versions), the tidy mark, the live sessions, the `.tool-versions` stamp |
 | `internal/gitx`, `internal/repo` | git helpers (worktrees, unpushed commits), the config allowlist that every git call passes ([git hardening](git-hardening.md)), and the repo slug rules |
 | `internal/spec`, `internal/ticketconv` | the spec parser, diff and vault versions ([spec workflow](spec-workflow.md), [versions](spec-versions.md)); manual-to-synced ticket conversion |
@@ -39,8 +37,7 @@ flowchart TB
 | `internal/vsearch`, `internal/vindex`, `internal/embed`, `internal/chunk`, `internal/modelcache` | the vault search index and its embedding model |
 | `internal/jira`, `internal/followup` | ticket sources and the follow-up notes `ct` leaves |
 | `internal/launcher`, `internal/session`, `internal/watch` | running sessions in the foreground of this terminal, and the session state behind `ct status` |
-| `internal/graph`, `internal/container` | the code graph image (podman or docker) and the stdio MCP server |
-| `internal/scaffold`, `assets/` | the vault scaffold and its hash history, the plugin, the graph sources |
+| `internal/scaffold`, `assets/` | the vault scaffold and its hash history, the plugin |
 
 ## The plugin
 
@@ -50,34 +47,13 @@ flowchart TB
 `analyst`) and hooks are what `ct` passes to `claude` with `--plugin-dir`. The flow is in
 [the ticket workflow](ticket-workflow.md).
 
-## Code graph
-
-Each session's code graph merges the ticket worktrees' graphs with every other repo's main
-clone. A worktree's graph replaces its main clone's, and node ids are prefixed with the repo
-slug. `ct start` runs the merge before a session and `ct graph merge <workspace>` runs it
-on demand; in a dev workspace the session's graph MCP is served by the built `ct` (see
-[Workspaces and the vault](workspace-and-vault.md)).
-
-```mermaid
-flowchart LR
-  main[("main clones: graphify-out")] -- "seed at ws add, and after ws gc" --> wg[("workRoot/ID/.cache/graphify/slug/graphify-out")]
-  wt["ticket worktree"] -- "graphify watch, GRAPHIFY_OUT" --> wg
-  wg --> merge["ticket-merge.py: node ids prefixed with slug"]
-  main --> merge
-  merge --> out[("workRoot/ID/graphify-out/graph.json")]
-  out --> serve["graphify MCP server, hot reload"]
-```
-
-Details of where worktree graphs live are in
-[workspaces and the vault](workspace-and-vault.md#worktree-code-graphs).
-
 ## Layout on disk
 
 - The vault: `tickets/<source>/<ID>/` (note, plan, board, relay, tasks, contracts, reviews),
   `projects/<slug>/`, `knowledge-base/`, `references/`, `inbox/`, `learning/`.
 - The workspace: `<workRoot>/<ID>/` with `CLAUDE.md`, `workspace.json`, `.tool-versions`,
   one worktree per repo at `<ID>/<slug>`, task worktrees under `tasks/`, and `.cache/` (Go
-  modules and the worktree graphs).
+  modules and build caches).
 - Main clones: `<projectsRoot>/<provider>/<owner>/<repo>`; never edited, only their `.git`
   is written so worktrees can be created.
 

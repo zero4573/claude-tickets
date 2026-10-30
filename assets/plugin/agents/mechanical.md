@@ -1,7 +1,7 @@
 ---
 name: mechanical
 description: Small, fully specified ticket task with no design decision (fixture or golden sync, renames, doc rows, follow-ups touching at most 3 files, reruns) in its own git worktree. Spawned by the PO (/tickets:work-ticket) at the lead's request instead of tickets:task.
-tools: Read, Edit, Write, Bash, Grep, Glob, Skill, SendMessage, mcp__fff__find_files, mcp__fff__grep, mcp__fff__multi_grep
+tools: Read, Edit, Write, Bash, Grep, Glob, Skill, SendMessage
 model: sonnet
 effort: low
 skills:

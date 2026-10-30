@@ -60,12 +60,12 @@ every ticket in its `covers` list. Those are the children assigned to the user, 
        blocker's);
      - **go ahead independently**, e.g. against a stub or an agreed interface.
      Record the decision under `## Questions`.
-1. Work out which **local** repos are involved: query the graph with the ticket's key terms
-   (endpoints, entities, error messages, repo names) and use `shortest_path` between repos.
+1. Work out which **local** repos are involved: search the main clones for the ticket's key
+   terms (endpoints, entities, error messages, repo names) with Grep.
    Add the neighbours `ct vault groups <vault> <slug>` shows for each candidate (its
    `depends-on`, used-by and fellow group members) as candidates too. List the repos and
    their slugs with `ct ws repos`.
-2. Look for related repos on **Bitbucket** that aren't cloned yet. The graph only knows about
+2. Look for related repos on **Bitbucket** that aren't cloned yet. The search only covers
    local repos. Use the `atlassian` MCP server (`discover`, then `executeRead`; Bitbucket
    calls need no `cloudId`):
    - `listBitbucketWorkspaces` for the workspaces.
@@ -75,7 +75,7 @@ every ticket in its `covers` list. Those are the children assigned to the user, 
      take the repo from `links.html.href` and the branches from `getBitbucketRepoPullRequest`.
    - `listBitbucketRepositories` with a BBQL `q` per key term, e.g. `name ~ "orders"`. Use
      the repo names, components and labels the ticket mentions, and the names of repos the
-     graph shows talking to the candidates (a client, consumer or shared library).
+     search shows talking to the candidates (a client, consumer or shared library).
 
    A remote repo's slug is `bitbucket-<workspace>-<repo>` and its clone path is
    `~/Projects/bitbucket/<workspace>/<repo>`. Anything not in `ct ws repos` is **not

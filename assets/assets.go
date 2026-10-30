@@ -8,16 +8,14 @@
 //	                       ct has shipped, so ct vault update knows an
 //	                       unedited old copy (generated: go generate ./assets)
 //	plugin/                the Claude Code plugin (skills, task and review agents, hooks)
-//	graph/                 the graphify image's sources (ct graph build)
 //	obsidian/              the Tasks community plugin's pin (tasks-plugin.json)
 //	                       and the workflow's settings for it
 //	                       (tasks-settings.json), what ct vault init installs,
 //	                       shared with nix/obsidian.nix
 //
 // The scaffold and obsidian/ are read straight from the embedded files; the
-// plugin and the graph sources are unpacked to the cache on first use
-// (Materialize), unless the environment points at a copy (the Nix package
-// does).
+// plugin is unpacked to the cache on first use (Materialize), unless the
+// environment points at a copy (the Nix package does).
 package assets
 
 import "embed"
@@ -30,7 +28,7 @@ var Scaffold embed.FS
 //go:embed scaffold-history.json
 var ScaffoldHistory []byte
 
-//go:embed all:plugin all:graph
+//go:embed all:plugin
 var Files embed.FS
 
 //go:embed obsidian

@@ -27,10 +27,8 @@ worktree) names the vault and the ticket.
 3. The contracts your task names: `tickets/<source>/<ID>/contracts/<name>.md` in the vault. A task with `requirements:` (IDs) instead reads those requirements and their capability's `## Interfaces` in the spec (`ct spec diff <ID>` shows the change; `ct spec location <slug>` finds the file), cites each ID in the test that covers it, and never edits `specs/` (the PO does); a spec that is wrong or missing something goes in the report, as a wrong contract does.
 3b. Other vault context (decisions, how a feature works): `ct vault search "<topic>" --project <slug>
    --budget 1500`, then `ct vault note get <note> "<section>"`, not whole notes.
-4. Code by excerpt: find files and symbols with the fff tools (`mcp__fff__find_files`,
-   `mcp__fff__grep`, `mcp__fff__multi_grep`) when available, else `rg` (or the Grep tool),
-   always scoped to your worktree path (fff indexes the whole workspace, so unscoped searches
-   hit the ticket worktree's and other tasks' copies); read line ranges, not whole files. Never read review files whole: grep
+4. Code by excerpt: find files and symbols with Glob and Grep, always scoped to
+   your worktree path (unscoped searches hit the ticket worktree's and other tasks' copies); read line ranges, not whole files. Never read review files whole: grep
    the finding IDs your task names (`rg -n -A6 'W1-<repo>-M01' tickets/<source>/<ID>/reviews/`).
 
 Budget: stop reading once you can act. Track roughly what you've read and written against the

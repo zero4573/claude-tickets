@@ -13,7 +13,7 @@ becomes a `relay.md` entry the lead plans into the next wave; a question that ne
 to `tickets:analyst` (read-only, ≤20-line answers). State lives in the bounded files of
 `tickets/<source>/<ID>/`, so a new session (`ct start <ID>`, a new conversation by default) resumes in a
 few calls; `ct start --continue <ID>` reopens the last one.
-1. **Kickoff:** the user picks the repos (from the code graph, or Bitbucket repos cloned with
+1. **Kickoff:** the user picks the repos (local main clones, or Bitbucket repos cloned with
    `ct ws clone`), the base branch and target version of each. Then the PO **clarifies** with the user
    (`tickets:clarify`): rounds of questions with recommended answers, one round for a clear
    chore, several for a vague feature; facts are looked up, never asked; "skip" ends it.
@@ -53,9 +53,8 @@ warning (150k, 200k, 250k tokens; past 250k on every prompt) appears.
 
 **Agents:** `tickets:task`, `tickets:mechanical`, `tickets:reviewer`, `tickets:analyst`
 (sonnet), `tickets:reviewer-deep` (opus, for contract or security waves), `tickets:lead` (the
-session's model, no Agent tool). None has subagent or Atlassian tools; only the lead and
-analyst have the graph. Search: graphify for structure, the fff tools (`mcp__fff__find_files`,
-`mcp__fff__grep`, `mcp__fff__multi_grep`) for files and content, else `rg`. Older tickets may
+session's model, no Agent tool). None has subagent or Atlassian tools. Search: Glob and Grep for files and
+content. Older tickets may
 hold other files: plain notes. The PO asks the user (status `blocked`, desktop notification) on
 open questions or major tradeoffs, and at `review` with the work committed on the
 ticket branches, not pushed: the user reviews and runs `/tickets:save`, which pushes them

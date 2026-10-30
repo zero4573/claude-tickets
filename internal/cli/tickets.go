@@ -467,3 +467,12 @@ func execReplaceOrRun(path string, argv []string) error {
 	}
 	return nil
 }
+
+// passExit turns a command's exit status into ct's.
+func passExit(err error) error {
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		return exitError(ee.ExitCode())
+	}
+	return err
+}

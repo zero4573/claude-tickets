@@ -31,7 +31,7 @@ stderr 'the session runs in this terminal, and this isn.t one \(stdin/stdout\); 
 # session's own
 exec ct-tty start --no-fetch MAN-1 MAN-1
 stdout '^ct start: MAN-1 runs in this terminal; ct start MAN-1 later continues it$'
-grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a .*--mcp-config .*/MAN-1/.claude/graph-mcp.json --permission-mode auto /tickets:work-ticket MAN-1$' calls/claude
+grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a .*--permission-mode auto /tickets:work-ticket MAN-1$' calls/claude
 ! grep 'read -rp' calls/claude
 grep '/home/Projects/work-a/MAN-1$' calls/claude-cwd
 grep '^CLAUDE_TICKETS_VAULT=.*/Obsidian/a$' calls/claude-env
@@ -133,14 +133,14 @@ stdout '^MAN-7 +manual +idle +in-progress '
 
 # gc: a fresh, not exited .agent-state keeps a finished workspace (gc
 # refuses to run inside a container)
-mkdir home/Projects/work-a/MAN-4/graphify-out
+mkdir home/Projects/work-a/MAN-4/.cache
 expand ws4.json
 cp ws4.json home/Projects/work-a/MAN-4/workspace.json
 cp state-working.json home/Projects/work-a/MAN-4/.agent-state
 exec touch -d '20 days ago' home/Projects/work-a/MAN-4/workspace.json
 [!container] exec ct ws gc
 [!container] ! stdout 'MAN-4'
-[!container] exists home/Projects/work-a/MAN-4/graphify-out
+[!container] exists home/Projects/work-a/MAN-4/.cache
 [!container] exec touch -d '2 days ago' home/Projects/work-a/MAN-4/.agent-state
 [!container] exec ct ws gc
 [!container] stdout 'remove MAN-4 \(done\)'
@@ -148,14 +148,14 @@ exec touch -d '20 days ago' home/Projects/work-a/MAN-4/workspace.json
 
 # gc keeps a finished workspace whose recorded process is alive, even
 # without any hook state
-mkdir home/Projects/work-a/MAN-8/graphify-out
+mkdir home/Projects/work-a/MAN-8/.cache
 expand ws8.json
 cp ws8.json home/Projects/work-a/MAN-8/workspace.json
 exec touch -d '20 days ago' home/Projects/work-a/MAN-8/workspace.json
 live-session home/Projects/work-a/MAN-8
 [!container] exec ct ws gc
 [!container] ! stdout 'MAN-8'
-[!container] exists home/Projects/work-a/MAN-8/graphify-out
+[!container] exists home/Projects/work-a/MAN-8/.cache
 
 # config.json's old launcher key is ignored
 mkdir home/.config/claude-tickets

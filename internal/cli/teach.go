@@ -13,8 +13,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/graph"
 	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/modelcache"
 	"github.com/zero4573/claude-tickets/internal/prompt"
@@ -41,7 +39,6 @@ The session works in <workRoot>/.teach-<vault>/<topic>, whose CLAUDE.md
 names the vault and the topic's folder, with:
   * the vault, where it writes only learning/<topic>/ (under the vault lock)
   * every repo in its projectsRoot, read-only, for examples (not fetched)
-  * one code graph (graphify) merged from all the main clones
   * the MCP servers your claude command provides
 The teach skill keeps the mission, resources, glossary, notes, lessons,
 reference notes, learning records and quizzes there, so each session picks
@@ -141,9 +138,8 @@ func teach(ctx vault.Context, topic string, cont bool) error {
 	}
 	name := "teach-" + topic
 
-	// A workspace with no repos of its own, like kb's: its graph (ct graph
-	// mcp) merges every main clone, and the hooks record its state there.
-	// Hidden, so ct status and ct ws skip it.
+	// A workspace with no repos of its own, like kb's: the hooks record its
+	// state there. Hidden, so ct status and ct ws skip it.
 	dir := filepath.Join(ctx.WorkRoot, ".teach-"+filepath.Base(ctx.Vault), topic)
 	_, err := os.Stat(filepath.Join(dir, ".agent-state"))
 	resume := err == nil && cont
@@ -163,19 +159,9 @@ func teach(ctx vault.Context, topic string, cont bool) error {
 	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(teachClaudeMD(ctx, topic)), 0o644); err != nil {
 		return err
 	}
-	argv, err := session.Command(ctx.Vault, ctx.ProjectsRoot, filepath.Join(config.CacheDir(), "graphify"), modelcache.Dir())
+	argv, err := session.Command(ctx.Vault, ctx.ProjectsRoot, modelcache.Dir())
 	if err != nil {
 		return err
-	}
-	if _, err := graph.Build(false); err == nil {
-		mcp, err := session.WriteGraphMCP(dir, ctx.Vault)
-		if err != nil {
-			return err
-		}
-		argv = append(argv, "--mcp-config", mcp)
-	} else {
-		warnf("%v", err)
-		warnf("the graphify image couldn't be built; starting without the code graph")
 	}
 	argv = append(argv, "--permission-mode", "auto")
 	if resume {
@@ -210,9 +196,7 @@ func teachClaudeMD(ctx vault.Context, topic string) string {
 		"  directly (no `/tickets:save`), holding `ct vault lock acquire %[2]s\n"+
 		"  teach-%[1]s` around writes that touch more than one file.\n"+
 		"- Repos: main clones at `%[3]s/<provider>/<owner>/<repo>`, read-only, for\n"+
-		"  examples. Never edit, commit or push.\n"+
-		"- Code graph: the `graphify` MCP server holds every repo, with node ids\n"+
-		"  prefixed by the repo's slug.\n\n"+
+		"  examples. Never edit, commit or push.\n\n"+
 		"Follow the `teach` skill (`/tickets:teach %[1]s`). `ct teach %[1]s` opens a new\n"+
 		"conversation, which picks up from the topic's notes; `ct teach --continue\n"+
 		"%[1]s` reopens the last one.\n",

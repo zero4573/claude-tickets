@@ -36,8 +36,6 @@ exec ct spec repo checkout --force github-acme-billing main
 ! exec ct spec repo checkout github-acme-billing nope
 stderr 'no branch, tag or commit .nope.'
 cd github-acme-billing
-exec ct spec repo graph github-acme-billing
-exists graphify-out/.rebuild
 exec ct spec repo fetch
 stdout 'github-acme-billing fetched'
 cd ..

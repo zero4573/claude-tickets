@@ -17,8 +17,6 @@ import (
 	"github.com/zero4573/claude-tickets/internal/jira"
 	"github.com/zero4573/claude-tickets/internal/mcp"
 	"github.com/zero4573/claude-tickets/internal/platform"
-	"github.com/zero4573/claude-tickets/internal/prompt"
-	"github.com/zero4573/claude-tickets/internal/repo"
 	"github.com/zero4573/claude-tickets/internal/session"
 	"github.com/zero4573/claude-tickets/internal/vault"
 	"github.com/zero4573/claude-tickets/internal/workspace"
@@ -55,10 +53,7 @@ everything.
 Progress is shown as it happens and logged to
 ` + logPath("ticket-sync-<vault>") + `. Anything left for you to check
 (failed sources or tickets, tickets that left you) goes into a follow-up
-note in the vault's inbox/, as tasks.
-
-Also warns when main clones have no code graph, or one more than 7 days
-old, and offers to run ct graph index.`,
+note in the vault's inbox/, as tasks.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := vault.Require()
@@ -104,31 +99,6 @@ type sourceConf struct {
 	TextFields []string `json:"textFields"`
 }
 
-// staleGraphs warns about main clones with no code graph, or a week-old
-// one, and offers to index them.
-func staleGraphs(ctx vault.Context) {
-	stale := 0
-	for _, c := range repo.MainClones(ctx.ProjectsRoot) {
-		st, err := os.Stat(filepath.Join(ctx.ProjectsRoot, c, "graphify-out", "graph.json"))
-		if err != nil || time.Since(st.ModTime()) >= 8*24*time.Hour {
-			stale++
-		}
-	}
-	if stale == 0 {
-		return
-	}
-	warnf("%d main clone(s) under %s have a missing or week-old code graph", stale, ctx.ProjectsRoot)
-	if prompt.Interactive() {
-		if prompt.YesNo("Run ct graph index now?", "n") {
-			if indexGraphs(ctx, repo.MainClones(ctx.ProjectsRoot)) != nil {
-				warnf("ct graph index failed; syncing anyway")
-			}
-		}
-	} else {
-		warnf("run ct graph index to refresh them")
-	}
-}
-
 func ticketSync(ctx vault.Context, only string, full bool) error {
 	wrote := false
 	noteRel := ""
@@ -172,8 +142,6 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 		fmt.Printf("ct sync: no enabled sources to sync in %s\n", cfgFile)
 		return nil
 	}
-
-	staleGraphs(ctx)
 
 	// The skill and ct sync write ticket notes without listing them: snapshot
 	// tickets/ here and, after a run that wrote something (a source that ran),

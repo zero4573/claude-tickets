@@ -1,5 +1,3 @@
-# The code graph graphify builds of this repo (ct graph index, sessions)
-graphify-out/
 
 # Build output (make, make cross, go build)
 /ct

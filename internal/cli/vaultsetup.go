@@ -15,7 +15,6 @@ import (
 	"github.com/zero4573/claude-tickets/assets"
 	"github.com/zero4573/claude-tickets/internal/clean"
 	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/container"
 	"github.com/zero4573/claude-tickets/internal/fsx"
 	"github.com/zero4573/claude-tickets/internal/links"
 	"github.com/zero4573/claude-tickets/internal/note"
@@ -598,13 +597,13 @@ func obsidianSettings(obs string) error {
 	})
 }
 
-var allSections = []string{"locations", "sources", "runtime"}
+var allSections = []string{"locations", "sources"}
 
 func vaultConfigureCmd() *cobra.Command {
 	var o setupOpts
 	cmd := &cobra.Command{
 		Use:   "configure [<vault>] [--section <name>]... [--missing] [--defaults] [--allow-overlap]",
-		Short: "A vault's settings: locations, ticket sources, container runtime",
+		Short: "A vault's settings: locations, ticket sources",
 		Long: `Configures a vault for the ticket workflow, one section at a time. Every
 prompt shows the current value as its default, so it changes an existing
 vault as easily as it sets up a new one (ct vault init runs it). <vault> is
@@ -625,9 +624,6 @@ Sections (all of them unless --section is given):
              old file is kept as tickets/.sources.json.bak; settings the
              prompts don't cover (other sources, model, textFields) are
              kept.
-  runtime    podman or docker for the code graph, host-wide
-             (` + config.TildePath(config.File()) + `; default: detected,
-             CLAUDE_TICKETS_CONTAINER overrides it)
 
 Without a terminal it runs as with --defaults.`,
 		Args:              cobra.MaximumNArgs(1),
@@ -655,7 +651,7 @@ Without a terminal it runs as with --defaults.`,
 		},
 	}
 	f := cmd.Flags()
-	f.StringArrayVar(&o.sections, "section", nil, "configure only this section: locations, sources or runtime (repeatable)")
+	f.StringArrayVar(&o.sections, "section", nil, "configure only this section: locations or sources (repeatable)")
 	f.BoolVar(&o.missing, "missing", false, "only the sections not configured yet")
 	f.BoolVar(&o.defaults, "defaults", false, "don't prompt: keep sections already configured, write the defaults for the others")
 	f.BoolVar(&o.allowOverlap, "allow-overlap", false, "with --defaults: accept overlapping folders instead of failing")
@@ -691,32 +687,23 @@ func vaultConfigure(v string, o setupOpts) error {
 	fmt.Printf("ct vault configure: %s\n", v)
 	for _, s := range sections {
 		var file string
-		var configured bool
 		switch s {
 		case "locations":
 			file = filepath.Join(v, ".workflow.json")
 		case "sources":
 			file = filepath.Join(v, "tickets", ".sources.json")
-		case "runtime":
-			file = config.File()
-			configured = config.Get("container") != ""
 		}
-		if s != "runtime" {
-			_, err := os.Stat(file)
-			configured = err == nil
-		}
+		_, err := os.Stat(file)
+		configured := err == nil
 		if configured && (o.missing || o.defaults) {
 			fmt.Printf("ct vault configure: kept %s (ct vault configure --section %s to change it)\n", config.TildePath(file), s)
 			continue
 		}
-		var err error
 		switch s {
 		case "locations":
 			err = configureLocations(v, file, o)
 		case "sources":
 			err = configureSources(file, o)
-		case "runtime":
-			err = configureRuntime(o)
 		}
 		if err != nil {
 			return err
@@ -974,48 +961,6 @@ func configureSources(file string, o setupOpts) error {
 		return err
 	}
 	fmt.Printf("ct vault configure: wrote tickets/.sources.json (jira: %t, manual: %t)\n", jira, manual)
-	return nil
-}
-
-func configureRuntime(o setupOpts) error {
-	current := config.Get("container")
-	detected, _ := container.Detect()
-	var rt string
-	if o.defaults {
-		rt = current
-		if rt == "" {
-			rt = detected
-		}
-	} else {
-		fmt.Printf("\nContainer runtime for the code graph (graphify), host-wide (%s).\n", config.TildePath(config.File()))
-		if detected != "" {
-			fmt.Printf("  Detected: %s\n", detected)
-		}
-		def := current
-		if def == "" {
-			def = detected
-		}
-		if def == "" {
-			def = "podman"
-		}
-		for {
-			if rt = prompt.Ask("  podman or docker", def); rt == "podman" || rt == "docker" {
-				break
-			}
-			fmt.Println("  It's podman or docker.")
-		}
-		if _, err := exec.LookPath(rt); err != nil {
-			warnf("%s isn't installed yet", rt)
-		}
-	}
-	if rt == "" {
-		warnf("no container runtime found (podman or docker); the code graph needs one")
-		return nil
-	}
-	if err := config.Set("container", rt); err != nil {
-		return err
-	}
-	fmt.Printf("ct vault configure: container runtime is %s (CLAUDE_TICKETS_CONTAINER overrides it)\n", rt)
 	return nil
 }
 

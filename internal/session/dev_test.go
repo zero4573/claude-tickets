@@ -32,31 +32,6 @@ func TestDevSettingsNeverSetPath(t *testing.T) {
 	}
 }
 
-func TestDevGraphMCPNamesTheBuiltCt(t *testing.T) {
-	dir := t.TempDir()
-	ct := filepath.Join(DevDir(dir), "bin", "ct")
-	file, err := WriteGraphMCPWith(dir, "vault", ct)
-	if err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var cfg struct {
-		MCPServers map[string]struct {
-			Command string   `json:"command"`
-			Args    []string `json:"args"`
-		} `json:"mcpServers"`
-	}
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		t.Fatal(err)
-	}
-	if got := cfg.MCPServers["graphify"]; got.Command != ct || len(got.Args) != 3 || got.Args[2] != dir {
-		t.Errorf("graphify = %+v, want %s graph mcp %s", got, ct, dir)
-	}
-}
-
 func TestDevCommandPlugin(t *testing.T) {
 	t.Setenv("CLAUDE_TICKETS_CLAUDE", "")
 	d := t.TempDir()

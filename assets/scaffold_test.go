@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// shipped is every text file of the vault scaffold and the plugin (not the
-// graph image's sources), by embedded path.
+// shipped is every text file of the vault scaffold and the plugin, by
+// embedded path.
 func shipped(t *testing.T) map[string]string {
 	t.Helper()
 	out := map[string]string{}

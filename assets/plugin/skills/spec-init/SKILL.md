@@ -1,6 +1,6 @@
 ---
 name: spec-init
-description: Bootstrap a repo's living specs from its code (/tickets:spec-init <repo>), in a ct spec session. Gathers the vault notes, graph communities, README, docs and tests, gates a capability list with the user, files an "add specs for <repo>" ticket, has one tickets:spec-writer subagent draft each capability's spec.md (requirements inferred, with file:line and covering tests), and writes specs/README.md and a docs/architecture.md skeleton as drafts in the ticket folder. Shallow on purpose. Use when the user asks to add, bootstrap or write specs for a repo that has none.
+description: Bootstrap a repo's living specs from its code (/tickets:spec-init <repo>), in a ct spec session. Gathers the vault notes, the code layout, README, docs and tests, gates a capability list with the user, files an "add specs for <repo>" ticket, has one tickets:spec-writer subagent draft each capability's spec.md (requirements inferred, with file:line and covering tests), and writes specs/README.md and a docs/architecture.md skeleton as drafts in the ticket folder. Shallow on purpose. Use when the user asks to add, bootstrap or write specs for a repo that has none.
 argument-hint: "<repo slug>"
 ---
 
@@ -16,8 +16,8 @@ when a ticket touches it.
 - `ct vault search "<repo>" --project <slug> --budget 1500`, then `ct vault note get`
   by section: the project notes (features, sequences, data, decisions), `depends-on`,
   groups.
-- The graph: `mcp__graphify__get_community` (and `god_nodes`) on the repo's nodes;
-  communities are candidate capabilities.
+- The code layout: the repo's top-level packages or modules (Glob, `ls`) are
+  candidate capabilities.
 - The repo's README, `docs/`, and its tests (names say what is promised).
 Stop once you can list capabilities; don't read the whole repo.
 
@@ -40,7 +40,7 @@ ticket-folder copy of the vault spec: `<out><capability>/spec.md`; make it first
 `ct spec start <ID> <slug>`, which promote needs); for `specs: repo`,
 `tickets/<source>/<ID>/spec-init/` (the ticket's session copies it into the repo's
 `specs/` after review). Spawn all `tickets:spec-writer` agents in one message, each with:
-the repo slug and path, the capability name and its one line, the graph nodes and files
+the repo slug and path, the capability name and its one line, the packages and files
 you found for it, the repo's `depends-on` (for Interfaces), and the exact output path
 `<out><capability>/spec.md`. They write only that file and report in 5 lines.
 

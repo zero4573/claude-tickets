@@ -51,8 +51,7 @@ Single-repo `sequences/` and `data/` notes and the feature note as a description
 ### Repo slugs
 Every repo is named by its **slug**, `<provider>-<owner>-<repo>` in kebab-case, from its git origin
 (`bitbucket-acme-billing-service`, `github-ato-dotfiles`). It names the project folder and notes,
-the `projects:` and `versions:` entries of tickets, version tags, worktree folders and graph node
-ids; `ct ws repos` lists every slug. Project index notes carry `aliases: [<repo>]`.
+the `projects:` and `versions:` entries of tickets, version tags and worktree folders; `ct ws repos` lists every slug. Project index notes carry `aliases: [<repo>]`.
 
 ### Projects and groups
 Every repo is a **project**, `projects/<slug>/`, and stands alone unless its notes say otherwise.
@@ -200,7 +199,7 @@ these rules (a write outside the session's area is refused, exit 3; `/tickets:sa
    `from-spec`) once you have said yes, and it is yours from then on. A **teach session** owns only
    `learning/<topic>/` and writes it directly, one session per topic, holding the vault lock
    (`ct vault lock acquire <vault> teach-<topic>`) around writes that touch more than one file.
-   **Unattended commands** (`ct sync`, `ct graph index`, `ct ws gc`) write a new
+   **Unattended commands** (`ct sync`, `ct ws gc`) write a new
    `inbox/<date>-<time>-<command>-follow-ups.md` note (`type: follow-ups`) when a run leaves
    something for you: one task per item, listed in `inbox.md`. Agents never edit or promote
    these; they're yours to tick off and delete.

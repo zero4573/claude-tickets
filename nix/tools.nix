@@ -1,5 +1,5 @@
 # The claude-tickets package, for one pkgs: the `ct` binary (Go), the
-# Claude Code plugin and the graphify image sources. Linux and macOS.
+# Claude Code plugin. Linux and macOS.
 { pkgs, lib, env ? { } }:
 let
   inherit (pkgs.stdenv.hostPlatform) isLinux;
@@ -16,10 +16,6 @@ let
     chmod -R u+w $out
     substituteInPlace $out/hooks/hooks.json \
       --replace-fail '"ct hook ' '"${ctHook}/bin/ct hook '
-  '';
-
-  graphSrc = pkgs.runCommand "claude-tickets-graph" { } ''
-    cp -r ${../assets/graph} $out
   '';
 
   version = "0.1.0";
@@ -41,9 +37,9 @@ let
       # The prebuilt llama.cpp library needs libstdc++ and libgomp, which NixOS keeps out of the
       # default search path: ct preloads them from here (CLAUDE_TICKETS_LIB_PATH goes first)
       ++ lib.optional isLinux "-X github.com/zero4573/claude-tickets/internal/embed.DefaultLibPath=${lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]}";
-    # Every package, and the CLI tests (stub claude, podman, editor; real
-    # git, openssh for the tests' SSH-signed commits)
-    nativeCheckInputs = with pkgs; [ coreutils git gnutar openssh ];
+    # Every package, and the CLI tests (stub claude, editor; real git,
+    # openssh for the tests' SSH-signed commits)
+    nativeCheckInputs = with pkgs; [ coreutils git openssh ];
     checkPhase = ''
       runHook preCheck
       go test ./...
@@ -53,11 +49,11 @@ let
   };
 
   # Defaults ct sees unless the environment says otherwise
-  defaultsEnv = { CLAUDE_TICKETS_PLUGIN = plugin; CLAUDE_TICKETS_GRAPH_DIR = graphSrc; } // env;
+  defaultsEnv = { CLAUDE_TICKETS_PLUGIN = plugin; } // env;
 
-  # The tools ct runs: git, tar (unpacking the graph image), fzf (the vault
-  # picker), bash (CLAUDE_TICKETS_MCP_PREPARE) and notify-send (ct sync)
-  tools = with pkgs; [ git coreutils gnutar fzf bash ] ++ lib.optional isLinux pkgs.libnotify;
+  # The tools ct runs: git, fzf (the vault picker), bash
+  # (CLAUDE_TICKETS_MCP_PREPARE) and notify-send (ct sync)
+  tools = with pkgs; [ git coreutils fzf bash ] ++ lib.optional isLinux pkgs.libnotify;
 
   ct = pkgs.runCommand "claude-tickets"
     {
@@ -82,7 +78,7 @@ let
   '';
 in
 {
-  inherit plugin graphSrc llamaRuntimeLibs;
+  inherit plugin llamaRuntimeLibs;
   default = ct;
   # What sessions run themselves (on PATH inside a sandbox, for instance)
   sessionTools = [ ct ];

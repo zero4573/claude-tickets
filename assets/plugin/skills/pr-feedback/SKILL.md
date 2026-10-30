@@ -26,8 +26,7 @@ The ground rules of `work-ticket` apply:
   resolve, approve or edit anything there. Replies are drafted in the vault.
 - **No paid Rovo calls** (the vault's `AGENTS.md`, "Cost guard"): never
   `search` or the Teamwork Graph tools, not even through `executeRead`.
-- **Code:** the `graphify` graph for structure, then the fff tools
-  (`mcp__fff__find_files`, `mcp__fff__grep`) when available, else `rg`.
+- **Code:** Glob and Grep, read by excerpt.
 
 ## 1. Find the PRs
 
@@ -114,7 +113,7 @@ classify it:
 | Kind | What to do |
 |---|---|
 | **change**: a clear request (rename, fix, add a test, handle a case) | apply it |
-| **question**: "would this…?", "why…?" | find out the actual answer, from the code, the graph and by running or writing a test. If the answer shows a bug, it becomes a **change**; otherwise draft an explanation |
+| **question**: "would this…?", "why…?" | find out the actual answer, from the code and by running or writing a test. If the answer shows a bug, it becomes a **change**; otherwise draft an explanation |
 | **suggestion / nit**: optional | apply if it's small and clearly better; otherwise draft a reply saying why not |
 | **disagree**: you think the reviewer is wrong, or the change has real tradeoffs | don't change code; ask the user (below) |
 | **unclear** | ask the user |
@@ -144,7 +143,7 @@ Record the questions and answers in the ticket note's `## Questions`, as
   merged back as in `lead/SKILL.md` "5. Merge" (the `tickets:lead` skill).
 - **Check:** after the changes, run the repo's tests and linters, and add a
   regression test where a comment found a bug. If they touch behaviour other
-  projects depend on (graphify `get_neighbors`), run those callers' tests too.
+  projects depend on (search the other repos for callers), run those callers' tests too.
 - Changes are committed on the PR's branch in the worktree, on top of its
   pushed commits, and not pushed.
 

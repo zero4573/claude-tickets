@@ -1,16 +1,16 @@
 ---
 name: spec
-description: Answer questions about the projects the Obsidian knowledge-base vault describes (repos, how they work together, architecture, data flows, versions, past tickets) from the vault first, then the code graph and code; investigate unknowns (exploring branches and building in its own clones); file manual tickets for issues worth following up; and record what was learned as drafts in the vault's inbox/ for /tickets:save to promote. Use for /tickets:spec <question>, in spec sessions, and in any session started with ct claude, whenever the user asks how something works, where something lives, why it was built that way, or what depends on what.
+description: Answer questions about the projects the Obsidian knowledge-base vault describes (repos, how they work together, architecture, data flows, versions, past tickets) from the vault first, then the code; investigate unknowns (exploring branches and building in its own clones); file manual tickets for issues worth following up; and record what was learned as drafts in the vault's inbox/ for /tickets:save to promote. Use for /tickets:spec <question>, in spec sessions, and in any session started with ct claude, whenever the user asks how something works, where something lives, why it was built that way, or what depends on what.
 ---
 
 # /tickets:spec [question]
 
 The vault is named in the system prompt (`ct claude`) or in `CLAUDE.md`
 (a `spec` or ticket session). If neither names one, the session has no
-knowledge base: say so (relaunch with `ct claude`, or use `ct spec`) and answer from the code graph and code only. Read the vault's
+knowledge base: say so (relaunch with `ct claude`, or use `ct spec`) and answer from the code only. Read the vault's
 `AGENTS.md` once per session. Without a question, ask what the user wants.
 
-## Answer: vault first, then graph, then code
+## Answer: vault first, then code
 
 1. **The vault:** start with `ct vault search "<question>" --budget 2000`
    (`--project <slug>` for one repo), then `ct vault related <note>` on the best
@@ -31,34 +31,30 @@ knowledge base: say so (relaunch with `ct claude`, or use `ct spec`) and answer 
 
    Repos are named by slug, `<provider>-<owner>-<repo>`; a bare repo name
    matches a project note's `aliases`.
-2. **The code graph** (`graphify` MCP server) for structure: where something
-   lives, who calls it, the path between repos (`query_graph`,
-   `shortest_path`, `get_neighbors`). Node ids are prefixed with the slug.
-3. **The code**, read by excerpt to confirm details. Find files and content
-   with the fff tools (`mcp__fff__find_files`, `mcp__fff__grep`,
-   `mcp__fff__multi_grep`) when available, else `rg`. Main clones under
+2. **The code**, read by excerpt: where something lives, who calls it, how
+   repos talk to each other. Find files and content with Glob and Grep. Main clones under
    `~/Projects` are read-only and on whatever branch they're on. In a `spec` session, look at
    another branch, tag or commit with `ct spec repo checkout <repo> <ref>`: an
-   exploration clone in the session that the code graph swaps in and rebuilds.
-   `ct spec repo fetch` gets the latest remote branches, `ct spec repo graph <repo>`
-   forces a rebuild, and `ct spec repo ls` shows what's checked out. The clones
+   exploration clone in the session.
+   `ct spec repo fetch` gets the latest remote branches, and `ct spec repo ls`
+   shows what's checked out. The clones
    are yours to experiment in: build, run tests, add debug output, or try a
    change to confirm a theory. **Never commit or push** (both are denied).
    The edits stay in the session, and `ct spec repo checkout --force` discards
    them. A fix worth keeping becomes a ticket (below), not a commit.
-4. **Atlassian, read-only and free tools only:** Jira issues, Bitbucket PRs,
+3. **Atlassian, read-only and free tools only:** Jira issues, Bitbucket PRs,
    commits and repos, when history or ownership matters. Never use unified
    `search` or the Teamwork Graph tools, which cost Rovo credits.
 
 Answer concisely. Cite the vault notes you used as wikilinks, and the code
 as `path:line` with the repo slug. Say what the answer rests on: notes (may
-be stale), the graph, or the code itself (current on the base branch).
+be stale) or the code itself (current on the base branch).
 Where they disagree, trust the code, and say which note is out of date.
 
 ## Unknowns: triage them
 
 When neither the vault nor a quick look settles it:
-- **Investigate:** trace it through the graph and code, check the repo's
+- **Investigate:** trace it through the code, check the repo's
   history (`git log` in its main clone), and the related tickets and PRs.
 - **Say what couldn't be determined,** and what would settle it: who to
   ask, what to run, which environment to check. Never guess.
@@ -79,7 +75,7 @@ at a ticket source instead (e.g. Jira), run `/tickets:new-ticket`.
    `tickets/manual/MAN-<n>/MAN-<n>.md`.
 3. **Fill it in:**
    - `## Description`: what you found and why it matters, with the
-     evidence (`<slug>:path:line`, graph paths, commits, how to reproduce).
+     evidence (`<slug>:path:line`, call paths, commits, how to reproduce).
    - `## Acceptance criteria`: what "resolved" means.
    - `## Context / links`: related notes and tickets as wikilinks.
    - Frontmatter: `projects: [<slug>, ...]`, `priority` if clear, the
@@ -126,8 +122,7 @@ the conversation itself.
 ## Sessions outside tickets
 `ct claude` in a repo gives the session the default vault (`ct vault default`) as its knowledge
 base, and its system prompt names the vault and the repo's `projects/<slug>/`; a plain `claude`
-session knows nothing of the vault. This skill answers from the vault, then the code graph, then
-the code, and records new or corrected facts as drafts in `inbox/` (`target:`, `session:`).
+session knows nothing of the vault. This skill answers from the vault, then the code, and records new or corrected facts as drafts in `inbox/` (`target:`, `session:`).
 `/tickets:save` in that session writes the project log and promotes the session's drafts;
 `/tickets:recall` works there too. Sessions outside tickets (a repo session, `ct spec`) write only new
 drafts in `inbox/`, each under its own name, until `/tickets:save`; a `spec` session may also create
@@ -168,7 +163,7 @@ Read-only. Without slugs, the repos the session names.
    other repo's spec; exit 1 means findings). Keep each finding with its file and ID.
 2. Then read code for what the command can't see: specs that no longer match the code (a
    requirement or scenario the code contradicts or no longer does), `implemented` requirements
-   whose cited code moved. Use the graph and `rg`, by excerpt; cite `<slug>:path:line`.
+   whose cited code moved. Use Grep, by excerpt; cite `<slug>:path:line`.
 3. Offer each finding as a ticket (AskUserQuestion, one question listing them: file all, pick,
    none) through `/tickets:new-ticket`, or `ct new` in a session with no ticket and the user's yes
    (tag `from-spec`). Never edit a spec in analyze.

@@ -50,7 +50,6 @@ grep '"workRoot": "~/Projects/work-demo"' home/Documents/Obsidian/demo/.workflow
 grep '"projectsRoot": "~/Projects/repo-demo"' home/Documents/Obsidian/demo/.workflow.json
 grep '"idPrefix": "MAN"' home/Documents/Obsidian/demo/tickets/.sources.json
 grep '"servicenow"' home/Documents/Obsidian/demo/tickets/.sources.json
-grep '"container": "podman"' home/.config/claude-tickets/config.json
 
 # re-run: nothing overwritten, settings kept; the user's types win
 cp mytypes.json home/Documents/Obsidian/demo/.obsidian/types.json

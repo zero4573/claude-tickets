@@ -9,8 +9,8 @@ vault).
 claude-tickets: a ticket workflow for Claude Code with an Obsidian vault as
 long-term memory. One Go command, `ct` (`cmd/ct` + `internal/`), a single
 self-contained binary: `assets/` (the vault scaffold, the Claude Code plugin
-in `assets/plugin/`, the graphify image in `assets/graph/`) is embedded in
-it, and the plugin and graph sources are unpacked to the cache on first use
+in `assets/plugin/`) is embedded in it, and the plugin is unpacked to the
+cache on first use
 (`assets.Materialize`). Nix packaging in `nix/` + `flake.nix`;
 `configure` + `Makefile` for systems without Nix; CI in `.github/workflows/`
 (manual-only until the first release). `README.md` is the operator's
@@ -27,8 +27,8 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
   in the README's Configuration table and the home-manager module
   (`nix/home.nix`).
 - **No workflow opinions in the defaults.** Only what the ticket system
-  needs to work goes in `session.WriteSettings` (today: the graph cache is
-  never edited; spec and teach sessions also keep out of the repos; the repo
+  needs to work goes in `session.WriteSettings` (today: ct's cache is never
+  edited; spec and teach sessions also keep out of the repos; the repo
   directory is writable, protected on the host by the sandbox's read-only
   `.git/hooks`, `.git/config` and pointer files of existing clones and by `gitx.Command`, which
   every ct git call uses: the repo's own config is read in Go and refused unless every key is on
@@ -45,7 +45,7 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
 - **One command, `ct`.** Subcommands live in `internal/cli` (one file per
   group), their logic in `internal/<area>`. Every change comes with tests:
   testscript CLI tests in `testdata/script/*.txtar` (stub `claude`,
-  `podman`, `notify-send` and editor commands, real git), unit
+  `notify-send` and editor commands, real git), unit
   tests next to the code. User-facing names are always `ct …`.
 - **Specs over contracts:** a ticket's `contracts/` holds only shapes private to
   its own tasks (an internal signature). What another capability or repo uses
@@ -71,7 +71,6 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
     `internal/launcher` (`Run`: exec where the OS can, a child process
     with ct ignoring Ctrl-C on Windows; `exec_*.go`).
   - process liveness (PID + start time): `internal/proc`.
-  - containers: `internal/container` (`Runtime`, `RunArgs`, `Mount`/`Path`).
   - locks, exec and writability: build-tagged files (`internal/lock`,
     `internal/gitx`, `exec_*.go`).
   - terminal control for `ct status --watch` (VT mode on Windows consoles,
@@ -93,8 +92,7 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
   to tell an unedited old copy in a vault from an edited one, and
   `TestHistoryCoversScaffold` fails until it's run. On a merge conflict in
   the file, take either side and run it again.
-- **Pins** (images by digest, the hashed graphify lock, fetched Obsidian
-  assets) get a row in `UPDATES.md`.
+- **Pins** (fetched libraries and models, Obsidian assets) get a row in `UPDATES.md`.
 
 ## Checking
 

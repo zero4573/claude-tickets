@@ -164,7 +164,7 @@ func CheckCloneAncestors(projectsRoot, dest string) error {
 	return nil
 }
 
-// Slug names a repo wherever the vault or the graph does
+// Slug names a repo wherever the vault does
 // (<provider>-<owner>-<repo>, kebab-case), from <provider>/<owner>/<repo>.
 func Slug(clone string) string { return Kebab(strings.ReplaceAll(clone, "/", "-")) }
 

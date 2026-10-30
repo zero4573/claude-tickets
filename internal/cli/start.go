@@ -12,8 +12,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/graph"
 	"github.com/zero4573/claude-tickets/internal/launcher"
 	"github.com/zero4573/claude-tickets/internal/modelcache"
 	"github.com/zero4573/claude-tickets/internal/note"
@@ -77,8 +75,8 @@ whose session is running, type /tickets:pr-feedback in its terminal.
 --dev <slug> makes the workspace a dev workspace, for a ticket that changes
 claude-tickets itself: at each start ct builds ct from the workspace's
 checkout <slug> (go build, into <workspace>/.cache/dev) and copies its
-plugin there, and its sessions run that ct (first on PATH, and for the code
-graph) and that plugin instead of the installed ones. ct never runs the
+plugin there, and its sessions run that ct (first on PATH) and that plugin
+instead of the installed ones. ct never runs the
 build itself; a running session keeps the build it started with, and ct clean
 saves on the installed ones. It's kept in workspace.json for later starts;
 --dev none clears it.
@@ -235,16 +233,9 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 		}
 	}
 	dirs := sessionDirs(ctx)
-	// The merged code graph of each workspace (ct graph mcp) needs its image
-	graphOK := true
-	if _, err := graph.Build(false); err != nil {
-		warnf("%v", err)
-		warnf("the graphify image couldn't be built; sessions start without the merged code graph")
-		graphOK = false
-	}
 
 	k := launch[0]
-	w, resume, err := prepareSession(ctx, k, skill, dirs, graphOK, o.cont, devRebuild)
+	w, resume, err := prepareSession(ctx, k, skill, dirs, o.cont, devRebuild)
 	if err != nil {
 		return err
 	}
@@ -254,10 +245,10 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 // sessionDirs is what a ticket session works in, given to claude as
 // --add-dir: the vault, the repo directory (writable: ct ws clone and ct ws
 // add's worktrees; one --add-dir, not one per repo, which would grow every
-// session's context), the graph image cache and the embedding model cache
-// (both read-only; each is added only when it exists).
+// session's context) and the embedding model cache (read-only; each is
+// added only when it exists).
 func sessionDirs(ctx vault.Context) []string {
-	return []string{ctx.Vault, ctx.ProjectsRoot, filepath.Join(config.CacheDir(), "graphify"), modelcache.Dir()}
+	return []string{ctx.Vault, ctx.ProjectsRoot, modelcache.Dir()}
 }
 
 // refuseRunning keeps a second session out of a workspace whose session
@@ -334,10 +325,10 @@ func prepareTicketSession(ctx vault.Context, key string, dirs []string, mode dev
 	return dir, argv, nil, err
 }
 
-// prepareSession readies a ticket's workspace (prepareTicketSession, plus the
-// graph MCP config) and builds its session: a new conversation, or with cont
+// prepareSession readies a ticket's workspace (prepareTicketSession) and
+// builds its session: a new conversation, or with cont
 // (--continue) the workspace's last one (resume) when it already ran one.
-func prepareSession(ctx vault.Context, key, skill string, dirs []string, graphOK, cont bool, mode devMode) (launcher.Session, bool, error) {
+func prepareSession(ctx vault.Context, key, skill string, dirs []string, cont bool, mode devMode) (launcher.Session, bool, error) {
 	_, err := os.Stat(filepath.Join(ctx.WorkRoot, key, ".agent-state"))
 	resume := err == nil && cont
 	if cont && !resume {
@@ -348,26 +339,12 @@ func prepareSession(ctx vault.Context, key, skill string, dirs []string, graphOK
 		return launcher.Session{}, false, err
 	}
 	env := map[string]string{"CLAUDE_TICKETS_VAULT": ctx.Vault}
-	devCt, pathFirst := "", ""
+	pathFirst := ""
 	if dev != nil {
-		devCt, pathFirst = dev.ct, dev.bin
+		pathFirst = dev.bin
 		// For a wrapper (sandbox, container) that sets its own PATH: it
 		// prepends this to have the built ct first
 		env["CLAUDE_TICKETS_DEV_BIN"] = dev.bin
-	}
-	if graphOK {
-		// Merged now, however long it takes: the session's server then only
-		// loads it. A failed merge stops here, rather than a session without
-		// the graph
-		fmt.Fprintf(os.Stderr, "ct start: %s: bringing the merged code graph up to date\n", key)
-		if err := graph.Merge(dir, ctx.ProjectsRoot); err != nil {
-			return launcher.Session{}, false, fmt.Errorf("%w (ct graph mcp %s shows the server's own run)", err, dir)
-		}
-		mcp, err := session.WriteGraphMCPWith(dir, ctx.Vault, devCt)
-		if err != nil {
-			return launcher.Session{}, false, err
-		}
-		argv = append(argv, "--mcp-config", mcp)
 	}
 	argv = append(argv, "--permission-mode", "auto")
 	if resume {
@@ -409,7 +386,7 @@ func runForeground(key string, w launcher.Session, resume bool, o startOpts) err
 		command = "feedback"
 	}
 	// Checked again under the record's lock: another ct start of this ticket
-	// may have passed refuseRunning while this one fetched and built the graph
+	// may have passed refuseRunning while this one fetched
 	if err := workspace.ClaimSession(w.Dir, command); err != nil {
 		var running *workspace.RunningError
 		if errors.As(err, &running) {
@@ -454,15 +431,13 @@ func ticketClaudeMD(ctx vault.Context, key, dir string) string {
 		"  them: their `.git` is only writable so `ct ws add` can create\n"+
 		"  worktrees. Each\n"+
 		"  repo's slug is `<provider>-<owner>-<repo>` (`ct ws repos` lists\n"+
-		"  them); the vault and the code graph name repos by slug.\n"+
+		"  them); the vault names repos by slug.\n"+
 		"- Vault tools: `ct vault lock` and `ct vault links` (used by `/tickets:save`).\n"+
 		"  `ct new` files a manual ticket.\n"+
-		"- Code graph: the `graphify` MCP server merges this workspace's worktrees\n"+
-		"  with every other repo's main clone. Query it before reading files.\n"+
 		"- Go: `GOPATH`, `GOMODCACHE` and `GOCACHE` are under `%[5]s/.cache/go`\n"+
 		"  (set in `.claude/settings.json`), so modules are fetched into this\n"+
-		"  workspace. graphify never scans `.cache/`, and `.ignore` keeps it out of\n"+
-		"  fff and Grep searches: name the path to search it.\n"+
+		"  workspace. `.ignore` keeps it out of Grep searches: name the path to\n"+
+		"  search it.\n"+
 		"- Tools: `go`, `gofmt` and `python3` come from `.tool-versions` (asdf), pinned\n"+
 		"  by ct, so don't export `ASDF_*_VERSION`.\n\n"+
 		"- Git: commit your work on the ticket branch in coherent steps (%[8]s).\n"+

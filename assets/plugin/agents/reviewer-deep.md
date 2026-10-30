@@ -1,7 +1,7 @@
 ---
 name: reviewer-deep
 description: Deep wave review of one repo for one ticket, for waves that change a contract or security-sensitive code (auth, secrets, permissions, data migrations). Same brief, caps and output as tickets:reviewer, on a larger model. Spawned by the PO (/tickets:work-ticket) at the lead's request.
-tools: Read, Write, Bash, Grep, Glob, Skill, mcp__fff__find_files, mcp__fff__grep, mcp__fff__multi_grep
+tools: Read, Write, Bash, Grep, Glob, Skill
 model: opus
 skills:
   - tickets:wave-review

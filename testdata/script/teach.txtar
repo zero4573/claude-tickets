@@ -34,7 +34,7 @@ stderr 'the session runs in this terminal, and this isn.t one'
 ! exists calls/claude
 exec ct-tty teach rust-async
 stdout '^ct teach: rust-async runs in this terminal$'
-grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a .*--mcp-config .*/.teach-a/rust-async/.claude/graph-mcp.json --permission-mode auto /tickets:teach rust-async$' calls/claude
+grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a .*--permission-mode auto /tickets:teach rust-async$' calls/claude
 grep '/home/Projects/work-a/.teach-a/rust-async$' calls/claude-cwd
 grep '^CLAUDE_TICKETS_VAULT=.*/Obsidian/a$' calls/claude-env
 grep '"command": "teach"' home/Projects/work-a/.teach-a/rust-async/.sessions.json
