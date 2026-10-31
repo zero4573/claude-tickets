@@ -595,7 +595,8 @@ flowchart TB
   creates it at kickoff and nobody edits it). The ticket note's `## Tasks` has one line
   per phase or wave; `## Questions`, `## Review` and `## Follow-ups` stay
   there. At hand-over the lead runs a short retro (`/tix:retro` runs
-  one any time: fixes to the agents' environment) and offers to turn open
+  one any time: fixes to the agents' environment), writes the changes it finds
+  to tix itself as tasks in the vault's `tix-improvements/`, and offers to turn open
   backlog items into follow-up tickets (`tix new`).
 - **Fresh context:** the PO resumes from `board.md` and `relay.md` in a
   few calls, so a new `tix start <ID>` (a new conversation by default)

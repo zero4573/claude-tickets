@@ -1,6 +1,7 @@
 package assets
 
 import (
+	"io/fs"
 	"strings"
 	"testing"
 )
@@ -66,4 +67,33 @@ func TestRetroLeadTaskAgentSigns(t *testing.T) {
 	retroLeadWant(t, "plugin/skills/task-agent/SKILL.md",
 		"Commit signed (`git commit -S`)",
 		"`--no-gpg-sign` only after a signed commit failed", "under `Checks:`")
+}
+
+// Retro findings about tix itself become tasks in the vault's
+// tix-improvements/, never backlog items or tickets
+func TestRetroTixImprovements(t *testing.T) {
+	for _, p := range []string{"plugin/skills/retro/SKILL.md", "plugin/skills/lead/handover.md"} {
+		retroLeadWant(t, p, "`tix-improvements/`", "the vault's `AGENTS.md`, \"Vault Structure\"")
+		retroLeadNot(t, p, "<repo|plugin|vault>")
+	}
+	retroLeadWant(t, "plugin/skills/retro/SKILL.md",
+		"**Kept `tix` candidates** never become a backlog item or a ticket")
+	retroLeadWant(t, "plugin/skills/lead/handover.md",
+		"written now with no question and named in `## Review`: never a backlog item or a follow-up ticket")
+	data, err := fs.ReadFile(Scaffold, "vault-scaffold/AGENTS.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	agents := strings.Join(strings.Fields(string(data)), " ")
+	for _, s := range []string{
+		"├── tix-improvements/",
+		"`tix-improvements/<yyyy-MM-dd>-<HHmm>-<ID>-retro.md`",
+		"`type: tix-improvements`",
+		"**Exception, retros:**",
+		"the notes in `tix-improvements/`",
+	} {
+		if !strings.Contains(agents, s) {
+			t.Errorf("vault-scaffold/AGENTS.md: missing %q", s)
+		}
+	}
 }

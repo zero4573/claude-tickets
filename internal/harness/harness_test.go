@@ -116,7 +116,8 @@ func TestRenderKiroPlugin(t *testing.T) {
 		}
 		for _, m := range ref.FindAllStringSubmatch(string(data), -1) {
 			name := "tix-" + m[1]
-			if !known[name] && !strings.HasPrefix(name, "tix-tasks") {
+			// tix-improvements is the vault folder, not a skill or agent
+			if !known[name] && !strings.HasPrefix(name, "tix-tasks") && name != "tix-improvements" {
 				t.Errorf("%s names %s, which isn't a rendered skill or agent", p, name)
 			}
 		}

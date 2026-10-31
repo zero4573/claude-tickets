@@ -21,8 +21,12 @@ Over the board lines, the reviews' `## Summary` and finding lines, and the task 
 (`rg -n -A12 '^## Report' tickets/<source>/<ID>/tasks/`), find what would have made this ticket's agents
 faster or safer: navigation pointers, missing or unwired automated checks, reviewer rules
 (mechanical violations get a check instead), `AGENTS.md` no-ops and bloat, tool economy,
-information access. Add **at most 8**, most severe first, to `backlog.md ## Open` as
-`- [ ] B-nn · w<N> · <repo|plugin|vault> · retro: <change> (<evidence: task NN, finding id>) ➕ <date>`. They go
+information access. Add **at most 8**, most severe first. Each one whose change is to tix itself
+(its skills, agents, hooks or a `tix` command) is a task in one new note in the vault's
+`tix-improvements/` (name and format: the vault's `AGENTS.md`, "Vault Structure"),
+written now with no question and named in `## Review`: never a backlog item or a follow-up
+ticket. Add the rest to `backlog.md ## Open` as
+`- [ ] B-nn · w<N> · <repo|vault> · retro: <change> (<evidence: task NN, finding id>) ➕ <date>`. They go
 into the per-item follow-up question (3) with the rest of the backlog.
 
 ## 3. Backlog → follow-up tickets
@@ -58,7 +62,7 @@ Make sure `tickets/<source>/<ID>/kb-drafts/` is complete, each note with a `targ
 - for a lead, one line per covered ticket: what was done for it, and anything left;
 - the waves and their reviews: counts, and any must-fix left open with its reason;
 - tests added and run, with results;
-- open `## Follow-ups` (blockers still waiting on someone) and the new tickets filed after the user's answers (B);
+- open `## Follow-ups` (blockers still waiting on someone), the new tickets filed after the user's answers (B), and the `tix-improvements/` note of the retro (2), if any;
 - remaining risks, and the board's `pending — user` lines: what the user checks by hand.
 
 ## 5b. Acceptance criteria (manual ticket)

@@ -28,6 +28,7 @@ ROOT
 │       ├── spec-draft.md, specs/<slug>/ # the spec change in full; the PO's copy of a vault spec (see "Specs")
 │       └── kb-drafts/, logs/, conventions.md, features-and-deviations.md, investigation.md, pr-feedback.md, PROJ-12-questionnaire-<slug>.md
 ├── learning/<topic>/      # one folder per topic you learn (tix teach; see "Learning topics and finding context")
+├── tix-improvements/      # tix improvements: each change a retro (/tix:retro, the lead's at hand-over) finds to tix itself (its skills, agents, hooks, `tix` commands) is a task here, never a backlog item or ticket: one new note per retro, `tix-improvements/<yyyy-MM-dd>-<HHmm>-<ID>-retro.md` (outside a ticket the repo slug or `session` for `<ID>`; `-2`… when taken), standard frontmatter with `type: tix-improvements`, `tags: [tix, tix-improvement]`, in a ticket `ticket: "[[<ID>]]"`, then one `- [ ] <category> · <change> · <where in tix> · <evidence that stands without the ticket folder> ➕ <date>` per change; yours to tick off and delete, agents never edit one
 ├── inbox/                 # knowledge drafts from non-ticket sessions (promoted by /tix:save),
 │                          #   and follow-up notes (type: follow-ups) unattended commands leave for you
 ├── knowledge-base/, references/, logs/, archive/ # findings, reference material, global logs, tix clean's leavings (never edit)
@@ -106,7 +107,7 @@ each followed by the task name, `➕ yyyy-MM-dd` when created and `✅ yyyy-MM-d
 (`❌ yyyy-MM-dd` when cancelled), e.g. `- [x] task name ➕ 2026-10-25 ✅ 2026-10-26`.
 - **Checkboxes go only in:** the ticket note's `## Tasks` (one line per phase or wave, tagged
   `#ticket/<phase>`: `kickoff`, `plan`, `wave`, `handover`) and `## Follow-ups`, `board.md
-  ## Tasks` (and `board-archive.md ## Tasks`), a review's `## Dispositions`, and `backlog.md`.
+  ## Tasks` (and `board-archive.md ## Tasks`), a review's `## Dispositions`, `backlog.md`, and the notes in `tix-improvements/`.
 - **Everywhere else** in `tickets/<source>/<ID>/` (plan, task files, relay, contracts, kb-drafts,
   investigation, logs, review finding sections, `board.md ## Reviews`) **plain bullets only**:
   the status file lists every checkbox in the folder. No line inside an HTML comment starts
@@ -190,7 +191,7 @@ these rules (a write outside the session's area is refused, exit 3; `/tix:save` 
    project note's `specs:` field, through `tix spec location`, after your answer.
    Agents never file a follow-up ticket on their own: the lead asks you, for items it would not
    fix in this ticket (options: A, this ticket; B, a new ticket; C, an existing ticket (name it); D, leave it in the backlog (backlog items only)), and only for a new ticket runs
-   `tix new` (tag `from-ticket`), writing its initial content.
+   `tix new` (tag `from-ticket`), writing its initial content. **Exception, retros:** any session's retro creates its one new note in `tix-improvements/` (see Vault Structure); no other write there.
    **Exception, lead tickets:** a lead's session also writes the work sections (`## Workspace`,
    `## Tasks`, `## Questions`, `## Follow-ups`, `## Review`) and the `status` of the tickets it
    `covers`, never their content or `source-*` fields.
