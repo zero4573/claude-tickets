@@ -44,7 +44,7 @@ Each printed `<file>: <ID>` (or `open line`: a leftover `open`/`fixing` line) ne
   `skills: [tix:diagnose]`, runs the loop in `## Checks`, and its "Done when" names a
   regression test that fails before the fix.
 - `investigation`: a vault-only task, or you write `investigation.md` (template
-  `investigation`, ≤150 lines); code only if the ticket asks for it.
+  `investigation`, ≤150 lines); code only if the ticket asks for it. Its notes pin the commits they cite (`<repo> `<branch>` @ `<sha>``, in the note or `conventions.md`) and pass `tix cite check` before review.
 - `epic`: one plan over `covers`, scope and acceptance criteria per covered ticket; tasks carry
   `for: "[[ID]]"`; keep each covered ticket's `status` in step with its part of the work.
 

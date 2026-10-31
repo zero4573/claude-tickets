@@ -1,0 +1,114 @@
+# tix cite check: a note's code citations at the pinned commits
+expand gitconfig
+env V=home/Documents/Obsidian/a
+env M=home/Projects/repo-a/github/acme/billing_service
+mkdir $V/.obsidian $V/tickets/manual/PROJ-12
+mkdir $M/pkg/retry
+cp retry.go $M/pkg/retry/retry.go
+exec git -C $M init -q -b main
+exec git -C $M add -A
+exec git -C $M commit -q -m init
+exec sh -c 'git -C "$1" rev-parse HEAD > sha' sh $M
+# the notes name the commit through a placeholder
+exec sh -c 'for f in good bad conventions task; do sed "s/SHA/$(cat sha)/" $f.md > $2/tickets/manual/PROJ-12/$f.md; done' sh $WORK $V
+
+# every citation holds: the repo is found among the main clones by its
+# name (billing-service for billing_service), by path or by note name
+exec tix cite check $V/tickets/manual/PROJ-12/good.md
+! stdout .
+stderr 'tix cite check: 4 citation\(s\), 0 failed'
+exec tix cite check good
+stderr '4 citation\(s\), 0 failed'
+
+# failures: one line each, exit 3
+! exec tix cite check bad
+stdout '^bad:7\t`pkg/retry/retry.go:7-12`\tlines 7-12 are outside pkg/retry/retry.go at [0-9a-f]+ \(8 lines\)$'
+stdout '^bad:9\t\*\*billing-service\*\* · `pkg/retry/retry.go` · `Retry` · lines 3-4\tchunk line 1 differs from line 3: '
+stdout '^bad:14\t`nope.go:1`\tnope.go is not in billing-service at '
+stdout '^bad:15\t`orders:api.ex:2`\tno pinned commit for orders '
+stderr '4 citation\(s\), 4 failed'
+exec sh -c 'tix cite check bad >/dev/null 2>&1; echo "code=$?"'
+stdout '^code=3$'
+
+# --symbols: a caption's symbols must be in its lines
+! exec tix cite check --symbols good
+stdout '^good:14\t.*\tsymbol Jitter is not in lines 7-7 of pkg/retry/retry.go'
+
+# a task file without pins takes them from the conventions note; --pin wins
+! exec tix cite check task
+stdout 'no pinned commit in the note'
+exec tix cite check --pins-from conventions task
+stderr '1 citation\(s\), 0 failed'
+! exec tix cite check --pins-from conventions --pin billing-service=0000000000000000000000000000000000000000 task
+stdout 'is not a commit in'
+
+# --clone instead of the vault's main clones
+exec git init -q elsewhere
+exec git -C elsewhere fetch -q $WORK/$M main
+exec tix cite check --clone billing-service=$WORK/elsewhere good
+stderr '0 failed'
+# a clone tix's git won't run in says why
+exec git clone -q $M localorigin
+! exec tix cite check --clone billing-service=$WORK/localorigin good
+stdout '^good:7\t.*\tcan''t read .*/localorigin: .*remote\.origin\.url'
+
+# usage errors
+! exec tix cite check --pin nope good
+stderr 'wants <repo>=<value>'
+! exec tix cite check missing-note
+stderr 'not found'
+
+-- gitconfig --
+[user]
+	name = Jane Doe
+	email = jane@example.com
+[commit]
+	gpgsign = false
+-- retry.go --
+package retry
+
+func Retry(n int) error {
+	if n < 0 {
+		return nil
+	}
+	return backoff(n)
+}
+-- good.md --
+---
+title: good
+---
+# Retry
+Pinned: billing-service `main` @ `SHA`.
+
+**billing-service** · `pkg/retry/retry.go` · `Retry` · lines 3-8
+```go
+func Retry(n int) error {
+	// …
+	return backoff(n)
+}
+```
+**billing-service** · `pkg/retry/retry.go` · `retry.Jitter` · lines 7-7
+
+Inline: `retry.go:4-6` and `billing-service:pkg/retry/retry.go:1`, not `localhost:8080`.
+-- bad.md --
+---
+title: bad
+---
+# Retry
+billing-service @ `SHA`
+
+Past the end: `pkg/retry/retry.go:7-12`
+
+**billing-service** · `pkg/retry/retry.go` · `Retry` · lines 3-4
+```go
+func Retry(n uint) error {
+	if n < 0 {
+```
+Missing: `nope.go:1`
+Unpinned: `orders:api.ex:2`
+-- conventions.md --
+# Conventions
+- Pinned commits: billing_service `main` @ `SHA`.
+-- task.md --
+# Task
+- Read `pkg/retry/retry.go:3-8`.

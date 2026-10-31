@@ -9,6 +9,7 @@ tags: [investigation]
 # {{title}}
 
 Ticket: [[TICKET-ID]]
+Pinned commits: [[provider-owner-repo]] `main` @ `<sha>` (every repo the trace cites; `tix cite check` reads them)
 
 ## Symptom
 What was observed, where, since when.
