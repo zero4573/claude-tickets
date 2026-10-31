@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/vaultlock"
+	"github.com/zero4573/tix/internal/vaultlock"
 )
 
 // Op computes a note's new bytes from its current ones, and says what it
@@ -39,7 +39,7 @@ func Apply(c Ctx, rel, owner string, op Op) (bool, error) {
 		return false, nil
 	}
 	if owner == "" {
-		owner = fmt.Sprintf("ct-note-%d", os.Getpid())
+		owner = fmt.Sprintf("tix-note-%d", os.Getpid())
 	}
 	held := false
 	if dir, err := vaultlock.Dir(c.Vault); err == nil {

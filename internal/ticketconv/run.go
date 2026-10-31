@@ -11,16 +11,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/jira"
-	"github.com/zero4573/claude-tickets/internal/links"
-	"github.com/zero4573/claude-tickets/internal/mcp"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/vaultlock"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/jira"
+	"github.com/zero4573/tix/internal/links"
+	"github.com/zero4573/tix/internal/mcp"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/vaultlock"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
-// Options is one ct ticket convert.
+// Options is one tix ticket convert.
 type Options struct {
 	Vault    string
 	WorkRoot string
@@ -130,7 +130,7 @@ func Run(o Options) error {
 	}
 	oldDir := filepath.Join(o.WorkRoot, o.ID)
 	if workspace.Running(oldDir) {
-		return fmt.Errorf("%s's session is running: close it first (ct status)", o.ID)
+		return fmt.Errorf("%s's session is running: close it first (tix status)", o.ID)
 	}
 	sc, err := readSource(o.Vault, o.Source)
 	if err != nil {
@@ -138,7 +138,7 @@ func Run(o Options) error {
 	}
 	if !o.DryRun {
 		// Convert rewrites links across the vault and moves a folder: not beside a save
-		const owner = "ct ticket convert"
+		const owner = "tix ticket convert"
 		if err := vaultlock.Acquire(o.Vault, owner); err != nil {
 			return fmt.Errorf("couldn't take the vault lock, nothing changed: %w", err)
 		}
@@ -205,7 +205,7 @@ func Run(o Options) error {
 		}
 		rec := SetFields(text, "convert-source", o.Source, "convert-key", key, "convert-url", url)
 		if err := writeFile(notePath, []byte(rec), 0o644); err != nil {
-			return &PartialError{key, fmt.Sprintf("filed %s as %s (%s) but couldn't record it in %s: %v\nnothing else changed; to finish, run: ct ticket convert %s --to %s\n(it would file a second issue: first set 'convert-source: %s', 'convert-key: %s' and 'convert-url: %s' in the note's frontmatter)", o.ID, key, url, notePath, err, o.ID, o.Source, o.Source, key, url)}
+			return &PartialError{key, fmt.Sprintf("filed %s as %s (%s) but couldn't record it in %s: %v\nnothing else changed; to finish, run: tix ticket convert %s --to %s\n(it would file a second issue: first set 'convert-source: %s', 'convert-key: %s' and 'convert-url: %s' in the note's frontmatter)", o.ID, key, url, notePath, err, o.ID, o.Source, o.Source, key, url)}
 		}
 	}
 	if !note.ValidKey(key) {
@@ -230,7 +230,7 @@ func dirExists(p string) bool {
 }
 
 func partial(o Options, key, what string, err error) error {
-	return &PartialError{key, fmt.Sprintf("%s was %s: %v\ndone: the issue %s exists at %s\nto finish, run again: ct ticket convert %s --to %s", o.ID, what, err, key, o.Source, o.ID, o.Source)}
+	return &PartialError{key, fmt.Sprintf("%s was %s: %v\ndone: the issue %s exists at %s\nto finish, run again: tix ticket convert %s --to %s", o.ID, what, err, key, o.Source, o.ID, o.Source)}
 }
 
 func indent(s, p string) string {
@@ -349,12 +349,12 @@ func finish(o Options, key, url string) error {
 	np := filepath.Join(dst, key+".md")
 	if data, err := os.ReadFile(np); err == nil {
 		if err := writeFile(np, []byte(SetFields(string(data), "converted-from", "")), 0o644); err != nil {
-			fmt.Fprintf(o.Out, "warning: couldn't drop 'converted-from' from %s: %v\n  remove it by hand; until then ct ticket convert %s would run the workspace step again (harmless)\n", np, err, o.ID)
+			fmt.Fprintf(o.Out, "warning: couldn't drop 'converted-from' from %s: %v\n  remove it by hand; until then tix ticket convert %s would run the workspace step again (harmless)\n", np, err, o.ID)
 		}
 	}
 	fmt.Fprintf(o.Out, "converted %s to %s\n", o.ID, key)
-	fmt.Fprintf(o.Out, "the branch keeps its name; the session's conversation starts fresh: ct start --continue %s finds none (Claude keeps transcripts per directory)\n", key)
-	fmt.Fprintf(o.Out, "next: ct sync --source %s fills %s's source block, then ct start %s\n", o.Source, key, key)
+	fmt.Fprintf(o.Out, "the branch keeps its name; the session's conversation starts fresh: tix start --continue %s finds none (Claude keeps transcripts per directory)\n", key)
+	fmt.Fprintf(o.Out, "next: tix sync --source %s fills %s's source block, then tix start %s\n", o.Source, key, key)
 	return nil
 }
 
@@ -363,13 +363,13 @@ func finish(o Options, key, url string) error {
 func workspaceStep(o Options, key string) error {
 	oldDir, newDir := filepath.Join(o.WorkRoot, o.ID), filepath.Join(o.WorkRoot, key)
 	if workspace.Running(newDir) {
-		return fmt.Errorf("%s's session is running: close it first (ct status), then run ct ticket convert again", key)
+		return fmt.Errorf("%s's session is running: close it first (tix status), then run tix ticket convert again", key)
 	}
 	_, oldErr := os.Stat(oldDir)
 	_, newErr := os.Stat(newDir)
 	switch {
 	case oldErr == nil && newErr == nil:
-		return fmt.Errorf("both %s and %s exist: merge them by hand, then finish with ct ticket convert", oldDir, newDir)
+		return fmt.Errorf("both %s and %s exist: merge them by hand, then finish with tix ticket convert", oldDir, newDir)
 	case oldErr == nil:
 		if err := os.Rename(oldDir, newDir); err != nil {
 			return err

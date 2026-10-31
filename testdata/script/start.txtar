@@ -1,38 +1,38 @@
-# ct start: workspace, settings, trust, the session in this terminal
+# tix start: workspace, settings, trust, the session in this terminal
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a/github/acme/x/.git
 mkdir home/Documents/Obsidian/a/tickets/manual/MAN-1 home/Documents/Obsidian/a/tickets/MAN-2 home/Documents/Obsidian/a/tickets/MAN-3
 cp man-1.md home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
 cp man-2.md home/Documents/Obsidian/a/tickets/MAN-2/MAN-2.md
 cp man-3.md home/Documents/Obsidian/a/tickets/MAN-3/MAN-3.md
 expand user-settings.json
-env CLAUDE_TICKETS_SESSION_SETTINGS=$WORK/user-settings.json
+env TIX_SESSION_SETTINGS=$WORK/user-settings.json
 
-exec ct-tty start --no-fetch MAN-1
-stdout '^ct start: MAN-1 runs in this terminal; ct start MAN-1 later continues it$'
-grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a --permission-mode auto /tickets:work-ticket MAN-1$' calls/claude
+exec tix-tty start --no-fetch MAN-1
+stdout '^tix start: MAN-1 runs in this terminal; tix start MAN-1 later continues it$'
+grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a --permission-mode auto /tix:work-ticket MAN-1$' calls/claude
 grep '/home/Projects/work-a/MAN-1$' calls/claude-cwd
-grep '^CLAUDE_TICKETS_VAULT=.*/Obsidian/a$' calls/claude-env
+grep '^TIX_VAULT=.*/Obsidian/a$' calls/claude-env
 grep '"id": "MAN-1"' home/Projects/work-a/MAN-1/workspace.json
 grep '"vault": ".*/Obsidian/a"' home/Projects/work-a/MAN-1/workspace.json
 grep '^- Ticket: `MAN-1` \(source: `manual`\)$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^- Ticket note: `.*/Obsidian/a/tickets/manual/MAN-1/MAN-1.md`$' home/Projects/work-a/MAN-1/CLAUDE.md
-grep '^  `/tickets:save`\): `.*/Obsidian/a/tickets/manual/MAN-1/`. A lead ticket' home/Projects/work-a/MAN-1/CLAUDE.md
-! grep 'ct ws sign' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^  `/tix:save`\): `.*/Obsidian/a/tickets/manual/MAN-1/`. A lead ticket' home/Projects/work-a/MAN-1/CLAUDE.md
+! grep 'tix ws sign' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^  Commits are signed with the session.s signing key when one is set up$' home/Projects/work-a/MAN-1/CLAUDE.md
-grep '^  through `/tickets:save`, which pushes each repo.s ticket branch; never$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^  through `/tix:save`, which pushes each repo.s ticket branch; never$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^  force push, delete branches or tags, rewrite pushed commits, reset$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^  the lead adds and removes task worktrees under `tasks/`.$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^has reviewed the changes: it pushes the ticket branches.$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep '^- Workflow: this session is the PO, the one the user talks to. It runs one$' home/Projects/work-a/MAN-1/CLAUDE.md
-grep '^  .tickets:lead. subagent, which plans the ticket in waves of task agents$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^  .tix:lead. subagent, which plans the ticket in waves of task agents$' home/Projects/work-a/MAN-1/CLAUDE.md
 grep 'through .relay.md.; .board.md. tracks the tasks' home/Projects/work-a/MAN-1/CLAUDE.md
-grep '/tickets:po-refresh. checkpoints them' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '/tix:po-refresh. checkpoints them' home/Projects/work-a/MAN-1/CLAUDE.md
 grep 'board.md' home/Projects/work-a/MAN-1/CLAUDE.md
-grep '^Run `/tickets:work-ticket MAN-1` to \(re\)start the workflow \(`ct start MAN-1`$' home/Projects/work-a/MAN-1/CLAUDE.md
-grep '^opens a new conversation, which resumes from `board.md`; `ct start$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^Run `/tix:work-ticket MAN-1` to \(re\)start the workflow \(`tix start MAN-1`$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^opens a new conversation, which resumes from `board.md`; `tix start$' home/Projects/work-a/MAN-1/CLAUDE.md
 # settings: the cache is read-only (the repo directory isn't: ticket sessions clone and add worktrees), merged with the user's
 ! grep 'repo-a' home/Projects/work-a/MAN-1/.claude/settings.json
-grep '"Write\(//.*/home/.cache/claude-tickets/\*\*\)"' home/Projects/work-a/MAN-1/.claude/settings.json
+grep '"Write\(//.*/home/.cache/tix/\*\*\)"' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"Bash\(git push:\*\)"' home/Projects/work-a/MAN-1/.claude/settings.json
 grep '"defaultMode": "auto"' home/Projects/work-a/MAN-1/.claude/settings.json
 # Go fetches and builds into the workspace's .cache, which searches skip
@@ -52,32 +52,32 @@ grep '"keep": 1' home/.claude.json
 # a workspace that ran a session gets a new conversation; --continue continues it
 cp state.json home/Projects/work-a/MAN-1/.agent-state
 rm calls/claude
-exec ct-tty start --no-fetch MAN-1
+exec tix-tty start --no-fetch MAN-1
 ! stdout 'continuing'
 ! grep ' --continue' calls/claude
-exec ct-tty start --no-fetch --continue MAN-1
+exec tix-tty start --no-fetch --continue MAN-1
 stdout 'runs in this terminal \(continuing its last session\)'
-grep ' --permission-mode auto --continue ct start --continue: a new process.*step 0 of /tickets:work-ticket MAN-1 from board.md.*run /tickets:work-ticket MAN-1\.$' calls/claude
+grep ' --permission-mode auto --continue tix start --continue: a new process.*step 0 of /tix:work-ticket MAN-1 from board.md.*run /tix:work-ticket MAN-1\.$' calls/claude
 
-# a stale MCP config from an older ct is removed, and not passed to claude
+# a stale MCP config from an older tix is removed, and not passed to claude
 cp man-1.md home/Projects/work-a/MAN-1/.claude/graph-mcp.json
 rm calls/claude
-exec ct-tty start --no-fetch MAN-1
+exec tix-tty start --no-fetch MAN-1
 ! exists home/Projects/work-a/MAN-1/.claude/graph-mcp.json
 ! grep 'mcp-config' calls/claude
 
 # ignored, covered by an open lead, unknown
-! exec ct-tty start --no-fetch MAN-2
+! exec tix-tty start --no-fetch MAN-2
 stderr 'MAN-2: marked ignore: true \(not mine\), skipping'
-! exec ct-tty start --no-fetch MAN-3
-stderr 'MAN-3: covered by MAN-1, so it.s worked there: ct start MAN-1'
-exec ct-tty start --no-fetch --force MAN-3
+! exec tix-tty start --no-fetch MAN-3
+stderr 'MAN-3: covered by MAN-1, so it.s worked there: tix start MAN-1'
+exec tix-tty start --no-fetch --force MAN-3
 stdout 'MAN-3 runs in this terminal'
-! exec ct start MAN-1 MAN-9
+! exec tix start MAN-1 MAN-9
 stderr 'not a ticket of the a vault: MAN-9'
-! exec ct start nope
+! exec tix start nope
 stderr 'not a ticket ID'
-! exec ct start
+! exec tix start
 stderr 'name at least one ticket'
 
 -- man-1.md --

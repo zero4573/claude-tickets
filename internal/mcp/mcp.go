@@ -1,9 +1,9 @@
 // Package mcp is a minimal MCP client (Streamable HTTP, JSON-RPC) that
 // talks to one server with no model in the loop. Where each server lives
-// comes from $CLAUDE_TICKETS_MCP_CONFIG, a standard MCP config
+// comes from $TIX_MCP_CONFIG, a standard MCP config
 // ({"mcpServers": {"<name>": {"type": "http", "url": ..., "headers": {...}}}});
 // the ticket sources name their server ("mcp" in tickets/.sources.json).
-// $CLAUDE_TICKETS_MCP_PREPARE, if set, runs once before the first
+// $TIX_MCP_PREPARE, if set, runs once before the first
 // connection (e.g. to start a local proxy that holds the credentials).
 package mcp
 
@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/platform"
+	"github.com/zero4573/tix/internal/platform"
 )
 
 // maxResponse caps one response (a big Jira search page is a few MB).
@@ -36,11 +36,11 @@ type Client struct {
 
 var prepared bool
 
-// Connect finds server in $CLAUDE_TICKETS_MCP_CONFIG and opens a session.
+// Connect finds server in $TIX_MCP_CONFIG and opens a session.
 func Connect(server string) (*Client, error) {
-	file := os.Getenv("CLAUDE_TICKETS_MCP_CONFIG")
+	file := os.Getenv("TIX_MCP_CONFIG")
 	if file == "" {
-		return nil, fmt.Errorf("MCP: CLAUDE_TICKETS_MCP_CONFIG isn't set (a standard MCP config naming '%s'; see the README)", server)
+		return nil, fmt.Errorf("MCP: TIX_MCP_CONFIG isn't set (a standard MCP config naming '%s'; see the README)", server)
 	}
 	var cfg struct {
 		MCPServers map[string]struct {
@@ -59,19 +59,19 @@ func Connect(server string) (*Client, error) {
 	if entry.URL == "" {
 		return nil, fmt.Errorf("MCP: server '%s' has no url (only HTTP servers are supported)", server)
 	}
-	if prep := os.Getenv("CLAUDE_TICKETS_MCP_PREPARE"); prep != "" && !prepared {
+	if prep := os.Getenv("TIX_MCP_PREPARE"); prep != "" && !prepared {
 		prepared = true
 		argv := platform.ShellCommand(prep)
 		cmd := exec.Command(argv[0], argv[1:]...)
 		cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
 		if err := cmd.Run(); err != nil {
-			return nil, errors.New("MCP: CLAUDE_TICKETS_MCP_PREPARE failed")
+			return nil, errors.New("MCP: TIX_MCP_PREPARE failed")
 		}
 	}
 	c := &Client{url: entry.URL, headers: entry.Headers, nextID: 1, http: &http.Client{Timeout: 120 * time.Second}}
 	if _, err := c.RPC("initialize", map[string]any{
 		"protocolVersion": "2025-06-18", "capabilities": map[string]any{},
-		"clientInfo": map[string]any{"name": "ct sync", "version": "1"},
+		"clientInfo": map[string]any{"name": "tix sync", "version": "1"},
 	}); err != nil {
 		return nil, err
 	}

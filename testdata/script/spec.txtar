@@ -1,6 +1,6 @@
-# ct spec: a session in ~/work/<vault>/.spec-<vault>
+# tix spec: a session in ~/work/<vault>/.spec-<vault>
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a
-exec ct spec --no-fetch
+exec tix spec --no-fetch
 grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a --permission-mode auto$' calls/claude
 grep '/home/Projects/work-a/.spec-a$' calls/claude-cwd
 grep '"id": "SPEC"' home/Projects/work-a/.spec-a/workspace.json
@@ -8,36 +8,36 @@ grep '"command": "spec"' home/Projects/work-a/.spec-a/.sessions.json
 grep '"Bash\(git commit:\*\)"' home/Projects/work-a/.spec-a/.claude/settings.json
 grep '^- Session id .*\n  `spec-a-[0-9]{8}-[0-9]{4}`' home/Projects/work-a/.spec-a/CLAUDE.md
 grep '"hasTrustDialogAccepted": true' home/.claude.json
-grep 'ct vault groups .*/Obsidian/a` shows which projects work together' home/Projects/work-a/.spec-a/CLAUDE.md
-exec ct spec --help
+grep 'tix vault groups .*/Obsidian/a` shows which projects work together' home/Projects/work-a/.spec-a/CLAUDE.md
+exec tix spec --help
 stdout 'projects the vault describes'
 ! stdout 'system'
-exec ct status
+exec tix status
 ! stdout SPEC
 
-exec ct spec --no-fetch --continue how does billing work
-grep '--continue /tickets:spec how does billing work$' calls/claude
+exec tix spec --no-fetch --continue how does billing work
+grep '--continue /tix:spec how does billing work$' calls/claude
 
 # --print: one answer, progress shown and logged
-exec ct spec --no-fetch -p 'what calls billing?'
-grep ' -p /tickets:spec what calls billing\? --output-format stream-json --verbose$' calls/claude
+exec tix spec --no-fetch -p 'what calls billing?'
+grep ' -p /tix:spec what calls billing\? --output-format stream-json --verbose$' calls/claude
 stdout '^Looking.$'
 stdout '^  → Grep  billing flow$'
 stdout '^It flows.$'
 grep '=== spec .* vault=.*/Obsidian/a: what calls billing\?' home/.local/state/spec-a.log
 grep '^  → Grep' home/.local/state/spec-a.log
-! exec ct spec --print
+! exec tix spec --print
 stderr '--print needs a question'
 
 # a workspace from before the rename (.kb-<vault>) moves to .spec-<vault>, clones kept
 mv home/Projects/work-a/.spec-a home/Projects/work-a/.kb-a
 mkdir home/Projects/work-a/.kb-a/keepme
-exec ct spec --no-fetch
+exec tix spec --no-fetch
 stderr 'renamed .kb-a to .spec-a'
 exists home/Projects/work-a/.spec-a/keepme
 ! exists home/Projects/work-a/.kb-a
 grep '"id": "SPEC"' home/Projects/work-a/.spec-a/workspace.json
 
-# ct kb is gone
-! exec ct kb
+# tix kb is gone
+! exec tix kb
 stderr 'unknown command'

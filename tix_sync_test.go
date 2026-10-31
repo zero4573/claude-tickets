@@ -14,7 +14,7 @@ import (
 
 	"github.com/rogpeppe/go-internal/testscript"
 
-	"github.com/zero4573/claude-tickets/internal/mcp/mcptest"
+	"github.com/zero4573/tix/internal/mcp/mcptest"
 )
 
 var (
@@ -24,7 +24,7 @@ var (
 
 // fakejira <fixture>: serves the fixture (testdata/sync/*.json) as the
 // Atlassian MCP server named atlassian in $WORK/mcp.json (set as
-// CLAUDE_TICKETS_MCP_CONFIG); later calls switch the fixture.
+// TIX_MCP_CONFIG); later calls switch the fixture.
 func fakejira(ts *testscript.TestScript, neg bool, args []string) {
 	if len(args) != 1 {
 		ts.Fatalf("usage: fakejira <fixture>")
@@ -48,7 +48,7 @@ func fakejira(ts *testscript.TestScript, neg bool, args []string) {
 	})
 	cfg := filepath.Join(work, "mcp.json")
 	ts.Check(os.WriteFile(cfg, []byte(s.Config("atlassian")), 0o644))
-	ts.Setenv("CLAUDE_TICKETS_MCP_CONFIG", cfg)
+	ts.Setenv("TIX_MCP_CONFIG", cfg)
 }
 
 var (

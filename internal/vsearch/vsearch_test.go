@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/embed"
-	"github.com/zero4573/claude-tickets/internal/vindex"
+	"github.com/zero4573/tix/internal/embed"
+	"github.com/zero4573/tix/internal/vindex"
 )
 
 func put(t *testing.T, vault, rel, body string) {
@@ -33,7 +33,7 @@ func (r remap) Embed(texts []string, query bool) ([][]float32, error) {
 
 func fixture(t *testing.T) *vindex.Index {
 	t.Helper()
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "stub")
+	t.Setenv("TIX_EMBEDDER", "stub")
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	v := t.TempDir()
 	put(t, v, "projects/acme/acme.md", "---\ntype: project\ntags: [core]\n---\n# Acme\n\nGiraffe savanna migration patterns.\n\nSee [[crossing]] and [[linked]].\n")
@@ -226,7 +226,7 @@ func TestRelated(t *testing.T) {
 // A note added while the model is unavailable has zero vector rows in an index
 // that has vectors ("not embedded yet").
 func TestZeroRowsScoredByKeyword(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "stub")
+	t.Setenv("TIX_EMBEDDER", "stub")
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	v := t.TempDir()
 	put(t, v, "a.md", "# A\n\nGiraffe savanna migration.\n")
@@ -236,7 +236,7 @@ func TestZeroRowsScoredByKeyword(t *testing.T) {
 		t.Fatal(err)
 	}
 	put(t, v, "z.md", "# Pangolin armor\n\nPangolin scales armor.\n")
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
+	t.Setenv("TIX_EMBEDDER", "none")
 	if _, err := vindex.Update(v, vindex.UpdateOptions{}); err != nil {
 		t.Fatal(err)
 	}
@@ -300,7 +300,7 @@ func TestZeroScoreScale(t *testing.T) {
 // End to end: with the query equal to an embedded chunk's text, that chunk
 // outranks a zero row that matches one query word.
 func TestStrongSemanticBeatsMediocreZeroRow(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "stub")
+	t.Setenv("TIX_EMBEDDER", "stub")
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	v := t.TempDir()
 	put(t, v, "a.md", "# Armor\n\nPangolin scales armor plates.\n")
@@ -309,7 +309,7 @@ func TestStrongSemanticBeatsMediocreZeroRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	put(t, v, "z.md", "# Z\n\nPangolin.\n")
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
+	t.Setenv("TIX_EMBEDDER", "none")
 	if _, err := vindex.Update(v, vindex.UpdateOptions{}); err != nil {
 		t.Fatal(err)
 	}
@@ -325,7 +325,7 @@ func TestStrongSemanticBeatsMediocreZeroRow(t *testing.T) {
 
 // W5 S01: score == ws*semantic + wk*keyword + link for zero and embedded rows.
 func TestScoreEqualsComponentsForZeroRow(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "stub")
+	t.Setenv("TIX_EMBEDDER", "stub")
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	v := t.TempDir()
 	put(t, v, "a.md", "# A\n\nGiraffe savanna migration.\n")
@@ -334,7 +334,7 @@ func TestScoreEqualsComponentsForZeroRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	put(t, v, "z.md", "# Pangolin armor\n\nPangolin scales armor.\n")
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
+	t.Setenv("TIX_EMBEDDER", "none")
 	if _, err := vindex.Update(v, vindex.UpdateOptions{}); err != nil {
 		t.Fatal(err)
 	}

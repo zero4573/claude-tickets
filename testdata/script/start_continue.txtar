@@ -1,49 +1,49 @@
-# ct start starts a new conversation (no --continue), even in a workspace
+# tix start starts a new conversation (no --continue), even in a workspace
 # that ran a session; --continue (-c) continues its last one
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a
 mkdir home/Documents/Obsidian/a/tickets/MAN-1
 cp open.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
 
-exec ct start --help
+exec tix start --help
 stdout '-c, --continue +continue the workspace.s last conversation instead of starting a new one'
 stdout 'Each session is a new conversation, even in a workspace that already ran'
 ! stdout '\-\-fresh'
-exec ct feedback --help
+exec tix feedback --help
 stdout '-c, --continue +continue the workspace.s last conversation'
 stdout 'Each session is a new conversation;'
 
 # --continue in a workspace that never ran a session: a new one, and a warning
-exec ct-tty start --no-fetch --continue MAN-1
+exec tix-tty start --no-fetch --continue MAN-1
 stderr 'MAN-1: no earlier session in its workspace to continue, starting a new one'
 ! stdout 'continuing'
-grep '--permission-mode auto /tickets:work-ticket MAN-1$' calls/claude
+grep '--permission-mode auto /tix:work-ticket MAN-1$' calls/claude
 ! grep ' --continue' calls/claude
-grep 'board.md`; `ct start$' home/Projects/work-a/MAN-1/CLAUDE.md
-grep '^--continue MAN-1` reopens the last one\), and `/tickets:save` once the user$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep 'board.md`; `tix start$' home/Projects/work-a/MAN-1/CLAUDE.md
+grep '^--continue MAN-1` reopens the last one\), and `/tix:save` once the user$' home/Projects/work-a/MAN-1/CLAUDE.md
 
 # a workspace that ran a session still gets a new conversation; the stub
 # records claude's arguments
 cp state-exited.json home/Projects/work-a/MAN-1/.agent-state
 rm calls/claude
-exec ct-tty start --no-fetch MAN-1
-stdout '^ct start: MAN-1 runs in this terminal; ct start MAN-1 later continues it$'
+exec tix-tty start --no-fetch MAN-1
+stdout '^tix start: MAN-1 runs in this terminal; tix start MAN-1 later continues it$'
 ! stdout 'continuing'
-grep '--permission-mode auto /tickets:work-ticket MAN-1$' calls/claude
+grep '--permission-mode auto /tix:work-ticket MAN-1$' calls/claude
 ! grep ' --continue' calls/claude
 rm home/Projects/work-a/MAN-1/.sessions.json
-exec ct-tty feedback --no-fetch MAN-1
-grep '--permission-mode auto /tickets:pr-feedback MAN-1$' calls/claude
+exec tix-tty feedback --no-fetch MAN-1
+grep '--permission-mode auto /tix:pr-feedback MAN-1$' calls/claude
 ! grep ' --continue' calls/claude
 rm home/Projects/work-a/MAN-1/.sessions.json
 rm calls/claude
-exec ct-tty feedback --no-fetch --continue MAN-1
+exec tix-tty feedback --no-fetch --continue MAN-1
 stdout '\(continuing its last session\)'
-grep '--permission-mode auto --continue /tickets:pr-feedback MAN-1$' calls/claude
+grep '--permission-mode auto --continue /tix:pr-feedback MAN-1$' calls/claude
 rm home/Projects/work-a/MAN-1/.sessions.json
 rm calls/claude
-exec ct-tty start --no-fetch -c MAN-1
+exec tix-tty start --no-fetch -c MAN-1
 stdout '\(continuing its last session\)'
-grep '--permission-mode auto --continue ct start --continue: a new process.*step 0 of /tickets:work-ticket MAN-1 from board.md.*run /tickets:work-ticket MAN-1\.$' calls/claude
+grep '--permission-mode auto --continue tix start --continue: a new process.*step 0 of /tix:work-ticket MAN-1 from board.md.*run /tix:work-ticket MAN-1\.$' calls/claude
 
 -- open.md --
 ---

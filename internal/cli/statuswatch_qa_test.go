@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 // syncBuf collects what a reader goroutine copies from a pipe.
@@ -80,7 +80,7 @@ func mkWorkspace(t *testing.T, vaultDir, work, id, state, repoPath string) strin
 	return ws
 }
 
-// hookWrite writes .agent-state the way ct hook agent-state does: a tmp
+// hookWrite writes .agent-state the way tix hook agent-state does: a tmp
 // file renamed over it.
 func hookWrite(t *testing.T, ws, state string) {
 	t.Helper()
@@ -140,11 +140,11 @@ func TestRunStatusWatchEndToEnd(t *testing.T) {
 		t.Errorf("no refreshed line in %q", first)
 	}
 	if !strings.Contains(first, "Vault a (sessions run in their own terminal)") {
-		t.Errorf("header isn't plain ct status's: %q", first)
+		t.Errorf("header isn't plain tix status's: %q", first)
 	}
 	// cut to the 80 columns of the fallback size, so only its start is sure
 	// to show (the temp path is long)
-	if !strings.Contains(first, "\r\nct: ") {
+	if !strings.Contains(first, "\r\ntix: ") {
 		t.Errorf("workspace.Read's warning isn't in the frame: %q", first)
 	}
 

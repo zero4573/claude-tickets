@@ -1,4 +1,4 @@
-# ct ws diff-check: informational notes for changed tests and unsigned commits
+# tix ws diff-check: informational notes for changed tests and unsigned commits
 expand gitconfig
 exec git init -q -b main repo
 exec git -C repo add -A
@@ -10,7 +10,7 @@ cp a_test_v2.go repo/a_test.go
 cp s_v2.txtar repo/testdata/s.txtar
 exec git -C repo add -A
 exec git -C repo commit -q -m change
-exec ct ws diff-check -C repo main..topic
+exec tix ws diff-check -C repo main..topic
 stdout '^note\ttest-changed\tTestOne\t[0-9a-f]+\ta_test.go$'
 stdout '^note\ttest-changed\t-\t[0-9a-f]+\ttestdata/s.txtar$'
 ! stdout unsigned
@@ -18,7 +18,7 @@ stdout '^note\ttest-changed\t-\t[0-9a-f]+\ttestdata/s.txtar$'
 
 # gpgsign on: the unsigned commit is noted, still exit 0
 exec git -C repo config commit.gpgsign true
-exec ct ws diff-check -C repo main..topic
+exec tix ws diff-check -C repo main..topic
 stdout '^note\tunsigned\t-\t[0-9a-f]+\t:commit$'
 ! stderr .
 

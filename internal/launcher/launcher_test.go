@@ -8,9 +8,9 @@ import (
 )
 
 func TestMergeEnv(t *testing.T) {
-	got := mergeEnv([]string{"A=1", "CLAUDE_TICKETS_VAULT=/old", "B=2=3"}, map[string]string{"CLAUDE_TICKETS_VAULT": "/v", "C": "4"})
+	got := mergeEnv([]string{"A=1", "TIX_VAULT=/old", "B=2=3"}, map[string]string{"TIX_VAULT": "/v", "C": "4"})
 	slices.Sort(got)
-	want := []string{"A=1", "B=2=3", "C=4", "CLAUDE_TICKETS_VAULT=/v"}
+	want := []string{"A=1", "B=2=3", "C=4", "TIX_VAULT=/v"}
 	if !slices.Equal(got, want) {
 		t.Errorf("mergeEnv = %q, want %q", got, want)
 	}

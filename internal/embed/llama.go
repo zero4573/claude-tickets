@@ -155,7 +155,7 @@ func doLoad(libDir string) error {
 	for _, name := range llamaLibs {
 		p := filepath.Join(libDir, name)
 		if _, err := os.Stat(p); err != nil {
-			return unavailable("%s not found (run ct vault model fetch on the host)", p)
+			return unavailable("%s not found (run tix vault model fetch on the host)", p)
 		}
 		h, err := purego.Dlopen(p, purego.RTLD_NOW|purego.RTLD_GLOBAL)
 		if err != nil {
@@ -241,7 +241,7 @@ func checkLayout(cp llamaContextParams) error {
 // missing or can't be loaded.
 func OpenLlama(libDir, modelPath string, o LlamaOptions) (Embedder, error) {
 	if _, err := os.Stat(modelPath); err != nil {
-		return nil, unavailable("model %s not found (run ct vault model fetch on the host)", modelPath)
+		return nil, unavailable("model %s not found (run tix vault model fetch on the host)", modelPath)
 	}
 	if err := loadLib(libDir); err != nil {
 		return nil, err

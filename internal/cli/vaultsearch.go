@@ -10,15 +10,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/embed"
-	"github.com/zero4573/claude-tickets/internal/links"
-	"github.com/zero4573/claude-tickets/internal/modelcache"
-	"github.com/zero4573/claude-tickets/internal/repo"
-	"github.com/zero4573/claude-tickets/internal/spec"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/vindex"
-	"github.com/zero4573/claude-tickets/internal/vsearch"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/embed"
+	"github.com/zero4573/tix/internal/links"
+	"github.com/zero4573/tix/internal/modelcache"
+	"github.com/zero4573/tix/internal/repo"
+	"github.com/zero4573/tix/internal/spec"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/vindex"
+	"github.com/zero4573/tix/internal/vsearch"
 )
 
 func init() {
@@ -42,13 +42,13 @@ func loadForSearch(v string, noUpdate bool) (*vindex.Index, embed.Embedder, erro
 			if _, serr := os.Stat(filepath.Join(vindex.Dir(v), "meta.json")); serr != nil {
 				return nil, nil, err
 			}
-			fmt.Fprintf(os.Stderr, "ct: vault index not updated, results may be stale: %v\n", err)
+			fmt.Fprintf(os.Stderr, "tix: vault index not updated, results may be stale: %v\n", err)
 		}
 	}
 	ix, err := vindex.Load(v)
 	if err != nil {
 		if errors.Is(err, vindex.ErrNoIndex) {
-			return nil, nil, fmt.Errorf("no search index in %s; run: ct vault index", v)
+			return nil, nil, fmt.Errorf("no search index in %s; run: tix vault index", v)
 		}
 		return nil, nil, err
 	}
@@ -83,7 +83,7 @@ func vaultSearchCmd() *cobra.Command {
 		Long: `Ranks the vault's chunks for a query by embedding similarity, BM25 keywords
 and links between notes (hybrid, the default). The index is updated first
 unless --no-update. Without an embedding model the search is keyword and link
-only (ct vault model fetch, on the host, adds it); --mode semantic then fails.
+only (tix vault model fetch, on the host, adds it); --mode semantic then fails.
 
 Filters combine with AND; a repeated --path means any of them. With --budget N
 results come in rank order while their token estimates fit, each with its full
@@ -116,7 +116,7 @@ repos' specs.`,
 			}
 			resp, err := vsearch.Search(ix, emb, query, opts)
 			if errors.Is(err, vsearch.ErrNoModel) {
-				return fmt.Errorf("--mode semantic: %s", strings.TrimPrefix(vindex.ModelHint, "ct: "))
+				return fmt.Errorf("--mode semantic: %s", strings.TrimPrefix(vindex.ModelHint, "tix: "))
 			}
 			if err != nil {
 				return err
@@ -172,7 +172,7 @@ func searchRepoSpecs(v string, noUpdate bool, model string, vaultEmb embed.Embed
 		dir := filepath.Join(root, filepath.FromSlash(clone))
 		loc, err := spec.Resolve(v, slug, dir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "ct: specs of %s not searched: %v\n", slug, err)
+			fmt.Fprintf(os.Stderr, "tix: specs of %s not searched: %v\n", slug, err)
 			continue
 		}
 		if loc.Kind != spec.InRepo {
@@ -180,7 +180,7 @@ func searchRepoSpecs(v string, noUpdate bool, model string, vaultEmb embed.Embed
 		}
 		if !noUpdate {
 			if _, _, err := vindex.UpdateSpecs(cache, slug, dir, vindex.UpdateOptions{Log: os.Stderr}); err != nil {
-				fmt.Fprintf(os.Stderr, "ct: spec index of %s not updated, results may be stale: %v\n", slug, err)
+				fmt.Fprintf(os.Stderr, "tix: spec index of %s not updated, results may be stale: %v\n", slug, err)
 			}
 		}
 		ix, err := vindex.LoadSpecs(cache, slug)

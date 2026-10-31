@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/gitx"
+	"github.com/zero4573/tix/internal/gitx"
 )
 
 // Describer is an optional Source method: it names a document, which

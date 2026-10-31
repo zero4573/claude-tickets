@@ -1,0 +1,141 @@
+# Sessions on kiro (.workflow.json "agent", TIX_AGENT or --agent): the
+# session's agent, the plugin rendered into .kiro/, AGENTS.md, the folders
+# as SANDBOX_* and the Go env; claude stays the default
+mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a/github/acme/x/.git
+mkdir home/Documents/Obsidian/a/tickets/MAN-1
+cp open.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+mkdir plugin/skills/work-ticket plugin/agents
+cp skill.md plugin/skills/work-ticket/SKILL.md
+cp workflow.md plugin/skills/work-ticket/workflow.md
+cp lead.md plugin/agents/lead.md
+cp kiro-workflow.json home/Documents/Obsidian/a/.workflow.json
+
+exec tix-tty start --no-fetch MAN-1
+stdout '^tix start: MAN-1 runs in this terminal'
+grep '^chat --agent tix /tix-work-ticket MAN-1$' calls/kiro
+! exists calls/claude
+grep '/home/Projects/work-a/MAN-1$' calls/kiro-cwd
+grep '^TIX_VAULT=.*/Obsidian/a$' calls/kiro-env
+grep '^SANDBOX_ADD_DIRS=.*/Obsidian/a:.*/home/Projects/repo-a$' calls/kiro-env
+grep '^GOMODCACHE=.*/home/Projects/work-a/MAN-1/.cache/go/pkg/mod$' calls/kiro-env
+grep '"agent": "kiro"' home/Projects/work-a/MAN-1/workspace.json
+# the instructions are AGENTS.md, in kiro's form; nothing of Claude's is written
+exists home/Projects/work-a/MAN-1/AGENTS.md
+grep 'Run `/tix-work-ticket MAN-1`' home/Projects/work-a/MAN-1/AGENTS.md
+! grep 'tix:' home/Projects/work-a/MAN-1/AGENTS.md
+! grep '.claude/settings.json' home/Projects/work-a/MAN-1/AGENTS.md
+! exists home/Projects/work-a/MAN-1/CLAUDE.md
+! exists home/Projects/work-a/MAN-1/.claude/settings.json
+exists home/Projects/work-a/MAN-1/.ignore
+# the session's agent: its prompt names the folders, the hooks run tix
+env A=home/Projects/work-a/MAN-1/.kiro/agents/tix.json
+grep '"name": "tix"' $A
+grep 'Obsidian/a` \(read-write\)' $A
+grep '"file://AGENTS.md"' $A
+grep 'hook --agent kiro agent-state working' $A
+grep 'hook --agent kiro agent-state idle' $A
+grep 'subagent_tix-lead' $A
+# the plugin, rendered: skills as tix-<name>, agents as tix-<name>.json
+env S=home/Projects/work-a/MAN-1/.kiro/skills/tix-work-ticket
+grep '^name: tix-work-ticket$' $S/SKILL.md
+grep 'In kiro:' $S/SKILL.md
+grep 'run /tix-lead, then the `tix-task` agent' $S/SKILL.md
+grep 'see /tix-save' $S/workflow.md
+! grep 'tix:' $S/SKILL.md
+grep '"name": "tix-lead"' home/Projects/work-a/MAN-1/.kiro/agents/tix-lead.json
+grep 'You are the lead. Use the `tix-lead` skill' home/Projects/work-a/MAN-1/.kiro/agents/tix-lead.json
+# a skill removed from the plugin goes from .kiro/ at the next start; the
+# user's own files there stay
+mkdir home/Projects/work-a/MAN-1/.kiro/skills/tix-gone home/Projects/work-a/MAN-1/.kiro/skills/mine
+cp skill.md home/Projects/work-a/MAN-1/.kiro/skills/mine/SKILL.md
+
+# --continue resumes kiro's last conversation, with the nudge in kiro's form
+cp state-exited.json home/Projects/work-a/MAN-1/.agent-state
+rm calls/kiro
+exec tix-tty start --no-fetch --continue MAN-1
+grep '^chat --agent tix --resume tix start --continue: .*Redo step 0 of /tix-work-ticket MAN-1 ' calls/kiro
+! exists home/Projects/work-a/MAN-1/.kiro/skills/tix-gone
+exists home/Projects/work-a/MAN-1/.kiro/skills/mine/SKILL.md
+
+# --agent claude: a workspace whose last session ran kiro isn't continued
+exec tix-tty start --no-fetch --continue --agent claude MAN-1
+stderr 'MAN-1: its last session ran kiro, not claude, so it can.t be continued: starting a new one'
+grep '--permission-mode auto /tix:work-ticket MAN-1$' calls/claude
+! grep ' --continue' calls/claude
+grep '"agent": "claude"' home/Projects/work-a/MAN-1/workspace.json
+# claude sessions get the folders as SANDBOX_* too
+exists home/Projects/work-a/MAN-1/CLAUDE.md
+
+# TIX_AGENT wins over the vault's setting, --agent over both
+cp claude-workflow.json home/Documents/Obsidian/a/.workflow.json
+rm calls/kiro
+env TIX_AGENT=kiro
+exec tix-tty start --no-fetch MAN-1
+grep '^chat --agent tix /tix-work-ticket MAN-1$' calls/kiro
+env TIX_AGENT=nope
+! exec tix-tty start --no-fetch MAN-1
+stderr 'unknown agent "nope" \(claude or kiro\)'
+env TIX_AGENT=
+env TIX_KIRO='kiro-cli --v3'
+exec tix-tty start --no-fetch --agent kiro MAN-1
+grep '^--v3 chat --agent tix /tix-work-ticket MAN-1$' calls/kiro
+env TIX_KIRO=
+
+# tix spec on kiro: the repos read-only (SANDBOX_RO_PATHS), the denied
+# commands in the agent's prompt
+rm calls/kiro calls/kiro-env
+exec tix spec --no-fetch --agent kiro how does billing work
+grep '^chat --agent tix /tix-spec how does billing work$' calls/kiro
+grep '^SANDBOX_ADD_DIRS=.*/Obsidian/a$' calls/kiro-env
+grep '^SANDBOX_RO_PATHS=.*/home/Projects/repo-a$' calls/kiro-env
+grep 'Never run these commands: `git commit`, `git push`' home/Projects/work-a/.spec-a/.kiro/agents/tix.json
+grep 'repo-a` \(the main clones: read-only' home/Projects/work-a/.spec-a/.kiro/agents/tix.json
+
+# kiro's hooks: the same JSON as Claude's, tool_input a string
+expand hook-working.json
+expand hook-idle.json
+stdin hook-working.json
+exec tix hook --agent kiro agent-state working
+grep '"state": "working"' home/Projects/work-a/MAN-1/.agent-state
+stdin hook-idle.json
+exec tix hook --agent kiro agent-state idle
+grep '"state": "idle"' home/Projects/work-a/MAN-1/.agent-state
+
+-- open.md --
+---
+summary: Open
+status: in-progress
+source: manual
+---
+-- kiro-workflow.json --
+{"agent": "kiro"}
+-- claude-workflow.json --
+{"agent": "claude"}
+-- state-exited.json --
+{"state": "exited", "ts": "2026-01-01T00:00:00Z"}
+-- skill.md --
+---
+name: work-ticket
+description: The PO's playbook (/tix:work-ticket <ID>).
+---
+
+# work-ticket
+
+First run /tix:lead, then the `tix:task` agent.
+-- workflow.md --
+Details: see /tix:save.
+-- lead.md --
+---
+name: lead
+description: Lead of one ticket (/tix:work-ticket).
+tools: Read, Edit
+model: inherit
+skills:
+  - tix:lead
+---
+
+You are the lead. Use the `tix:lead` skill.
+-- hook-working.json --
+{"session_id": "s", "hook_event_name": "PostToolUse", "cwd": "$WORK/home/Projects/work-a/MAN-1", "tool_name": "fs_write", "tool_input": "{\"path\":\"x\"}"}
+-- hook-idle.json --
+{"session_id": "s", "hook_event_name": "Stop", "cwd": "$WORK/home/Projects/work-a/MAN-1", "tool_input": "null"}

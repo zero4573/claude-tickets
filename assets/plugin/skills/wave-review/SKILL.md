@@ -1,6 +1,6 @@
 ---
 name: wave-review
-description: Diff-scoped, capped wave review of one repo for a ticket (architect and senior developer in one pass), written to tickets/<source>/<ID>/reviews/wave-N-<slug>.md. Use when you are spawned as tickets:reviewer or tickets:reviewer-deep after a wave's tasks are merged.
+description: Diff-scoped, capped wave review of one repo for a ticket (architect and senior developer in one pass), written to tickets/<source>/<ID>/reviews/wave-N-<slug>.md. Use when you are spawned as tix:reviewer or tix:reviewer-deep after a wave's tasks are merged.
 ---
 
 # Wave review (one repo, one wave)
@@ -8,12 +8,12 @@ description: Diff-scoped, capped wave review of one repo for a ticket (architect
 Read-only: no code edits, no commits, no branch changes. The lead's prompt (the PO session
 spawns you with it) passes: the ticket, wave
 `N`, the repo slug and its ticket worktree, the range `<last-reviewed>..<head>`, the previous
-fix-task IDs, the previous review file (if any), and a ≤5-line impact note. With specs it adds the capability and its requirement IDs: read `ct spec diff <ID>` and check that every `proposed` requirement of that capability is implemented and a test cites it, and that the code doesn't contradict an `implemented` one; a miss is a finding. List the IDs that pass in your summary (the PO flips them to `implemented`; you never write specs).
+fix-task IDs, the previous review file (if any), and a ≤5-line impact note. With specs it adds the capability and its requirement IDs: read `tix spec diff <ID>` and check that every `proposed` requirement of that capability is implemented and a test cites it, and that the code doesn't contradict an `implemented` one; a miss is a finding. List the IDs that pass in your summary (the PO flips them to `implemented`; you never write specs).
 
 ## Scope it before reading anything
 1. `git -C <worktree> log --oneline --merges <range>`: the wave's merges.
 2. `git -C <worktree> diff --stat <range>`: only these files are in scope.
-3. Vault decisions the diff touches: `ct vault search "<topic>" --project <slug> --budget 1500`.
+3. Vault decisions the diff touches: `tix vault search "<topic>" --project <slug> --budget 1500`.
    Previous findings: read the previous review's `## Dispositions`; any ID whose line says `open` or `fixing`
    is still open (`rg -n '^- \[.\] W[0-9]+-.* · (open|fixing)' <prev review>`). Check
    those against the fix tasks the lead named. Don't re-review unchanged code.
@@ -24,7 +24,7 @@ fix-task IDs, the previous review file (if any), and a ≤5-line impact note. Wi
    user decision secured is `regression of <earlier ID>` even when its lines are new. Name the
    earlier ID and what it secured. Tag `new` only when no earlier finding or decision covered
    that behaviour.
-3b. Vault-only IDs (contract `commit-rules-v1`): `ct ws diff-check -C <worktree> --ticket <ID> <range>`
+3b. Vault-only IDs (contract `commit-rules-v1`): `tix ws diff-check -C <worktree> --ticket <ID> <range>`
    flags the ticket's own IDs (its key, the relay's `R-nn`, the backlog's `B-nn`, finding IDs) in added
    lines and commit messages; a `vault-id` line is a must-fix, except a hit on a line kept from the base or in a fixture
    that models a ticket: note it, don't must-fix it. Keep a pattern scan for task and wave

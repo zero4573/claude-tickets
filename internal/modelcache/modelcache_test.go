@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/embed"
-	"github.com/zero4573/claude-tickets/internal/lock"
+	"github.com/zero4573/tix/internal/embed"
+	"github.com/zero4573/tix/internal/lock"
 )
 
 func sum(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
@@ -78,8 +78,8 @@ func TestPins(t *testing.T) {
 }
 
 func TestStatusAndPaths(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
-	t.Setenv("XDG_CACHE_HOME", os.Getenv("CLAUDE_TICKETS_CACHE"))
+	t.Setenv("TIX_CACHE", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", os.Getenv("TIX_CACHE"))
 	m := Default()
 	if !strings.HasSuffix(filepath.ToSlash(ModelPath(m)), "/models/bge-small-en-v1.5/"+m.File) {
 		t.Fatal(ModelPath(m))
@@ -99,17 +99,17 @@ func TestStatusAndPaths(t *testing.T) {
 }
 
 func TestOpenSeam(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "stub")
+	t.Setenv("TIX_CACHE", t.TempDir())
+	t.Setenv("TIX_EMBEDDER", "stub")
 	e, err := Open("bge-small-en-v1.5")
 	if err != nil || e.ID() != "stub" || e.Dims() != 64 {
 		t.Fatalf("stub: %v %v", e, err)
 	}
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
+	t.Setenv("TIX_EMBEDDER", "none")
 	if _, err := Open("bge-small-en-v1.5"); !errors.Is(err, embed.ErrUnavailable) {
 		t.Fatalf("none: %v", err)
 	}
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "")
+	t.Setenv("TIX_EMBEDDER", "")
 	if _, err := Open("bge-small-en-v1.5"); !errors.Is(err, embed.ErrUnavailable) {
 		t.Fatalf("missing: %v", err)
 	}
@@ -129,8 +129,8 @@ func testPins(t *testing.T, srv *httptest.Server, arc []byte, model []byte) *pin
 }
 
 func TestFetch(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
-	t.Setenv("XDG_CACHE_HOME", os.Getenv("CLAUDE_TICKETS_CACHE"))
+	t.Setenv("TIX_CACHE", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", os.Getenv("TIX_CACHE"))
 	model := []byte("GGUF fake model")
 	arc := tgz(t, "llama-b1", map[string]string{"libllama.so.0.1": "L", "libx.so": "X", "llama-cli": "unlisted"})
 	var hits atomic.Int32
@@ -190,8 +190,8 @@ func TestFetch(t *testing.T) {
 }
 
 func TestFetchBadHash(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
-	t.Setenv("XDG_CACHE_HOME", os.Getenv("CLAUDE_TICKETS_CACHE"))
+	t.Setenv("TIX_CACHE", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", os.Getenv("TIX_CACHE"))
 	model := []byte("model")
 	arc := tgz(t, "llama-b1", map[string]string{"libllama.so.0.1": "L", "libx.so": "X"})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -217,8 +217,8 @@ func TestFetchBadHash(t *testing.T) {
 }
 
 func TestFetchRemovesStale(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
-	t.Setenv("XDG_CACHE_HOME", os.Getenv("CLAUDE_TICKETS_CACHE"))
+	t.Setenv("TIX_CACHE", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", os.Getenv("TIX_CACHE"))
 	model := []byte("model")
 	arc := tgz(t, "llama-b1", map[string]string{"libllama.so.0.1": "L", "libx.so": "X"})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -270,8 +270,8 @@ func TestFetchIdleTimeout(t *testing.T) {
 // Two fetches at once (two terminals) both succeed: the second waits for the
 // lock instead of deleting the first one's .download-*/.stage-* files.
 func TestFetchConcurrent(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
-	t.Setenv("XDG_CACHE_HOME", os.Getenv("CLAUDE_TICKETS_CACHE"))
+	t.Setenv("TIX_CACHE", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", os.Getenv("TIX_CACHE"))
 	model := bytes.Repeat([]byte("model"), 1000)
 	arc := tgz(t, "llama-b1", map[string]string{"libllama.so.0.1": "L", "libx.so": "X"})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -306,7 +306,7 @@ func TestFetchConcurrent(t *testing.T) {
 // resolution) must succeed and create nothing there.
 func TestReadOnlyCache(t *testing.T) {
 	cache := t.TempDir()
-	t.Setenv("CLAUDE_TICKETS_CACHE", cache)
+	t.Setenv("TIX_CACHE", cache)
 	t.Setenv("XDG_CACHE_HOME", cache)
 	m := Default()
 	lib, err := LibDir()
@@ -355,7 +355,7 @@ func TestReadOnlyCache(t *testing.T) {
 
 // A second fetch waits for the first one's lock, and gives up when ctx is done.
 func TestFetchLockWaitRespectsContext(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
+	t.Setenv("TIX_CACHE", t.TempDir())
 	if err := os.MkdirAll(Dir(), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -387,13 +387,13 @@ func TestFetchLockWaitRespectsContext(t *testing.T) {
 // A platform without a pinned llama.cpp build (linux-arm64, darwin, windows)
 // says so plainly, and does not suggest a fetch that cannot help.
 func TestUnpinnedPlatform(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
+	t.Setenv("TIX_CACHE", t.TempDir())
 	p := pins()
 	q := *p
 	q.Llama.Assets = map[string]asset{}
 	st := statusOf(&q, Default().ID)
 	if st.LibOK || !strings.Contains(st.Problem, "no prebuilt llama.cpp is pinned for "+platformKey()) ||
-		!strings.Contains(st.Problem, "keyword search still works") || strings.Contains(st.Problem, "ct vault model fetch") {
+		!strings.Contains(st.Problem, "keyword search still works") || strings.Contains(st.Problem, "tix vault model fetch") {
 		t.Fatalf("problem: %q", st.Problem)
 	}
 	if err := fetch(context.Background(), &q, nil, Default().ID, nil); err == nil || !strings.Contains(err.Error(), "no prebuilt llama.cpp") {

@@ -23,7 +23,7 @@ func git(t *testing.T, dir string, args ...string) {
 }
 
 // remoteURL is the URL tests clone root/<name> by: a local path would fail
-// ct's URL rule, so a test global config (the user's, which ct trusts)
+// tix's URL rule, so a test global config (the user's, which tix trusts)
 // maps it there, over the file transport.
 func remoteURL(t *testing.T, root, name string) string {
 	t.Helper()
@@ -250,12 +250,12 @@ func TestQAExploreSharedEvil(t *testing.T) {
 	git(t, sc, "branch", "--quiet", "-D", "main")
 	evilMerge(t, clone, sc)
 	if !lost(t, sc) {
-		t.Error("shared clone: a merge commit's own content counted as merged; ct clean would delete it")
+		t.Error("shared clone: a merge commit's own content counted as merged; tix clean would delete it")
 	}
 }
 
 // A hook (core.hooksPath) and an fsmonitor command planted in a repo's
-// config must not run under ct's git.
+// config must not run under tix's git.
 func TestHooksAndFsmonitorOff(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the planted scripts are sh")
@@ -341,7 +341,7 @@ func TestHooksAndFsmonitorOff(t *testing.T) {
 	}
 }
 
-// unchecked runs git in dir with ct's safe flags and env but without the
+// unchecked runs git in dir with tix's safe flags and env but without the
 // config check, to prove the second layer on its own.
 func unchecked(t *testing.T, dir string, args ...string) {
 	t.Helper()

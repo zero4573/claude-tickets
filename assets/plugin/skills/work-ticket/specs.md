@@ -1,15 +1,15 @@
 # Spec diff and ready capabilities (PO)
 
 Only the PO writes specs (never the lead, tasks or reviewers). Specs live per repo as the project
-note's `specs:` says; `ct spec location <slug>` prints where.
+note's `specs:` says; `tix spec location <slug>` prints where.
 
 - **Repo location:** edit `specs/` in the repo's checkout on the ticket branch and commit it there.
 - **Vault location:** never edit `projects/<slug>/specs/` directly. Edit a copy in the ticket folder,
   `tickets/<source>/<ID>/specs/<slug>/` (same layout), made only with
-  `ct spec start <ID> <slug> [<capability>…]` (it copies the capabilities and snapshots
+  `tix spec start <ID> <slug> [<capability>…]` (it copies the capabilities and snapshots
   `projects/<slug>/specs/` the first time; run it again to add capabilities; never copy by hand).
-  `/tickets:save` promotes it to `projects/<slug>/specs/`. Nothing spec-related goes into the repo.
-- **Read the change** with `ct spec diff <ID>` (`--stat` for a summary): every repo of the
+  `/tix:save` promotes it to `projects/<slug>/specs/`. Nothing spec-related goes into the repo.
+- **Read the change** with `tix spec diff <ID>` (`--stat` for a summary): every repo of the
   workspace, wherever its specs live. The lead, reviewers and save read it the same way.
 - **Kickoff:** read `spec-draft.md` and the affected specs first, then write the diff.
 - **`## Specs` on `board.md`:** one line per capability,

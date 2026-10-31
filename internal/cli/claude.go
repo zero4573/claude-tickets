@@ -9,24 +9,24 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/modelcache"
-	"github.com/zero4573/claude-tickets/internal/projects"
-	"github.com/zero4573/claude-tickets/internal/repo"
-	"github.com/zero4573/claude-tickets/internal/session"
-	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/modelcache"
+	"github.com/zero4573/tix/internal/projects"
+	"github.com/zero4573/tix/internal/repo"
+	"github.com/zero4573/tix/internal/session"
+	"github.com/zero4573/tix/internal/vault"
 )
 
 func claudeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "claude [claude args...]",
 		Short: "Claude in the current repo, with the vault as its knowledge base",
-		Long: `Runs claude in the current repo with the current vault (ct vault default)
+		Long: `Runs claude in the current repo with the current vault (tix vault default)
 as its knowledge base: the vault is added (--add-dir), the ticket plugin's
-skills are loaded (/tickets:spec, /tickets:recall, /tickets:save), and the
+skills are loaded (/tix:spec, /tix:recall, /tix:save), and the
 system prompt names the vault and this repo's notes in it. The arguments
-are claude's own. Without ct claude a session knows nothing of the vault.`,
+are claude's own. Without tix claude a session knows nothing of the vault.`,
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 && (args[0] == "-h" || args[0] == "--help") {
@@ -37,7 +37,7 @@ are claude's own. Without ct claude a session knows nothing of the vault.`,
 				return err
 			}
 			if _, err := os.Stat(filepath.Join(ctx.Vault, "AGENTS.md")); err != nil {
-				return fmt.Errorf("%s has no AGENTS.md (set it up with ct vault init)", ctx.Vault)
+				return fmt.Errorf("%s has no AGENTS.md (set it up with tix vault init)", ctx.Vault)
 			}
 			wd, _ := os.Getwd()
 			argv, err := session.Command(ctx.Vault, modelcache.Dir())
@@ -84,13 +84,13 @@ func vaultPrompt(ctx vault.Context, slug string) string {
 			fmt.Fprintf(&b, "- This repo is `%[1]s`. Its notes are in `projects/%[1]s/`: the index `%[1]s.md`, `architecture/%[1]s-decisions.md`, `features/` (an index), `specs/` when its `specs:` field says `vault`, `logs/`.\n", slug)
 			relationsPrompt(&b, ctx.Vault, slug)
 		} else {
-			fmt.Fprintf(&b, "- This repo is `%[1]s`. It has no notes yet; `/tickets:save` creates `projects/%[1]s/`.\n", slug)
+			fmt.Fprintf(&b, "- This repo is `%[1]s`. It has no notes yet; `/tix:save` creates `projects/%[1]s/`.\n", slug)
 		}
 	}
 	b.WriteString("- `knowledge-base/` and `references/` hold findings outside any project; `tickets/` holds the history of past work.\n" +
 		"- For questions about this repo or the projects it works with, and before non-trivial changes, use the `spec` skill. Check the vault first, then the code.\n" +
-		"- Don't edit `projects/`, `knowledge-base/` or `references/` directly. Record what you learn as drafts in `inbox/` (see the `spec` skill); `/tickets:save` promotes them at the end of the session.\n" +
-		"- `/tickets:recall` loads this repo's recent history and decisions. Run `/tickets:save` before ending the session.")
+		"- Don't edit `projects/`, `knowledge-base/` or `references/` directly. Record what you learn as drafts in `inbox/` (see the `spec` skill); `/tix:save` promotes them at the end of the session.\n" +
+		"- `/tix:recall` loads this repo's recent history and decisions. Run `/tix:save` before ending the session.")
 	return b.String()
 }
 
@@ -120,5 +120,5 @@ func relationsPrompt(b *strings.Builder, v, slug string) {
 		fmt.Fprintf(b, "- It's in the group `%[1]s` (`projects/%[1]s/`: interactions, compatibility, decisions, flows across its members).\n", grp)
 	}
 	// Quoted: the vault path may have spaces
-	fmt.Fprintf(b, "- Run `ct vault groups \"%s\" %s` for the projects it works with.\n", v, slug)
+	fmt.Fprintf(b, "- Run `tix vault groups \"%s\" %s` for the projects it works with.\n", v, slug)
 }

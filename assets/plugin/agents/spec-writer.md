@@ -1,6 +1,6 @@
 ---
 name: spec-writer
-description: Drafts one capability's spec.md from a repo's code for /tickets:spec-init, requirements inferred with file:line evidence and covering tests, at most 3 clarification markers each, reporting in 5 lines. Read-only on the repo; writes only the one output path it is given.
+description: Drafts one capability's spec.md from a repo's code for /tix:spec-init, requirements inferred with file:line evidence and covering tests, at most 3 clarification markers each, reporting in 5 lines. Read-only on the repo; writes only the one output path it is given.
 tools: Read, Write, Grep, Glob, Bash
 model: sonnet
 ---

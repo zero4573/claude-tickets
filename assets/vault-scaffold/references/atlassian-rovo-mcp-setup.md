@@ -12,7 +12,7 @@ tags: [reference, jira, bitbucket, mcp]
 How Claude sessions reach Jira (the `jira` ticket source) and Bitbucket (PR
 feedback, related repos at kickoff, `kb`): the Atlassian Rovo MCP server,
 best behind a local proxy that holds the token, so credentials stay out of
-the sessions. Used by `ct sync` to fill `tickets/`. See [[AGENTS]] and the [[tickets.base|ticket dashboard]].
+the sessions. Used by `tix sync` to fill `tickets/`. See [[AGENTS]] and the [[tickets.base|ticket dashboard]].
 
 ## Setup (one time)
 1. **Admin:** an org admin enables API-token authentication for the Rovo
@@ -27,32 +27,32 @@ the sessions. Used by `ct sync` to fill `tickets/`. See [[AGENTS]] and the [[tic
      reach; without them every Jira call fails with "Failed to fetch
      accessible products: 401")
 
-   For Bitbucket (`/tickets:pr-feedback`, the kickoff's related-repo search, `kb`),
+   For Bitbucket (`/tix:pr-feedback`, the kickoff's related-repo search, `kb`),
    add the Bitbucket scope to the same token: `read:bitbucket:agent-interface`
    (repos, pull requests, comments). The token screen offers only that and
    `write:bitbucket:agent-interface` for Bitbucket; leave the write one out.
 
-   Optional, for `/tickets:new-ticket` (sessions filing tickets in Jira,
+   Optional, for `/tix:new-ticket` (sessions filing tickets in Jira,
    always after you confirm): `write:jira:agent-interface`, on the token
-   the sessions use only; `ct sync` needs none. No other `write:` and no
+   the sessions use only; `tix sync` needs none. No other `write:` and no
    `delete:`/`manage:`/`admin:` scopes. Tokens expire after at most a year.
 3. **Store the token** where your MCP proxy reads it (e.g. a password
    manager item), or, without a proxy, in the MCP config itself (below).
 4. **Register** the server as `atlassian` (the `mcp` of the `jira` source in
    `tickets/.sources.json`), with Basic auth (`base64(email:token)`):
    - for sessions: in the MCP config your `claude` command uses
-   - for `ct sync`: in the standard MCP config named by
-     `CLAUDE_TICKETS_MCP_CONFIG`, e.g.
+   - for `tix sync`: in the standard MCP config named by
+     `TIX_MCP_CONFIG`, e.g.
      `{"mcpServers": {"atlassian": {"type": "http", "url": "http://127.0.0.1:<port>/atlassian"}}}`
      behind a proxy, or `{"type": "http", "url": "https://mcp.atlassian.com/v2/mcp", "headers": {"Authorization": "Basic …"}}`
      without one.
-5. **Site (optional):** ct sync finds your Jira site itself, through
+5. **Site (optional):** tix sync finds your Jira site itself, through
    `getAccessibleAtlassianResources` (hence the `read:me` / `read:account`
    scopes). Only if the token can reach several Jira sites, set `"site"` on
    the `jira` source in `tickets/.sources.json` (e.g.
    `yourcompany.atlassian.net`); it's then passed as the `cloudId` on every
    call.
-6. **Check:** `ct sync` connects, or `ct vault configure --section sources`
+6. **Check:** `tix sync` connects, or `tix vault configure --section sources`
    lists `atlassian` among the servers it finds.
 
 ## Behaviour and gotchas
@@ -60,7 +60,7 @@ the sessions. Used by `ct sync` to fill `tickets/`. See [[AGENTS]] and the [[tic
   server is read-only, so agents can never change Jira or Bitbucket. With
   `write:jira:agent-interface` it adds the create and edit tools
   (`createJiraIssue`, ...); the skills only create tickets, through
-  `/tickets:new-ticket`, after you confirm.
+  `/tix:new-ticket`, after you confirm.
 - A legacy (unscoped) API token only exposes Teamwork Graph tools, with no
   Jira tools at all.
 - Personal tokens use **Basic** auth (`base64(email:token)`). Bearer is only
@@ -84,7 +84,7 @@ the sessions. Used by `ct sync` to fill `tickets/`. See [[AGENTS]] and the [[tic
   lacks `read:me` / `read:account`. Recreate it with them (or set `site`).
 - **401 or 403 on a Bitbucket call:** the token lacks
   `read:bitbucket:agent-interface`, or your account can't read that
-  workspace. `/tickets:pr-feedback` and the kickoff stop and report it rather than
+  workspace. `/tix:pr-feedback` and the kickoff stop and report it rather than
   retry.
 
 ## Cost
@@ -94,8 +94,8 @@ the sessions. Used by `ct sync` to fill `tickets/`. See [[AGENTS]] and the [[tic
   (`getGraphContext`, `getGraphObject`, `addGraphContext`,
   `getTeamworkGraphContext`), at 1-10 credits per call. Overage is billed by default from 2026-12-03, at $0.01 per credit.
 - **Guards:** deny these tools in your Claude settings, and in the session
-  settings claude-tickets merges into every ticket session
-  (`CLAUDE_TICKETS_SESSION_SETTINGS`, which the headless `ct sync` run
-  gets too); the claude-tickets README has the rules. The vault's [[AGENTS]] ("Cost guard") tells every
+  settings tix merges into every ticket session
+  (`TIX_SESSION_SETTINGS`, which the headless `tix sync` run
+  gets too); the tix README has the rules. The vault's [[AGENTS]] ("Cost guard") tells every
   skill and agent never to run them through `executeRead`, which the
   settings can't block by operation name.

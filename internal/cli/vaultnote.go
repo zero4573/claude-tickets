@@ -12,10 +12,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/links"
-	"github.com/zero4573/claude-tickets/internal/mdsec"
-	"github.com/zero4573/claude-tickets/internal/notesec"
-	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/tix/internal/links"
+	"github.com/zero4573/tix/internal/mdsec"
+	"github.com/zero4573/tix/internal/notesec"
+	"github.com/zero4573/tix/internal/vault"
 )
 
 func init() { vaultSubcommands = append(vaultSubcommands, vaultNoteCmd) }
@@ -33,18 +33,18 @@ and every other byte stays as it was. <note> is a bare name or a
 vault-relative path (resolved like a wikilink); <section> is "Title",
 "## Title" (level-checked) or "A > B".
 
-  ct vault note outline <note> [--json]
-  ct vault note get <note> [<section>] [--no-subsections]
-  ct vault note set-section <note> <section> [--with-subsections] [--file f]
-  ct vault note append <note> <section> [--create <level>] [--file f]
-  ct vault note frontmatter <note> [<field>] [--json]
-  ct vault note frontmatter <note> <field> --set <v> | --add <item> | --remove <item>
+  tix vault note outline <note> [--json]
+  tix vault note get <note> [<section>] [--no-subsections]
+  tix vault note set-section <note> <section> [--with-subsections] [--file f]
+  tix vault note append <note> <section> [--create <level>] [--file f]
+  tix vault note frontmatter <note> [<field>] [--json]
+  tix vault note frontmatter <note> <field> --set <v> | --add <item> | --remove <item>
 
 Content for writes comes from --file or stdin. Writes follow the vault's write
 rules: in a ticket workspace only tickets/<source>/<ID>/ (never a ticket's identity
 fields or a synced ticket's source block; a manual ticket's own workspace may
 write its Description, Acceptance criteria and Context / links, a synced
-ticket's content sections never), outside one only inbox/; /tickets:save passes
+ticket's content sections never), outside one only inbox/; /tix:save passes
 --save for the shared notes. Exit codes: 0 ok, 1 error, 2 usage / not found /
 ambiguous, 3 refused by a write rule.`,
 	}
@@ -52,7 +52,7 @@ ambiguous, 3 refused by a write rule.`,
 	return cmd
 }
 
-// noteErr maps a note error to ct's exit codes.
+// noteErr maps a note error to tix's exit codes.
 func noteErr(err error) error {
 	var amb *mdsec.AmbiguousError
 	var ref *notesec.RefusedError
@@ -63,7 +63,7 @@ func noteErr(err error) error {
 	case err == nil:
 		return nil
 	case errors.As(err, &ref):
-		fmt.Fprintln(os.Stderr, "ct vault note: "+ref.Msg)
+		fmt.Fprintln(os.Stderr, "tix vault note: "+ref.Msg)
 		return exitError(3)
 	case errors.Is(err, mdsec.ErrNotFound), errors.As(err, &amb):
 		return exitWith(2, err)
@@ -111,8 +111,8 @@ func (f *noteFlags) read(cmd *cobra.Command) {
 
 func (f *noteFlags) write(cmd *cobra.Command) {
 	f.read(cmd)
-	cmd.Flags().BoolVar(&f.save, "save", false, "shared-notes mode (/tickets:save)")
-	cmd.Flags().StringVar(&f.owner, "owner", "", "vault lock owner (default $CLAUDE_TICKETS_LOCK_OWNER, else ct-note-<pid>)")
+	cmd.Flags().BoolVar(&f.save, "save", false, "shared-notes mode (/tix:save)")
+	cmd.Flags().StringVar(&f.owner, "owner", "", "vault lock owner (default $TIX_LOCK_OWNER, else tix-note-<pid>)")
 }
 
 func (f *noteFlags) content(cmd *cobra.Command) ([]byte, error) {
@@ -145,7 +145,7 @@ func (f *noteFlags) apply(cmd *cobra.Command, name string, op notesec.Op) error 
 	}
 	owner := f.owner
 	if owner == "" {
-		owner = os.Getenv("CLAUDE_TICKETS_LOCK_OWNER")
+		owner = os.Getenv("TIX_LOCK_OWNER")
 	}
 	cwd, _ := os.Getwd()
 	changed, err := notesec.Apply(notesec.Ctx{Vault: v, Workspace: notesec.WorkspaceID(cwd), Save: f.save}, rel, owner, op)

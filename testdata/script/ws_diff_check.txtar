@@ -1,4 +1,4 @@
-# ct ws diff-check: binary or large files added by any commit of a range
+# tix ws diff-check: binary or large files added by any commit of a range
 expand gitconfig
 exec git init -q -b main repo
 exec git -C repo add -A
@@ -9,7 +9,7 @@ exec git -C repo checkout -q -b topic
 cp note.txt repo/note.txt
 exec git -C repo add note.txt
 exec git -C repo commit -q -m note
-exec ct ws diff-check -C repo main..topic
+exec tix ws diff-check -C repo main..topic
 ! stdout .
 ! stderr .
 
@@ -20,20 +20,20 @@ exec git -C repo add blob.bin
 exec git -C repo commit -q -m blob
 rm repo/blob.bin
 exec git -C repo commit -q -am drop
-! exec ct ws diff-check -C repo main..topic
+! exec tix ws diff-check -C repo main..topic
 stdout '^binary\t[0-9]+\t[0-9a-f]+\tblob.bin$'
 stderr '1 file\(s\) flagged'
 
 # a size over the limit
-! exec ct ws diff-check -C repo --max-size 4 main~0..topic~2
+! exec tix ws diff-check -C repo --max-size 4 main~0..topic~2
 stdout '^large\t[0-9]+\t[0-9a-f]+\tnote.txt$'
 
 # a bad range
-! exec ct ws diff-check -C repo nosuch..topic
+! exec tix ws diff-check -C repo nosuch..topic
 stderr .
 
 # a range that looks like an option is a usage error
-! exec ct ws diff-check -C repo --max-size 1M -- --all
+! exec tix ws diff-check -C repo --max-size 1M -- --all
 stderr 'bad range'
 ! stdout .
 

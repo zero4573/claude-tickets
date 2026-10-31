@@ -1,4 +1,4 @@
-// Package vindex is the vault search index under <vault>/.ct/index: notes,
+// Package vindex is the vault search index under <vault>/.tix/index: notes,
 // chunks and (when an embedding model is available) one vector per chunk.
 // The format is the vault-search-core-v1 contract's "On-disk index".
 package vindex
@@ -17,7 +17,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zero4573/claude-tickets/internal/lock"
+	"github.com/zero4573/tix/internal/lock"
 )
 
 // Format is meta.json's "format".
@@ -28,7 +28,21 @@ const Format = 1
 var ErrNoIndex = errors.New("no vault index")
 
 // Dir is where the index files are.
-func Dir(vault string) string { return filepath.Join(vault, ".ct", "index") }
+func Dir(vault string) string { return filepath.Join(vault, ".tix", "index") }
+
+// MigrateLegacy moves a vault's .ct folder (the index under the name tix had
+// before) to .tix, when .tix doesn't exist yet. The index is rebuildable, so
+// a failed move only means a rebuild.
+func MigrateLegacy(vault string) {
+	old, cur := filepath.Join(vault, ".ct"), filepath.Join(vault, ".tix")
+	if st, err := os.Lstat(old); err != nil || !st.IsDir() {
+		return
+	}
+	if _, err := os.Lstat(cur); err == nil {
+		return
+	}
+	_ = os.Rename(old, cur)
+}
 
 // Meta is meta.json.
 type Meta struct {
@@ -95,13 +109,14 @@ func (ix *Index) Vector(i int) []float32 {
 // wrapping ErrNoIndex. Where the lock file can't be opened (a read-only
 // vault) it reads without it.
 func Load(vault string) (*Index, error) {
+	MigrateLegacy(vault)
 	if _, err := os.Stat(filepath.Join(Dir(vault), "meta.json")); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrNoIndex, err)
 	}
 	var ix *Index
 	var lerr error
 	ran := false
-	if err := lock.With(filepath.Join(vault, ".ct", "index.commit.lock"), func() error {
+	if err := lock.With(filepath.Join(vault, ".tix", "index.commit.lock"), func() error {
 		ran = true
 		ix, lerr = load(vault)
 		return nil

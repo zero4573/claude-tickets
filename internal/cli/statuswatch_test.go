@@ -68,7 +68,7 @@ func TestIntervalFlagTooLong(t *testing.T) {
 	}
 }
 
-// writeStatus renders what ct status always printed: the header, then a
+// writeStatus renders what tix status always printed: the header, then a
 // table padded by two spaces, or the empty line.
 func TestWriteStatus(t *testing.T) {
 	var b bytes.Buffer
@@ -91,10 +91,10 @@ func TestWriteStatus(t *testing.T) {
 	}
 
 	b.Reset()
-	if err := writeStatus(&b, statusView{header: "Vault a (sessions run in their own terminal)", empty: "No ticket workspaces under /w (start one with ct start <ID>)."}); err != nil {
+	if err := writeStatus(&b, statusView{header: "Vault a (sessions run in their own terminal)", empty: "No ticket workspaces under /w (start one with tix start <ID>)."}); err != nil {
 		t.Fatal(err)
 	}
-	want = "Vault a (sessions run in their own terminal)\nNo ticket workspaces under /w (start one with ct start <ID>).\n"
+	want = "Vault a (sessions run in their own terminal)\nNo ticket workspaces under /w (start one with tix start <ID>).\n"
 	if got := b.String(); got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -102,9 +102,9 @@ func TestWriteStatus(t *testing.T) {
 
 func TestLineCollector(t *testing.T) {
 	var c lineCollector
-	c.Write([]byte("ct: a: ignoring x\nct: a: ignoring x\n"))
-	c.Write([]byte("ct: b: ignoring y\n"))
-	if got, want := c.drain(), []string{"ct: a: ignoring x", "ct: b: ignoring y"}; !reflect.DeepEqual(got, want) {
+	c.Write([]byte("tix: a: ignoring x\ntix: a: ignoring x\n"))
+	c.Write([]byte("tix: b: ignoring y\n"))
+	if got, want := c.drain(), []string{"tix: a: ignoring x", "tix: b: ignoring y"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 	if got := c.drain(); got != nil {

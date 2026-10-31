@@ -12,8 +12,8 @@ func TestRunningAgents(t *testing.T) {
 		want  bool
 	}{
 		"empty":       {"---\npo:\n  agents: []\n  finished: []\n---\n", false},
-		"inline":      {"---\npo:\n  agents: [\"a2 · tickets:task · w1\"]\n---\n", true},
-		"list":        {"---\npo:\n  agents:\n    - \"a2 · tickets:task · w1\"\n  finished: []\n---\n", true},
+		"inline":      {"---\npo:\n  agents: [\"a2 · tix:task · w1\"]\n---\n", true},
+		"list":        {"---\npo:\n  agents:\n    - \"a2 · tix:task · w1\"\n  finished: []\n---\n", true},
 		"list ended":  {"---\npo:\n  agents:\n  finished:\n    - \"w1 · task 01 · done\"\n---\n", false},
 		"other block": {"---\nlead:\n  agents:\n    - x\n---\n", false},
 		"body only":   {"---\ntype: board\n---\npo:\n  agents:\n    - x\n", false},

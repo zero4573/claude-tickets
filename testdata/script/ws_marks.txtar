@@ -1,4 +1,4 @@
-# ct ws mark / marks: per repo, where tidy was done
+# tix ws mark / marks: per repo, where tidy was done
 mkdir home/Documents/Obsidian/a/.obsidian
 mkdir home/Documents/Obsidian/a/tickets/MAN-1
 cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
@@ -8,60 +8,60 @@ exec git -C seed add -A
 exec git -C seed commit -q -m init
 exec git clone -q --bare seed remote/acme/billing.git
 exec git clone -q git@github.com:acme/billing.git home/Projects/repo-a/github/acme/billing
-exec ct ws add MAN-1 github-acme-billing --base main --desc marks
+exec tix ws add MAN-1 github-acme-billing --base main --desc marks
 env R=home/Projects/work-a/MAN-1/github-acme-billing
 env W=home/Projects/work-a/MAN-1/workspace.json
 
 # nothing recorded: exit 3
-! exec ct ws marks MAN-1
+! exec tix ws marks MAN-1
 ! stderr .
 stdout '^github-acme-billing tidy none$'
 
 # mark
-exec ct ws mark MAN-1 tidy github-acme-billing
-stdout '^ct ws: github-acme-billing: tidy marked at [0-9a-f]{7}$'
+exec tix ws mark MAN-1 tidy github-acme-billing
+stdout '^tix ws: github-acme-billing: tidy marked at [0-9a-f]{7}$'
 grep '"tidy": \{' $W
-exec ct ws marks MAN-1
+exec tix ws marks MAN-1
 stdout '^github-acme-billing tidy ok$'
 
-# marks are kept when ct ws add finds the worktree
-exec ct ws add MAN-1 github-acme-billing --base main --desc marks
+# marks are kept when tix ws add finds the worktree
+exec tix ws add MAN-1 github-acme-billing --base main --desc marks
 grep '"tidy": \{' $W
-exec ct ws marks MAN-1
+exec tix ws marks MAN-1
 
 # a commit after the mark: stale
 cp seed/README.md $R/one.txt
 exec git -C $R add one.txt
 exec git -C $R commit -q -m one
-! exec ct ws marks MAN-1
+! exec tix ws marks MAN-1
 stdout '^github-acme-billing tidy stale$'
 
 # a rewrite with the same tree keeps the mark ok
-exec ct ws mark MAN-1 tidy
+exec tix ws mark MAN-1 tidy
 exec git -C $R commit -q --amend -m 'one again'
-exec ct ws marks MAN-1
+exec tix ws marks MAN-1
 stdout '^github-acme-billing tidy ok$'
 
 # a dirty worktree is not marked
 cp seed/README.md $R/dirty.txt
-! exec ct ws mark MAN-1 tidy
-stderr 'ct ws: warning: github-acme-billing: uncommitted changes, not marked'
+! exec tix ws mark MAN-1 tidy
+stderr 'tix ws: warning: github-acme-billing: uncommitted changes, not marked'
 ! stdout 'marked at'
 rm $R/dirty.txt
 
 # errors
-! exec ct ws mark MAN-1 other
+! exec tix ws mark MAN-1 other
 stderr 'unknown kind .other.'
-! exec ct ws mark MAN-1 docs
+! exec tix ws mark MAN-1 docs
 stderr 'unknown kind .docs.'
-! exec ct ws mark MAN-1 tidy nope
+! exec tix ws mark MAN-1 tidy nope
 stderr 'no repo .nope.'
-! exec ct ws mark MAN-9 tidy
+! exec tix ws mark MAN-9 tidy
 stderr 'MAN-9 has no workspace'
 
 # a missing worktree counts as not ok
 exec git -C home/Projects/repo-a/github/acme/billing worktree remove --force $WORK/$R
-! exec ct ws marks MAN-1
+! exec tix ws marks MAN-1
 stdout '^github-acme-billing tidy missing$'
 
 -- man-1.md --

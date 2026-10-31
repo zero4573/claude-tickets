@@ -8,7 +8,7 @@ import (
 
 // A repository's own config files can name programs git runs (hooks,
 // filters, transports, pagers, ...). A session can write a clone's config,
-// and ct runs git on the host, so before it does, ct reads that config in
+// and tix runs git on the host, so before it does, tix reads that config in
 // Go (running nothing) and refuses any key that isn't on its safe list
 // (allow.go). The parser follows git's config.c character by character:
 // a key it reads differently from git is a key the check never saw.

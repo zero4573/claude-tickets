@@ -15,9 +15,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/lock"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/tix/internal/lock"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/vault"
 )
 
 const (
@@ -89,8 +89,8 @@ func relayCloseCmd() *cobra.Command {
 		Use:   "close <ID> R-<n> <summary>",
 		Short: "Move a relay entry from ## Open to ## Closed as \"R-<n> → <summary>\"",
 		Long: `Removes the entry from ## Open and appends "R-<n> → <summary>" to ## Closed,
-under the same lock as ct relay add, keeping at most 40 Closed lines (the
-oldest are dropped). The summary follows the text rules of ct relay add.`,
+under the same lock as tix relay add, keeping at most 40 Closed lines (the
+oldest are dropped). The summary follows the text rules of tix relay add.`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := vault.Require()

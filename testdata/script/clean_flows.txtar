@@ -1,4 +1,4 @@
-# ct clean: dry run changes no mtime; referenced attachments, ignored tickets, bad source-url, leads and covered tickets
+# tix clean: dry run changes no mtime; referenced attachments, ignored tickets, bad source-url, leads and covered tickets
 env GIT_CONFIG_GLOBAL=/dev/null
 env V=home/Documents/Obsidian/a
 env W=home/Projects/work-a
@@ -30,12 +30,12 @@ cp empty $W/PROJ-51/precious.txt
 # Dry run: nothing in the vault or the work root changes (contents, mtimes, modes, dirs)
 exec sh -c 'find home/Documents home/Projects -printf "%p %T@ %s %m\n" | sort'
 cp stdout before.txt
-exec ct clean --dry-run
+exec tix clean --dry-run
 cp stdout plan.txt
 exec sh -c 'find home/Documents home/Projects -printf "%p %T@ %s %m\n" | sort'
 cmp stdout before.txt
 
-exec ct clean --yes
+exec tix clean --yes
 cp stdout run.txt
 exec cat run.txt
 # referenced attachment kept, unreferenced one trashed
@@ -53,7 +53,7 @@ exists $V/archive/tickets/manual/MAN-52/MAN-52.md
 # a lead with no covers goes; its open covered ticket stays, covered-by still resolves
 exists $V/archive/tickets/manual/MAN-53/MAN-53.md
 exists $V/tickets/manual/MAN-54/MAN-54.md
-exec ct vault links check $V
+exec tix vault links check $V
 stdout 'all links resolve'
 # the leftover workspace folder's file is kept
 exists $W/PROJ-51/precious.txt

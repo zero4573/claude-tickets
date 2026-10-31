@@ -1,6 +1,6 @@
 // Package vaultlock is the exclusive lock on a vault's shared notes
 // (projects/, knowledge-base/, references/), so concurrent sessions running
-// /tickets:save take turns. The lock is the directory <vault>/.vault.lock.d
+// /tix:save take turns. The lock is the directory <vault>/.vault.lock.d
 // (mkdir is atomic) holding an owner file; stale takeovers serialize on
 // <vault>/.vault.lock.d.guard. Dot-files are hidden from Obsidian.
 package vaultlock
@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/lock"
+	"github.com/zero4573/tix/internal/lock"
 )
 
 var (
@@ -65,7 +65,7 @@ func takeOver(dir, owner string) bool {
 	ok := false
 	_ = lock.With(dir+".guard", func() error {
 		if a := age(dir); a > Stale {
-			fmt.Fprintf(os.Stderr, "ct: taking over a %ds-old lock held by '%s'\n", int(a.Seconds()), Holder(dir))
+			fmt.Fprintf(os.Stderr, "tix: taking over a %ds-old lock held by '%s'\n", int(a.Seconds()), Holder(dir))
 			_ = os.RemoveAll(dir)
 			ok = take(dir, owner)
 		}
@@ -100,7 +100,7 @@ func Acquire(vault, owner string) error {
 			return fmt.Errorf("acquire: still locked by '%s' after %ds", Holder(dir), int(Wait.Seconds()))
 		}
 		if waited < poll {
-			fmt.Fprintf(os.Stderr, "ct: waiting for the vault lock held by '%s'...\n", Holder(dir))
+			fmt.Fprintf(os.Stderr, "tix: waiting for the vault lock held by '%s'...\n", Holder(dir))
 		}
 		time.Sleep(poll)
 	}

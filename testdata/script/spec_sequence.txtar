@@ -1,4 +1,4 @@
-# ct spec start and promote in sequence: start, promote, another ticket's
+# tix spec start and promote in sequence: start, promote, another ticket's
 # promotion, start, promote; then a promoted file another ticket changed,
 # copied again; and a copy write that fails after the snapshot was rebased
 env V=home/Documents/Obsidian/a
@@ -19,10 +19,10 @@ expand ws1.json
 cp ws1.json $W1/workspace.json
 
 # start posting and promote this ticket's change
-exec ct spec start MAN-1 github-acme-ledger posting
+exec tix spec start MAN-1 github-acme-ledger posting
 stdout 'snapshot .* taken$'
 cp posting-ours.md $C1/posting/spec.md
-exec ct spec promote MAN-1
+exec tix spec promote MAN-1
 cmp $P/posting/spec.md posting-ours.md
 
 # another ticket promotes a journal change
@@ -32,14 +32,14 @@ cp journal-v2.md $P/journal/spec.md
 # snapshots were rebased, so no copy file is ever on a stale snapshot
 mkdir $C1
 symlink $C1/journal -> $WORK/nowhere
-! exec ct spec start MAN-1 github-acme-ledger journal
+! exec tix spec start MAN-1 github-acme-ledger journal
 cmp $B1/journal/spec.md journal-v2.md
 ! exists $A1/journal/spec.md
 ! exists $WORK/nowhere
 rm $C1/journal
 
 # the rerun finishes the job: start journal, from projects/ as it is now
-exec ct spec start MAN-1 github-acme-ledger journal
+exec tix spec start MAN-1 github-acme-ledger journal
 stdout '^  copied journal/spec.md$'
 cmp $C1/journal/spec.md journal-v2.md
 cmp $B1/journal/spec.md journal-v2.md
@@ -47,14 +47,14 @@ cmp $B1/posting/spec.md posting-v1.md
 
 # the other ticket's journal change is not ours; the edit and promote are
 cp journal-ours.md $C1/journal/spec.md
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout 'REQ-JRN-3'
 ! stdout 'REQ-JRN-2'
-exec ct spec promote MAN-1
+exec tix spec promote MAN-1
 cmp $P/journal/spec.md journal-ours.md
 
 # the cumulative diff keeps both promotions of this ticket, and only them
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout 'added REQ-LED-2'
 stdout 'added REQ-JRN-3'
 ! stdout 'REQ-JRN-2'
@@ -63,26 +63,26 @@ stdout 'added REQ-JRN-3'
 # is rebased, so the other ticket's change is not ours and no refusal
 rm $C1/journal
 cp journal-v1.md $P/journal/spec.md
-exec ct spec start MAN-1 github-acme-ledger journal
-stdout '^  rebased journal/spec.md in the snapshot \(projects/ changed it since this ticket promoted it: its earlier change leaves ct spec diff, ct spec log and ct spec show\)$'
+exec tix spec start MAN-1 github-acme-ledger journal
+stdout '^  rebased journal/spec.md in the snapshot \(projects/ changed it since this ticket promoted it: its earlier change leaves tix spec diff, tix spec log and tix spec show\)$'
 stdout '^  copied journal/spec.md$'
 cmp $B1/journal/spec.md journal-v1.md
 cmp $A1/journal/spec.md journal-v1.md
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout 'added REQ-LED-2'
 ! stdout 'REQ-JRN'
 cp journal-ours.md $C1/journal/spec.md
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout 'added REQ-JRN-2'
 stdout 'added REQ-JRN-3'
-exec ct spec promote MAN-1
+exec tix spec promote MAN-1
 cmp $P/journal/spec.md journal-ours.md
 
 # a promoted file nobody changed since keeps its snapshot, copied again
 rm $C1/journal
-exec ct spec start MAN-1 github-acme-ledger journal
+exec tix spec start MAN-1 github-acme-ledger journal
 ! stdout rebased
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout 'added REQ-JRN-2'
 
 # promote's after snapshot keeps this ticket's files only: a file promoted
@@ -97,18 +97,18 @@ expand ws2.json
 cp ws2.json $W2/workspace.json
 cp journal-v1.md $P/journal/spec.md
 cp posting-v1.md $P/posting/spec.md
-exec ct spec start MAN-2 github-acme-ledger journal
+exec tix spec start MAN-2 github-acme-ledger journal
 cp journal-j3.md $C2/journal/spec.md
-exec ct spec promote MAN-2
+exec tix spec promote MAN-2
 cmp $P/journal/spec.md journal-j3.md
 cp journal-ours.md $P/journal/spec.md
-exec ct spec start MAN-2 github-acme-ledger posting
+exec tix spec start MAN-2 github-acme-ledger posting
 ! stdout rebased
 cp posting-ours.md $C2/posting/spec.md
-exec ct spec promote MAN-2
+exec tix spec promote MAN-2
 cmp $A2/journal/spec.md journal-j3.md
 cmp $A2/posting/spec.md posting-ours.md
-exec ct spec diff MAN-2
+exec tix spec diff MAN-2
 stdout 'added REQ-LED-2'
 stdout 'added REQ-JRN-3'
 ! stdout 'REQ-JRN-2'
@@ -116,18 +116,18 @@ stdout 'added REQ-JRN-3'
 # MAN-1's rebase marker blocks only MAN-1: MAN-2's diff and show work, log
 # annotates MAN-1, and MAN-1's own diff and show refuse
 cp marker.txt $V/tickets/manual/MAN-1/specs-base/.github-acme-ledger.rebase
-exec ct spec diff MAN-2
+exec tix spec diff MAN-2
 stdout 'added REQ-JRN-3'
-exec ct spec show github-acme-ledger@MAN-2
-exec ct spec log github-acme-ledger
+exec tix spec show github-acme-ledger@MAN-2
+exec tix spec log github-acme-ledger
 stdout '^MAN-1 .*$'
-stdout 'refresh pending: run ct spec start MAN-1 github-acme-ledger$'
-! exec ct spec diff MAN-1
+stdout 'refresh pending: run tix spec start MAN-1 github-acme-ledger$'
+! exec tix spec diff MAN-1
 stderr 'part way rebased'
-! exec ct spec show github-acme-ledger@MAN-1
+! exec tix spec show github-acme-ledger@MAN-1
 stderr 'part way rebased'
 rm $V/tickets/manual/MAN-1/specs-base/.github-acme-ledger.rebase
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout 'added REQ-LED-2'
 
 -- marker.txt --

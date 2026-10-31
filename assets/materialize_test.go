@@ -13,7 +13,7 @@ import (
 )
 
 func TestMaterialize(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
+	t.Setenv("TIX_CACHE", t.TempDir())
 	dir, err := Materialize("plugin")
 	if err != nil {
 		t.Fatal(err)
@@ -31,7 +31,7 @@ func TestMaterialize(t *testing.T) {
 	}
 	exe, _ := executable()
 	if !strings.Contains(string(data), `"command": "\"`+strings.ReplaceAll(exe, `\`, `\\`)+`\" hook agent-state`) {
-		t.Errorf("hooks don't run this ct:\n%s", data)
+		t.Errorf("hooks don't run this tix:\n%s", data)
 	}
 	if again, _ := Materialize("plugin"); again != dir {
 		t.Errorf("a second call unpacked again: %s", again)
@@ -40,12 +40,12 @@ func TestMaterialize(t *testing.T) {
 }
 
 func TestHooksFor(t *testing.T) {
-	got := HooksFor(`{"command": "ct hook agent-state idle"}`, `C:\Program Files\ct.exe`)
+	got := HooksFor(`{"command": "tix hook agent-state idle"}`, `C:\Program Files\tix.exe`)
 	var v map[string]string
 	if err := json.Unmarshal([]byte(got), &v); err != nil {
 		t.Fatal(err)
 	}
-	if v["command"] != `"C:\Program Files\ct.exe" hook agent-state idle` {
+	if v["command"] != `"C:\Program Files\tix.exe" hook agent-state idle` {
 		t.Errorf("command = %q", v["command"])
 	}
 }
@@ -78,7 +78,7 @@ func TestMaterializeTo(t *testing.T) {
 	if err := os.WriteFile(stale, []byte("old"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	exe := filepath.Join("ws", ".cache", "dev", "bin", "ct")
+	exe := filepath.Join("ws", ".cache", "dev", "bin", "tix")
 	if err := copyFrom(src, dir, exe); err != nil {
 		t.Fatal(err)
 	}
@@ -97,10 +97,10 @@ func TestMaterializeTo(t *testing.T) {
 		t.Fatalf("hooks.json isn't valid JSON after the rewrite: %v", err)
 	}
 	if !strings.Contains(string(data), strings.ReplaceAll(exe, `\`, `\\`)+`\" hook `) {
-		t.Errorf("hooks don't run the given ct:\n%s", data)
+		t.Errorf("hooks don't run the given tix:\n%s", data)
 	}
-	if strings.Contains(string(data), `"ct hook `) {
-		t.Errorf("a hook still runs ct from PATH:\n%s", data)
+	if strings.Contains(string(data), `"tix hook `) {
+		t.Errorf("a hook still runs tix from PATH:\n%s", data)
 	}
 	left, _ := filepath.Glob(filepath.Join(filepath.Dir(dir), ".plugin-*"))
 	if len(left) > 0 {
@@ -118,7 +118,7 @@ func TestMaterializeToRefusesANonPluginDir(t *testing.T) {
 	if err := os.WriteFile(keep, []byte("mine"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := copyFrom(src, dir, "ct"); err == nil {
+	if err := copyFrom(src, dir, "tix"); err == nil {
 		t.Fatal("replaced a dir that isn't a plugin")
 	}
 	if _, err := os.Stat(keep); err != nil {
@@ -133,7 +133,7 @@ func TestMaterializeToRefusesANonPluginDir(t *testing.T) {
 	if err := os.WriteFile(file, []byte("mine"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := copyFrom(src, file, "ct"); err == nil {
+	if err := copyFrom(src, file, "tix"); err == nil {
 		t.Error("replaced a file")
 	}
 }
@@ -141,7 +141,7 @@ func TestMaterializeToRefusesANonPluginDir(t *testing.T) {
 func TestMaterializeToRefusesASourceWithoutManifest(t *testing.T) {
 	src := t.TempDir()
 	dir := filepath.Join(t.TempDir(), "plugin")
-	if err := copyFrom(src, dir, "ct"); err == nil {
+	if err := copyFrom(src, dir, "tix"); err == nil {
 		t.Fatal("copied a tree without a plugin manifest")
 	}
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
@@ -160,7 +160,7 @@ func TestMaterializeToRefusesSymlinks(t *testing.T) {
 		t.Skip("can't make symlinks here:", err)
 	}
 	dir := filepath.Join(t.TempDir(), "plugin")
-	err := copyFrom(src, dir, "ct")
+	err := copyFrom(src, dir, "tix")
 	if err == nil || !strings.Contains(err.Error(), "leak") {
 		t.Errorf("copied a tree with a symlink in it, or the error doesn't name it: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestMaterializeToRefusesSymlinks(t *testing.T) {
 		t.Skip("can't make symlinks here:", err)
 	}
 	dir = filepath.Join(t.TempDir(), "plugin")
-	err = copyFrom(link, dir, "ct")
+	err = copyFrom(link, dir, "tix")
 	if err == nil || !strings.Contains(err.Error(), "symlink") {
 		t.Errorf("copied through a symlinked src: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestMaterializeToRefusesALinkOutsideTheRoot(t *testing.T) {
 		t.Skip("can't make symlinks here:", err)
 	}
 	dir := filepath.Join(t.TempDir(), "plugin")
-	err := MaterializeTo(checkout, "assets/plugin", dir, "ct")
+	err := MaterializeTo(checkout, "assets/plugin", dir, "tix")
 	if err == nil || !strings.Contains(err.Error(), "escapes") {
 		t.Errorf("copied through a link outside the checkout: %v", err)
 	}
@@ -210,10 +210,10 @@ func TestMaterializeToRefusesALinkOutsideTheRoot(t *testing.T) {
 	if err := os.Symlink("real", filepath.Join(in, "assets")); err != nil {
 		t.Fatal(err)
 	}
-	if err := MaterializeTo(in, "assets/plugin", dir, "ct"); err != nil {
+	if err := MaterializeTo(in, "assets/plugin", dir, "tix"); err != nil {
 		t.Errorf("a link inside the checkout refused: %v", err)
 	}
-	if err := MaterializeTo(in, "nothing/plugin", filepath.Join(t.TempDir(), "p"), "ct"); err == nil || !strings.Contains(err.Error(), "no plugin at") {
+	if err := MaterializeTo(in, "nothing/plugin", filepath.Join(t.TempDir(), "p"), "tix"); err == nil || !strings.Contains(err.Error(), "no plugin at") {
 		t.Errorf("missing tree: %v", err)
 	}
 }

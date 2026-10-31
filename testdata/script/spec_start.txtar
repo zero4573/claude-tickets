@@ -1,4 +1,4 @@
-# ct spec start: the ticket's copy of a vault spec and the snapshot promote compares against
+# tix spec start: the ticket's copy of a vault spec and the snapshot promote compares against
 env V=home/Documents/Obsidian/a
 env C1=$V/tickets/manual/MAN-1/specs/github-acme-ledger
 env B1=$V/tickets/manual/MAN-1/specs-base/github-acme-ledger
@@ -15,22 +15,22 @@ expand ws1.json
 cp ws1.json $W1/workspace.json
 
 # errors, before anything is written
-! exec ct spec start MAN-1 github-acme-plain
+! exec tix spec start MAN-1 github-acme-plain
 stderr 'github-acme-plain: its specs are not in the vault'
-! exec ct spec start MAN-9 github-acme-ledger
+! exec tix spec start MAN-9 github-acme-ledger
 stderr 'no ticket MAN-9 in the vault'
-! exec ct spec start MAN-1 ../github-acme-ledger
+! exec tix spec start MAN-1 ../github-acme-ledger
 stderr 'invalid repo slug'
-! exec ct spec start MAN-1 github-acme-ledger posting nope
+! exec tix spec start MAN-1 github-acme-ledger posting nope
 stderr 'no capability nope in projects/github-acme-ledger/specs/'
-stderr 'run ct spec start MAN-1 github-acme-ledger without it first, then write it in the copy folder'
-! exec ct spec start MAN-1 github-acme-ledger ..
+stderr 'run tix spec start MAN-1 github-acme-ledger without it first, then write it in the copy folder'
+! exec tix spec start MAN-1 github-acme-ledger ..
 stderr 'invalid capability'
 ! exists $V/tickets/manual/MAN-1/specs
 ! exists $V/tickets/manual/MAN-1/specs-base
 
 # the first start: the named capability copied whole, the whole of projects/ snapshotted
-exec ct spec start MAN-1 github-acme-ledger posting
+exec tix spec start MAN-1 github-acme-ledger posting
 stdout '^github-acme-ledger: snapshot tickets/manual/MAN-1/specs-base/github-acme-ledger/ taken$'
 stdout '^github-acme-ledger: copy tickets/manual/MAN-1/specs/github-acme-ledger/$'
 stdout '^  copied posting/notes/extra.md$'
@@ -49,7 +49,7 @@ cp posting-v2.md $V/projects/github-acme-ledger/specs/posting/spec.md
 cp journal-v2.md $V/projects/github-acme-ledger/specs/journal/spec.md
 
 # the diff shows only this ticket's change, against the copy's start
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout '^  added REQ-LED-2 · Reverse \(posting, proposed\)$'
 ! stdout 'REQ-LED-3'
 ! stdout 'REQ-JRN'
@@ -59,7 +59,7 @@ stdout '^  added REQ-LED-2 · Reverse \(posting, proposed\)$'
 # snapshot of each file it copies, decided per file: an empty journal/
 # folder in the copy doesn't count as holding journal/spec.md
 mkdir $C1/journal
-exec ct spec start MAN-1 github-acme-ledger journal posting
+exec tix spec start MAN-1 github-acme-ledger journal posting
 stdout '^github-acme-ledger: snapshot tickets/manual/MAN-1/specs-base/github-acme-ledger/ kept \(taken by the first start\) but for the files rebased below$'
 stdout '^  rebased journal/spec.md in the snapshot onto projects/$'
 ! stdout 'rebased posting'
@@ -69,26 +69,26 @@ cmp $C1/journal/spec.md journal-v2.md
 cmp $C1/posting/spec.md posting-ours.md
 cmp $B1/posting/spec.md posting-v1.md
 cmp $B1/journal/spec.md journal-v2.md
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout 'REQ-LED-2'
 ! stdout 'REQ-JRN'
 
 # a repeat start that copies nothing new leaves the snapshot as it is
-exec ct spec start MAN-1 github-acme-ledger journal
+exec tix spec start MAN-1 github-acme-ledger journal
 stdout '^github-acme-ledger: snapshot tickets/manual/MAN-1/specs-base/github-acme-ledger/ kept \(taken by the first start\)$'
 ! stdout rebased
 
 # the other ticket's journal change is not ours: not in the diff, no refusal
 rm $C1/posting
 cp journal-ours.md $C1/journal/spec.md
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout 'REQ-JRN-3'
 ! stdout 'REQ-JRN-2'
-exec ct spec promote MAN-1
+exec tix spec promote MAN-1
 cmp $V/projects/github-acme-ledger/specs/journal/spec.md journal-ours.md
 
 # no capability: an empty copy folder, for new capabilities only
-exec ct spec start MAN-1 github-acme-ledger
+exec tix spec start MAN-1 github-acme-ledger
 stdout 'kept'
 ! stdout copied
 

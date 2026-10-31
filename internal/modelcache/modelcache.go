@@ -14,8 +14,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/embed"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/embed"
 )
 
 //go:embed pins.json
@@ -145,7 +145,7 @@ func StatusOf(id string) Status { return statusOf(pins(), id) }
 func statusOf(p *pinFile, id string) Status {
 	m, ok := modelOf(p, id)
 	if !ok {
-		return Status{Model: Model{ID: id}, Problem: fmt.Sprintf("unknown model %q (ct vault model list)", id)}
+		return Status{Model: Model{ID: id}, Problem: fmt.Sprintf("unknown model %q (tix vault model list)", id)}
 	}
 	st := Status{Model: m, ModelPath: ModelPath(m)}
 	var problems []string
@@ -183,16 +183,16 @@ func fileOK(p string) bool {
 	return err == nil && st.Mode().IsRegular() && st.Size() > 0
 }
 
-// Open returns the embedder for model id. $CLAUDE_TICKETS_EMBEDDER=stub gives
+// Open returns the embedder for model id. $TIX_EMBEDDER=stub gives
 // embed.Stub(64) and =none an error wrapping embed.ErrUnavailable; otherwise
 // the pinned library and model are loaded, or the error wraps
 // embed.ErrUnavailable when they are missing.
 func Open(id string) (embed.Embedder, error) {
-	switch os.Getenv("CLAUDE_TICKETS_EMBEDDER") {
+	switch os.Getenv("TIX_EMBEDDER") {
 	case "stub":
 		return embed.Stub(64), nil
 	case "none":
-		return nil, fmt.Errorf("%w: disabled by CLAUDE_TICKETS_EMBEDDER=none", embed.ErrUnavailable)
+		return nil, fmt.Errorf("%w: disabled by TIX_EMBEDDER=none", embed.ErrUnavailable)
 	}
 	if _, ok := Lookup(id); !ok {
 		return nil, fmt.Errorf("unknown model %q", id)
@@ -210,5 +210,5 @@ func hostHint(unpinned bool) string {
 	if unpinned {
 		return ""
 	}
-	return " (on the host: ct vault model fetch)"
+	return " (on the host: tix vault model fetch)"
 }

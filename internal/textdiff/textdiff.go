@@ -1,6 +1,6 @@
-// Package textdiff prints a unified diff of two small texts (ct vault
+// Package textdiff prints a unified diff of two small texts (tix vault
 // update --diff), without an external tool: a line LCS, so O(n·m), fine for
-// the files ct ships into a vault (a few hundred lines).
+// the files tix ships into a vault (a few hundred lines).
 package textdiff
 
 import (

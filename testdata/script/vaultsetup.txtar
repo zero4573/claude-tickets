@@ -1,12 +1,12 @@
-# ct vault init / configure without a terminal (as --defaults)
-exec ct vault init demo
+# tix vault init / configure without a terminal (as --defaults)
+exec tix vault init demo
 stdout 'created vault .*/Obsidian/demo'
 stdout '^  \+ AGENTS.md$'
 stdout '^  \+ templates/ticket-manual.md$'
 exists home/Documents/Obsidian/demo/.scaffold.json
 ! stdout obsidian-types.json
 stderr 'the Tasks plugin wasn.t installed'
-! stderr 'programs.claude-tickets.obsidian.vaults'
+! stderr 'programs.tix.obsidian.vaults'
 stdout '^  \+ templates/group.md$'
 # the wave workflow's ticket-folder templates, without checkboxes
 stdout '^  \+ templates/task.md$'
@@ -31,7 +31,7 @@ stdout '^  \+ templates/learning-record.md$'
 stdout '^  \+ templates/learning-reference.md$'
 grep '^## Mission$' home/Documents/Obsidian/demo/templates/learning-topic.md
 grep '^superseded-by: ""$' home/Documents/Obsidian/demo/templates/learning-record.md
-grep 'ct teach' home/Documents/Obsidian/demo/AGENTS.md
+grep 'tix teach' home/Documents/Obsidian/demo/AGENTS.md
 exists home/Documents/Obsidian/demo/learning
 grep '"skills": "multitext"' home/Documents/Obsidian/demo/.obsidian/types.json
 stdout '^  \+ projects.base$'
@@ -54,9 +54,9 @@ grep '"servicenow"' home/Documents/Obsidian/demo/tickets/.sources.json
 # re-run: nothing overwritten, settings kept; the user's types win
 cp mytypes.json home/Documents/Obsidian/demo/.obsidian/types.json
 cp mine.md home/Documents/Obsidian/demo/AGENTS.md
-exec ct vault init demo
+exec tix vault init demo
 stdout 'added 0 file\(s\), kept [0-9]+ existing'
-stdout 'kept .*/demo/.workflow.json \(ct vault configure --section locations to change it\)'
+stdout 'kept .*/demo/.workflow.json \(tix vault configure --section locations to change it\)'
 grep '^mine$' home/Documents/Obsidian/demo/AGENTS.md
 grep '"status": "number"' home/Documents/Obsidian/demo/.obsidian/types.json
 grep '"blocked": "checkbox"' home/Documents/Obsidian/demo/.obsidian/types.json
@@ -69,7 +69,7 @@ mkdir home/Documents/Obsidian/old/templates
 cp mine.md home/Documents/Obsidian/old/AGENTS.md
 cp old-project.md home/Documents/Obsidian/old/templates/project.md
 cp old-types.json home/Documents/Obsidian/old/.obsidian/types.json
-exec ct vault init old
+exec tix vault init old
 stdout '^  \+ templates/group.md$'
 ! stdout 'projects/system'
 cmp home/Documents/Obsidian/old/projects/system/system.md old-system.md
@@ -83,42 +83,42 @@ grep '"groups": "multitext"' home/Documents/Obsidian/old/.obsidian/types.json
 ! exists home/Documents/Obsidian/old/projects/system/service-map.md
 
 # a second vault gets folders of its own
-exec ct vault init other
+exec tix vault init other
 grep '"projectsRoot": "~/Projects/repo-other"' home/Documents/Obsidian/other/.workflow.json
 # a default that overlaps another vault's chosen folder is refused
 cp other-workflow.json home/Documents/Obsidian/other/.workflow.json
-! exec ct vault init third
+! exec tix vault init third
 stderr 'projectsRoot ~/Projects/repo-third overlaps other.s workRoot ~/Projects/repo-third'
 stderr 'overlapping folders \(--allow-overlap'
 
-! exec ct vault configure demo --section nope
+! exec tix vault configure demo --section nope
 stderr 'no section .nope.'
-! exec ct vault configure nope
+! exec tix vault configure nope
 stderr 'no vault named .nope.'
 rm home/Documents/Obsidian/demo/tickets/.sources.json
-exec ct vault configure demo --section sources
+exec tix vault configure demo --section sources
 stdout 'wrote tickets/.sources.json \(jira: false, manual: true\)'
 
-exec ct vault lock status home/Documents/Obsidian/demo
+exec tix vault lock status home/Documents/Obsidian/demo
 stdout '^unlocked$'
-exec ct vault lock acquire home/Documents/Obsidian/demo PROJ-1
-exec ct vault lock status home/Documents/Obsidian/demo
+exec tix vault lock acquire home/Documents/Obsidian/demo PROJ-1
+exec tix vault lock status home/Documents/Obsidian/demo
 stdout '^locked by .PROJ-1.$'
-! exec ct vault lock release home/Documents/Obsidian/demo PROJ-2
+! exec tix vault lock release home/Documents/Obsidian/demo PROJ-2
 stderr 'held by .PROJ-1., not .PROJ-2.'
-exec ct vault lock release home/Documents/Obsidian/demo PROJ-1
-! exec ct vault lock run home/Documents/Obsidian/demo PROJ-3 -- sh -c 'cat $WORK/home/Documents/Obsidian/demo/.vault.lock.d/owner; exit 3'
+exec tix vault lock release home/Documents/Obsidian/demo PROJ-1
+! exec tix vault lock run home/Documents/Obsidian/demo PROJ-3 -- sh -c 'cat $WORK/home/Documents/Obsidian/demo/.vault.lock.d/owner; exit 3'
 stdout '^PROJ-3$'
 ! exists home/Documents/Obsidian/demo/.vault.lock.d
-! exec ct vault lock status home
+! exec tix vault lock status home
 stderr 'not an Obsidian vault'
 
 cp note.md home/Documents/Obsidian/demo/inbox/note.md
-! exec ct vault links check home/Documents/Obsidian/demo inbox/note.md
+! exec tix vault links check home/Documents/Obsidian/demo inbox/note.md
 stdout '^inbox/note.md:1: unresolved link \[\[nowhere\]\]$'
-exec ct vault links move home/Documents/Obsidian/demo inbox/note.md knowledge-base
+exec tix vault links move home/Documents/Obsidian/demo inbox/note.md knowledge-base
 stdout '^knowledge-base/note.md$'
-! exec ct vault links move home/Documents/Obsidian/demo knowledge-base/note.md AGENTS.md
+! exec tix vault links move home/Documents/Obsidian/demo knowledge-base/note.md AGENTS.md
 stderr 'destination exists'
 
 -- other-workflow.json --

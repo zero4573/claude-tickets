@@ -1,12 +1,12 @@
 ---
 name: po-refresh
-description: Shrink the ticket PO session's own context (/tickets:work-ticket) without touching the lead or its workers. Checkpoints everything the PO holds only in chat into board.md (lead:, po:) and relay.md, picks /clear when nothing is running, else /compact (or takes the one asked for), and prints the exact command for the user to type. Use when the PO's context is heavy, on your own when ct's context warning appears, or when the PO playbook suggests a refresh, as /tickets:po-refresh [clear|compact].
+description: Shrink the ticket PO session's own context (/tix:work-ticket) without touching the lead or its workers. Checkpoints everything the PO holds only in chat into board.md (lead:, po:) and relay.md, picks /clear when nothing is running, else /compact (or takes the one asked for), and prints the exact command for the user to type. Use when the PO's context is heavy, on your own when tix's context warning appears, or when the PO playbook suggests a refresh, as /tix:po-refresh [clear|compact].
 ---
 
 # po-refresh
 
-`/tickets:po-refresh [clear|compact]`. A skill can't type built-in commands: checkpoint,
-pick, print the command for the user. Run it **on your own** when ct's context warning
+`/tix:po-refresh [clear|compact]`. A skill can't type built-in commands: checkpoint,
+pick, print the command for the user. Run it **on your own** when tix's context warning
 appears (at the next quiet point; past the last threshold at once): once checkpointed, the
 session's auto-compact (`autoCompactWindow`) loses nothing. Paths: `tickets/<source>/<ID>/`.
 
@@ -35,16 +35,16 @@ would rebuild the lead id, running agents, the buffered notices, open questions.
   last running agent's notice, say "Safe now:" and the clear lines) or **Compact now**.
 - `compact`: the compact command (afterwards the session carries on by itself):
 ```
-/compact Keep only: ticket <ID>, PO role (/tickets:work-ticket), lead id <agentId>, running agent ids <ids>; everything else is in board.md and relay.md
+/compact Keep only: ticket <ID>, PO role (/tix:work-ticket), lead id <agentId>, running agent ids <ids>; everything else is in board.md and relay.md
 ```
 Clear lines (nothing running), one code block; say "type the first, then the second to resume
 from board.md and relay.md":
 ```
 /clear
-/tickets:work-ticket <ID>
+/tix:work-ticket <ID>
 ```
 
 ## 3. After the refresh
-After a compact, ct's SessionStart hook points you at the PO playbook's "0. Resume";
+After a compact, tix's SessionStart hook points you at the PO playbook's "0. Resume";
 `po: session:` still matches, so SendMessage the lead by id "PO refreshed; send status",
 wait for its answer, carry on. Never replace it unless its completion notice arrived.

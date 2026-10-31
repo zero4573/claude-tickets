@@ -8,36 +8,36 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/chunk"
-	"github.com/zero4573/claude-tickets/internal/embed"
-	"github.com/zero4573/claude-tickets/internal/modelcache"
-	"github.com/zero4573/claude-tickets/internal/vindex"
-	"github.com/zero4573/claude-tickets/internal/vsearch"
+	"github.com/zero4573/tix/internal/chunk"
+	"github.com/zero4573/tix/internal/embed"
+	"github.com/zero4573/tix/internal/modelcache"
+	"github.com/zero4573/tix/internal/vindex"
+	"github.com/zero4573/tix/internal/vsearch"
 )
 
-// TestReport prints the benchmark report: CT_BENCH=1 go test ./internal/vbench -run TestReport -v
-// (make bench). CT_EMBED_REAL=1 uses the real model when it is fetched.
+// TestReport prints the benchmark report: TIX_BENCH=1 go test ./internal/vbench -run TestReport -v
+// (make bench). TIX_EMBED_REAL=1 uses the real model when it is fetched.
 func TestReport(t *testing.T) {
-	if os.Getenv("CT_BENCH") == "" {
-		t.Skip("set CT_BENCH=1 to run the benchmark")
+	if os.Getenv("TIX_BENCH") == "" {
+		t.Skip("set TIX_BENCH=1 to run the benchmark")
 	}
 	embedder := "stub"
-	if os.Getenv("CT_EMBED_REAL") == "1" {
+	if os.Getenv("TIX_EMBED_REAL") == "1" {
 		if d, err := embed.RuntimeLibDir(); err != nil {
 			t.Fatalf("runtime libraries: %v", err)
 		} else if d != "" {
-			t.Setenv("CLAUDE_TICKETS_LIB_PATH", d)
+			t.Setenv("TIX_LIB_PATH", d)
 		}
 		st := modelcache.StatusOf(modelcache.Default().ID)
 		if st.ModelOK && st.LibOK {
 			embedder = st.Model.ID
-			t.Setenv("CLAUDE_TICKETS_EMBEDDER", "")
+			t.Setenv("TIX_EMBEDDER", "")
 		} else {
-			fmt.Printf("CT_EMBED_REAL=1 but the model is not fetched (%s); using the stub\n", st.Problem)
+			fmt.Printf("TIX_EMBED_REAL=1 but the model is not fetched (%s); using the stub\n", st.Problem)
 		}
 	}
 	if embedder == "stub" {
-		t.Setenv("CLAUDE_TICKETS_EMBEDDER", "stub")
+		t.Setenv("TIX_EMBEDDER", "stub")
 	}
 	dir := t.TempDir()
 	v, err := Generate(dir, 1)
@@ -130,7 +130,7 @@ func TestReport(t *testing.T) {
 		// The stub has no semantics: its quality is the keyword-only floor and
 		// the targets are a regression guard (budget, latency), not the
 		// product's numbers.
-		note = " [keyword-only floor: the stub has no semantics; CT_EMBED_REAL=1 gives the real numbers]"
+		note = " [keyword-only floor: the stub has no semantics; TIX_EMBED_REAL=1 gives the real numbers]"
 	}
 	fmt.Printf("\ntargets (%s)%s: >=50%% fewer tokens: %v; search < 1s (p95): %v; quality new >= old: %v\n", embedder, note,
 		red >= 50, Percentile(lat, .95) < time.Second, all.newOK >= all.oldOK)

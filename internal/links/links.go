@@ -19,7 +19,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/fsx"
+	"github.com/zero4573/tix/internal/fsx"
 )
 
 var (
@@ -413,7 +413,7 @@ func CheckWith(vault string, files []string, w io.Writer, o CheckOpts) int {
 		fmt.Fprintf(w, o.ExemptNote+"\n", exempt)
 	}
 	if problems == 0 {
-		fmt.Fprintf(w, "ct vault links: %d file(s) checked, all links resolve\n", len(files))
+		fmt.Fprintf(w, "tix vault links: %d file(s) checked, all links resolve\n", len(files))
 	}
 	return problems
 }

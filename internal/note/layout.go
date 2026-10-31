@@ -14,9 +14,9 @@ import (
 // tickets/<source>/<ID>/ (its note tickets/<source>/<ID>/<ID>.md), and an
 // archived one under archive/tickets/<source>/<ID>/. <source> is the
 // source's key in tickets/.sources.json, which is also the note's
-// frontmatter source (jira, manual, ...). Vaults from before ct put the
+// frontmatter source (jira, manual, ...). Vaults from before tix put the
 // folders straight under tickets/ (tickets/<ID>/): they are still read
-// until ct vault update moves them (MigrateLayout).
+// until tix vault update moves them (MigrateLayout).
 
 var sourceRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
@@ -178,7 +178,7 @@ func SourceOf(vault, id string) string {
 // ArchiveRoot is the vault's archive/tickets/.
 func ArchiveRoot(vault string) string { return filepath.Join(vault, "archive", "tickets") }
 
-// ArchiveDir is where ct clean puts a ticket's folder it archives (manual
+// ArchiveDir is where tix clean puts a ticket's folder it archives (manual
 // tickets), or the files other notes still link from a ticket it removes:
 // the ticket's folder in the archive when there is one, else
 // archive/tickets/<source>/<ID>.

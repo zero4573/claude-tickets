@@ -1,7 +1,7 @@
 # no vault configured: the error is still in the JSON under --json
-! exec ct spec promote --json MAN-1
+! exec tix spec promote --json MAN-1
 stdout '"ticket": "MAN-1"'
 stdout '"error": '
 stdout '"repos": \[\]'
-! exec ct spec promote MAN-1
+! exec tix spec promote MAN-1
 ! stdout .

@@ -1,4 +1,4 @@
-# ct spec log and ct spec show: a vault spec's versions, resolved at read
+# tix spec log and tix spec show: a vault spec's versions, resolved at read
 # time, and the spec at a version, tag or commit; a repo spec's git history
 [windows] skip 'real git and sh stubs'
 env V=home/Documents/Obsidian/a
@@ -67,7 +67,7 @@ cp n2.md $SV/github-acme-orders-spec-MAN-2.md
 exec sh -c 'sed "s/@C@/$(cat c3.txt)/" n3.md > '$SV/github-acme-orders-spec-MAN-3.md
 
 # log: newest first, merged resolved (a merge commit, a squash), the first tag, the change
-exec ct spec log github-acme-orders
+exec tix spec log github-acme-orders
 stdout '^github-acme-orders: vault specs, 3 versions$'
 stdout '^MAN-3  2026-10-29  [0-9a-f]{7} feature/MAN-3  merged [0-9a-f]{7}  v2.0.0$'
 stdout '^       orders: ~REQ-ORD-1 \+REQ-ORD-2$'
@@ -76,22 +76,22 @@ stdout '^       billing: \+REQ-BIL-1$'
 stdout '^MAN-1  2026-09-11  [0-9a-f]{7} feature/MAN-1  merged [0-9a-f]{7}  v1.0.0$'
 stdout '^       orders: REQ-ORD-1 proposed→implemented$'
 stdout '(?s)MAN-3.*MAN-2.*MAN-1'
-exec sh -c 'ct spec log --json github-acme-orders | grep -q "\"merged\": \"$(cat c1.txt)\""'
-exec ct spec log github/acme/orders
+exec sh -c 'tix spec log --json github-acme-orders | grep -q "\"merged\": \"$(cat c1.txt)\""'
+exec tix spec log github/acme/orders
 stdout '^github-acme-orders: vault specs, 3 versions$'
 grep '^merged: ""$' $SV/github-acme-orders-spec-MAN-3.md
 
 # a capability: only the versions that promoted it, and its change alone
-exec ct spec log github-acme-orders billing
+exec tix spec log github-acme-orders billing
 stdout '^github-acme-orders: vault specs, 1 version$'
 stdout '^MAN-2  2026-10-02  unpinned$'
 stdout '^       billing: \+REQ-BIL-1$'
 ! stdout 'MAN-[13]'
-exec ct spec log github-acme-orders nope
+exec tix spec log github-acme-orders nope
 stdout '^github-acme-orders: no spec versions$'
 
 # --json
-exec ct spec log --json github-acme-orders
+exec tix spec log --json github-acme-orders
 stdout '"location": "vault"'
 stdout '"id": "MAN-3"'
 stdout '"state": "merged"'
@@ -100,70 +100,70 @@ stdout '"tags": \[\s*"v2.0.0"'
 stdout '"note": "projects/github-acme-orders/spec-versions/github-acme-orders-spec-MAN-1.md"'
 
 # show at a ticket ID: that version's after snapshot
-exec ct spec show github-acme-orders@MAN-1
+exec tix spec show github-acme-orders@MAN-1
 stdout '^github-acme-orders@MAN-1: version MAN-1 \(Pinned to [0-9a-f]{7} on feature/MAN-1\)$'
 stdout '^== orders/spec.md ==$'
 stdout '^status: implemented$'
 ! stdout 'REQ-ORD-2'
-exec ct spec show github-acme-orders@MAN-3 billing
+exec tix spec show github-acme-orders@MAN-3 billing
 stdout '^== billing/spec.md ==$'
 ! stdout 'orders/spec.md'
 
 # at a tag: the release's version
-exec ct spec show github-acme-orders@v1.0.0
+exec tix spec show github-acme-orders@v1.0.0
 stdout 'version MAN-1 \(Pinned to [0-9a-f]{7} on feature/MAN-1, merged as [0-9a-f]{7}, in v1.0.0\)'
-exec ct spec show github-acme-orders@v2.0.0
+exec tix spec show github-acme-orders@v2.0.0
 stdout 'version MAN-3 '
 stdout '^### REQ-ORD-2 · Cancel$'
 
 # at a commit between the two: the older version
-exec sh -c 'ct spec show github-acme-orders@$(cut -c1-9 mid.txt)'
+exec sh -c 'tix spec show github-acme-orders@$(cut -c1-9 mid.txt)'
 stdout 'version MAN-1 '
 
 # --diff: the version's change
-exec ct spec show github-acme-orders@MAN-3 --diff
+exec tix spec show github-acme-orders@MAN-3 --diff
 stdout '^github-acme-orders \(vault specs\)$'
 stdout '^  added REQ-ORD-2 · Cancel \(orders, proposed\)$'
 stdout '^\+### REQ-ORD-2 · Cancel$'
 
 # nothing at the base commit, an unknown rev, a malformed argument
-! exec sh -c 'ct spec show github-acme-orders@$(cat c0.txt)'
+! exec sh -c 'tix spec show github-acme-orders@$(cat c0.txt)'
 stderr 'no spec version at [0-9a-f]{40}$'
-! exec ct spec show github-acme-orders@nope
+! exec tix spec show github-acme-orders@nope
 stderr 'no spec version at nope \(not a ticket'
-! exec ct spec show github-acme-orders
+! exec tix spec show github-acme-orders
 stderr 'want <slug>@'
 
 # MAN-2's rebase marker blocks only MAN-2: log lists every version and
 # annotates it, show and diff of the others work, MAN-2's own refuses
 cp marker.txt $V/tickets/manual/MAN-2/specs-base/.github-acme-orders.rebase
-exec ct spec log github-acme-orders
+exec tix spec log github-acme-orders
 stdout '^MAN-2  2026-10-02  unpinned$'
-stdout '^       refresh pending: run ct spec start MAN-2 github-acme-orders$'
+stdout '^       refresh pending: run tix spec start MAN-2 github-acme-orders$'
 stdout '^MAN-3  2026-10-29 '
 stdout '^       orders: ~REQ-ORD-1 \+REQ-ORD-2$'
 stdout '^       orders: REQ-ORD-1 proposed→implemented$'
 ! stdout 'billing: \+REQ-BIL-1'
-exec ct spec log --json github-acme-orders
-stdout '"refresh": "refresh pending: run ct spec start MAN-2 github-acme-orders"'
-exec ct spec show github-acme-orders@MAN-1
+exec tix spec log --json github-acme-orders
+stdout '"refresh": "refresh pending: run tix spec start MAN-2 github-acme-orders"'
+exec tix spec show github-acme-orders@MAN-1
 stdout '^status: implemented$'
-exec ct spec show github-acme-orders@MAN-3 --diff
+exec tix spec show github-acme-orders@MAN-3 --diff
 stdout '^  added REQ-ORD-2 . Cancel'
-! exec ct spec show github-acme-orders@MAN-2
+! exec tix spec show github-acme-orders@MAN-2
 stderr 'part way rebased'
-stderr 'run ct spec start MAN-2 github-acme-orders again'
-! exec ct spec show github-acme-orders@MAN-2 --diff
+stderr 'run tix spec start MAN-2 github-acme-orders again'
+! exec tix spec show github-acme-orders@MAN-2 --diff
 stderr 'part way rebased'
 rm $V/tickets/manual/MAN-2/specs-base/.github-acme-orders.rebase
-exec ct spec log github-acme-orders
+exec tix spec log github-acme-orders
 ! stdout 'refresh pending'
 stdout '^       billing: \+REQ-BIL-1$'
 
 # a vault spec without versions, and a slug with no specs at all
-exec ct spec log github-acme-empty
+exec tix spec log github-acme-empty
 stdout '^github-acme-empty: no spec versions$'
-! exec ct spec log github-acme-none
+! exec tix spec log github-acme-none
 stderr 'github-acme-none: no specs'
 
 # a repo spec: the base's git log of specs/, and git's tree at a rev
@@ -177,19 +177,19 @@ exec git -C $P add -A
 exec git -C $P commit -q -m 'not a spec change'
 cp orders-v1.md $P/specs/orders/spec.md
 exec git -C $P commit -q -am 'implement orders'
-exec ct spec log github-acme-plain
+exec tix spec log github-acme-plain
 stdout '^github-acme-plain: repo specs, 2 commits on main$'
 stdout '^[0-9a-f]{7,} \d{4}-\d\d-\d\d implement orders$'
 stdout '^[0-9a-f]{7,} \d{4}-\d\d-\d\d add specs$'
 ! stdout 'not a spec change'
-exec ct spec log --json github-acme-plain orders
+exec tix spec log --json github-acme-plain orders
 stdout '"subject": "implement orders"'
-exec ct spec show github-acme-plain@HEAD~1
+exec tix spec show github-acme-plain@HEAD~1
 stdout '^== orders/spec.md ==$'
 stdout '^status: proposed$'
-exec ct spec show github-acme-plain@HEAD --diff
+exec tix spec show github-acme-plain@HEAD --diff
 stdout '^  status REQ-ORD-1 · Create \(orders, proposed -> implemented\)$'
-! exec ct spec show github-acme-plain@MAN-1
+! exec tix spec show github-acme-plain@MAN-1
 stderr 'must be a tag or a commit, not a ticket'
 
 -- marker.txt --

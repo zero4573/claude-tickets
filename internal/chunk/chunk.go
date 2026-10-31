@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/zero4573/claude-tickets/internal/mdsec"
+	"github.com/zero4573/tix/internal/mdsec"
 )
 
 // DefaultMaxTokens is the chunk size limit when Options.MaxTokens is 0.

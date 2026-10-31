@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/fsx"
+	"github.com/zero4573/tix/internal/fsx"
 )
 
 // RewriteOpts tunes RewriteToURL.

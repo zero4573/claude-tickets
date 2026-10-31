@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/spec"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/spec"
 )
 
 // SpecHit is one requirement ID that is taken twice.

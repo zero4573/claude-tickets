@@ -1,4 +1,4 @@
-# Freshness: notes ct writes are re-indexed by the command that wrote them;
+# Freshness: notes tix writes are re-indexed by the command that wrote them;
 # without an index nothing is created.
 mkdir v/.obsidian
 mkdir v/inbox
@@ -7,38 +7,38 @@ cp ticket-manual.md v/templates/ticket-manual.md
 mkdir v/knowledge-base
 cp a.md v/inbox/a.md
 cp b.md v/inbox/b.md
-env CLAUDE_TICKETS_EMBEDDER=stub
-env CLAUDE_TICKETS_VAULT=$WORK/v
+env TIX_EMBEDDER=stub
+env TIX_VAULT=$WORK/v
 
-# No index: writes leave no .ct behind.
+# No index: writes leave no .tix behind.
 stdin plain.txt
-exec ct vault note set-section inbox/b.md Sec
-! exists v/.ct
-exec ct vault links move v inbox/a.md knowledge-base
-! exists v/.ct
-exec ct vault links move v knowledge-base/a.md inbox
+exec tix vault note set-section inbox/b.md Sec
+! exists v/.tix
+exec tix vault links move v inbox/a.md knowledge-base
+! exists v/.tix
+exec tix vault links move v knowledge-base/a.md inbox
 
-exec ct vault index
+exec tix vault index
 
-# ct vault links move.
-exec ct vault links move v inbox/a.md knowledge-base
-exec ct vault index --json
+# tix vault links move.
+exec tix vault links move v inbox/a.md knowledge-base
+exec tix vault index --json
 stdout '"changed":0'
-grep '"path":"knowledge-base/a.md"' v/.ct/index/notes.jsonl
-! grep '"path":"inbox/a.md"' v/.ct/index/notes.jsonl
+grep '"path":"knowledge-base/a.md"' v/.tix/index/notes.jsonl
+! grep '"path":"inbox/a.md"' v/.tix/index/notes.jsonl
 
-# ct vault note set-section.
+# tix vault note set-section.
 stdin fresh.txt
-exec ct vault note set-section inbox/b.md Sec
-grep 'freshly written words' v/.ct/index/chunks.jsonl
-exec ct vault index --json
+exec tix vault note set-section inbox/b.md Sec
+grep 'freshly written words' v/.tix/index/chunks.jsonl
+exec tix vault index --json
 stdout '"changed":0'
 
-# A sync-style write: ct new.
-exec ct new 'Fresh ticket'
-exec ct vault index --json
+# A sync-style write: tix new.
+exec tix new 'Fresh ticket'
+exec tix vault index --json
 stdout '"changed":0'
-grep 'tickets/manual/MAN-1/MAN-1.md' v/.ct/index/notes.jsonl
+grep 'tickets/manual/MAN-1/MAN-1.md' v/.tix/index/notes.jsonl
 
 -- ticket-manual.md --
 ---

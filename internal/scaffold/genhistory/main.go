@@ -1,5 +1,5 @@
 // Command genhistory writes assets/scaffold-history.json: the normalized
-// sha256 (scaffold.Hash, and scaffold.Key for .base files) of every version of each file ct has shipped into
+// sha256 (scaffold.Hash, and scaffold.Key for .base files) of every version of each file tix has shipped into
 // vaults, read from the git history of the scaffold folders (historicRoots)
 // plus the working tree's current scaffold. It merges into the existing
 // file and never drops a hash or a path, so rewritten or partial history
@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/scaffold"
+	"github.com/zero4573/tix/internal/scaffold"
 )
 
 // historicRoots are the folders the scaffold has lived in, current first

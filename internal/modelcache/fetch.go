@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/lock"
+	"github.com/zero4573/tix/internal/lock"
 )
 
 // Timeouts of the default client: the server must answer within
@@ -79,7 +79,7 @@ func fetch(ctx context.Context, p *pinFile, c *http.Client, id string, w io.Writ
 	}
 	m, ok := modelOf(p, id)
 	if !ok {
-		return fmt.Errorf("unknown model %q (ct vault model list)", id)
+		return fmt.Errorf("unknown model %q (tix vault model list)", id)
 	}
 	libDir, err := libDirFor(p)
 	if err != nil {

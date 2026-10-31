@@ -19,12 +19,12 @@ func Interactive() bool {
 	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd()))
 }
 
-// readLine aborts ct at the end of input (Ctrl-D, a closed pipe): every
+// readLine aborts tix at the end of input (Ctrl-D, a closed pipe): every
 // prompt would otherwise take the default, or ask again forever.
 func readLine() string {
 	line, err := in.ReadString('\n')
 	if err != nil && line == "" {
-		fmt.Fprintln(os.Stderr, "\nct: no answer (end of input)")
+		fmt.Fprintln(os.Stderr, "\ntix: no answer (end of input)")
 		os.Exit(1)
 	}
 	return strings.TrimRight(line, "\r\n")

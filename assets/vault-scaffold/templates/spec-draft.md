@@ -11,7 +11,7 @@ tags: [spec-draft]
 
 The spec change of [[TICKET-ID]] in full: the ticket description carries
 the short form, this note everything that is too long for it. Written by
-the PO; `ct sync` never touches it.
+the PO; `tix sync` never touches it.
 
 ## Change
 <!-- Per capability: `### <slug> · <capability>`, then its requirement blocks

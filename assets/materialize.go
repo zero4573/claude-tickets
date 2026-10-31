@@ -16,14 +16,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/fsx"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/fsx"
 )
 
 // Materialize unpacks an embedded tree (the plugin) into the cache,
 // at <cache>/<name>-<hash>, and returns that directory. The hash covers the
-// files and, for the plugin, the path of this executable (its hooks run ct
-// by that path), so a new version or a moved ct gets a fresh copy. Copies
+// files and, for the plugin, the path of this executable (its hooks run tix
+// by that path), so a new version or a moved tix gets a fresh copy. Copies
 // untouched for 30 days are removed.
 func Materialize(name string) (string, error) {
 	exe := ""
@@ -57,7 +57,7 @@ func Materialize(name string) (string, error) {
 	}
 	if err := os.Rename(tmp, dir); err != nil {
 		_ = fsx.RemoveAll(tmp)
-		if fsx.IsDir(dir) { // another ct got there first
+		if fsx.IsDir(dir) { // another tix got there first
 			return dir, nil
 		}
 		return "", err
@@ -160,6 +160,9 @@ func isPlugin(dir string) bool {
 	return err == nil && st.Mode().IsRegular()
 }
 
+// Executable is this tix's path, links resolved: what hooks run.
+func Executable() (string, error) { return executable() }
+
 func executable() (string, error) {
 	exe, err := os.Executable()
 	if err != nil {
@@ -240,10 +243,10 @@ func unpackFS(fsys fs.FS, root, dir, exe string, read func(p string) ([]byte, fs
 	})
 }
 
-// HooksFor rewrites the plugin's hooks.json so its hooks run ct by path
-// ("ct hook ..." becomes "\"<exe>\" hook ..."): a session's PATH may not
-// have ct.
+// HooksFor rewrites the plugin's hooks.json so its hooks run tix by path
+// ("tix hook ..." becomes "\"<exe>\" hook ..."): a session's PATH may not
+// have tix.
 func HooksFor(hooks, exe string) string {
 	quoted, _ := json.Marshal(`"` + exe + `" hook `)
-	return strings.ReplaceAll(hooks, `"ct hook `, string(quoted[:len(quoted)-1]))
+	return strings.ReplaceAll(hooks, `"tix hook `, string(quoted[:len(quoted)-1]))
 }

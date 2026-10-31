@@ -20,12 +20,12 @@ import (
 
 // safeFlags keep git from running code a repository controls, as a
 // second layer under the config allowlist (allow.go, which refuses a repo
-// whose own config holds any key off ct's safe list): a hook
+// whose own config holds any key off tix's safe list): a hook
 // (core.hooksPath at the null device), a filesystem monitor command, a
 // credential helper (the empty value resets the list), a proxy command, a
 // signing program, a transport other than https and ssh, and recursion
 // into submodules. A session can write a clone's .git/config and hooks,
-// and ct's git runs on the host. core.sshCommand is overridden through
+// and tix's git runs on the host. core.sshCommand is overridden through
 // GIT_SSH_COMMAND (see env), the external diff by --no-ext-diff on the
 // diff and log commands that read patches.
 func safeFlags() []string {
@@ -40,18 +40,18 @@ func safeFlags() []string {
 		"-c", "submodule.recurse=false", "-c", "fetch.recurseSubmodules=false", "-c", "diff.ignoreSubmodules=all"}
 }
 
-// localFlags let a git call read a local repository ct checked first (a
+// localFlags let a git call read a local repository tix checked first (a
 // shared clone's main clone) over the file transport.
 func localFlags(args ...string) []string {
 	return append([]string{"-c", "protocol.file.allow=always"}, args...)
 }
 
 // strippedEnv are variables that would point git at a repository or a
-// config the allowlist never read; ct's own -c flags come after.
+// config the allowlist never read; tix's own -c flags come after.
 var strippedEnv = []string{"GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_CONFIG",
 	"GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT", "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES"}
 
-// env is the environment of ct's git: GIT_SSH_COMMAND, which takes
+// env is the environment of tix's git: GIT_SSH_COMMAND, which takes
 // precedence over a repository's core.sshCommand, is the user's own value
 // or plain ssh; the variables that relocate the repository or add config
 // are dropped.
@@ -84,10 +84,10 @@ func stripped(k string) bool {
 
 // Command is exec.Command("git", args...) under the safe flags and env,
 // refused (cmd.Err, which Start returns) unless the repository it runs in
-// passes Check. Every git ct runs goes through it (or CommandContext,
+// passes Check. Every git tix runs goes through it (or CommandContext,
 // CommandIn). The repository is the leading -C dir; a call without one
 // runs in a neutral folder (a clone's checked parent, else the file
-// system root), so git never finds a repository from ct's own working
+// system root), so git never finds a repository from tix's own working
 // directory. Callers never set cmd.Dir: CommandIn runs in a folder.
 func Command(args ...string) *exec.Cmd {
 	cmd := exec.Command("git")
@@ -105,7 +105,7 @@ func CommandIn(dir string, args ...string) *exec.Cmd {
 	return Command(append([]string{"-C", dir}, args...)...)
 }
 
-// Check refuses dir when ct wouldn't run git there: its git indirection
+// Check refuses dir when tix wouldn't run git there: its git indirection
 // files point somewhere they shouldn't (checkDir), or its repository's own
 // config (and its submodules') holds a key off the safe list. It runs no
 // git; a folder in no repository passes.
@@ -136,7 +136,7 @@ func guard(cmd *exec.Cmd, args []string) *exec.Cmd {
 func prepare(args []string) ([]string, string, error) {
 	for _, a := range globalOpts(args) {
 		if a == "--git-dir" || a == "--work-tree" || strings.HasPrefix(a, "--git-dir=") || strings.HasPrefix(a, "--work-tree=") {
-			return args, "", fmt.Errorf("git: refusing %s: ct's git finds the repository through -C only", a)
+			return args, "", fmt.Errorf("git: refusing %s: tix's git finds the repository through -C only", a)
 		}
 	}
 	args, err := noSubmoduleChildren(args)
@@ -149,7 +149,7 @@ func prepare(args []string) ([]string, string, error) {
 			return args, "", err
 		}
 		if sub == "clone" {
-			return args, "", fmt.Errorf("git: refusing clone with -C: ct clones through gitx.Clone")
+			return args, "", fmt.Errorf("git: refusing clone with -C: tix clones through gitx.Clone")
 		}
 		return withRefmap(args), "", nil
 	}
@@ -171,7 +171,7 @@ var worktreeDiffs = map[string]bool{"status": true, "diff": true, "diff-files": 
 // an earlier option (parse-options takes abbreviations, the last value
 // wins); any other --ignore-submodules value, abbreviated or not, refuses.
 // add (any form: a pathspec diffs the work tree too), describe
-// --dirty/--broken and commit -a, which take no such option and ct doesn't
+// --dirty/--broken and commit -a, which take no such option and tix doesn't
 // use, are refused, and so is worktree remove without --force (it checks
 // the tree with status).
 func noSubmoduleChildren(args []string) ([]string, error) {
@@ -185,7 +185,7 @@ func noSubmoduleChildren(args []string) ([]string, error) {
 				break
 			}
 			if name, val, eq := strings.Cut(a, "="); abbrevOf(name, "--ignore-submodules", len("--ignore-s")) && (eq && val != "all" || name != "--ignore-submodules") {
-				return args, fmt.Errorf("git: refusing %s: ct's git ignores submodules", a)
+				return args, fmt.Errorf("git: refusing %s: tix's git ignores submodules", a)
 			}
 		}
 		at := len(args) - len(rest) + end
@@ -197,7 +197,7 @@ func noSubmoduleChildren(args []string) ([]string, error) {
 	case sub == "add",
 		sub == "describe" && hasAbbrev(rest, "--dirty", "--broken"),
 		sub == "commit" && hasOpt(rest, "mFcCtS", "a", "--all"):
-		return args, fmt.Errorf("git: refusing %s %s: it would run git in each submodule; ct doesn't use it", sub, strings.Join(rest, " "))
+		return args, fmt.Errorf("git: refusing %s %s: it would run git in each submodule; tix doesn't use it", sub, strings.Join(rest, " "))
 	}
 	return args, nil
 }
@@ -337,7 +337,7 @@ var fetchFlags = map[string]bool{"-q": true, "--quiet": true, "-p": true, "--pru
 	"--no-tags": true, "-t": true, "--tags": true, "-f": true, "--force": true, "-v": true, "--verbose": true,
 	"--dry-run": true, "--atomic": true, "--progress": true}
 
-// cloneFlags are the clone options ct uses; the guard refuses any other.
+// cloneFlags are the clone options tix uses; the guard refuses any other.
 var cloneFlags = map[string]bool{"-q": true, "--quiet": true, "-s": true, "--shared": true,
 	"-n": true, "--no-checkout": true, "--progress": true, "--no-tags": true}
 
@@ -410,7 +410,7 @@ func isDir(p string) bool {
 }
 
 // Clone clones url into dest (absent) and checks it out: git clone
-// --no-checkout, then a checkout in the new clone, which ct checks like
+// --no-checkout, then a checkout in the new clone, which tix checks like
 // any other. A clone of an empty repository has nothing to check out.
 func Clone(url, dest string, stdin io.Reader, stdout, stderr io.Writer) error {
 	cmd := Command("clone", "--no-checkout", "--", url, dest)
@@ -517,7 +517,7 @@ func BaseRef(dir, base string) string {
 func Dirty(dir string, extra ...string) bool {
 	// A git that fails counts as dirty: callers use this to decide whether
 	// work would be lost. No optional locks: a status shouldn't write the
-	// index (ct clean --dry-run changes nothing)
+	// index (tix clean --dry-run changes nothing)
 	out, err := Out(dir, append([]string{"--no-optional-locks", "status", "--porcelain", "--untracked-files=normal"}, extra...)...)
 	return err != nil || out != ""
 }

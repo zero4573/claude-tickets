@@ -28,13 +28,13 @@ func IsTicketNote(file string) bool {
 }
 
 // Synced reports whether a ticket note's frontmatter is a synced ticket's
-// (ct sync or the ticket-sync skill writes it), not a manual one's.
+// (tix sync or the ticket-sync skill writes it), not a manual one's.
 func Synced(fm map[string]string) bool {
 	s := fm["source"]
 	return s != "" && s != "manual"
 }
 
-// SyncOwnedFields are the frontmatter fields ct sync rewrites on a synced
+// SyncOwnedFields are the frontmatter fields tix sync rewrites on a synced
 // ticket's refresh (besides source-*): links in them come back as sync
 // writes them, whatever else edits them.
 var SyncOwnedFields = []string{"parent", "children", "blocked-by", "blocks", "related", "blocked", "covers", "covered-by"}

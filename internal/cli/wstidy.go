@@ -10,10 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 func wsTidyCleanCmd() *cobra.Command {
@@ -59,7 +59,7 @@ func wsTidyClean(ctx vault.Context, key string, force, dry bool) error {
 	}
 	sort.Strings(names)
 	if len(names) == 0 {
-		fmt.Printf("ct ws: no tidy clones in %s\n", tasks)
+		fmt.Printf("tix ws: no tidy clones in %s\n", tasks)
 		return nil
 	}
 	info, err := workspace.Read(dir)
@@ -81,13 +81,13 @@ func wsTidyClean(ctx vault.Context, key string, force, dry bool) error {
 			continue
 		}
 		if dry {
-			fmt.Printf("ct ws: would remove %s\n", path)
+			fmt.Printf("tix ws: would remove %s\n", path)
 			continue
 		}
 		if err := fsx.RemoveAll(path); err != nil {
 			return fmt.Errorf("tidy-clean: %w", err)
 		}
-		fmt.Printf("ct ws: removed %s\n", path)
+		fmt.Printf("tix ws: removed %s\n", path)
 	}
 	if kept > 0 {
 		return fmt.Errorf("tidy-clean: kept %d clone(s)", kept)
@@ -107,7 +107,7 @@ func tidyUnmerged(repos map[string]workspace.Repo, slug, path string) string {
 		return "no bookmark " + r.Branch
 	}
 	// read the ref in Go: the scratch clone's origin is the worktree's local
-	// path, which ct's host git refuses to run in
+	// path, which tix's host git refuses to run in
 	sha := readBranchRef(filepath.Join(path, ".git"), r.Branch)
 	if sha == "" {
 		return "no bookmark " + r.Branch

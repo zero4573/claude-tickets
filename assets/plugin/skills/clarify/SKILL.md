@@ -1,10 +1,10 @@
 ---
 name: clarify
-description: Interview the user in rounds until you share one understanding of a plan, ticket, spec change or feature, mapping it as a design tree of decisions and asking the whole frontier each round with a recommended answer; /tickets:clarify questionnaire <who> instead turns questions the user can't answer alone into a document for that person. Used by the PO after a ticket's kickoff and by the spec flow; use whenever a plan, scope or feature needs stress-testing before work starts, or an open question is owned by someone else.
+description: Interview the user in rounds until you share one understanding of a plan, ticket, spec change or feature, mapping it as a design tree of decisions and asking the whole frontier each round with a recommended answer; /tix:clarify questionnaire <who> instead turns questions the user can't answer alone into a document for that person. Used by the PO after a ticket's kickoff and by the spec flow; use whenever a plan, scope or feature needs stress-testing before work starts, or an open question is owned by someone else.
 argument-hint: "[subject: new scope, a feature, a plan] | questionnaire <who>"
 ---
 
-# /tickets:clarify [subject | questionnaire <who>]
+# /tix:clarify [subject | questionnaire <who>]
 
 Map the subject as a **design tree**: each decision branches into the decisions that depend on
 it. The **frontier** is every open decision whose prerequisites are settled. Without a subject,
@@ -27,7 +27,7 @@ security tradeoff in the options (phishing, token lifetime, who can use it, blas
 a choice that weakens security is asked as its own question, never folded into another.
 
 **Facts are never the user's job.** A question that needs a fact (code, config, history,
-another ticket) goes to a lookup instead: in a ticket session the PO spawns `tickets:analyst`
+another ticket) goes to a lookup instead: in a ticket session the PO spawns `tix:analyst`
 in the background; elsewhere look it up yourself. Don't block on it: only the questions that
 depend on that fact wait. **Decisions are the user's**: never settle one silently.
 
@@ -35,7 +35,7 @@ depend on that fact wait. **Decisions are the user's**: never settle one silentl
 ask the user to confirm it (AskUserQuestion: confirm / adjust). Don't act before they confirm.
 
 ## In a ticket
-Once the user confirms, add relay entries only with `ct relay add <ID> --from user --to lead
+Once the user confirms, add relay entries only with `tix relay add <ID> --from user --to lead
 --kind decision "<text>"` (it allocates the id and takes the lock; never edit `relay.md` by
 hand). Each text is one line of at most 200 characters, so summarise a long decision to fit:
 - on a ticket's first clarify, first the brief: write the confirmed summary of scope and
@@ -43,13 +43,13 @@ hand). Each text is one line of at most 200 characters, so summarise a long deci
   are in plan.md ## Scope`; then one per settled decision, `Qn: <decision, ≤200 characters>`;
 - the note's `## Questions`: `- **yyyy-MM-dd** (clarify) Qn <question>` with
   `  - **Answer:** <answer>` under it; a skip is recorded as `skipped; assumed <…>`;
-- the lead copies the `Qn:` decisions into `plan.md ## Decisions` (`ct relay state … copied`).
+- the lead copies the `Qn:` decisions into `plan.md ## Decisions` (`tix relay state … copied`).
 If a lead runs in this session, SendMessage it one line: "clarify decisions R-nn..R-mm";
-otherwise the next lead plans them. New work uncovered is a `ct relay add … --kind request` entry. Outside a ticket
+otherwise the next lead plans them. New work uncovered is a `tix relay add … --kind request` entry. Outside a ticket
 session give the confirmed summary in the chat only.
 
 ## Questionnaire mode
-`/tickets:clarify questionnaire <who>`: a question the user can't answer alone, typically an
+`/tix:clarify questionnaire <who>`: a question the user can't answer alone, typically an
 open blocker owned by someone else, becomes a short document for that person.
 **Ask the user only about the send**; the document's questions target the gap between what the
 recipient knows and what the user needs.

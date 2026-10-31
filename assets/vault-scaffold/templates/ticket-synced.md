@@ -38,7 +38,7 @@ tags: [ticket]
 
 <!-- source:start -->
 ## Source
-> Synced from the ticket source by ct sync. Edits here are overwritten.
+> Synced from the ticket source by tix sync. Edits here are overwritten.
 <!-- source:end -->
 
 ## Workspace
@@ -59,4 +59,4 @@ tags: [ticket]
 <!-- Written when the ticket reaches status: review -->
 
 ## Knowledge
-<!-- Notes created or updated by /tickets:save -->
+<!-- Notes created or updated by /tix:save -->

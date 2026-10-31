@@ -2,34 +2,34 @@
   "hooks": {
     "Notification": [
       { "matcher": "permission_prompt|elicitation_dialog",
-        "hooks": [{ "type": "command", "command": "ct hook agent-state needs-input" }] },
+        "hooks": [{ "type": "command", "command": "tix hook agent-state needs-input" }] },
       { "matcher": "idle_prompt",
-        "hooks": [{ "type": "command", "command": "ct hook agent-state idle" }] }
+        "hooks": [{ "type": "command", "command": "tix hook agent-state idle" }] }
     ],
     "PreToolUse": [
       { "matcher": "AskUserQuestion",
-        "hooks": [{ "type": "command", "command": "ct hook agent-state needs-input" }] }
+        "hooks": [{ "type": "command", "command": "tix hook agent-state needs-input" }] }
     ],
     "PostToolUse": [
       { "matcher": "",
-        "hooks": [{ "type": "command", "command": "ct hook agent-state working" }] }
+        "hooks": [{ "type": "command", "command": "tix hook agent-state working" }] }
     ],
     "UserPromptSubmit": [
       { "matcher": "",
-        "hooks": [{ "type": "command", "command": "ct hook agent-state working" },
-                  { "type": "command", "command": "ct hook context" }] }
+        "hooks": [{ "type": "command", "command": "tix hook agent-state working" },
+                  { "type": "command", "command": "tix hook context" }] }
     ],
     "SessionStart": [
       { "matcher": "clear|compact",
-        "hooks": [{ "type": "command", "command": "ct hook resume" }] }
+        "hooks": [{ "type": "command", "command": "tix hook resume" }] }
     ],
     "Stop": [
       { "matcher": "",
-        "hooks": [{ "type": "command", "command": "ct hook agent-state idle" }] }
+        "hooks": [{ "type": "command", "command": "tix hook agent-state idle" }] }
     ],
     "SessionEnd": [
       { "matcher": "",
-        "hooks": [{ "type": "command", "command": "ct hook agent-state exited" }] }
+        "hooks": [{ "type": "command", "command": "tix hook agent-state exited" }] }
     ]
   }
 }

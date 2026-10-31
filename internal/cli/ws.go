@@ -17,15 +17,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/followup"
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/repo"
-	"github.com/zero4573/claude-tickets/internal/session"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/followup"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/repo"
+	"github.com/zero4573/tix/internal/session"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 func wsCmd() *cobra.Command {
@@ -33,7 +33,7 @@ func wsCmd() *cobra.Command {
 		Use:   "ws",
 		Short: "Git worktrees of ticket workspaces",
 		Long: `Manages the git worktrees of the current vault's ticket workspaces
-(<workRoot>/<ID>; ct vault shows the vault's workRoot and projectsRoot, by
+(<workRoot>/<ID>; tix vault shows the vault's workRoot and projectsRoot, by
 default ~/Projects/work-<vault> and ~/Projects/repo-<vault>). Main clones
 live at <projectsRoot>/<provider>/<owner>/<repo>, and each has a slug,
 <provider>-<owner>-<repo> (e.g. bitbucket-acme-billing-service), which is
@@ -49,7 +49,7 @@ A <repo> argument is a slug or <provider>/<owner>/<repo>.`,
 	return cmd
 }
 
-func warnf(format string, a ...any) { fmt.Fprintf(os.Stderr, "ct: "+format+"\n", a...) }
+func warnf(format string, a ...any) { fmt.Fprintf(os.Stderr, "tix: "+format+"\n", a...) }
 
 func completeRepos(cmd *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
 	ctx, _ := vault.Optional()
@@ -109,8 +109,8 @@ func wsCloneCmd() *cobra.Command {
 		Short: "Clone a repo into <projectsRoot>/<provider>/<owner>/<repo>",
 		Long: `Clones a repo into <projectsRoot>/<provider>/<owner>/<repo>; a repo
 already cloned there is left as it is (never cloned twice). The default URL is SSH (git@bitbucket.org:<owner>/<repo>.git, with
-CLAUDE_TICKETS_BITBUCKET_HOST for another Bitbucket host, or the GitHub
-equivalent). Sessions run it too, then ct ws add makes the ticket's
+TIX_BITBUCKET_HOST for another Bitbucket host, or the GitHub
+equivalent). Sessions run it too, then tix ws add makes the ticket's
 worktree from the new clone.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -129,7 +129,7 @@ worktree from the new clone.`,
 				}
 				switch provider {
 				case "bitbucket":
-					host := os.Getenv("CLAUDE_TICKETS_BITBUCKET_HOST")
+					host := os.Getenv("TIX_BITBUCKET_HOST")
 					if host == "" {
 						host = "bitbucket.org"
 					}
@@ -150,7 +150,7 @@ worktree from the new clone.`,
 				return fmt.Errorf("clone: %s: %w", url, err)
 			}
 			if fsx.IsDir(filepath.Join(dest, ".git")) {
-				fmt.Printf("ct ws: %s is already cloned at %s\n", clone, dest)
+				fmt.Printf("tix ws: %s is already cloned at %s\n", clone, dest)
 				return nil
 			}
 			if _, err := os.Lstat(dest); err == nil {
@@ -169,7 +169,7 @@ worktree from the new clone.`,
 			if err := repo.CheckCloneParent(ctx.ProjectsRoot, dest); err != nil {
 				return fmt.Errorf("clone: %w", err)
 			}
-			tmp := filepath.Join(filepath.Dir(dest), ".ct-clone-"+filepath.Base(dest)+"-"+strconv.Itoa(os.Getpid()))
+			tmp := filepath.Join(filepath.Dir(dest), ".tix-clone-"+filepath.Base(dest)+"-"+strconv.Itoa(os.Getpid()))
 			if err := fsx.RemoveAll(tmp); err != nil {
 				return err
 			}
@@ -189,7 +189,7 @@ worktree from the new clone.`,
 				_ = fsx.RemoveAll(tmp)
 				return err
 			}
-			fmt.Printf("ct ws: cloned %s (slug %s)\n", clone, repo.Slug(clone))
+			fmt.Printf("tix ws: cloned %s (slug %s)\n", clone, repo.Slug(clone))
 			return nil
 		},
 	}
@@ -264,7 +264,7 @@ func wsAdd(ctx vault.Context, key, spec, base, desc, version, useBranch string) 
 	}
 	clone, ok := repo.Resolve(ctx.ProjectsRoot, spec)
 	if !ok {
-		return fmt.Errorf("add: no main clone '%s' (see ct ws repos, or clone it: ct ws clone <provider>/<owner>/<repo>)", spec)
+		return fmt.Errorf("add: no main clone '%s' (see tix ws repos, or clone it: tix ws clone <provider>/<owner>/<repo>)", spec)
 	}
 	slug := repo.Slug(clone)
 	main := filepath.Join(ctx.ProjectsRoot, clone)
@@ -303,10 +303,10 @@ func wsAdd(ctx vault.Context, key, spec, base, desc, version, useBranch string) 
 		if st.IsDir() {
 			mode = "clone"
 		}
-		fmt.Printf("ct ws: %s already exists (branch %s)\n", wt, branch)
+		fmt.Printf("tix ws: %s already exists (branch %s)\n", wt, branch)
 	} else {
 		// Best effort: a session may have no git credentials (e.g. sandboxed),
-		// so this may only work on the host (ct start fetches before launching)
+		// so this may only work on the host (tix start fetches before launching)
 		if gitx.Timeout(30*time.Second, main, "fetch", "--quiet", "origin", base) != nil {
 			warnf("couldn't fetch origin/%s in %s, using what's already fetched", base, slug)
 		}
@@ -336,7 +336,7 @@ func wsAdd(ctx vault.Context, key, spec, base, desc, version, useBranch string) 
 			commit, _ = gitx.Out(main, "rev-parse", "refs/heads/"+branch)
 		case useBranch != "":
 			if !gitx.HasRef(main, "refs/remotes/origin/"+branch) {
-				return fmt.Errorf("add: branch '%s' not found locally or on origin in %s (fetch on the host: ct ws fetch %s)", branch, slug, slug)
+				return fmt.Errorf("add: branch '%s' not found locally or on origin in %s (fetch on the host: tix ws fetch %s)", branch, slug, slug)
 			}
 			from = "remote"
 			commit, _ = gitx.Out(main, "rev-parse", "refs/remotes/origin/"+branch)
@@ -345,10 +345,10 @@ func wsAdd(ctx vault.Context, key, spec, base, desc, version, useBranch string) 
 		}
 
 		// Always a worktree of the one main clone, never a second copy of the
-		// repo. CLAUDE_TICKETS_WS_SHARED_CLONE=1 takes its .git as read-only
+		// repo. TIX_WS_SHARED_CLONE=1 takes its .git as read-only
 		// (testing; older workspaces may still hold shared clones, mode "clone")
-		if !gitx.Writable(filepath.Join(main, ".git", "refs")) || os.Getenv("CLAUDE_TICKETS_WS_SHARED_CLONE") != "" {
-			return fmt.Errorf("add: %s isn't writable here, so no worktree can be made; run ct ws add on the host, or restart the session (ct start %s)",
+		if !gitx.Writable(filepath.Join(main, ".git", "refs")) || os.Getenv("TIX_WS_SHARED_CLONE") != "" {
+			return fmt.Errorf("add: %s isn't writable here, so no worktree can be made; run tix ws add on the host, or restart the session (tix start %s)",
 				config.TildePath(filepath.Join(main, ".git")), key)
 		}
 		mode = "worktree"
@@ -361,9 +361,9 @@ func wsAdd(ctx vault.Context, key, spec, base, desc, version, useBranch string) 
 			return fmt.Errorf("add: git worktree add failed in %s", slug)
 		}
 		if from == "new" {
-			fmt.Printf("ct ws: created %s (%s) on %s (from %s)\n", wt, mode, branch, start)
+			fmt.Printf("tix ws: created %s (%s) on %s (from %s)\n", wt, mode, branch, start)
 		} else {
-			fmt.Printf("ct ws: created %s (%s) on existing branch %s\n", wt, mode, branch)
+			fmt.Printf("tix ws: created %s (%s) on existing branch %s\n", wt, mode, branch)
 		}
 		copyWorktreeIncludes(main, wt)
 	}
@@ -425,7 +425,7 @@ func worktreeIncludeFiles(main string) []string {
 	return files
 }
 
-// withoutSeeded drops from names the files ct ws add seeded from the main
+// withoutSeeded drops from names the files tix ws add seeded from the main
 // clone's .worktreeinclude that still match the main clone's copy byte for
 // byte: they are recreated by the next add, so they don't count as the
 // user's.
@@ -446,7 +446,7 @@ func withoutSeeded(names []string, main, wt string) []string {
 // sameRegularFile reports whether a and b are regular files with the same
 // bytes. It opens each without following a symlink or blocking on a FIFO
 // (a worktree is writable by sandboxed agents, so a swapped-in special file
-// must not hang ct), checks the opened file and compares in chunks.
+// must not hang tix), checks the opened file and compares in chunks.
 func sameRegularFile(a, b string) bool {
 	fa, err := openRegular(a)
 	if err != nil {
@@ -611,9 +611,9 @@ func wsRm(ctx vault.Context, key string, dropIgnored bool) error {
 
 // wsRemove is wsRm; merged also lets a shared clone go when its unpushed
 // commits are already in origin/<base> (gitx.Lost: e.g. squash-merged, the
-// branch deleted on the server), as ct clean judges it. keepIgnored (ct ws
+// branch deleted on the server), as tix clean judges it. keepIgnored (tix ws
 // rm) also keeps a tree holding ignored files of the user's (.env, local
-// configs) unless dropIgnored; without keepIgnored (gc, ct clean) those
+// configs) unless dropIgnored; without keepIgnored (gc, tix clean) those
 // files are moved to the vault's .trash/ first.
 func wsRemove(ctx vault.Context, key string, dropIgnored, merged bool) error {
 	return wsRemoveOpts(ctx, key, dropIgnored, merged, false)
@@ -632,7 +632,7 @@ func wsRemoveOpts(ctx vault.Context, key string, dropIgnored, merged, keepIgnore
 		main := filepath.Join(ctx.ProjectsRoot, r.Clone())
 		if st, err := os.Stat(filepath.Join(r.Path, ".git")); err == nil {
 			// git's own check (a plain `git worktree remove`) runs status in
-			// each submodule, so ct decides with its guarded status, which
+			// each submodule, so tix decides with its guarded status, which
 			// doesn't enter them, and keeps any tree with a submodule checked
 			// out: its changes and commits (its git dir is under this git
 			// dir's modules/) would go with it. Every guard is evaluated, so the
@@ -651,7 +651,7 @@ func wsRemoveOpts(ctx vault.Context, key string, dropIgnored, merged, keepIgnore
 			if sub := gitx.PopulatedSubmodule(r.Path); sub == "?" {
 				reasons = append(reasons, "submodules git can't list")
 			} else if sub != "" {
-				reasons = append(reasons, fmt.Sprintf("a submodule checked out at %s, whose work ct doesn't check (check it by hand)", sub))
+				reasons = append(reasons, fmt.Sprintf("a submodule checked out at %s, whose work tix doesn't check (check it by hand)", sub))
 			}
 			names := withoutSeeded(ignoredFiles(r.Path), main, r.Path)
 			repos := nestedRepos(r.Path, names)
@@ -690,7 +690,7 @@ func wsRemoveOpts(ctx vault.Context, key string, dropIgnored, merged, keepIgnore
 			trash := filepath.Join(ctx.Vault, ".trash", key+"-ignored-files", r.Slug)
 			copied := ""
 			if len(names) > 0 && !keepIgnored && !dropIgnored {
-				// gc and ct clean never delete the user's ignored files (.env
+				// gc and tix clean never delete the user's ignored files (.env
 				// with local secrets) outright: they go to the vault's .trash/.
 				// They are copied before any nested repository moves, so a
 				// failed copy leaves the worktree as it was.
@@ -742,7 +742,7 @@ func wsRemoveOpts(ctx vault.Context, key string, dropIgnored, merged, keepIgnore
 				if err := os.RemoveAll(r.Path); err != nil {
 					return err
 				}
-				fmt.Printf("ct ws: removed %s (shared clone)%s\n", r.Path, ignored)
+				fmt.Printf("tix ws: removed %s (shared clone)%s\n", r.Path, ignored)
 				continue
 			}
 			// checked above, so always --force (gitx refuses it without)
@@ -751,7 +751,7 @@ func wsRemoveOpts(ctx vault.Context, key string, dropIgnored, merged, keepIgnore
 				failed = true
 				continue
 			}
-			fmt.Printf("ct ws: removed %s (branch %s kept)%s\n", r.Path, r.Branch, ignored)
+			fmt.Printf("tix ws: removed %s (branch %s kept)%s\n", r.Path, r.Branch, ignored)
 		}
 		_ = gitx.Timeout(time.Minute, main, "worktree", "prune")
 	}
@@ -766,12 +766,12 @@ func wsRemoveOpts(ctx vault.Context, key string, dropIgnored, merged, keepIgnore
 	if _, err := os.Stat(dir); err == nil {
 		warnf("left %s in place: it still has other files", dir)
 	} else {
-		fmt.Printf("ct ws: removed workspace %s\n", dir)
+		fmt.Printf("tix ws: removed workspace %s\n", dir)
 	}
 	return nil
 }
 
-// Limits of what gc and ct clean copy into the vault's .trash/: a few small
+// Limits of what gc and tix clean copy into the vault's .trash/: a few small
 // user files (.env, local configs), never build output or dependency trees.
 const (
 	trashMaxFile  = 1 << 20  // one file
@@ -1178,7 +1178,7 @@ func wsFetch(ctx vault.Context, specs []string) error {
 	for _, s := range specs {
 		c, ok := repo.Resolve(ctx.ProjectsRoot, s)
 		if !ok {
-			return fmt.Errorf("fetch: no main clone '%s' (see ct ws repos)", s)
+			return fmt.Errorf("fetch: no main clone '%s' (see tix ws repos)", s)
 		}
 		repos = append(repos, c)
 	}
@@ -1188,7 +1188,7 @@ func wsFetch(ctx vault.Context, specs []string) error {
 	if len(repos) == 0 {
 		return nil
 	}
-	fmt.Fprintf(os.Stderr, "ct ws: fetching %d repo(s)...\n", len(repos))
+	fmt.Fprintf(os.Stderr, "tix ws: fetching %d repo(s)...\n", len(repos))
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, 8)
 	for _, c := range repos {
@@ -1197,7 +1197,7 @@ func wsFetch(ctx vault.Context, specs []string) error {
 		go func(c string) {
 			defer func() { <-sem; wg.Done() }()
 			if gitx.Timeout(60*time.Second, filepath.Join(ctx.ProjectsRoot, c), "fetch", "--quiet", "--prune", "origin") != nil {
-				fmt.Fprintf(os.Stderr, "ct ws: fetch failed: %s\n", c)
+				fmt.Fprintf(os.Stderr, "tix ws: fetch failed: %s\n", c)
 			}
 		}(c)
 	}
@@ -1233,7 +1233,7 @@ done or closed and idle for N days (default 14; dirty or unpushed work is
 kept, and left as a follow-up task in the vault's inbox), the .cache of
 sessions that aren't running, and idle spec exploration clones.
 
-A session counts as running when its process (ct start, ct teach, ct spec)
+A session counts as running when its process (tix start, tix teach, tix spec)
 is alive on this host, else, when that can't be checked, when its hook
 state (.agent-state) is less than a day old and not exited.`,
 		Args: cobra.NoArgs,
@@ -1279,14 +1279,14 @@ func wsGc(ctx vault.Context, days int, dry bool) error {
 				status = note.Get(note.TicketPath(info.Vault, key), "status")
 			}
 			if status == "done" || status == "closed" {
-				fmt.Printf("ct ws gc: %sremove %s (%s)\n", act, key, status)
+				fmt.Printf("tix ws gc: %sremove %s (%s)\n", act, key, status)
 				if !dry {
 					if err := wsRm(ctx, key, false); err != nil {
 						warnf("%v", err)
 						warnf("gc: kept %s (see above)", key)
 						if info.Vault != "" {
 							kept[info.Vault] = append(kept[info.Vault], fmt.Sprintf(
-								"Clean up the workspace of [[%s]] (%s): %s has uncommitted or unpushed work. Review it with ct ws diff %s, then ct ws rm %s (--drop-ignored for ignored files only)",
+								"Clean up the workspace of [[%s]] (%s): %s has uncommitted or unpushed work. Review it with tix ws diff %s, then tix ws rm %s (--drop-ignored for ignored files only)",
 								key, status, dir, key, key))
 						}
 					}
@@ -1299,7 +1299,7 @@ func wsGc(ctx vault.Context, days int, dry bool) error {
 
 		// Go's module and build caches (session.GoEnv) refill when next used
 		if cache := session.CacheDir(dir); !running && fsx.IsDir(cache) {
-			fmt.Printf("ct ws gc: %sdrop the caches of %s\n", act, key)
+			fmt.Printf("tix ws gc: %sdrop the caches of %s\n", act, key)
 			if !dry {
 				_ = fsx.RemoveAll(cache)
 			}
@@ -1312,7 +1312,7 @@ func wsGc(ctx vault.Context, days int, dry bool) error {
 					continue
 				}
 				if fsx.OlderThanDays(filepath.Join(r.Path, ".git", "HEAD"), days) && !gitx.Dirty(r.Path) && gitx.PopulatedSubmodule(r.Path) == "" {
-					fmt.Printf("ct ws gc: %sremove spec exploration clone %s\n", act, r.Slug)
+					fmt.Printf("tix ws gc: %sremove spec exploration clone %s\n", act, r.Slug)
 					if !dry {
 						_ = os.RemoveAll(r.Path)
 						if err := workspace.Drop(ws, r.Slug); err != nil {
@@ -1330,11 +1330,11 @@ func wsGc(ctx vault.Context, days int, dry bool) error {
 	}
 	sort.Strings(vaults)
 	for _, v := range vaults {
-		n, err := followup.Write(v, "ct-ws-gc", "ct ws gc", kept[v])
+		n, err := followup.Write(v, "tix-ws-gc", "tix ws gc", kept[v])
 		if err != nil {
 			warnf("gc: couldn't write the follow-up note in %s: %v", v, err)
 		} else if n != "" {
-			fmt.Printf("ct ws gc: follow-ups in %s\n", n)
+			fmt.Printf("tix ws gc: follow-ups in %s\n", n)
 		}
 	}
 	return nil

@@ -62,7 +62,7 @@ func TestDiffCheckCmd(t *testing.T) {
 	if out != want {
 		t.Fatalf("stdout %q want %q", out, want)
 	}
-	if !strings.HasPrefix(errs, "ct ws diff-check: 2 file(s) flagged (binary or > 2K)\n") {
+	if !strings.HasPrefix(errs, "tix ws diff-check: 2 file(s) flagged (binary or > 2K)\n") {
 		t.Fatalf("stderr %q", errs)
 	}
 

@@ -1,37 +1,37 @@
-# ct claude: claude with the vault as its knowledge base
+# tix claude: claude with the vault as its knowledge base
 mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/projects/github-acme-billing
 cp empty home/Documents/Obsidian/a/projects/github-acme-billing/github-acme-billing.md
-! exec ct claude
+! exec tix claude
 stderr 'has no AGENTS.md'
 cp empty home/Documents/Obsidian/a/AGENTS.md
 exec git init -q home/Projects/repo-a/github/acme/billing
 cd home/Projects/repo-a/github/acme/billing
-exec ct claude --resume abc
+exec tix claude --resume abc
 grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --append-system-prompt # Knowledge base' $WORK/calls/claude
 grep 'This repo is `github-acme-billing`. Its notes are in `projects/github-acme-billing/`' $WORK/calls/claude
 grep ' --resume abc$' $WORK/calls/claude
 ! grep 'projects/system|service map|compatibility matrix' $WORK/calls/claude
-! grep 'depends on|in the group|ct vault groups' $WORK/calls/claude
+! grep 'depends on|in the group|tix vault groups' $WORK/calls/claude
 # outside the projects root: the slug comes from the origin; no notes yet
 exec git init -q $WORK/elsewhere
 exec git -C $WORK/elsewhere remote add origin git@github.com:acme/web.git
 cd $WORK/elsewhere
-exec ct claude
+exec tix claude
 grep 'This repo is `github-acme-web`. It has no notes yet' $WORK/calls/claude
-# a repo that works with others: both directions, its group and ct vault groups
+# a repo that works with others: both directions, its group and tix vault groups
 cp $WORK/billing.md $WORK/home/Documents/Obsidian/a/projects/github-acme-billing/github-acme-billing.md
 mkdir $WORK/home/Documents/Obsidian/a/projects/github-acme-orders $WORK/home/Documents/Obsidian/a/projects/github-acme-ledger $WORK/home/Documents/Obsidian/a/projects/payments
 cp $WORK/orders.md $WORK/home/Documents/Obsidian/a/projects/github-acme-orders/github-acme-orders.md
 cp $WORK/ledger.md $WORK/home/Documents/Obsidian/a/projects/github-acme-ledger/github-acme-ledger.md
 cp $WORK/payments.md $WORK/home/Documents/Obsidian/a/projects/payments/payments.md
 cd $WORK/home/Projects/repo-a/github/acme/billing
-exec ct claude
+exec tix claude
 grep 'It depends on `github-acme-ledger`' $WORK/calls/claude
 grep '`github-acme-orders` depends on it' $WORK/calls/claude
 grep 'in the group `payments` \(`projects/payments/`' $WORK/calls/claude
-grep 'Run `ct vault groups ".*/Obsidian/a" github-acme-billing`' $WORK/calls/claude
+grep 'Run `tix vault groups ".*/Obsidian/a" github-acme-billing`' $WORK/calls/claude
 ! grep 'projects/system' $WORK/calls/claude
-exec ct claude --help
+exec tix claude --help
 stdout 'Runs claude in the current repo'
 
 -- empty --

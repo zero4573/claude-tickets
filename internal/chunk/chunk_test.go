@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/mdsec"
+	"github.com/zero4573/tix/internal/mdsec"
 )
 
 func checkSpans(t *testing.T, src string, cs []Chunk) {

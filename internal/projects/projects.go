@@ -15,7 +15,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/note"
+	"github.com/zero4573/tix/internal/note"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 )
 
 // Problem is something wrong with the model: an Error makes
-// ct vault groups --check fail, a warning doesn't.
+// tix vault groups --check fail, a warning doesn't.
 type Problem struct {
 	File    string `json:"file"`
 	Message string `json:"message"`

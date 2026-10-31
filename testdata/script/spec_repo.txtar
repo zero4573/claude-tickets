@@ -1,4 +1,4 @@
-# ct spec repo: exploration clones in a spec workspace
+# tix spec repo: exploration clones in a spec workspace
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/work-a/.spec-a
 cp spec.json home/Projects/work-a/.spec-a/workspace.json
 expand gitconfig
@@ -9,37 +9,37 @@ exec git -C seed branch topic
 exec git clone -q --bare seed remote/acme/billing.git
 exec git clone -q git@github.com:acme/billing.git home/Projects/repo-a/github/acme/billing
 
-! exec ct spec repo ls
+! exec tix spec repo ls
 stderr 'not in a spec session'
 cd home/Projects/work-a/.spec-a
 # a wrong ref on the first checkout leaves nothing behind
-! exec ct spec repo checkout github-acme-billing typo
+! exec tix spec repo checkout github-acme-billing typo
 stderr 'no branch, tag or commit .typo.'
 ! exists github-acme-billing
-exec ct spec repo checkout github-acme-billing
+exec tix spec repo checkout github-acme-billing
 stdout 'github-acme-billing at main \([0-9a-f]+ .* init\)'
 exists github-acme-billing/README.md
 grep '"mode": "explore"' workspace.json
-exec ct spec repo checkout github-acme-billing topic
+exec tix spec repo checkout github-acme-billing topic
 stdout 'at topic'
 exec git -C github-acme-billing rev-parse --abbrev-ref HEAD
 stdout '^topic$'
-exec ct spec repo ls
+exec tix spec repo ls
 stdout '^REPO +AT +BEHIND +COMMIT$'
 stdout '^github-acme-billing +topic +0 +[0-9a-f]+ .* init$'
 cp $WORK/seed/README.md github-acme-billing/edit.txt
 exec git -C github-acme-billing add edit.txt
-! exec ct spec repo checkout github-acme-billing main
+! exec tix spec repo checkout github-acme-billing main
 stderr 'has local edits'
-exec ct spec repo checkout --force github-acme-billing main
+exec tix spec repo checkout --force github-acme-billing main
 ! exists github-acme-billing/edit.txt
-! exec ct spec repo checkout github-acme-billing nope
+! exec tix spec repo checkout github-acme-billing nope
 stderr 'no branch, tag or commit .nope.'
 cd github-acme-billing
-exec ct spec repo fetch
+exec tix spec repo fetch
 stdout 'github-acme-billing fetched'
 cd ..
-exec ct spec repo reset --all
+exec tix spec repo reset --all
 stdout 'removed github-acme-billing.s exploration clone'
 ! exists github-acme-billing
 ! grep explore workspace.json

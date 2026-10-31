@@ -15,10 +15,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/diffcheck"
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/tix/internal/diffcheck"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/vault"
 )
 
 func wsDiffCheckCmd() *cobra.Command {
@@ -137,13 +137,13 @@ directory that is not a git checkout, or a bad range.`,
 			}
 			fmt.Fprint(cmd.OutOrStdout(), b.String())
 			if len(found) > 0 {
-				fmt.Fprintf(cmd.ErrOrStderr(), "ct ws diff-check: %d file(s) flagged (binary or > %s)\n", len(found), maxSize)
+				fmt.Fprintf(cmd.ErrOrStderr(), "tix ws diff-check: %d file(s) flagged (binary or > %s)\n", len(found), maxSize)
 			}
 			if len(hits) > 0 {
-				fmt.Fprintf(cmd.ErrOrStderr(), "ct ws diff-check: %d vault-only ID(s) of %s in the range\n", len(hits), ticket)
+				fmt.Fprintf(cmd.ErrOrStderr(), "tix ws diff-check: %d vault-only ID(s) of %s in the range\n", len(hits), ticket)
 			}
 			if len(specHits) > 0 {
-				fmt.Fprintf(cmd.ErrOrStderr(), "ct ws diff-check: %d requirement ID(s) taken twice in specs/ (renumber the later one)\n", len(specHits))
+				fmt.Fprintf(cmd.ErrOrStderr(), "tix ws diff-check: %d requirement ID(s) taken twice in specs/ (renumber the later one)\n", len(specHits))
 			}
 			if len(found) > 0 || len(hits) > 0 || len(specHits) > 0 {
 				return exitError(3)
@@ -159,7 +159,7 @@ directory that is not a git checkout, or a bad range.`,
 }
 
 // diffNoteBool reports whether the boolean config key is true in the
-// checkout's own config files (ct's git forces commit.gpgSign=false on its
+// checkout's own config files (tix's git forces commit.gpgSign=false on its
 // command line, which this skips): git normalises the values (a bare key
 // is true) and the last one of the system, global, local and worktree
 // files wins.

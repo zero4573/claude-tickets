@@ -121,7 +121,7 @@ const (
 // source-id and source-url, the manual tag swapped for the source's (and the
 // project's), the converted-from record of the old ID (dropped by the last
 // step of a convert), the convert-* records of a half-done run dropped, and
-// an empty source block after the title heading for ct sync to fill. It is
+// an empty source block after the title heading for tix sync to fill. It is
 // stable: flipping a flipped note changes nothing.
 func Flip(text, source, id, url, oldID, label string) string {
 	fm, rest, ok := frontmatter(text)

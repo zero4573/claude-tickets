@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/vaultlock"
+	"github.com/zero4573/tix/internal/vaultlock"
 )
 
 // TestApplyWaitsForLock: a real run waits while someone else (a
-// /tickets:save) holds the vault lock and writes once it's released; a dry
+// /tix:save) holds the vault lock and writes once it's released; a dry
 // run neither waits for the lock nor touches it.
 func TestApplyWaitsForLock(t *testing.T) {
 	src, v := applySetup(t)
@@ -159,8 +159,8 @@ func sameSnap(a, b snap) bool {
 	return true
 }
 
-// TestApplyNewerThenEdited: a file a newer ct wrote and the user then
-// edited is edited (kept), its record entry (the newer ct's version) is
+// TestApplyNewerThenEdited: a file a newer tix wrote and the user then
+// edited is edited (kept), its record entry (the newer tix's version) is
 // kept; reverting the edit makes it newer again, still never downgraded.
 func TestApplyNewerThenEdited(t *testing.T) {
 	src := source(t, map[string]string{"a.md": "new\n"}, map[string][]string{"a.md": {"old\n"}})
@@ -177,7 +177,7 @@ func TestApplyNewerThenEdited(t *testing.T) {
 		t.Errorf("edited newer file: state %v, content %q", s, read(t, v, "a.md"))
 	}
 	if loadRec(t, v).Files["a.md"] != prev["a.md"] {
-		t.Error("the newer ct's record entry was dropped or changed")
+		t.Error("the newer tix's record entry was dropped or changed")
 	}
 	write(t, v, "a.md", "newer\r\n")
 	res, err = Apply(v, src, Options{Version: "1.0"})

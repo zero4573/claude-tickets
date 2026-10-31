@@ -1,22 +1,22 @@
 ---
 name: teach
-description: Teach the user a topic over many sessions (/tickets:teach <topic>, opened by ct teach), keeping the learning state in the vault's learning/<topic>/ folder (mission, resources, glossary, notes, short lessons, reference notes, learning records, HTML quizzes), grounded in primary sources found on the web.
+description: Teach the user a topic over many sessions (/tix:teach <topic>, opened by tix teach), keeping the learning state in the vault's learning/<topic>/ folder (mission, resources, glossary, notes, short lessons, reference notes, learning records, HTML quizzes), grounded in primary sources found on the web.
 disable-model-invocation: true
 argument-hint: "<topic, kebab-case>"
 ---
 
-# /tickets:teach <topic>
+# /tix:teach <topic>
 
-The vault is named in the system prompt (`ct teach`) or the session's `CLAUDE.md`; without
+The vault is named in the system prompt (`tix teach`) or the session's `CLAUDE.md`; without
 one, say so and stop. Read the vault's `AGENTS.md` once (`rg -n '^## '`, then "Note Rules").
 No topic: list `ls <vault>/learning/` and ask (AskUserQuestion) which one, or a new one.
-Before writing, `ct vault search "<subject>" --path learning/<topic>` for what's already taught.
+Before writing, `tix vault search "<subject>" --path learning/<topic>` for what's already taught.
 The topic is kebab-case; it names the folder and prefixes every file, so names stay unique.
 
 ## Writer rule
-This session owns **only** `learning/<topic>/` and writes it directly (no `/tickets:save`
+This session owns **only** `learning/<topic>/` and writes it directly (no `/tix:save`
 promotion). One session per topic. Around every write that touches more than one file, hold
-the lock: `ct vault lock acquire <vault> teach-<topic>` … `ct vault lock release <vault>
+the lock: `tix vault lock acquire <vault> teach-<topic>` … `tix vault lock release <vault>
 teach-<topic>`, releasing it even when something fails. Re-read a note before editing it.
 The repos (read-only) can supply examples; never edit them.
 
@@ -105,7 +105,7 @@ every later lesson.
 Adapted from mattpocock/skills (MIT); see THIRD_PARTY_NOTICES.md.
 
 ## Where it runs
-`ct teach <topic>` runs this skill in the terminal it was started from, under
+`tix teach <topic>` runs this skill in the terminal it was started from, under
 `<workRoot>/.teach-<vault>/<topic>`, a new conversation each time (the
 last one with `--continue`). The topic's state is `learning/<topic>/` (above); the lessons
 come from primary sources found on the web, never from the model's memory.

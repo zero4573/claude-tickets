@@ -12,21 +12,21 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/assets"
-	"github.com/zero4573/claude-tickets/internal/clean"
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/links"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/prompt"
-	"github.com/zero4573/claude-tickets/internal/scaffold"
-	"github.com/zero4573/claude-tickets/internal/tasksplugin"
-	"github.com/zero4573/claude-tickets/internal/textdiff"
-	"github.com/zero4573/claude-tickets/internal/ticketmigrate"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/vaultlock"
-	"github.com/zero4573/claude-tickets/internal/version"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/assets"
+	"github.com/zero4573/tix/internal/clean"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/links"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/prompt"
+	"github.com/zero4573/tix/internal/scaffold"
+	"github.com/zero4573/tix/internal/tasksplugin"
+	"github.com/zero4573/tix/internal/textdiff"
+	"github.com/zero4573/tix/internal/ticketmigrate"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/vaultlock"
+	"github.com/zero4573/tix/internal/version"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 type setupOpts struct {
@@ -34,7 +34,7 @@ type setupOpts struct {
 	sections                                     []string
 }
 
-// tasksVersion is the Tasks plugin version ct installs, for help texts.
+// tasksVersion is the Tasks plugin version tix installs, for help texts.
 func tasksVersion() string {
 	if pin, err := tasksplugin.Embedded(); err == nil {
 		return pin.Version
@@ -53,8 +53,8 @@ you pick one of the existing vaults.
 
   * folders: raw, tickets, templates, inbox, logs, references,
     knowledge-base, projects (one folder per repo, and per group of
-    projects that work together, written by /tickets:save), learning
-    (one folder per topic, written by ct teach sessions)
+    projects that work together, written by /tix:save), learning
+    (one folder per topic, written by tix teach sessions)
   * files: AGENTS.md, templates/ (group.md included), tickets.base
     (dashboard), projects.base (projects and groups), inbox.md
     (the inbox's open tasks), templates/status.md (the per-ticket status
@@ -63,19 +63,19 @@ you pick one of the existing vaults.
     Properties core plugins, and the workflow's property types
   * the Tasks community plugin, when it isn't installed yet: the pinned
     release (` + tasksVersion() + `), downloaded from GitHub
-    (CLAUDE_TICKETS_TASKS_URL for a mirror) and checksum-verified; enabled
+    (TIX_TASKS_URL for a mirror) and checksum-verified; enabled
     in community-plugins.json, and given the workflow's settings when it
     has none (data.json). An installed Tasks plugin is never replaced,
     whatever its version: Obsidian updates it. A failed download is a
     warning; re-run to try again. --skip-plugins leaves it all out (no
     network).
-  * its settings, through ct vault configure: where its workspaces and main
+  * its settings, through tix vault configure: where its workspaces and main
     clones live (.workflow.json, checked for overlaps with other vaults)
     and which ticket sources it uses (tickets/.sources.json). Settings
-    already made are kept; change them with ct vault configure.
+    already made are kept; change them with tix vault configure.
 
-Files that already exist are kept, even when a newer ct ships a newer
-version: ct vault update brings the ones you haven't edited up to date. So
+Files that already exist are kept, even when a newer tix ships a newer
+version: tix vault update brings the ones you haven't edited up to date. So
 it's safe to re-run, e.g. to add files a newer version of the workflow
 ships. It records what it shipped in .scaffold.json.
 Without a terminal it runs as with --defaults.`,
@@ -114,7 +114,7 @@ func vaultInit(target string, o setupOpts) error {
 		vaults := vault.List()
 		if !o.defaults || len(vaults) <= 1 {
 			if len(vaults) == 0 {
-				return fmt.Errorf("no Obsidian vaults under %s; name one to create it: ct vault init <name>", config.ObsidianRoot())
+				return fmt.Errorf("no Obsidian vaults under %s; name one to create it: tix vault init <name>", config.ObsidianRoot())
 			}
 			name := vaults[0]
 			if len(vaults) > 1 {
@@ -125,7 +125,7 @@ func vaultInit(target string, o setupOpts) error {
 			}
 			v = filepath.Join(config.ObsidianRoot(), name)
 		} else {
-			return errors.New("several vaults; name one: ct vault init <vault>")
+			return errors.New("several vaults; name one: tix vault init <vault>")
 		}
 	case strings.Contains(target, "/") || fsx.IsDir(filepath.Join(target, ".obsidian")):
 		v, _ = filepath.Abs(config.ExpandHome(target))
@@ -139,9 +139,9 @@ func vaultInit(target string, o setupOpts) error {
 		if err := os.MkdirAll(filepath.Join(v, ".obsidian"), 0o755); err != nil {
 			return err
 		}
-		fmt.Printf("ct vault init: created vault %s (open it in Obsidian: Open folder as vault)\n", v)
+		fmt.Printf("tix vault init: created vault %s (open it in Obsidian: Open folder as vault)\n", v)
 	}
-	fmt.Printf("ct vault init: setting up %s\n", v)
+	fmt.Printf("tix vault init: setting up %s\n", v)
 
 	for _, d := range vaultFolders {
 		if err := os.MkdirAll(filepath.Join(v, d), 0o755); err != nil {
@@ -149,12 +149,12 @@ func vaultInit(target string, o setupOpts) error {
 		}
 	}
 
-	// Files: missing ones added, existing ones kept (ct vault update updates them)
+	// Files: missing ones added, existing ones kept (tix vault update updates them)
 	src, err := scaffold.Embedded()
 	if err != nil {
 		return err
 	}
-	res, err := scaffold.Apply(v, src, scaffold.Options{AddOnly: true, Version: version.Version, Owner: "ct-vault-init"})
+	res, err := scaffold.Apply(v, src, scaffold.Options{AddOnly: true, Version: version.Version, Owner: "tix-vault-init"})
 	if err != nil {
 		return err
 	}
@@ -167,17 +167,17 @@ func vaultInit(target string, o setupOpts) error {
 			kept++
 		}
 	}
-	fmt.Printf("ct vault init: added %d file(s), kept %d existing\n", len(res.Done), kept)
+	fmt.Printf("tix vault init: added %d file(s), kept %d existing\n", len(res.Done), kept)
 	for _, e := range res.Entries {
 		if res.Done[e.Rel] == scaffold.Added {
 			fmt.Printf("  + %s\n", e.Rel)
 		}
 	}
 	if n := res.Count(scaffold.Stale); n > 0 {
-		fmt.Printf("ct vault init: %d shipped file(s) are out of date; ct vault update brings them up to date (--dry-run to preview)\n", n)
+		fmt.Printf("tix vault init: %d shipped file(s) are out of date; tix vault update brings them up to date (--dry-run to preview)\n", n)
 	}
 	if n := res.Count(scaffold.Edited); n > 0 {
-		fmt.Printf("ct vault init: %d shipped file(s) edited in the vault are kept; ct vault update --diff shows how they differ\n", n)
+		fmt.Printf("tix vault init: %d shipped file(s) edited in the vault are kept; tix vault update --diff shows how they differ\n", n)
 	}
 
 	if err := obsidianSettings(filepath.Join(v, ".obsidian")); err != nil {
@@ -192,7 +192,7 @@ func vaultInit(target string, o setupOpts) error {
 	if err := tasksPlugin(v, o); err != nil {
 		return err
 	}
-	fmt.Println("ct vault init: done. Next (on the default vault; ct vault default to switch): ct sync, ct new, ct start <ID>")
+	fmt.Println("tix vault init: done. Next (on the default vault; tix vault default to switch): tix sync, tix new, tix start <ID>")
 	return nil
 }
 
@@ -205,41 +205,41 @@ func vaultUpdateCmd() *cobra.Command {
 	var o updateOpts
 	cmd := &cobra.Command{
 		Use:   "update [<vault>] [--dry-run] [--diff] [--take <file>]...",
-		Short: "Bring the files ct ships into a vault (AGENTS.md, templates, ...) up to date",
-		Long: `Brings the files ct ships into a vault up to date: AGENTS.md, templates/,
-tickets.base, inbox.md and the other files ct vault init copies.
+		Short: "Bring the files tix ships into a vault (AGENTS.md, templates, ...) up to date",
+		Long: `Brings the files tix ships into a vault up to date: AGENTS.md, templates/,
+tickets.base, inbox.md and the other files tix vault init copies.
 <vault> is a name under ~/Documents/Obsidian or a path; default: the
 current vault. For each file:
 
   + added        it was missing
-  ~ updated      unedited since an earlier ct shipped it: replaced in place
+  ~ updated      unedited since an earlier tix shipped it: replaced in place
   ! edited       changed in the vault: kept as it is (--diff shows how it
                  differs, --take <file> takes the shipped version)
-  x removed      an earlier ct shipped it, this one doesn't, unedited: deleted
+  x removed      an earlier tix shipped it, this one doesn't, unedited: deleted
                  (only the old task views)
-  - not shipped  an earlier ct shipped it, this one doesn't: kept (an edited
+  - not shipped  an earlier tix shipped it, this one doesn't: kept (an edited
                  old task view too: delete it by hand once you no longer need it)
-  > newer        a newer ct shipped it (.scaffold.json says so, this ct
+  > newer        a newer tix shipped it (.scaffold.json says so, this tix
                  doesn't know that version): kept, never downgraded
                  (--take <file> still replaces it)
   (files already up to date are only counted)
 
-A file counts as unedited when its content is a version this ct knows it
+A file counts as unedited when its content is a version this tix knows it
 shipped, ignoring line endings and trailing newlines. .base files are
 compared by their parsed YAML, so Obsidian reformatting one or dropping its
 comments isn't an edit; changing a view (filters, columns, sort) is.
 Settings (.obsidian/, .workflow.json, tickets/.sources.json) and your own
-notes are never touched. Writes happen under the vault lock (ct vault
+notes are never touched. Writes happen under the vault lock (tix vault
 lock), and .scaffold.json records what was shipped.
 
-Ticket folders an older ct left straight under tickets/ (tickets/<ID>/,
+Ticket folders an older tix left straight under tickets/ (tickets/<ID>/,
 archive/tickets/<ID>/) move to tickets/<source>/<ID>/ and
 archive/tickets/<source>/<ID>/ (> lines), <source> being the note's
 source (jira, manual, ...) or, without one, the source tickets/.sources.json
 gives its ID; path-qualified links to their files are rewritten (bare
 [[name]] links don't change). A folder whose new place is taken stays,
 with a warning. Sessions started before the move name the old folder:
-start them again (ct start) afterwards.
+start them again (tix start) afterwards.
 
 The old task views (pending.md, done.md, follow-ups.md) are removed when
 unedited; a ticket's tasks are now in its <ID>-status.md and the inbox's in
@@ -274,7 +274,7 @@ the converted files too. Run it with no ticket session working.`,
 	return cmd
 }
 
-// migrateTickets is the ticket migration of ct vault update: a test seam.
+// migrateTickets is the ticket migration of tix vault update: a test seam.
 var migrateTickets = ticketmigrate.Migrate
 
 // migrateLayout moves an old vault's ticket folders under their source: a
@@ -295,13 +295,13 @@ func vaultUpdate(v string, o updateOpts) error {
 	}
 	// One lock around the scaffold step and the migration
 	if !dry {
-		owner := scaffold.UniqueOwner("ct-vault-update")
+		owner := scaffold.UniqueOwner("tix-vault-update")
 		if err := vaultlock.Acquire(v, owner); err != nil {
 			return err
 		}
 		defer func() { _ = vaultlock.Release(v, owner) }()
 	}
-	res, err := scaffold.Apply(v, src, scaffold.Options{DryRun: dry, Locked: !dry, Take: o.take, Version: version.Version, Owner: "ct-vault-update"})
+	res, err := scaffold.Apply(v, src, scaffold.Options{DryRun: dry, Locked: !dry, Take: o.take, Version: version.Version, Owner: "tix-vault-update"})
 	if err != nil {
 		return err
 	}
@@ -309,9 +309,9 @@ func vaultUpdate(v string, o updateOpts) error {
 		warnf("%s", w)
 	}
 	if dry {
-		fmt.Printf("ct vault update: %s (dry run: nothing is written)\n", config.TildePath(v))
+		fmt.Printf("tix vault update: %s (dry run: nothing is written)\n", config.TildePath(v))
 	} else {
-		fmt.Printf("ct vault update: %s\n", config.TildePath(v))
+		fmt.Printf("tix vault update: %s\n", config.TildePath(v))
 	}
 	verb := func(done, would string) string {
 		if dry {
@@ -347,7 +347,7 @@ func vaultUpdate(v string, o updateOpts) error {
 			showDiff = e.Reason == ""
 		case e.State == scaffold.Newer:
 			newer++
-			fmt.Printf("  > %s (newer than this ct; kept)\n", e.Rel)
+			fmt.Printf("  > %s (newer than this tix; kept)\n", e.Rel)
 			showDiff = e.Ship != nil
 		case e.State == scaffold.RetiredClean:
 			retired++
@@ -366,7 +366,7 @@ func vaultUpdate(v string, o updateOpts) error {
 			if err != nil {
 				return err
 			}
-			fmt.Print(textdiff.Unified(e.Rel+" (vault)", e.Rel+" (ct "+version.Version+")",
+			fmt.Print(textdiff.Unified(e.Rel+" (vault)", e.Rel+" (tix "+version.Version+")",
 				scaffold.Norm(have), scaffold.Norm(e.Ship.Data), 3))
 		}
 	}
@@ -386,14 +386,14 @@ func vaultUpdate(v string, o updateOpts) error {
 		parts = append(parts, fmt.Sprintf("not shipped any more %d", retired))
 	}
 	if newer > 0 {
-		parts = append(parts, fmt.Sprintf("newer than this ct %d (kept)", newer))
+		parts = append(parts, fmt.Sprintf("newer than this tix %d (kept)", newer))
 	}
-	fmt.Printf("ct vault update: %s\n", strings.Join(parts, ", "))
+	fmt.Printf("tix vault update: %s\n", strings.Join(parts, ", "))
 	if edited > 0 {
-		fmt.Println("ct vault update: see the differences with ct vault update --diff; take the shipped version of a file with ct vault update --take <file> (the old one is kept as <file>.bak)")
+		fmt.Println("tix vault update: see the differences with tix vault update --diff; take the shipped version of a file with tix vault update --take <file> (the old one is kept as <file>.bak)")
 	}
 	if newer > 0 {
-		fmt.Println("ct vault update: files newer than this ct were shipped by a newer ct and are never downgraded; update ct, or replace one with --take <file>")
+		fmt.Println("tix vault update: files newer than this tix were shipped by a newer tix and are never downgraded; update tix, or replace one with --take <file>")
 	}
 
 	// The ticket folders under their source (tickets/<source>/<ID>/)
@@ -402,12 +402,12 @@ func vaultUpdate(v string, o updateOpts) error {
 		warnf("%s", w)
 	}
 	if layErr != nil {
-		warnf("moving the ticket folders under their source stopped after %d file(s): %v; fix it and run ct vault update again, which finishes the move", len(lay.Files), layErr)
+		warnf("moving the ticket folders under their source stopped after %d file(s): %v; fix it and run tix vault update again, which finishes the move", len(lay.Files), layErr)
 	} else if len(lay.Moves) > 0 {
 		for _, m := range lay.Moves {
 			fmt.Printf("  > %s/ -> %s/ (%s)\n", m.From, m.To, verb("moved", "would move"))
 		}
-		fmt.Printf("ct vault update: %s %d ticket folder(s) under their source", verb("moved", "would move"), len(lay.Moves))
+		fmt.Printf("tix vault update: %s %d ticket folder(s) under their source", verb("moved", "would move"), len(lay.Moves))
 		if !dry {
 			fmt.Printf(", rewrote %d link(s) in %d note(s)", lay.Rewritten, len(lay.Changed))
 		}
@@ -439,13 +439,13 @@ func vaultUpdate(v string, o updateOpts) error {
 		fmt.Printf("  * %s/ (%s)\n", t.Dir, strings.Join(what, "; "))
 		if o.diff {
 			for _, f := range t.Files {
-				fmt.Print(textdiff.Unified(f.Rel+" (vault)", f.Rel+" (ct "+version.Version+")",
+				fmt.Print(textdiff.Unified(f.Rel+" (vault)", f.Rel+" (tix "+version.Version+")",
 					scaffold.Norm(f.Old), scaffold.Norm(f.New), 3))
 			}
 		}
 	}
 	if layErr == nil && migErr == nil {
-		fmt.Printf("ct vault update: %s %d, already current %d, closed (skipped) %d\n",
+		fmt.Printf("tix vault update: %s %d, already current %d, closed (skipped) %d\n",
 			verb("tickets migrated", "tickets that would be migrated"), mig.Migrated, mig.Current, mig.Closed)
 	}
 
@@ -472,7 +472,7 @@ func vaultUpdate(v string, o updateOpts) error {
 // again); it fails only on unexpected local I/O.
 func tasksPlugin(v string, o setupOpts) error {
 	if o.skipPlugins {
-		fmt.Println("ct vault init: skipped the Tasks plugin (--skip-plugins)")
+		fmt.Println("tix vault init: skipped the Tasks plugin (--skip-plugins)")
 		return nil
 	}
 	pin, err := tasksplugin.Embedded()
@@ -488,21 +488,21 @@ func tasksPlugin(v string, o setupOpts) error {
 		}
 		return filepath.ToSlash(r)
 	}
-	in := tasksplugin.Installer{Pin: pin, BaseURL: os.Getenv("CLAUDE_TICKETS_TASKS_URL")}
+	in := tasksplugin.Installer{Pin: pin, BaseURL: os.Getenv("TIX_TASKS_URL")}
 	outcome, ver, err := in.Ensure(obs)
 	switch outcome {
 	case tasksplugin.Fresh:
-		fmt.Printf("ct vault init: installed the Tasks plugin %s (%s); if Obsidian is open, reload it. Obsidian loads community plugins once you trust the vault\n", ver, rel(pluginDir))
+		fmt.Printf("tix vault init: installed the Tasks plugin %s (%s); if Obsidian is open, reload it. Obsidian loads community plugins once you trust the vault\n", ver, rel(pluginDir))
 	case tasksplugin.Current:
-		fmt.Printf("ct vault init: Tasks plugin %s already installed\n", ver)
+		fmt.Printf("tix vault init: Tasks plugin %s already installed\n", ver)
 	case tasksplugin.KeptNewer:
-		fmt.Printf("ct vault init: Tasks plugin %s already installed (newer than %s, the version ct installs); kept\n", ver, pin.Version)
+		fmt.Printf("tix vault init: Tasks plugin %s already installed (newer than %s, the version tix installs); kept\n", ver, pin.Version)
 	case tasksplugin.KeptOlder:
-		fmt.Printf("ct vault init: Tasks plugin %s already installed, older than %s (the version ct installs); kept: Obsidian updates it\n", ver, pin.Version)
+		fmt.Printf("tix vault init: Tasks plugin %s already installed, older than %s (the version tix installs); kept: Obsidian updates it\n", ver, pin.Version)
 	case tasksplugin.KeptUnknown:
 		warnf("%s: %v; the Tasks plugin was left as it is", rel(filepath.Join(pluginDir, "manifest.json")), err)
 	default:
-		warnf("the Tasks plugin wasn't installed: %v; re-run ct vault init, or install Tasks from Obsidian (Settings → Community plugins → Browse)", err)
+		warnf("the Tasks plugin wasn't installed: %v; re-run tix vault init, or install Tasks from Obsidian (Settings → Community plugins → Browse)", err)
 	}
 
 	// Enabled on every run, even when the download failed
@@ -513,11 +513,11 @@ func tasksPlugin(v string, o setupOpts) error {
 	case err != nil:
 		return err
 	case added:
-		fmt.Printf("ct vault init: enabled the Tasks plugin (%s)\n", rel(filepath.Join(obs, "community-plugins.json")))
+		fmt.Printf("tix vault init: enabled the Tasks plugin (%s)\n", rel(filepath.Join(obs, "community-plugins.json")))
 	}
 
 	// Settings, only into an installed plugin (never a folder holding just
-	// data.json) whose files ct may touch
+	// data.json) whose files tix may touch
 	switch outcome {
 	case tasksplugin.Fresh, tasksplugin.Current, tasksplugin.KeptNewer, tasksplugin.KeptOlder:
 		wrote, err := tasksplugin.EnsureSettings(pluginDir, tasksplugin.Settings())
@@ -525,13 +525,13 @@ func tasksPlugin(v string, o setupOpts) error {
 			return err
 		}
 		if wrote {
-			fmt.Println("ct vault init: wrote the workflow's Tasks settings (data.json)")
+			fmt.Println("tix vault init: wrote the workflow's Tasks settings (data.json)")
 		} else {
-			fmt.Println("ct vault init: kept the Tasks settings (data.json)")
+			fmt.Println("tix vault init: kept the Tasks settings (data.json)")
 		}
 	}
 
-	fmt.Println("ct vault init: ct installs Tasks once and never updates it; Obsidian does: Settings → Community plugins → Check for updates")
+	fmt.Println("tix vault init: tix installs Tasks once and never updates it; Obsidian does: Settings → Community plugins → Check for updates")
 	return nil
 }
 
@@ -606,7 +606,7 @@ func vaultConfigureCmd() *cobra.Command {
 		Short: "A vault's settings: locations, ticket sources",
 		Long: `Configures a vault for the ticket workflow, one section at a time. Every
 prompt shows the current value as its default, so it changes an existing
-vault as easily as it sets up a new one (ct vault init runs it). <vault> is
+vault as easily as it sets up a new one (tix vault init runs it). <vault> is
 a name under ~/Documents/Obsidian or a path; default: the current vault.
 
 Sections (all of them unless --section is given):
@@ -684,7 +684,7 @@ func vaultConfigure(v string, o setupOpts) error {
 	if len(sections) == 0 {
 		sections = allSections
 	}
-	fmt.Printf("ct vault configure: %s\n", v)
+	fmt.Printf("tix vault configure: %s\n", v)
 	for _, s := range sections {
 		var file string
 		switch s {
@@ -696,7 +696,7 @@ func vaultConfigure(v string, o setupOpts) error {
 		_, err := os.Stat(file)
 		configured := err == nil
 		if configured && (o.missing || o.defaults) {
-			fmt.Printf("ct vault configure: kept %s (ct vault configure --section %s to change it)\n", config.TildePath(file), s)
+			fmt.Printf("tix vault configure: kept %s (tix vault configure --section %s to change it)\n", config.TildePath(file), s)
 			continue
 		}
 		switch s {
@@ -723,7 +723,7 @@ func vaultConfigure(v string, o setupOpts) error {
 				if err != nil {
 					return err
 				}
-				fmt.Printf("ct vault configure: default vault is now %s\n", s)
+				fmt.Printf("tix vault configure: default vault is now %s\n", s)
 			}
 		}
 	}
@@ -778,7 +778,7 @@ func configureLocations(v, file string, o setupOpts) error {
 			}
 			if o.defaults {
 				if !o.allowOverlap {
-					return errors.New("overlapping folders (--allow-overlap to accept them, or run ct vault configure in a terminal)")
+					return errors.New("overlapping folders (--allow-overlap to accept them, or run tix vault configure in a terminal)")
 				}
 			} else if !prompt.ConfirmYes("  Keep these overlapping folders?") {
 				fmt.Println("  Then pick other folders.")
@@ -800,20 +800,20 @@ func configureLocations(v, file string, o setupOpts) error {
 		break
 	}
 	if err := config.WriteJSON(file, workflowFile{
-		Comment:      "Where the ticket tools of this vault work: workRoot holds the ticket and spec workspaces, projectsRoot the main clones (vaults may share it). Change them with ct vault configure --section locations, which checks for overlaps with other vaults.",
+		Comment:      "Where the ticket tools of this vault work: workRoot holds the ticket and spec workspaces, projectsRoot the main clones (vaults may share it). Change them with tix vault configure --section locations, which checks for overlaps with other vaults.",
 		WorkRoot:     config.TildePath(w),
 		ProjectsRoot: config.TildePath(p),
 	}); err != nil {
 		return err
 	}
-	fmt.Printf("ct vault configure: wrote .workflow.json (workspaces in %s, main clones in %s)\n",
+	fmt.Printf("tix vault configure: wrote .workflow.json (workspaces in %s, main clones in %s)\n",
 		config.TildePath(w), config.TildePath(p))
 	return nil
 }
 
 // sourcesTemplate is a new tickets/.sources.json: every known source.
 const sourcesTemplate = `{
-  "_comment": "Ticket sources for this vault. ct sync pulls every enabled source whose sync is not false, through the MCP server named by mcp (its URL comes from the MCP config in CLAUDE_TICKETS_MCP_CONFIG; the headless Claude step uses the servers your claude command provides). A source also needs an adapter: assets/plugin/skills/ticket-sync/sources/<name>.md in claude-tickets. Local ticket IDs are the source key when idPrefix is empty, otherwise <idPrefix>-<native id>. manual tickets are written in Obsidian (ct new, templates/ticket-manual.md) and never synced. The jira source finds its Jira site from the token; set \"site\": \"<name>.atlassian.net\" only if the token can reach several. Change the manual and jira settings with ct vault configure --section sources.",
+  "_comment": "Ticket sources for this vault. tix sync pulls every enabled source whose sync is not false, through the MCP server named by mcp (its URL comes from the MCP config in TIX_MCP_CONFIG; the headless Claude step uses the servers your claude command provides). A source also needs an adapter: assets/plugin/skills/ticket-sync/sources/<name>.md in tix. Local ticket IDs are the source key when idPrefix is empty, otherwise <idPrefix>-<native id>. manual tickets are written in Obsidian (tix new, templates/ticket-manual.md) and never synced. The jira source finds its Jira site from the token; set \"site\": \"<name>.atlassian.net\" only if the token can reach several. Change the manual and jira settings with tix vault configure --section sources.",
   "sources": {
     "jira": {},
     "manual": {},
@@ -824,9 +824,9 @@ const sourcesTemplate = `{
   }
 }`
 
-// mcpServers is the server names in $CLAUDE_TICKETS_MCP_CONFIG, sorted.
+// mcpServers is the server names in $TIX_MCP_CONFIG, sorted.
 func mcpServers() []string {
-	f := os.Getenv("CLAUDE_TICKETS_MCP_CONFIG")
+	f := os.Getenv("TIX_MCP_CONFIG")
 	if f == "" {
 		return nil
 	}
@@ -891,7 +891,7 @@ func configureSources(file string, o setupOpts) error {
 	}
 	if !o.defaults {
 		fmt.Printf("\nTicket sources (%s); press Enter to keep the value shown.\n", config.TildePath(file))
-		manual = prompt.YesNo("Manual tickets, written in Obsidian (ct new)?", yn(manual))
+		manual = prompt.YesNo("Manual tickets, written in Obsidian (tix new)?", yn(manual))
 		if manual {
 			for {
 				manualPrefix = prompt.Ask("  ID prefix for manual tickets (<prefix>-<n>)", manualPrefix)
@@ -906,18 +906,18 @@ func configureSources(file string, o setupOpts) error {
 		if !existing {
 			jiraDefault = yn(contains(registered, "atlassian"))
 		}
-		jira = prompt.YesNo("Pull Jira tickets assigned to you (ct sync)?", jiraDefault)
+		jira = prompt.YesNo("Pull Jira tickets assigned to you (tix sync)?", jiraDefault)
 		if jira {
 			if len(registered) > 0 {
-				fmt.Printf("  MCP servers in %s: %s\n", os.Getenv("CLAUDE_TICKETS_MCP_CONFIG"), strings.Join(registered, " "))
+				fmt.Printf("  MCP servers in %s: %s\n", os.Getenv("TIX_MCP_CONFIG"), strings.Join(registered, " "))
 			}
-			jiraMCP = prompt.Ask("  MCP server for Jira (its name in CLAUDE_TICKETS_MCP_CONFIG)", jiraMCP)
+			jiraMCP = prompt.Ask("  MCP server for Jira (its name in TIX_MCP_CONFIG)", jiraMCP)
 			if !contains(registered, jiraMCP) {
-				cfg := os.Getenv("CLAUDE_TICKETS_MCP_CONFIG")
+				cfg := os.Getenv("TIX_MCP_CONFIG")
 				if cfg == "" {
 					cfg = "unset"
 				}
-				warnf("'%s' isn't in CLAUDE_TICKETS_MCP_CONFIG (%s) yet; see references/atlassian-rovo-mcp-setup.md", jiraMCP, cfg)
+				warnf("'%s' isn't in TIX_MCP_CONFIG (%s) yet; see references/atlassian-rovo-mcp-setup.md", jiraMCP, cfg)
 			}
 			jiraQuery = prompt.Ask("  JQL for your open tickets", jiraQuery)
 			site := jiraSite
@@ -960,17 +960,17 @@ func configureSources(file string, o setupOpts) error {
 	if err := config.WriteJSON(file, doc); err != nil {
 		return err
 	}
-	fmt.Printf("ct vault configure: wrote tickets/.sources.json (jira: %t, manual: %t)\n", jira, manual)
+	fmt.Printf("tix vault configure: wrote tickets/.sources.json (jira: %t, manual: %t)\n", jira, manual)
 	return nil
 }
 
 func vaultLockCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lock acquire|release|status|run ...",
-		Short: "The lock /tickets:save and teach sessions hold while writing shared notes",
+		Short: "The lock /tix:save and teach sessions hold while writing shared notes",
 		Long: `An exclusive lock on a vault's shared notes (projects/, knowledge-base/,
-references/, learning/), so ticket sessions running /tickets:save and
-teach sessions (ct teach, writing learning/<topic>/) take turns. <owner>
+references/, learning/), so ticket sessions running /tix:save and
+teach sessions (tix teach, writing learning/<topic>/) take turns. <owner>
 identifies the holder, e.g. the ticket key or teach-<topic>.
 
 The lock is the directory <vault>/.vault.lock.d (mkdir is atomic), holding
@@ -1003,7 +1003,7 @@ Dot-files are hidden from Obsidian.`,
 		Short: "Acquire, run the command, release",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if cmd.ArgsLenAtDash() != 2 || len(args) < 3 {
-				return errors.New("usage: ct vault lock run <vault> <owner> -- <command> [args...]")
+				return errors.New("usage: tix vault lock run <vault> <owner> -- <command> [args...]")
 			}
 			return nil
 		},
@@ -1042,9 +1042,9 @@ Without files, checks the whole vault except templates/. Exits 1 if
 anything is broken. A file is a path, or relative to the vault.
 
 In a synced ticket, links to tickets that aren't in the vault from the parts
-ct sync writes (parent, children, blocked-by, blocks, related, covers,
+tix sync writes (parent, children, blocked-by, blocks, related, covers,
 covered-by, source-* fields, and the source block) don't count: sync writes
-them for tickets it never pulled, and for ones ct clean removed, and puts
+them for tickets it never pulled, and for ones tix clean removed, and puts
 them back on every refresh. They get one summary line instead.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1069,7 +1069,7 @@ them back on every refresh. They get one summary line instead.`,
 			owned := clean.SyncOwned()
 			if links.CheckWith(v, files, os.Stdout, links.CheckOpts{
 				Exempt:     func(p links.Place, target string) bool { return note.ValidKey(target) && owned(p) },
-				ExemptNote: "ct vault links: %d link(s) in sync-owned parts of synced tickets point to tickets not in the vault (not counted)",
+				ExemptNote: "tix vault links: %d link(s) in sync-owned parts of synced tickets point to tickets not in the vault (not counted)",
 			}) > 0 {
 				return exitError(1)
 			}
@@ -1104,7 +1104,7 @@ links ([[old/path/note]]) across the vault to the new path. Bare-name links
 			}
 			fmt.Println(res.Moves[0].To)
 			if res.Rewritten > 0 {
-				fmt.Fprintf(os.Stderr, "ct vault links: rewrote %d path-qualified link(s)\n", res.Rewritten)
+				fmt.Fprintf(os.Stderr, "tix vault links: rewrote %d path-qualified link(s)\n", res.Rewritten)
 			}
 			return nil
 		},

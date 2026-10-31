@@ -29,7 +29,7 @@ views:
 
 ## Interactions
 Who depends on whom, and over what. Kept in step with the members'
-`depends-on` by `/tickets:save`.
+`depends-on` by `/tix:save`.
 
 ```mermaid
 graph LR

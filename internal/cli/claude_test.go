@@ -31,7 +31,7 @@ func TestRelationsPrompt(t *testing.T) {
 	got := b.String()
 	for _, want := range []string{
 		"- It depends on `lib`.\n",
-		"- Run `ct vault groups \"" + v + "\" cli` for the projects it works with.\n",
+		"- Run `tix vault groups \"" + v + "\" cli` for the projects it works with.\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)

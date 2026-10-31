@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zero4573/claude-tickets/assets"
-	"github.com/zero4573/claude-tickets/internal/mdsec"
-	"github.com/zero4573/claude-tickets/internal/vaultlock"
+	"github.com/zero4573/tix/assets"
+	"github.com/zero4573/tix/internal/mdsec"
+	"github.com/zero4573/tix/internal/vaultlock"
 )
 
 const note = "---\ntitle: T\ntags: [a, b]\nlist:\n  - x\n  - y\nstatus: open\n---\n# T\n\nintro\n\n## A\n\na body\n\n### A1\n\nsub\n\n## B\n\nb body\n"
@@ -329,7 +329,7 @@ func TestApply(t *testing.T) {
 	}
 }
 
-// W7-claude-tickets-C01: the guard messages cite AGENTS.md "Who writes what"
+// W7-tix-C01: the guard messages cite AGENTS.md "Who writes what"
 // item 3; the shipped scaffold keeps that heading and item.
 func TestWhoWritesWhatPinned(t *testing.T) {
 	data, err := fs.ReadFile(assets.Scaffold, "vault-scaffold/AGENTS.md")

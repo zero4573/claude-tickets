@@ -1,7 +1,7 @@
 // Package session prepares the Claude Code sessions the commands start:
 // the claude command line (plugin, directories), the workspace's
 // .claude/settings.json and trust in Claude's own config. Sessions are plain Claude Code: only standard flags, and
-// anything environment-specific comes from CLAUDE_TICKETS_* variables.
+// anything environment-specific comes from TIX_* variables.
 package session
 
 import (
@@ -13,18 +13,18 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/assets"
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/lock"
+	"github.com/zero4573/tix/assets"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/lock"
 )
 
-// PluginDir is the Claude Code plugin shipped with ct (skills, wave
-// agents, hooks): $CLAUDE_TICKETS_PLUGIN (the Nix package sets it), else
-// config.json's pluginDir, else the copy embedded in ct, unpacked to the
+// PluginDir is the Claude Code plugin shipped with tix (skills, wave
+// agents, hooks): $TIX_PLUGIN (the Nix package sets it), else
+// config.json's pluginDir, else the copy embedded in tix, unpacked to the
 // cache.
 func PluginDir() (string, error) {
-	d := os.Getenv("CLAUDE_TICKETS_PLUGIN")
+	d := os.Getenv("TIX_PLUGIN")
 	// (config.json's, from an older install.sh, only while it's still there)
 	if c := config.Get("pluginDir"); d == "" && c != "" && fsx.IsDir(c) {
 		d = c
@@ -33,12 +33,12 @@ func PluginDir() (string, error) {
 		return assets.Materialize("plugin")
 	}
 	if _, err := os.Stat(filepath.Join(d, ".claude-plugin", "plugin.json")); err != nil {
-		return "", fmt.Errorf("no claude-tickets plugin at %s (set CLAUDE_TICKETS_PLUGIN, or reinstall)", d)
+		return "", fmt.Errorf("no tix plugin at %s (set TIX_PLUGIN, or reinstall)", d)
 	}
 	return d, nil
 }
 
-// Command is the claude command a session runs ($CLAUDE_TICKETS_CLAUDE,
+// Command is the claude command a session runs ($TIX_CLAUDE,
 // split on spaces, else claude), with the plugin and an --add-dir for each
 // of dirs that exists.
 func Command(dirs ...string) ([]string, error) {
@@ -51,7 +51,7 @@ func Command(dirs ...string) ([]string, error) {
 
 // CommandPlugin is Command with the given plugin dir (a dev workspace's).
 func CommandPlugin(plugin string, dirs ...string) []string {
-	argv := strings.Fields(os.Getenv("CLAUDE_TICKETS_CLAUDE"))
+	argv := strings.Fields(os.Getenv("TIX_CLAUDE"))
 	if len(argv) == 0 {
 		argv = []string{"claude"}
 	}
@@ -66,22 +66,22 @@ func CommandPlugin(plugin string, dirs ...string) []string {
 
 // WriteSettings writes <dir>/.claude/settings.json, which Claude reads as
 // the project settings:
-//   - what the ticket system needs: ct's cache is never edited (//
+//   - what the ticket system needs: tix's cache is never edited (//
 //     marks an absolute path in a rule), plus extraDeny (ReposReadOnly for
 //     sessions that only read the repos). Ticket sessions may write the
 //     repo directory: they clone repos into it and add worktrees.
 //   - the workspace's own Go caches (GoEnv), so a session (in its
 //     container) fetches and builds Go modules there
-//   - merged with $CLAUDE_TICKETS_SESSION_SETTINGS, the user's own rules
+//   - merged with $TIX_SESSION_SETTINGS, the user's own rules
 //     (objects merge, arrays are joined)
 //
 // It also writes <dir>/.ignore (WriteIgnore), and removes
-// .claude/graph-mcp.json, the code graph server's config that older ct
+// .claude/graph-mcp.json, the code graph server's config that older tix
 // versions wrote (a session given it would still start that server).
 //
-// It never sets PATH: a dev workspace's built ct goes first on the PATH
+// It never sets PATH: a dev workspace's built tix goes first on the PATH
 // the session starts with (launcher.Session's PathFirst), not on a copy of
-// ct's own.
+// tix's own.
 func WriteSettings(dir string, extraDeny ...string) error {
 	var deny []any
 	for _, tool := range []string{"Edit", "Write", "NotebookEdit"} {
@@ -95,14 +95,14 @@ func WriteSettings(dir string, extraDeny ...string) error {
 		env[k] = v
 	}
 	var settings any = map[string]any{"permissions": map[string]any{"deny": deny}, "env": env}
-	if f := os.Getenv("CLAUDE_TICKETS_SESSION_SETTINGS"); f != "" {
+	if f := os.Getenv("TIX_SESSION_SETTINGS"); f != "" {
 		var extra any
 		data, err := os.ReadFile(f)
 		if err == nil {
 			err = json.Unmarshal(data, &extra)
 		}
 		if err != nil {
-			return fmt.Errorf("CLAUDE_TICKETS_SESSION_SETTINGS (%s) isn't a readable JSON file", f)
+			return fmt.Errorf("TIX_SESSION_SETTINGS (%s) isn't a readable JSON file", f)
 		}
 		settings = merge(settings, extra)
 	}
@@ -133,15 +133,15 @@ func ReposReadOnly(projectsRoot string) []string {
 // Grep) searches unless a search names it.
 func CacheDir(dir string) string { return filepath.Join(dir, ".cache") }
 
-// DevDir is a dev workspace's build of claude-tickets, <dir>/.cache/dev:
-// bin/ct (ct.exe on Windows) and its plugin, plugin/ (copied from the
-// checkout, its hooks running bin/ct).
+// DevDir is a dev workspace's build of tix, <dir>/.cache/dev:
+// bin/tix (tix.exe on Windows) and its plugin, plugin/ (copied from the
+// checkout, its hooks running bin/tix).
 func DevDir(dir string) string { return filepath.Join(CacheDir(dir), "dev") }
 
 // GoEnv is the Go environment of a workspace's sessions: GOPATH, its
 // module cache and the build cache under <dir>/.cache/go, so every ticket
 // container fetches its own modules into a folder it can write, and
-// ct ws rm removes them with the workspace.
+// tix ws rm removes them with the workspace.
 func GoEnv(dir string) map[string]string {
 	goDir := filepath.Join(CacheDir(dir), "go")
 	return map[string]string{
@@ -153,7 +153,7 @@ func GoEnv(dir string) map[string]string {
 
 // ignoreFile is <dir>/.ignore, read by rg (honoured outside a git repo
 // too): the workspace's caches.
-const ignoreFile = "# Written by ct; regenerated on every start, so don't edit it.\n" +
+const ignoreFile = "# Written by tix; regenerated on every start, so don't edit it.\n" +
 	"# rg (Claude's Grep) skips these unless a search names them.\n" +
 	"/.cache/\n"
 

@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/note"
+	"github.com/zero4573/tix/internal/note"
 )
 
 func cell(s string) string {
@@ -126,7 +126,7 @@ func (s *Sync) head(is issue) string {
 	}
 	ls := []string{
 		"## Source (Jira)",
-		"> Synced from Jira by ct sync. Edits here are overwritten. Dashboard: [[tickets.base|Tickets]]",
+		"> Synced from Jira by tix sync. Edits here are overwritten. Dashboard: [[tickets.base|Tickets]]",
 		"",
 		"| | |", "|---|---|",
 		"| Summary | " + cell(or(f.Summary, "")) + " |",
@@ -376,7 +376,7 @@ func (s *Sync) writeChildren(epic, file string, p *parts) error {
 		if !strings.Contains("\n"+note.Normalize(string(data)), "\ncovered-by: \"[["+epic+"]]\"") {
 			continue
 		}
-		// a stub (ct ticket stub) not yet synced may be missing from the
+		// a stub (tix ticket stub) not yet synced may be missing from the
 		// source's children (search lag): it keeps its covered-by
 		if frontmatterGet(cn, "source-updated") == "" && frontmatterGet(cn, "source-url") == "" {
 			continue
@@ -447,7 +447,7 @@ func (s *Sync) apply(key, mode, reason string) error {
 		f, err := os.OpenFile(file, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 		if err != nil {
 			if os.IsExist(err) {
-				return fmt.Errorf("%s exists but isn't a jira note ct sync can read (check its frontmatter: source: jira, source-id: %s)", file, key)
+				return fmt.Errorf("%s exists but isn't a jira note tix sync can read (check its frontmatter: source: jira, source-id: %s)", file, key)
 			}
 			return err
 		}
@@ -474,7 +474,7 @@ func (s *Sync) apply(key, mode, reason string) error {
 
 	// What moved since the note's last sync
 	since := frontmatterGet(file, "source-updated")
-	// A stub (ct ticket stub) is a note never synced: no source-updated, no
+	// A stub (tix ticket stub) is a note never synced: no source-updated, no
 	// source-url. It gets what a created note gets, keeping its own created,
 	// status, covered-by and the covers of its lead.
 	stub := mode == "refresh" && since == "" && frontmatterGet(file, "source-url") == ""

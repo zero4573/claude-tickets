@@ -1,74 +1,74 @@
-# ct spec check: deterministic analysis of specs, exit 1 on findings
+# tix spec check: deterministic analysis of specs, exit 1 on findings
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a/github/acme/billing/specs/more home/Projects/repo-a/github/acme/billing/.git home/Projects/repo-a/github/acme/ledger/.git home/Projects/repo-a/github/acme/empty/.git
 cd home
 
 # clean: billing's specs are in its repo, ledger's in the vault (its project note says so)
-exec ct spec check
+exec tix spec check
 stdout 'no findings \(2 repos with specs\)'
-exec ct spec check --json
+exec tix spec check --json
 stdout '"findings": \[\]'
-exec ct spec check github-acme-ledger
+exec tix spec check github-acme-ledger
 stdout 'no findings'
-exec ct spec check github/acme/billing
+exec tix spec check github/acme/billing
 stdout 'no findings'
-! exec ct spec check nope
+! exec tix spec check nope
 stderr 'no repo .nope.'
 
 # every finding kind
 cp $WORK/bad-orders.md Projects/repo-a/github/acme/billing/specs/orders/spec.md
 cp $WORK/more.md Projects/repo-a/github/acme/billing/specs/more/spec.md
-! exec ct spec check
+! exec tix spec check
 stdout 'orders/spec.md:\d+: duplicate-id: duplicate ID REQ-ORD-1 '
 stdout 'orders/spec.md:\d+: marker: REQ-ORD-2 has an open clarification: who may cancel\?'
 stdout 'orders/spec.md:\d+: malformed: REQ-ORD-3: statement has no SHALL'
 stdout 'orders/spec.md:\d+: untested: REQ-ORD-3 is implemented'
 stdout 'orders/spec.md:\d+: interface: provides GET /refunds \(http\) has no matching consumes row in github-acme-ledger'
 ! stdout 'REQ-ORD-1 is implemented'
-stdout 'ct spec check: 6 findings'
+stdout 'tix spec check: 6 findings'
 
 # naming one repo reports its findings only
-exec ct spec check github-acme-ledger
+exec tix spec check github-acme-ledger
 stdout 'no findings'
-! exec ct spec check github-acme-billing
+! exec tix spec check github-acme-billing
 ! stdout '\[github-acme-ledger\]'
 
 # --json
-! exec ct spec check --json github-acme-billing
+! exec tix spec check --json github-acme-billing
 stdout '"kind": "duplicate-id"'
 stdout '"id": "REQ-ORD-2"'
 stdout '"repo": "github-acme-billing"'
 
 # read-only: findings leave the specs as they were
-! exec ct spec check --json
+! exec tix spec check --json
 cp $WORK/billing-orders.md Projects/repo-a/github/acme/billing/specs/orders/spec.md
 rm Projects/repo-a/github/acme/billing/specs/more/spec.md
-exec ct spec check
+exec tix spec check
 stdout 'no findings'
 
 # --dir: a drafts folder laid out like specs/, checked by itself
 mkdir drafts/orders
 cp $WORK/bad-orders.md drafts/orders/spec.md
-! exec ct spec check --dir drafts
+! exec tix spec check --dir drafts
 stdout '\[drafts\] .*orders/spec.md:\d+: marker: REQ-ORD-2 has an open clarification'
 stdout 'orders/spec.md:\d+: malformed: REQ-ORD-3: statement has no SHALL'
 ! stdout '^.github-acme'
 cp $WORK/clean-draft.md drafts/orders/spec.md
-exec ct spec check --dir drafts
+exec tix spec check --dir drafts
 stdout 'no findings'
-! exec ct spec check --dir nowhere
+! exec tix spec check --dir nowhere
 stderr 'not a folder'
-! exec ct spec check --dir drafts github-acme-ledger
+! exec tix spec check --dir drafts github-acme-ledger
 stderr 'takes no repo names'
 
 # --dir named like a repo that has specs: the drafts stand for it
 mkdir github-acme-billing/orders
 cp $WORK/bad-orders.md github-acme-billing/orders/spec.md
-! exec ct spec check --dir github-acme-billing
-stdout 'ct spec check: github-acme-billing replaces the specs of github-acme-billing'
+! exec tix spec check --dir github-acme-billing
+stdout 'tix spec check: github-acme-billing replaces the specs of github-acme-billing'
 stdout '\[github-acme-billing\] .*/github-acme-billing/orders/spec.md:\d+: malformed: REQ-ORD-3'
 stdout '4 findings'
 cp $WORK/clean-draft.md github-acme-billing/orders/spec.md
-exec ct spec check --dir github-acme-billing
+exec tix spec check --dir github-acme-billing
 stdout 'replaces the specs of github-acme-billing'
 stdout 'no findings \(2 repos with specs\)'
 

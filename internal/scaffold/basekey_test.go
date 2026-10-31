@@ -62,7 +62,7 @@ func TestBaseKeyClassify(t *testing.T) {
 	shipped := strings.TrimPrefix(baseA, "# header\n")
 	src := source(t, map[string]string{"projects.base": shipped}, nil)
 	reindented := "filters:\n    and:\n        - file.inFolder(\"projects\")\nviews:\n    - type: table\n      name: All\n"
-	oldRaw := Hash([]byte(baseA)) // an old ct recorded the raw hash of the commented file
+	oldRaw := Hash([]byte(baseA)) // an old tix recorded the raw hash of the commented file
 	src.History["projects.base"] = append(src.History["projects.base"], oldRaw, Key("projects.base", []byte(baseA)))
 	rec := Record{Files: map[string]Shipped{"projects.base": {SHA256: oldRaw, Version: "1"}}}
 	for name, c := range map[string]struct {

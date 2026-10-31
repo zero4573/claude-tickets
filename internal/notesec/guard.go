@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/mdsec"
+	"github.com/zero4573/tix/internal/mdsec"
 )
 
 // checkWrite runs the target rules, then, for a ticket note, checks what
@@ -36,7 +36,7 @@ func checkWrite(c Ctx, rel string, src, out []byte, t Target) error {
 		}
 	}
 	if !reflect.DeepEqual(protectedView(src, covered, manual), protectedView(out, covered, manual)) {
-		what := "the source block of a synced ticket (ct sync overwrites it), its Description, Acceptance criteria, Context / links or identity fields"
+		what := "the source block of a synced ticket (tix sync overwrites it), its Description, Acceptance criteria, Context / links or identity fields"
 		if manual {
 			what = "the identity or source fields or a source block"
 		}
@@ -60,7 +60,7 @@ func checkContent(rel string, t Target, manual bool) error {
 	}
 	for _, l := range strings.Split(string(t.Content), "\n") {
 		if l = strings.TrimSpace(l); l == sourceStart || l == sourceEnd {
-			return refuse("refusing to write section %q of %s: the content has a source block marker line %q, and the source block of a ticket note is never written by agents (ct sync overwrites it)", strings.Join(t.Section, " > "), rel, l)
+			return refuse("refusing to write section %q of %s: the content has a source block marker line %q, and the source block of a ticket note is never written by agents (tix sync overwrites it)", strings.Join(t.Section, " > "), rel, l)
 		}
 	}
 	seen := map[string]bool{}

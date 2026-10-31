@@ -12,15 +12,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/followup"
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/links"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/vaultlock"
-	"github.com/zero4573/claude-tickets/internal/vindex"
+	"github.com/zero4573/tix/internal/followup"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/links"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/vaultlock"
+	"github.com/zero4573/tix/internal/vindex"
 )
 
-const lockOwner = "ct-clean"
+const lockOwner = "tix-clean"
 
 // refreshIndex is vindex.Refresh; tests swap it to record the paths a run
 // passes (none: the whole vault).
@@ -29,10 +29,10 @@ var refreshIndex = vindex.Refresh
 // Env is what a run does outside the vault, and where it reports.
 type Env struct {
 	Out io.Writer
-	// Save runs /tickets:save headless in workspace id's folder; it
+	// Save runs /tix:save headless in workspace id's folder; it
 	// returns its log
 	Save func(id string) (log string, err error)
-	// RemoveWorkspace removes <workRoot>/<id> as ct ws rm does
+	// RemoveWorkspace removes <workRoot>/<id> as tix ws rm does
 	RemoveWorkspace func(id string) error
 }
 
@@ -80,7 +80,7 @@ func Describe(o Options, items []Item, it Item) string {
 		}
 	}
 	if it.Save {
-		what = "run /tickets:save (in " + it.SaveIn + "), then " + what
+		what = "run /tix:save (in " + it.SaveIn + "), then " + what
 	}
 	if ws := o.wsDir(it.ID); hasWorkspace(ws) {
 		what = "remove the workspace; " + what
@@ -126,7 +126,7 @@ func Run(o Options, items []Item, env Env) Result {
 		}
 	}()
 	var tasks []string
-	say := func(format string, a ...any) { fmt.Fprintf(out, "ct clean: "+format+"\n", a...) }
+	say := func(format string, a ...any) { fmt.Fprintf(out, "tix clean: "+format+"\n", a...) }
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
@@ -134,7 +134,7 @@ func Run(o Options, items []Item, env Env) Result {
 	stopped := func() bool {
 		select {
 		case <-stop:
-			say("interrupted: stopping before the next ticket (run ct clean again to finish)")
+			say("interrupted: stopping before the next ticket (run tix clean again to finish)")
 			res.Failed = true
 			return true
 		default:
@@ -142,7 +142,7 @@ func Run(o Options, items []Item, env Env) Result {
 		}
 	}
 
-	// Saves: without the lock, which /tickets:save takes itself
+	// Saves: without the lock, which /tix:save takes itself
 	failedSave := map[string]string{}
 	saved := map[string]bool{}
 	start := time.Now().Truncate(time.Second)
@@ -156,7 +156,7 @@ func Run(o Options, items []Item, env Env) Result {
 		saveRan = true
 		log, err := env.Save(it.SaveIn)
 		if err != nil {
-			failedSave[it.SaveIn] = fmt.Sprintf("/tickets:save failed (%v); see %s", err, log)
+			failedSave[it.SaveIn] = fmt.Sprintf("/tix:save failed (%v); see %s", err, log)
 		} else {
 			saved[it.SaveIn] = true
 		}
@@ -176,11 +176,11 @@ func Run(o Options, items []Item, env Env) Result {
 			nit, ok := again[it.ID]
 			switch {
 			case failedSave[it.SaveIn] != "":
-				nit = skip(it, failedSave[it.SaveIn], fmt.Sprintf("[[%s]] (%s): ct clean --save couldn't save it: %s. Run /tickets:save in ct start %s, then ct clean %s",
+				nit = skip(it, failedSave[it.SaveIn], fmt.Sprintf("[[%s]] (%s): tix clean --save couldn't save it: %s. Run /tix:save in tix start %s, then tix clean %s",
 					it.ID, it.Status, failedSave[it.SaveIn], it.SaveIn, it.ID))
 			case !savedSince(o.Vault, it.ID, start):
-				nit = skip(it, "/tickets:save ran but didn't mark it saved", fmt.Sprintf(
-					"[[%s]] (%s): ct clean --save ran /tickets:save, but it didn't set saved:. Check it in ct start %s, then ct clean %s",
+				nit = skip(it, "/tix:save ran but didn't mark it saved", fmt.Sprintf(
+					"[[%s]] (%s): tix clean --save ran /tix:save, but it didn't set saved:. Check it in tix start %s, then tix clean %s",
 					it.ID, it.Status, it.SaveIn, it.ID))
 			case !ok:
 				nit = skip(it, "no longer a candidate after its save", "")
@@ -256,7 +256,7 @@ func Run(o Options, items []Item, env Env) Result {
 	}
 
 	if len(tasks) > 0 {
-		n, err := followup.Write(o.Vault, "ct-clean", "ct clean", tasks)
+		n, err := followup.Write(o.Vault, "tix-clean", "tix clean", tasks)
 		if err != nil {
 			say("couldn't write the follow-up note: %v", err)
 		} else if n != "" {
@@ -308,7 +308,7 @@ func one(o Options, env Env, items []Item, it Item, changed *[]string, touched *
 			parts = append(parts, "removed its workspace")
 		}
 	case fsx.IsDir(ws):
-		// Not a workspace (no workspace.json): not ct's to remove
+		// Not a workspace (no workspace.json): not tix's to remove
 		parts = append(parts, "left "+ws+" in place (no workspace.json)")
 	}
 
@@ -337,7 +337,7 @@ func one(o Options, env Env, items []Item, it Item, changed *[]string, touched *
 	n, notes, err := links.RewriteToURL(o.Vault, note.TicketPath(o.Vault, it.ID), it.ID, it.URL, []string{dir}, links.RewriteOpts{
 		Skip: SyncOwned(),
 		NotRewritten: func(p links.Place) {
-			tasks = append(tasks, fmt.Sprintf("%s:%d still links %s (removed by ct clean) in a frontmatter form it can't rewrite: make it \"[%s](%s)\"",
+			tasks = append(tasks, fmt.Sprintf("%s:%d still links %s (removed by tix clean) in a frontmatter form it can't rewrite: make it \"[%s](%s)\"",
 				rel(o.Vault, p.File), p.Line, it.ID, it.ID, it.URL))
 		},
 		Changed: func(f string) { *changed = append(*changed, f); touched.add(rel(o.Vault, f)) },

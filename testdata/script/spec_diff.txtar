@@ -1,4 +1,4 @@
-# ct spec diff: a ticket's spec change per repo, repo and vault locations
+# tix spec diff: a ticket's spec change per repo, repo and vault locations
 env GIT_AUTHOR_NAME=x GIT_AUTHOR_EMAIL=x@example.com GIT_COMMITTER_NAME=x GIT_COMMITTER_EMAIL=x@example.com
 env V=home/Documents/Obsidian/a
 env W=home/Projects/work-a/MAN-1
@@ -19,7 +19,7 @@ exec git -C $W/billing add -A
 exec git -C $W/billing commit -q -m base
 exec git -C $W/billing checkout -q -b feature/MAN-1
 exec git init -q -b main $W/plain
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout 'github-acme-billing \(repo specs\): no spec change'
 stdout 'github-acme-ledger \(vault specs\): no spec change'
 stdout 'github-acme-plain: no specs'
@@ -29,7 +29,7 @@ cp orders-new.md $W/billing/specs/orders/spec.md
 exec git -C $W/billing commit -q -am change
 mkdir $W/billing/specs/refunds
 cp refunds.md $W/billing/specs/refunds/spec.md
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout 'github-acme-billing \(repo specs\)'
 stdout '2 added, 1 changed, 1 removed, 1 status'
 stdout '^  added REQ-ORD-4 · Refund \(orders, proposed\)$'
@@ -43,9 +43,9 @@ stdout '^--- a/refunds/spec.md$'
 stdout 'github-acme-ledger \(vault specs\): no spec change'
 
 # the vault copy: the ticket's version of one capability against projects/
-exec ct spec start MAN-1 github-acme-ledger posting
+exec tix spec start MAN-1 github-acme-ledger posting
 cp posting-new.md $V/tickets/manual/MAN-1/specs/github-acme-ledger/posting/spec.md
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout 'github-acme-ledger \(vault specs\)'
 stdout '^  added REQ-LED-2 · Reverse \(posting, proposed\)$'
 stdout '^  changed interfaces \(posting\)$'
@@ -53,55 +53,55 @@ stdout '^--- a/posting/spec.md$'
 ! stdout 'no spec change.*ledger'
 
 # --stat: counts and files, no raw diff
-exec ct spec diff --stat MAN-1
+exec tix spec diff --stat MAN-1
 stdout '^  orders/spec.md \| \+\d+ -\d+$'
 stdout '^  posting/spec.md \| \+\d+ -\d+$'
 ! stdout '^---'
 ! stdout '^@@'
 
 # read-only: the vault's spec is as it was
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 cmp $V/projects/github-acme-ledger/specs/posting/spec.md posting.md
 
-# promotion: ct spec promote checks against the start's snapshot, moves the copy in and writes the version
-exec ct spec promote MAN-1
+# promotion: tix spec promote checks against the start's snapshot, moves the copy in and writes the version
+exec tix spec promote MAN-1
 stdout '^github-acme-ledger: promoted 1 files \(posting\); version projects/github-acme-ledger/spec-versions/github-acme-ledger-spec-MAN-1.md$'
 ! stdout 'billing'
 cmp $V/tickets/manual/MAN-1/specs-base/github-acme-ledger/posting/spec.md posting.md
 cmp $V/tickets/manual/MAN-1/specs-after/github-acme-ledger/posting/spec.md posting-new.md
 cmp $V/projects/github-acme-ledger/specs/posting/spec.md posting-new.md
 ! exists $V/tickets/manual/MAN-1/specs/github-acme-ledger/posting/spec.md
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout 'github-acme-ledger \(vault specs\)'
 stdout '^  added REQ-LED-2 · Reverse \(posting, proposed\)$'
 stdout '^  changed interfaces \(posting\)$'
 ! stdout 'no spec change.*ledger'
 # a repeat run promotes nothing and gives the same change
-exec ct spec promote MAN-1
+exec tix spec promote MAN-1
 stdout 'github-acme-ledger: nothing to promote'
 cmp $V/tickets/manual/MAN-1/specs-base/github-acme-ledger/posting/spec.md posting.md
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout '^  added REQ-LED-2 · Reverse \(posting, proposed\)$'
-! exec ct spec promote MAN-99
+! exec tix spec promote MAN-99
 stderr 'no workspace for MAN-99'
 
 # another ticket promotes a new capability and changes posting on top: neither
 # shows up in this ticket's change
 mkdir $V/tickets/manual/MAN-2 $W2
 cp man-1.md $V/tickets/manual/MAN-2/MAN-2.md
-exec ct spec start MAN-2 github-acme-ledger posting
+exec tix spec start MAN-2 github-acme-ledger posting
 mkdir $V/tickets/manual/MAN-2/specs/github-acme-ledger/journal
 cp journal.md $V/tickets/manual/MAN-2/specs/github-acme-ledger/journal/spec.md
 cp posting-other.md $V/tickets/manual/MAN-2/specs/github-acme-ledger/posting/spec.md
 expand ws2.json
 cp ws2.json $W2/workspace.json
-exec ct spec promote MAN-2
+exec tix spec promote MAN-2
 stdout '^github-acme-ledger: promoted 2 files \(journal, posting\); version projects/github-acme-ledger/spec-versions/github-acme-ledger-spec-MAN-2.md$'
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout '^  added REQ-LED-2 · Reverse \(posting, proposed\)$'
 ! stdout 'REQ-JRN-1'
 ! stdout 'REQ-LED-3'
-exec ct spec diff MAN-2
+exec tix spec diff MAN-2
 stdout '^  added REQ-JRN-1 · Record \(journal, proposed\)$'
 stdout '^  added REQ-LED-3 · Void \(posting, proposed\)$'
 ! stdout 'REQ-LED-2'
@@ -109,7 +109,7 @@ stdout '^  added REQ-LED-3 · Void \(posting, proposed\)$'
 # a ticket promoted before snapshots had an after side (base only): the old rule,
 # projects/ with the copy laid on
 rm $V/tickets/manual/MAN-1/specs-after
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout '^  added REQ-JRN-1 · Record \(journal, proposed\)$'
 stdout '^  added REQ-LED-2 · Reverse \(posting, proposed\)$'
 
@@ -123,7 +123,7 @@ exec git -C $W/remote update-ref refs/remotes/origin/release HEAD
 exec git -C $W/remote checkout -q -b feature/MAN-1
 cp orders-new.md $W/remote/specs/orders/spec.md
 exec git -C $W/remote commit -q -am change
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout 'github-acme-remote \(repo specs\)'
 stdout '1 added, 1 changed, 1 removed, 1 status'
 ! stdout 'added REQ-ORD-1'
@@ -134,13 +134,13 @@ mkdir $W/gone/specs/orders
 cp orders-base.md $W/gone/specs/orders/spec.md
 exec git -C $W/gone add -A
 exec git -C $W/gone commit -q -m base
-! exec ct spec diff MAN-1 --stat
+! exec tix spec diff MAN-1 --stat
 stderr 'github-acme-gone.*base "nope" does not resolve'
 
 # errors
-! exec ct spec diff MAN-99
+! exec tix spec diff MAN-99
 stderr 'no workspace for MAN-99'
-! exec ct spec diff
+! exec tix spec diff
 stderr 'accepts 1 arg'
 
 -- man-1.md --

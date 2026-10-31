@@ -1,5 +1,5 @@
 # Tests on Linux, macOS and Windows, and the cross-built binaries.
-# Manual only for now (Actions > CI > Run workflow): ct isn't released
+# Manual only for now (Actions > CI > Run workflow): tix isn't released
 # yet. To run it on every change, add under `on:`
 #   push:
 #     branches: [main]
@@ -47,5 +47,5 @@ jobs:
         run: make cross
       - uses: actions/upload-artifact@v4
         with:
-          name: ct-binaries
+          name: tix-binaries
           path: dist/

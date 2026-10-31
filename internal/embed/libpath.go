@@ -14,14 +14,14 @@ var relWarn sync.Once
 // working directory (a vault or worktree) would run code from there.
 func warnRelOnce(d string) {
 	relWarn.Do(func() {
-		fmt.Fprintf(os.Stderr, "ct: ignoring relative entry %q of CLAUDE_TICKETS_LIB_PATH (use absolute paths)\n", d)
+		fmt.Fprintf(os.Stderr, "tix: ignoring relative entry %q of TIX_LIB_PATH (use absolute paths)\n", d)
 	})
 }
 
 // libSearchDirs lists the absolute directories to look for native dependencies in.
 func libSearchDirs() []string {
 	var dirs []string
-	for _, list := range []string{os.Getenv("CLAUDE_TICKETS_LIB_PATH"), DefaultLibPath} {
+	for _, list := range []string{os.Getenv("TIX_LIB_PATH"), DefaultLibPath} {
 		for _, d := range strings.Split(list, string(os.PathListSeparator)) {
 			if d == "" {
 				continue

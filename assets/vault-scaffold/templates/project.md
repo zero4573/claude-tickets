@@ -18,7 +18,7 @@ The project note for one repo, named by its slug `<provider>-<owner>-<repo>`
 searchable. What this project does, in a paragraph.
 
 `specs` says where the repo's specs live: `repo`, `vault`, or empty (not
-asked yet); set it with `ct spec location <slug> [repo|vault]`.
+asked yet); set it with `tix spec location <slug> [repo|vault]`.
 
 A project stands alone unless it lists the projects it needs in
 `depends-on` and the groups it belongs to in `groups` (see [[AGENTS]],

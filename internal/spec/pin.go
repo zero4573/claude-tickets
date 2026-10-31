@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/gitx"
+	"github.com/zero4573/tix/internal/gitx"
 )
 
 // PushedHead is the commit of branch in the checkout dir when the push

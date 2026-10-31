@@ -1,11 +1,11 @@
 #!/bin/sh
 # Configures the build: ./configure [--prefix=DIR] [--bindir=DIR]
-# [--datadir=DIR] [GO=go], then make && make install. Checks what ct needs
+# [--datadir=DIR] [GO=go], then make && make install. Checks what tix needs
 # (Go to build it; git, podman or docker and Claude Code to run it) and
 # writes config.mk.
 #   --prefix=DIR   install under DIR (default /usr/local; ~/.local for a
 #                  user install)
-#   --bindir=DIR   ct goes here (default PREFIX/bin)
+#   --bindir=DIR   tix goes here (default PREFIX/bin)
 #   --datadir=DIR  shell completions go under here (default PREFIX/share)
 set -eu
 prefix=/usr/local bindir='' datadir='' go=${GO:-go}
@@ -31,7 +31,7 @@ if have "$go"; then
   if [ "${major:-0}" -gt 1 ] || { [ "${major:-0}" -eq 1 ] && [ "${minor:-0}" -ge 26 ]; }; then
     echo "$v"
   else
-    echo "$v: too old, ct needs Go 1.26 or newer"; status=1
+    echo "$v: too old, tix needs Go 1.26 or newer"; status=1
   fi
 else
   echo "no: install Go 1.26+ (https://go.dev/dl)"; status=1
@@ -39,7 +39,7 @@ fi
 # Needed at run time, not to build: warnings only
 for t in git claude; do
   printf 'checking for %s... ' "$t"
-  if have "$t"; then echo yes; else echo "no (ct needs it at run time)"; fi
+  if have "$t"; then echo yes; else echo "no (tix needs it at run time)"; fi
 done
 printf 'checking for fzf... '
 if have fzf; then echo yes; else echo "no (optional: vaults are picked from a numbered list)"; fi

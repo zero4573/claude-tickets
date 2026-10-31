@@ -6,7 +6,7 @@ import (
 )
 
 // Work that isn't in origin/main must count as lost, however the branch
-// and main relate (ct clean must never treat it as merged).
+// and main relate (tix clean must never treat it as merged).
 
 func otherCheckout(t *testing.T, clone string) string {
 	t.Helper()

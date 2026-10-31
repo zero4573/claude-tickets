@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/embed"
-	"github.com/zero4573/claude-tickets/internal/vindex"
+	"github.com/zero4573/tix/internal/embed"
+	"github.com/zero4573/tix/internal/vindex"
 )
 
 // RelatedOptions are the related parameters.

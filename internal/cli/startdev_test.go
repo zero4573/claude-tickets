@@ -10,13 +10,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/session"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/session"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 // devWorkspace is a workspace PROJ-12 under a work root with two repos: a
-// claude-tickets checkout (github-acme-tickets) and another one.
+// tix checkout (github-acme-tickets) and another one.
 func devWorkspace(t *testing.T) (vault.Context, string) {
 	t.Helper()
 	ctx := vault.Context{}
@@ -35,7 +35,7 @@ func devWorkspace(t *testing.T) (vault.Context, string) {
 		}
 	}
 	tickets := filepath.Join(dir, "github-acme-tickets")
-	for _, d := range []string{filepath.Join("cmd", "ct"), filepath.Join("assets", "plugin")} {
+	for _, d := range []string{filepath.Join("cmd", "tix"), filepath.Join("assets", "plugin")} {
 		if err := os.MkdirAll(filepath.Join(tickets, d), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -47,7 +47,7 @@ func TestDevSetRecordsValidatesAndClears(t *testing.T) {
 	ctx, dir := devWorkspace(t)
 	var quiet exitError
 	if err := setDev(ctx, []string{"PROJ-12"}, "github-acme-billing"); !errors.As(err, &quiet) || quiet != 1 {
-		t.Errorf("a checkout without cmd/ct: err = %v, want exit 1", err)
+		t.Errorf("a checkout without cmd/tix: err = %v, want exit 1", err)
 	}
 	if err := setDev(ctx, []string{"PROJ-12"}, "github-acme-nope"); !errors.As(err, &quiet) {
 		t.Errorf("a slug not in the workspace: err = %v, want exit 1", err)
@@ -94,17 +94,17 @@ func captureStderr(t *testing.T, f func()) string {
 func TestDevSetUnknownSlugSaysAddItFirst(t *testing.T) {
 	ctx, _ := devWorkspace(t)
 	msg := captureStderr(t, func() { _ = setDev(ctx, []string{"PROJ-12"}, "github-acme-nope") })
-	if want := "ct start: github-acme-nope is not a repo of PROJ-12's workspace (ct ws add first)\n"; msg != want {
+	if want := "tix start: github-acme-nope is not a repo of PROJ-12's workspace (tix ws add first)\n"; msg != want {
 		t.Errorf("message %q, want %q", msg, want)
 	}
 	// No workspace yet: the same
 	msg = captureStderr(t, func() { _ = setDev(ctx, []string{"PROJ-99"}, "github-acme-tickets") })
-	if !strings.Contains(msg, "github-acme-tickets is not a repo of PROJ-99's workspace (ct ws add first)") {
+	if !strings.Contains(msg, "github-acme-tickets is not a repo of PROJ-99's workspace (tix ws add first)") {
 		t.Errorf("no workspace: message %q", msg)
 	}
-	// A repo that isn't a claude-tickets checkout
+	// A repo that isn't a tix checkout
 	msg = captureStderr(t, func() { _ = setDev(ctx, []string{"PROJ-12"}, "github-acme-billing") })
-	if want := "ct start: github-acme-billing is not a claude-tickets checkout\n"; msg != want {
+	if want := "tix start: github-acme-billing is not a tix checkout\n"; msg != want {
 		t.Errorf("message %q, want %q", msg, want)
 	}
 }
@@ -120,14 +120,14 @@ func TestDevSetChecksEveryKeyBeforeRecording(t *testing.T) {
 	}
 }
 
-// devPluginCheckout gives the workspace's claude-tickets checkout a plugin
-// (a manifest and a hooks.json running ct from PATH).
+// devPluginCheckout gives the workspace's tix checkout a plugin
+// (a manifest and a hooks.json running tix from PATH).
 func devPluginCheckout(t *testing.T, dir string) string {
 	t.Helper()
 	plugin := filepath.Join(dir, "github-acme-tickets", "assets", "plugin")
 	for name, body := range map[string]string{
-		filepath.Join(".claude-plugin", "plugin.json"): `{"name": "tickets"}`,
-		filepath.Join("hooks", "hooks.json"):           `{"command": "ct hook agent-state idle"}`,
+		filepath.Join(".claude-plugin", "plugin.json"): `{"name": "tix"}`,
+		filepath.Join("hooks", "hooks.json"):           `{"command": "tix hook agent-state idle"}`,
 	} {
 		if err := os.MkdirAll(filepath.Dir(filepath.Join(plugin, name)), 0o755); err != nil {
 			t.Fatal(err)
@@ -160,8 +160,8 @@ func TestDevPluginCopiedWithoutRunningTheBuild(t *testing.T) {
 	if builds != 1 {
 		t.Errorf("%d builds, want 1", builds)
 	}
-	if want := filepath.Join(session.DevDir(dir), "bin", ctFile()); b.ct != want || b.bin != filepath.Dir(want) {
-		t.Errorf("build %+v, want ct %s", b, want)
+	if want := filepath.Join(session.DevDir(dir), "bin", tixFile()); b.tix != want || b.bin != filepath.Dir(want) {
+		t.Errorf("build %+v, want tix %s", b, want)
 	}
 	data, err := os.ReadFile(filepath.Join(b.plugin, "hooks", "hooks.json"))
 	if err != nil {
@@ -171,10 +171,10 @@ func TestDevPluginCopiedWithoutRunningTheBuild(t *testing.T) {
 	if err := json.Unmarshal(data, &hooks); err != nil {
 		t.Fatal(err)
 	}
-	if want := `"` + b.ct + `" hook agent-state idle`; hooks["command"] != want {
+	if want := `"` + b.tix + `" hook agent-state idle`; hooks["command"] != want {
 		t.Errorf("hook = %q, want %q", hooks["command"], want)
 	}
-	// ct clean ignores it
+	// tix clean ignores it
 	if b, err := prepareDev(dir, devIgnore); b != nil || err != nil {
 		t.Errorf("ignore: %+v, %v", b, err)
 	}
@@ -230,7 +230,7 @@ func TestDevPrepareOffAndFailedBuild(t *testing.T) {
 	if gotDir != filepath.Join(dir, "github-acme-tickets") {
 		t.Errorf("built in %s", gotDir)
 	}
-	if want := filepath.Join(session.DevDir(dir), "bin", ctFile()); gotOut != want {
+	if want := filepath.Join(session.DevDir(dir), "bin", tixFile()); gotOut != want {
 		t.Errorf("built into %s, want %s", gotOut, want)
 	}
 	if gotEnv["GOCACHE"] != session.GoEnv(dir)["GOCACHE"] {
@@ -289,7 +289,7 @@ func TestDevPluginNoAssetsDirSaysSo(t *testing.T) {
 }
 
 func TestGoBuildNoVCS(t *testing.T) {
-	cmd := goBuildCmd("/src", "/out/ct", map[string]string{"GOFLAGS": "-mod=mod"})
+	cmd := goBuildCmd("/src", "/out/tix", map[string]string{"GOFLAGS": "-mod=mod"})
 	if !slices.Contains(cmd.Args, "-buildvcs=false") {
 		t.Fatalf("go build runs git in the checkout (no -buildvcs=false): %q", cmd.Args)
 	}

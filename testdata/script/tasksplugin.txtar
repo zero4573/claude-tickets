@@ -1,11 +1,11 @@
-# ct vault init and the Tasks community plugin. Never the network: the
+# tix vault init and the Tasks community plugin. Never the network: the
 # release URL refuses connections, or faketasks serves a fake release.
-# $TASKS_VERSION is the pinned version, $TASKS_SETTINGS the settings ct writes.
+# $TASKS_VERSION is the pinned version, $TASKS_SETTINGS the settings tix writes.
 
 # A fresh vault, download fails: the rest of init still happens, Tasks is
 # enabled, nothing is installed, no settings are written, exit 0
-exec ct vault init demo
-stderr 'the Tasks plugin wasn.t installed: main.js: .*; re-run ct vault init, or install Tasks from Obsidian'
+exec tix vault init demo
+stderr 'the Tasks plugin wasn.t installed: main.js: .*; re-run tix vault init, or install Tasks from Obsidian'
 stdout 'enabled the Tasks plugin \(.obsidian/community-plugins.json\)'
 stdout 'Obsidian does: Settings → Community plugins → Check for updates'
 ! stdout 'Tasks settings'
@@ -15,11 +15,11 @@ cmp home/Documents/Obsidian/demo/.obsidian/community-plugins.json enabled.json
 exists home/Documents/Obsidian/demo/tickets.base
 grep '"bases": true' home/Documents/Obsidian/demo/.obsidian/core-plugins.json
 exists home/Documents/Obsidian/demo/.workflow.json
-stdout 'ct vault init: done'
+stdout 'tix vault init: done'
 
 # A release whose files don't match the pin: nothing written; already enabled
 faketasks bad
-exec ct vault init demo
+exec tix vault init demo
 stderr 'the Tasks plugin wasn.t installed: main.js: sha256 mismatch \(got [0-9a-f]{64}, want [0-9a-f]{64}\)'
 ! stdout 'enabled the Tasks plugin'
 ! exists home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin
@@ -33,8 +33,8 @@ mkdir home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin
 cp main.js home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/main.js
 expand current.json
 cp current.json home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json
-exec ct vault init demo
-stdout '^ct vault init: Tasks plugin '$TASKS_VERSION' already installed$'
+exec tix vault init demo
+stdout '^tix vault init: Tasks plugin '$TASKS_VERSION' already installed$'
 stdout 'wrote the workflow.s Tasks settings \(data.json\)'
 ! stderr 'Tasks'
 cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/data.json $TASKS_SETTINGS
@@ -43,34 +43,34 @@ cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifes
 cmp home/Documents/Obsidian/demo/.obsidian/community-plugins.json enabled.json
 
 # Re-run: the settings it wrote are kept
-exec ct vault init demo
+exec tix vault init demo
 stdout 'kept the Tasks settings \(data.json\)'
 cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/data.json $TASKS_SETTINGS
 
 # The user's own settings are kept
 cp mydata.json home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/data.json
-exec ct vault init demo
+exec tix vault init demo
 stdout 'kept the Tasks settings \(data.json\)'
 cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/data.json mydata.json
 
 # A newer version is kept
 cp newer.json home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json
-exec ct vault init demo
-stdout 'Tasks plugin 999.0.0 already installed \(newer than '$TASKS_VERSION', the version ct installs\); kept$'
+exec tix vault init demo
+stdout 'Tasks plugin 999.0.0 already installed \(newer than '$TASKS_VERSION', the version tix installs\); kept$'
 cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/main.js main.js
 cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json newer.json
 
 # An older version is kept too: Obsidian updates it
 cp older.json home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json
-exec ct vault init demo
-stdout 'Tasks plugin 0.0.1 already installed, older than '$TASKS_VERSION' \(the version ct installs\); kept: Obsidian updates it'
+exec tix vault init demo
+stdout 'Tasks plugin 0.0.1 already installed, older than '$TASKS_VERSION' \(the version tix installs\); kept: Obsidian updates it'
 cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/main.js main.js
 cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json older.json
 
 # A version that can't be read: a warning, the plugin left as it is
 cp unknown.json home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json
-exec ct vault init demo
-stderr '^ct: .obsidian/plugins/obsidian-tasks-plugin/manifest.json: has no version; the Tasks plugin was left as it is$'
+exec tix vault init demo
+stderr '^tix: .obsidian/plugins/obsidian-tasks-plugin/manifest.json: has no version; the Tasks plugin was left as it is$'
 ! stdout 'Tasks settings'
 cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/main.js main.js
 cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/manifest.json unknown.json
@@ -81,18 +81,18 @@ cmp home/Documents/Obsidian/demo/.obsidian/plugins/obsidian-tasks-plugin/data.js
 
 # Other community plugins are kept, in order
 cp calendar.json home/Documents/Obsidian/demo/.obsidian/community-plugins.json
-exec ct vault init demo
+exec tix vault init demo
 stdout 'enabled the Tasks plugin \(.obsidian/community-plugins.json\)'
 cmp home/Documents/Obsidian/demo/.obsidian/community-plugins.json calendar-tasks.json
 
 # A community-plugins.json that isn't a list is left alone
 cp object.json home/Documents/Obsidian/demo/.obsidian/community-plugins.json
-exec ct vault init demo
-stderr 'ct: .obsidian/community-plugins.json isn.t a JSON array; Tasks wasn.t enabled \(left as it is\)'
+exec tix vault init demo
+stderr 'tix: .obsidian/community-plugins.json isn.t a JSON array; Tasks wasn.t enabled \(left as it is\)'
 cmp home/Documents/Obsidian/demo/.obsidian/community-plugins.json object.json
 
 # --skip-plugins: no download, nothing enabled or written, no hint
-exec ct vault init skipped --skip-plugins
+exec tix vault init skipped --skip-plugins
 stdout 'skipped the Tasks plugin \(--skip-plugins\)'
 ! stdout 'Check for updates'
 ! stderr 'Tasks'
@@ -101,7 +101,7 @@ stdout 'skipped the Tasks plugin \(--skip-plugins\)'
 ! exists calls/tasks
 
 # The help says what it does
-exec ct vault init --help
+exec tix vault init --help
 stdout 'the Tasks community plugin, when it isn.t installed yet'
 stdout '--skip-plugins'
 

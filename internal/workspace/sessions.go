@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/lock"
-	"github.com/zero4573/claude-tickets/internal/proc"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/lock"
+	"github.com/zero4573/tix/internal/proc"
 )
 
-// SessionsFile records the sessions ct ran in a workspace (ct start,
-// ct spec): which process, on which host, so Running can tell a live
+// SessionsFile records the sessions tix ran in a workspace (tix start,
+// tix spec): which process, on which host, so Running can tell a live
 // session from a dead one. A
 // list, as a spec workspace can host several sessions at once. Kept apart
 // from workspace.json, whose format stays stable.
@@ -43,7 +43,7 @@ var (
 
 // RecordSession records this process as a session of dir (command: start,
 // feedback, spec), dropping the records of dead sessions on this host. Call
-// it just before exec: the process that replaces ct keeps its PID and
+// it just before exec: the process that replaces tix keeps its PID and
 // start time.
 func RecordSession(dir, command string) error {
 	return updateSessions(dir, func(recs []Record) ([]Record, error) {

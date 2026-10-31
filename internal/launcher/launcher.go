@@ -1,5 +1,5 @@
 // Package launcher runs ticket sessions in the foreground, in the terminal
-// ct was started from (Run): ct is replaced by the session where the OS can
+// tix was started from (Run): tix is replaced by the session where the OS can
 // exec (exec_unix.go), else runs it as a child (exec_windows.go).
 package launcher
 
@@ -18,16 +18,16 @@ type Session struct {
 	// Env is set for the session
 	Env map[string]string
 	// PathFirst (when not "") goes first on the PATH the session starts
-	// with: a dev workspace's built ct
+	// with: a dev workspace's built tix
 	PathFirst string
 }
 
 // Run runs w in this terminal, in the foreground: cwd w.Dir, the
 // environment with w.Env set and w.PathFirst first on its PATH.
-// Where the OS can exec, ct is replaced by w's program and Run returns only
-// on failure. Elsewhere (Windows) the program runs as a child with ct's
-// stdio, ct ignores Ctrl-C until it exits (the console sends it to both, so
-// the program handles it and ct isn't killed first), and its
+// Where the OS can exec, tix is replaced by w's program and Run returns only
+// on failure. Elsewhere (Windows) the program runs as a child with tix's
+// stdio, tix ignores Ctrl-C until it exits (the console sends it to both, so
+// the program handles it and tix isn't killed first), and its
 // *exec.ExitError is returned.
 func Run(w Session) error {
 	if len(w.Argv) == 0 {

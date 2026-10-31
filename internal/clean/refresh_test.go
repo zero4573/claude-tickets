@@ -10,13 +10,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/vindex"
+	"github.com/zero4573/tix/internal/vindex"
 )
 
 // W4 S05: an item that rewrote a note and then failed (here: .trash is a file,
 // so the move fails after the links were rewritten) still refreshes the index.
 func TestRunRefreshesAfterFailedItem(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "stub")
+	t.Setenv("TIX_EMBEDDER", "stub")
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	o := setup(t)
 	ticket(t, o.Vault, "PROJ-1", "status: closed", jira+"PROJ-1")
@@ -114,7 +114,7 @@ func TestRunRefreshesKeptFilesAndFollowUp(t *testing.T) {
 	ticket(t, o.Vault, "PROJ-1", "status: closed", saved, jira+"PROJ-1")
 	put(t, o.Vault, "tickets/jira/PROJ-1/doc.md", "# doc\n")
 	put(t, o.Vault, "notes/n.md", "See [[PROJ-1]] and [[tickets/jira/PROJ-1/doc]].\n")
-	// a frontmatter form ct clean can't rewrite: it leaves a follow-up note
+	// a frontmatter form tix clean can't rewrite: it leaves a follow-up note
 	put(t, o.Vault, "notes/fm.md", "---\nrelated: [[PROJ-1]] and more\n---\n")
 	res := runQuiet(o, Plan(o))
 	if res.Cleaned != 1 || res.FollowUp == "" {
@@ -139,7 +139,7 @@ func TestRunFallsBackToWholeVault(t *testing.T) {
 		t.Fatalf("failed item: refresh calls = %v, want one whole-vault call", *calls)
 	}
 
-	// a /tickets:save ran (here it fails, nothing is cleaned)
+	// a /tix:save ran (here it fails, nothing is cleaned)
 	calls = recordRefresh(t)
 	o = setup(t)
 	ticket(t, o.Vault, "MAN-1", "status: closed", "source: manual")

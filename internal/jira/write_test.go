@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/mcp"
-	"github.com/zero4573/claude-tickets/internal/mcp/mcptest"
+	"github.com/zero4573/tix/internal/mcp"
+	"github.com/zero4573/tix/internal/mcp/mcptest"
 )
 
 func writer(t *testing.T, f mcptest.Fixture) (*Writer, *mcptest.Server) {
@@ -20,8 +20,8 @@ func writer(t *testing.T, f mcptest.Fixture) (*Writer, *mcptest.Server) {
 	if err := os.WriteFile(cfg, []byte(s.Config("atlassian")), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CLAUDE_TICKETS_MCP_CONFIG", cfg)
-	t.Setenv("CLAUDE_TICKETS_MCP_PREPARE", "")
+	t.Setenv("TIX_MCP_CONFIG", cfg)
+	t.Setenv("TIX_MCP_PREPARE", "")
 	c, err := mcp.Connect("atlassian")
 	if err != nil {
 		t.Fatal(err)

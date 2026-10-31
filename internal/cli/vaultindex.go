@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/modelcache"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/vindex"
+	"github.com/zero4573/tix/internal/modelcache"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/vindex"
 )
 
 func init() { vaultSubcommands = append(vaultSubcommands, vaultIndexCmd) }
@@ -21,11 +21,11 @@ func vaultIndexCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "index [<vault>] [--full] [--model <id>] [--chunk-tokens N] [--json]",
 		Short: "Build or update the vault's search index",
-		Long: `Builds or incrementally updates the search index in <vault>/.ct/index: every
+		Long: `Builds or incrementally updates the search index in <vault>/.tix/index: every
 note outside dot-folders, raw/, archive/ and templates/ is split into chunks and
-embedded with the local model (ct vault model). Only new and changed notes are
+embedded with the local model (tix vault model). Only new and changed notes are
 read again, and chunks that did not change keep their vectors. Without a model
-the index is keyword-only (ct vault model fetch, on the host, adds it).
+the index is keyword-only (tix vault model fetch, on the host, adds it).
 
   --full           rebuild everything
   --model <id>     embed with this pinned model (a change rebuilds the index)
@@ -42,8 +42,8 @@ the index is keyword-only (ct vault model fetch, on the host, adds it).
 			if err != nil {
 				return err
 			}
-			if _, ok := modelcache.Lookup(model); model != "" && !ok && os.Getenv("CLAUDE_TICKETS_EMBEDDER") == "" {
-				return exitWith(2, fmt.Errorf("unknown model %q (ct vault model lists the pinned ones)", model))
+			if _, ok := modelcache.Lookup(model); model != "" && !ok && os.Getenv("TIX_EMBEDDER") == "" {
+				return exitWith(2, fmt.Errorf("unknown model %q (tix vault model lists the pinned ones)", model))
 			}
 			st, err := vindex.Update(v, vindex.UpdateOptions{
 				Full: full, Model: model, ChunkTokens: chunkTokens, Log: os.Stderr,

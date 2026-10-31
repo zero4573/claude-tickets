@@ -1,11 +1,11 @@
 ---
 name: retro
-description: Retrospective on a ticket or session (/tickets:retro [ticket]) that ranks improvements to the agents' environment by severity (navigation pointers, missing or unwired checks, reviewer rules, AGENTS.md no-ops and bloat, tool economy, information access) and offers them as backlog items or follow-up tickets.
+description: Retrospective on a ticket or session (/tix:retro [ticket]) that ranks improvements to the agents' environment by severity (navigation pointers, missing or unwired checks, reviewer rules, AGENTS.md no-ops and bloat, tool economy, information access) and offers them as backlog items or follow-up tickets.
 disable-model-invocation: true
 argument-hint: "[ticket ID; default: this session's ticket]"
 ---
 
-# /tickets:retro [ticket]
+# /tix:retro [ticket]
 
 You improve the agents' **environment** for future runs, not the code that was written.
 
@@ -38,7 +38,7 @@ At most **8** candidates, most severe first, one line each:
 `<category> · <evidence: task NN, review finding or path:line> · <change> · <where>`.
 Ask the user (AskUserQuestion, multi-select) which to keep. In a ticket session (you are the
 PO; `backlog.md` is the lead's), add one relay entry per kept candidate with
-`ct relay add <ID> --from user --to lead --kind request "retro: <change> (<where>)"` (≤200 characters; never edit `relay.md` by hand), and message a running lead; it files them as `- [ ] B-nn · w<N> · <repo|plugin|vault> · retro: <change> ➕ <date>` (a retro item only becomes
-a backlog item; the hand-over answer decides where it goes). Outside a ticket, ask per kept candidate whether to file `ct new --type chore "<summary>"`; never file unasked.
+`tix relay add <ID> --from user --to lead --kind request "retro: <change> (<where>)"` (≤200 characters; never edit `relay.md` by hand), and message a running lead; it files them as `- [ ] B-nn · w<N> · <repo|plugin|vault> · retro: <change> ➕ <date>` (a retro item only becomes
+a backlog item; the hand-over answer decides where it goes). Outside a ticket, ask per kept candidate whether to file `tix new --type chore "<summary>"`; never file unasked.
 
 Adapted from mattpocock/skills (MIT); see THIRD_PARTY_NOTICES.md.

@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/gitx"
+	"github.com/zero4573/tix/internal/gitx"
 )
 
 // MessagePath is the path reported for a hit in a commit message.

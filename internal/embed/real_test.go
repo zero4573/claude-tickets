@@ -4,24 +4,24 @@ import (
 	"os"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/embed"
-	"github.com/zero4573/claude-tickets/internal/modelcache"
+	"github.com/zero4573/tix/internal/embed"
+	"github.com/zero4573/tix/internal/modelcache"
 )
 
-// TestRealLlama runs the real model; it needs CT_EMBED_REAL=1 and the files
-// ct vault model fetch installs (CT_EMBED_LIB and CT_EMBED_MODEL override
+// TestRealLlama runs the real model; it needs TIX_EMBED_REAL=1 and the files
+// tix vault model fetch installs (TIX_EMBED_LIB and TIX_EMBED_MODEL override
 // where they are).
 func TestRealLlama(t *testing.T) {
-	if os.Getenv("CT_EMBED_REAL") != "1" {
-		t.Skip("set CT_EMBED_REAL=1 (after ct vault model fetch) to run")
+	if os.Getenv("TIX_EMBED_REAL") != "1" {
+		t.Skip("set TIX_EMBED_REAL=1 (after tix vault model fetch) to run")
 	}
 	if d, err := embed.RuntimeLibDir(); err != nil {
-		t.Skipf("runtime libraries: %v (set CLAUDE_TICKETS_LIB_PATH to a directory holding them)", err)
+		t.Skipf("runtime libraries: %v (set TIX_LIB_PATH to a directory holding them)", err)
 	} else if d != "" {
-		t.Setenv("CLAUDE_TICKETS_LIB_PATH", d)
+		t.Setenv("TIX_LIB_PATH", d)
 	}
 	m := modelcache.Default()
-	lib, model := os.Getenv("CT_EMBED_LIB"), os.Getenv("CT_EMBED_MODEL")
+	lib, model := os.Getenv("TIX_EMBED_LIB"), os.Getenv("TIX_EMBED_MODEL")
 	if lib == "" || model == "" {
 		st := modelcache.StatusOf(m.ID)
 		if !st.ModelOK || !st.LibOK {

@@ -89,8 +89,8 @@ func TestContextHookTicket(t *testing.T) {
 	tr := transcript(t, dir, 160_000)
 	in := fmt.Sprintf(`{"session_id":"s2","transcript_path":%q,"cwd":%q}`, tr, filepath.Join(ws, "repo"))
 	out := contextHook(strings.NewReader(in), defaultContextWarn, filepath.Join(dir, "state"))
-	if out == nil || out.SystemMessage != "Context at 160k tokens (past 150k): the PO refreshes at the next quiet point (/tickets:po-refresh)." ||
-		!strings.Contains(out.Specific.Context, "Run /tickets:po-refresh yourself at the next quiet point") {
+	if out == nil || out.SystemMessage != "Context at 160k tokens (past 150k): the PO refreshes at the next quiet point (/tix:po-refresh)." ||
+		!strings.Contains(out.Specific.Context, "Run /tix:po-refresh yourself at the next quiet point") {
 		t.Fatalf("ticket session: %+v", out)
 	}
 
@@ -102,7 +102,7 @@ func TestContextHookTicket(t *testing.T) {
 		case want == "" && out != nil:
 			t.Errorf("%s: %+v", src, out)
 		case want != "" && (out == nil || out.Specific.Event != "SessionStart" || !strings.Contains(out.Specific.Context, want) ||
-			!strings.Contains(out.Specific.Context, "/tickets:work-ticket MAN-1")):
+			!strings.Contains(out.Specific.Context, "/tix:work-ticket MAN-1")):
 			t.Errorf("%s: %+v", src, out)
 		}
 	}

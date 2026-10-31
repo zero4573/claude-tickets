@@ -1,4 +1,4 @@
-# A session runs in this terminal, in the foreground: one ticket per ct
+# A session runs in this terminal, in the foreground: one ticket per tix
 # start, from a terminal. What the session record says, who cleans it up,
 # and how a recorded process counts for the other commands.
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a
@@ -11,30 +11,30 @@ cp open.md home/Documents/Obsidian/a/tickets/MAN-6/MAN-6.md
 cp open.md home/Documents/Obsidian/a/tickets/MAN-7/MAN-7.md
 cp done.md home/Documents/Obsidian/a/tickets/MAN-8/MAN-8.md
 
-# ct vault names no launcher
-exec ct vault
+# tix vault names no launcher
+exec tix vault
 ! stdout 'launcher'
 ! stdout 'session'
 
 # one ticket only, from a terminal: refused before anything
-! exec ct-tty start --no-fetch MAN-1 MAN-2
-stderr 'ct start takes one ticket \(got 2\): the session runs in this terminal; start the others from their own terminals'
-! exec ct-tty feedback --no-fetch MAN-1 MAN-2
-stderr 'ct feedback takes one ticket \(got 2\)'
-! exec ct start --no-fetch MAN-1
+! exec tix-tty start --no-fetch MAN-1 MAN-2
+stderr 'tix start takes one ticket \(got 2\): the session runs in this terminal; start the others from their own terminals'
+! exec tix-tty feedback --no-fetch MAN-1 MAN-2
+stderr 'tix feedback takes one ticket \(got 2\)'
+! exec tix start --no-fetch MAN-1
 stderr 'the session runs in this terminal, and this isn.t one \(stdin/stdout\); run it from a terminal$'
 ! exists home/Projects/work-a/MAN-1
 ! exists calls/claude
 
 # one ticket (named twice): claude runs here, in its workspace, with no
-# shell wrapper; ct becomes claude (exec), so the recorded PID is the
+# shell wrapper; tix becomes claude (exec), so the recorded PID is the
 # session's own
-exec ct-tty start --no-fetch MAN-1 MAN-1
-stdout '^ct start: MAN-1 runs in this terminal; ct start MAN-1 later continues it$'
-grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a .*--permission-mode auto /tickets:work-ticket MAN-1$' calls/claude
+exec tix-tty start --no-fetch MAN-1 MAN-1
+stdout '^tix start: MAN-1 runs in this terminal; tix start MAN-1 later continues it$'
+grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a .*--permission-mode auto /tix:work-ticket MAN-1$' calls/claude
 ! grep 'read -rp' calls/claude
 grep '/home/Projects/work-a/MAN-1$' calls/claude-cwd
-grep '^CLAUDE_TICKETS_VAULT=.*/Obsidian/a$' calls/claude-env
+grep '^TIX_VAULT=.*/Obsidian/a$' calls/claude-env
 grep '"id": "MAN-1"' home/Projects/work-a/MAN-1/workspace.json
 grep '"pid": [0-9]+' home/Projects/work-a/MAN-1/.sessions.json
 grep '"command": "start"' home/Projects/work-a/MAN-1/.sessions.json
@@ -47,62 +47,62 @@ grep '"started": "[0-9]{4}-' home/Projects/work-a/MAN-1/.sessions.json
 # unless --force (its terminal was closed)
 cp state-working.json home/Projects/work-a/MAN-1/.agent-state
 rm home/Projects/work-a/MAN-1/.sessions.json
-! exec ct-tty start --no-fetch MAN-1
-stderr 'MAN-1: its session looks running \(.agent-state: working at 2026-10-06T10:00:00-04:00\); it.s in the terminal where it was started. If it isn.t \(terminal closed\), ct start --force MAN-1'
-exec ct-tty start --no-fetch --force MAN-1
+! exec tix-tty start --no-fetch MAN-1
+stderr 'MAN-1: its session looks running \(.agent-state: working at 2026-10-06T10:00:00-04:00\); it.s in the terminal where it was started. If it isn.t \(terminal closed\), tix start --force MAN-1'
+exec tix-tty start --no-fetch --force MAN-1
 stdout 'MAN-1 runs in this terminal'
 ! stdout 'continuing'
 ! grep ' --continue' calls/claude
 
 # the recorded process has ended (the stub claude): a fresh .agent-state
 # doesn't count (PIDs can't be checked inside a container)
-[!container] exec ct-tty start --no-fetch MAN-1
+[!container] exec tix-tty start --no-fetch MAN-1
 [!container] stdout 'MAN-1 runs in this terminal'
 
 # a live process: refused, even with --force
 [!container] live-session home/Projects/work-a/MAN-1
-[!container] ! exec ct-tty start --no-fetch --force MAN-1
+[!container] ! exec tix-tty start --no-fetch --force MAN-1
 [!container] stderr 'MAN-1: its session is running \(pid [0-9]+, started [0-9]{2}:[0-9]{2}\) in another terminal; continue there, or end it first'
-[!container] ! exec ct-tty feedback --no-fetch MAN-1
-[!container] stderr 'MAN-1: its session is running \(pid [0-9]+\) in another terminal; type /tickets:pr-feedback there'
+[!container] ! exec tix-tty feedback --no-fetch MAN-1
+[!container] stderr 'MAN-1: its session is running \(pid [0-9]+\) in another terminal; type /tix:pr-feedback there'
 
 # feedback: nothing is typed into a running session; else it runs here
 rm home/Projects/work-a/MAN-1/.sessions.json
-! exec ct-tty feedback --no-fetch MAN-1
-stderr 'type /tickets:pr-feedback in that session.s terminal, or if it isn.t running, ct feedback --force MAN-1'
-! exec ct-tty start --feedback --no-fetch MAN-1
-stderr 'ct start --feedback --force MAN-1'
+! exec tix-tty feedback --no-fetch MAN-1
+stderr 'type /tix:pr-feedback in that session.s terminal, or if it isn.t running, tix feedback --force MAN-1'
+! exec tix-tty start --feedback --no-fetch MAN-1
+stderr 'tix start --feedback --force MAN-1'
 cp state-exited.json home/Projects/work-a/MAN-1/.agent-state
-exec ct-tty feedback --no-fetch MAN-1
-grep '--permission-mode auto /tickets:pr-feedback MAN-1$' calls/claude
+exec tix-tty feedback --no-fetch MAN-1
+grep '--permission-mode auto /tix:pr-feedback MAN-1$' calls/claude
 ! grep ' --continue' calls/claude
 grep '"command": "feedback"' home/Projects/work-a/MAN-1/.sessions.json
 
 # an ignored ticket is skipped
-! exec ct-tty start --no-fetch MAN-2
+! exec tix-tty start --no-fetch MAN-2
 stderr 'MAN-2: marked ignore: true \(not mine\), skipping'
 ! grep MAN-2 calls/claude
 
 # no claude: it fails before saying it runs, or recording a session
-env CLAUDE_TICKETS_CLAUDE=no-such-claude
-! exec ct-tty start --no-fetch MAN-6
+env TIX_CLAUDE=no-such-claude
+! exec tix-tty start --no-fetch MAN-6
 stderr '"no-such-claude": executable file not found'
 ! stdout 'runs in this terminal'
 ! exists home/Projects/work-a/MAN-6/.sessions.json
-env CLAUDE_TICKETS_CLAUDE=
+env TIX_CLAUDE=
 
-# ct ws rm deletes the session record with the other files ct owns
-exec ct-tty start --no-fetch MAN-6
+# tix ws rm deletes the session record with the other files tix owns
+exec tix-tty start --no-fetch MAN-6
 exists home/Projects/work-a/MAN-6/.sessions.json
-exec ct ws rm MAN-6
+exec tix ws rm MAN-6
 ! exists home/Projects/work-a/MAN-6
 
-# ct start --list and ID completion (one ID)
-exec ct start --list
+# tix start --list and ID completion (one ID)
+exec tix start --list
 stdout '^MAN-1\t'
-exec ct __complete start ''
+exec tix __complete start ''
 stdout '^MAN-1\t'
-exec ct __complete start MAN-1 ''
+exec tix __complete start MAN-1 ''
 ! stdout 'MAN-'
 
 # status: no WINDOW column, AGENT from .agent-state
@@ -113,7 +113,7 @@ expand ws3.json
 cp ws3.json home/Projects/work-a/MAN-3/workspace.json
 cp state-working.json home/Projects/work-a/MAN-3/.agent-state
 exec touch -d '2 days ago' home/Projects/work-a/MAN-3/.agent-state
-exec ct status
+exec tix status
 stdout '^Vault a \(sessions run in their own terminal\)$'
 stdout '^TICKET +SOURCE +AGENT +STATUS +REPOS '
 ! stdout 'WINDOW'
@@ -127,7 +127,7 @@ cp ws7.json home/Projects/work-a/MAN-7/workspace.json
 cp state-idle.json home/Projects/work-a/MAN-7/.agent-state
 exec touch -d '3 days ago' home/Projects/work-a/MAN-7/.agent-state
 live-session home/Projects/work-a/MAN-7
-exec ct status
+exec tix status
 stdout '^MAN-7 +manual +idle +in-progress '
 ! stdout 'MAN-7 .*stale'
 
@@ -138,11 +138,11 @@ expand ws4.json
 cp ws4.json home/Projects/work-a/MAN-4/workspace.json
 cp state-working.json home/Projects/work-a/MAN-4/.agent-state
 exec touch -d '20 days ago' home/Projects/work-a/MAN-4/workspace.json
-[!container] exec ct ws gc
+[!container] exec tix ws gc
 [!container] ! stdout 'MAN-4'
 [!container] exists home/Projects/work-a/MAN-4/.cache
 [!container] exec touch -d '2 days ago' home/Projects/work-a/MAN-4/.agent-state
-[!container] exec ct ws gc
+[!container] exec tix ws gc
 [!container] stdout 'remove MAN-4 \(done\)'
 [!container] ! exists home/Projects/work-a/MAN-4
 
@@ -153,16 +153,16 @@ expand ws8.json
 cp ws8.json home/Projects/work-a/MAN-8/workspace.json
 exec touch -d '20 days ago' home/Projects/work-a/MAN-8/workspace.json
 live-session home/Projects/work-a/MAN-8
-[!container] exec ct ws gc
+[!container] exec tix ws gc
 [!container] ! stdout 'MAN-8'
 [!container] exists home/Projects/work-a/MAN-8/.cache
 
 # config.json's old launcher key is ignored
-mkdir home/.config/claude-tickets
-cp config-launcher.json home/.config/claude-tickets/config.json
-exec ct vault
+mkdir home/.config/tix
+cp config-launcher.json home/.config/tix/config.json
+exec tix vault
 ! stdout 'launcher'
-exec ct status
+exec tix status
 stdout '^Vault a \(sessions run in their own terminal\)$'
 
 -- open.md --

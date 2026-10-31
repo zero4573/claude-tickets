@@ -10,14 +10,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/fsx"
+	"github.com/zero4573/tix/internal/fsx"
 )
 
-// maxConfigSize caps a config file ct reads: a real one is a few KiB.
+// maxConfigSize caps a config file tix reads: a real one is a few KiB.
 const maxConfigSize = 256 << 10
 
 // allowed reports whether git may read e from a repository's own config
-// when ct runs it on the host. Every key is matched on its (section,
+// when tix runs it on the host. Every key is matched on its (section,
 // subsection, name) triple; anything not named here is refused, and no
 // allowed key names a program or a place git would run one from.
 func allowed(e confEntry) bool {
@@ -430,7 +430,7 @@ func submoduleWorktree(e confEntry, top string) bool {
 
 // superproject is the work tree whose .git/modules holds the config file
 // f (the nearest such folder above f), or "" when f isn't under one: a
-// submodule's own config under its superproject's modules/, whether ct
+// submodule's own config under its superproject's modules/, whether tix
 // runs in the superproject or in the submodule's work tree.
 func superproject(f string) string {
 	for d := filepath.Dir(f); filepath.Dir(d) != d; d = filepath.Dir(d) {
@@ -450,13 +450,13 @@ const maxListed = 10
 func checkConfig(repo, gitDir, common string) error {
 	files, err := configFiles(gitDir, common)
 	if err != nil {
-		return fmt.Errorf("ct: %s: can't check its git config: %w", repo, err)
+		return fmt.Errorf("tix: %s: can't check its git config: %w", repo, err)
 	}
 	var bad []confEntry
 	for _, f := range files {
 		ents, err := readConfig(f)
 		if err != nil {
-			return fmt.Errorf("ct: %s: can't check its git config: %w", repo, err)
+			return fmt.Errorf("tix: %s: can't check its git config: %w", repo, err)
 		}
 		for _, e := range ents {
 			if !allowed(e) && !submoduleWorktree(e, superproject(f)) {
@@ -468,7 +468,7 @@ func checkConfig(repo, gitDir, common string) error {
 		return nil
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "ct: %s: git config not on ct's safe list:\n", repo)
+	fmt.Fprintf(&b, "tix: %s: git config not on tix's safe list:\n", repo)
 	for i, e := range bad {
 		if i == maxListed {
 			fmt.Fprintf(&b, "  ... and %d more\n", len(bad)-maxListed)

@@ -1,6 +1,6 @@
-# Workspace commands: ct ws
+# Workspace commands: tix ws
 
-`ct ws` manages the git worktrees of ticket workspaces. A workspace is
+`tix ws` manages the git worktrees of ticket workspaces. A workspace is
 `<workRoot>/<ID>/` with one worktree per repo (branched from the repo's base), task
 worktrees under `tasks/`, `workspace.json` and `.cache/`. The layout is in
 [workspaces and the vault](workspace-and-vault.md); the hardening git runs under is in
@@ -8,32 +8,32 @@ worktrees under `tasks/`, `workspace.json` and `.cache/`. The layout is in
 
 ```mermaid
 flowchart LR
-  clone["ct ws clone: main clone"] --> add["ct ws add: worktree and branch"]
+  clone["tix ws clone: main clone"] --> add["tix ws add: worktree and branch"]
   add --> work["sessions commit on the ticket branch"]
-  work --> check["ct ws diff-check, ct ws diff"]
-  check --> marks["ct ws mark and marks: tidy"]
-  marks --> save["/tickets:save pushes"]
-  save --> gc["ct ws gc or ct clean: free disk"]
-  gc --> rm["ct ws rm: worktrees go, branches stay"]
+  work --> check["tix ws diff-check, tix ws diff"]
+  check --> marks["tix ws mark and marks: tidy"]
+  marks --> save["/tix:save pushes"]
+  save --> gc["tix ws gc or tix clean: free disk"]
+  gc --> rm["tix ws rm: worktrees go, branches stay"]
 ```
 
 | Command | Does |
 |---|---|
-| `ct ws repos` | list the main clones: slug and `<provider>/<owner>/<repo>` |
-| `ct ws clone <provider>/<owner>/<repo>` or `--url <git url>` | clone into `<projectsRoot>/<provider>/<owner>/<repo>` |
-| `ct ws add <ID> <repo> --base <branch> ...` | create or reuse the ticket's worktree |
-| `ct ws ls [<ID>]` | worktrees: branch, uncommitted changes, ahead/behind the base |
-| `ct ws diff <ID> [--stat]` | everything changed on the ticket's branches since they left the base |
-| `ct ws fetch [<repo>...]` | fetch origin in the main clones (and pass refs to older shared clones) |
-| `ct ws refresh <ID>` | rewrite the workspace's `CLAUDE.md` from the vault (commit style, repos) |
-| `ct ws mark`, `marks` | the tidy mark, see [finishing a ticket](finishing-a-ticket.md) |
-| `ct ws tidy-clean <ID>` | remove tidy's scratch clones under `tasks/` |
-| `ct ws diff-check` | flag binary, large and vault-only-ID changes in a range |
-| `ct ws rm <ID>`, `ct ws gc` | remove a workspace, free disk |
+| `tix ws repos` | list the main clones: slug and `<provider>/<owner>/<repo>` |
+| `tix ws clone <provider>/<owner>/<repo>` or `--url <git url>` | clone into `<projectsRoot>/<provider>/<owner>/<repo>` |
+| `tix ws add <ID> <repo> --base <branch> ...` | create or reuse the ticket's worktree |
+| `tix ws ls [<ID>]` | worktrees: branch, uncommitted changes, ahead/behind the base |
+| `tix ws diff <ID> [--stat]` | everything changed on the ticket's branches since they left the base |
+| `tix ws fetch [<repo>...]` | fetch origin in the main clones (and pass refs to older shared clones) |
+| `tix ws refresh <ID>` | rewrite the workspace's `CLAUDE.md` from the vault (commit style, repos) |
+| `tix ws mark`, `marks` | the tidy mark, see [finishing a ticket](finishing-a-ticket.md) |
+| `tix ws tidy-clean <ID>` | remove tidy's scratch clones under `tasks/` |
+| `tix ws diff-check` | flag binary, large and vault-only-ID changes in a range |
+| `tix ws rm <ID>`, `tix ws gc` | remove a workspace, free disk |
 
 ## add
 
-`ct ws add <ID> <repo> --base <branch> [--desc <text>] [--version <target>] [--branch <existing>]`
+`tix ws add <ID> <repo> --base <branch> [--desc <text>] [--version <target>] [--branch <existing>]`
 branches from `origin/<base>` (the local base when there is no such remote branch) and
 reuses the branch if it exists. The branch is `feature/<ID>[-<description>]` for a synced
 ticket and `feature/<description>` for a manual one (so `--desc` or `--branch` is
@@ -42,11 +42,11 @@ required there); a branch another workspace already records for that repo is ref
 then what it merges into. It copies untracked files matching the main clone's
 `.worktreeinclude` (such as `.env`) and records repo, base, branch and target version in `workspace.json`. It only creates
 worktrees; it no longer falls back to a shared clone (older workspaces' shared clones still
-work). A session clones a new repo with `ct ws clone` first.
+work). A session clones a new repo with `tix ws clone` first.
 
 ## rm
 
-`ct ws rm <ID> [--drop-ignored]` removes the worktrees and workspace files; branches are
+`tix ws rm <ID> [--drop-ignored]` removes the worktrees and workspace files; branches are
 kept. Every guard is checked and a refusal lists all that apply: uncommitted changes
 (modified and untracked), a checked-out submodule, ignored files (`.env`, local configs)
 that removal would delete and, for an older shared clone, commits not on origin.
@@ -55,22 +55,22 @@ push or stash the work, or remove the directory by hand.
 
 ## gc
 
-`ct ws gc [--days N] [--dry-run]` (host only, refused inside a container) frees disk:
+`tix ws gc [--days N] [--dry-run]` (host only, refused inside a container) frees disk:
 
 - workspaces of tickets whose note says `done` or `closed` and that are idle for N days
   (default 14), through the same guards as `rm`. A workspace kept for dirty or unpushed
   work is listed in a follow-up note in the vault's `inbox/`;
 - the `.cache` of sessions that aren't running (Go's caches refill when next used);
-- idle `ct spec` exploration clones.
+- idle `tix spec` exploration clones.
 
-A session counts as running when its process (`ct start`, `ct teach`, `ct spec`) is alive on
+A session counts as running when its process (`tix start`, `tix teach`, `tix spec`) is alive on
 this host, else when its hook state (`.agent-state`) is under a day old and not exited.
 Ignored files of yours move to the vault's `.trash/<ID>-ignored-files/` instead of being
-deleted. `ct clean` frees the closed tickets' workspaces the same way, after they are saved.
+deleted. `tix clean` frees the closed tickets' workspaces the same way, after they are saved.
 
 ## diff-check
 
-`ct ws diff-check [-C <dir>] [--max-size 1M] [--ticket <ID>] <rev-range>` walks the commits of
+`tix ws diff-check [-C <dir>] [--max-size 1M] [--ticket <ID>] <rev-range>` walks the commits of
 a range. Flagged lines make exit 3; notes never do; a usage error, a non-checkout or a bad
 range exit 1.
 

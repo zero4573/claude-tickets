@@ -218,7 +218,7 @@ func TestCheckWithExempt(t *testing.T) {
 	out.Reset()
 	write(t, v, "tickets/PROJ-2/PROJ-2.md", "---\nrelated: [\"[[PROJ-9]]\"]\n---\n| [[PROJ-2\\|me]] |\n")
 	if n := CheckWith(v, nil, &out, CheckOpts{Exempt: exempt, ExemptNote: "%d exempt link(s)"}); n != 0 ||
-		!strings.Contains(out.String(), "1 exempt link(s)\nct vault links: 1 file(s) checked, all links resolve") {
+		!strings.Contains(out.String(), "1 exempt link(s)\ntix vault links: 1 file(s) checked, all links resolve") {
 		t.Errorf("only exempt problems (and an escaped table pipe): %d\n%s", n, out.String())
 	}
 }

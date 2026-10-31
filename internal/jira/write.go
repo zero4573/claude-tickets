@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/mcp"
+	"github.com/zero4573/tix/internal/mcp"
 )
 
 // Writer files issues at a Jira site through the Atlassian MCP server.

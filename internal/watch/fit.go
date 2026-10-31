@@ -1,5 +1,5 @@
 // Package watch keeps a text frame on a terminal and redraws it in place:
-// the refresh loop of ct status --watch, fitting a frame to the terminal,
+// the refresh loop of tix status --watch, fitting a frame to the terminal,
 // and entering and leaving the alternate screen.
 package watch
 

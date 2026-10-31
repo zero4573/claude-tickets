@@ -36,7 +36,7 @@ func (m *memSource) Stat(rel string) (FileInfo, error) {
 func (m *memSource) Read(rel string) ([]byte, error) { return []byte(m.docs[rel]), nil }
 
 func TestSecondSourceIndexedAndRemoved(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "stub")
+	t.Setenv("TIX_EMBEDDER", "stub")
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	root := t.TempDir()
 	src := &memSource{docs: map[string]string{

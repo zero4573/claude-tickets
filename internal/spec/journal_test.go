@@ -141,7 +141,7 @@ func TestPendingPromote(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := Pending(v, "T-1", "acme")
-	if !errors.Is(err, ErrPromotePending) || errors.Is(err, ErrRebasePending) || err.Error() != "acme: promote pending: run ct spec promote T-1" {
+	if !errors.Is(err, ErrPromotePending) || errors.Is(err, ErrRebasePending) || err.Error() != "acme: promote pending: run tix spec promote T-1" {
 		t.Fatalf("pending: %v", err)
 	}
 	if n := PendingNote(err, "T-1", "acme"); n != PromotePendingNote("T-1") {

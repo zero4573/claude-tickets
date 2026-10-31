@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/mcp/mcptest"
-	"github.com/zero4573/claude-tickets/internal/vaultlock"
+	"github.com/zero4573/tix/internal/mcp/mcptest"
+	"github.com/zero4573/tix/internal/vaultlock"
 )
 
 const filedNote = "---\ntitle: MAN-1\nsummary: s\nsource: manual\nsource-id: MAN-1\nconvert-source: jira\nconvert-key: KEY-1\nconvert-url: https://x/browse/KEY-1\ntags: [ticket, manual]\n---\n# MAN-1: s\n\nsee MAN-1\n"
@@ -264,8 +264,8 @@ func connect(t *testing.T, f mcptest.Fixture) *mcptest.Server {
 	t.Cleanup(s.Close)
 	cfg := filepath.Join(t.TempDir(), "mcp.json")
 	write(t, cfg, s.Config("atlassian"))
-	t.Setenv("CLAUDE_TICKETS_MCP_CONFIG", cfg)
-	t.Setenv("CLAUDE_TICKETS_MCP_PREPARE", "")
+	t.Setenv("TIX_MCP_CONFIG", cfg)
+	t.Setenv("TIX_MCP_PREPARE", "")
 	return s
 }
 

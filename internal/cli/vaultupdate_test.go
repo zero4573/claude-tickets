@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/links"
-	"github.com/zero4573/claude-tickets/internal/ticketmigrate"
-	"github.com/zero4573/claude-tickets/internal/vaultlock"
+	"github.com/zero4573/tix/internal/links"
+	"github.com/zero4573/tix/internal/ticketmigrate"
+	"github.com/zero4573/tix/internal/vaultlock"
 )
 
 func updateVault(t *testing.T) string {
@@ -54,7 +54,7 @@ func TestVaultUpdateLock(t *testing.T) {
 	if err := vaultUpdate(v, updateOpts{}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(heldDuring, "ct-vault-update-") {
+	if !strings.HasPrefix(heldDuring, "tix-vault-update-") {
 		t.Errorf("lock holder during the migration: %q", heldDuring)
 	}
 	if !tplOK {
@@ -126,7 +126,7 @@ func TestVaultUpdateRefreshesWrittenPaths(t *testing.T) {
 	}
 }
 
-// W6-claude-tickets-S01: a failed migration still reports the tickets it
+// W6-tix-S01: a failed migration still reports the tickets it
 // migrated and refreshes what was written, then returns the error.
 func TestVaultUpdateMigrateErrorStillReportsAndRefreshes(t *testing.T) {
 	v := updateVault(t)

@@ -10,18 +10,18 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zero4573/claude-tickets/internal/config"
+	"github.com/zero4573/tix/internal/config"
 )
 
-// RecordName is the record of what ct shipped into a vault, at its root (a
+// RecordName is the record of what tix shipped into a vault, at its root (a
 // dot-file, so Obsidian doesn't show it).
 const RecordName = ".scaffold.json"
 
 // RecordFormat is the record's format; a record with a higher one is from a
-// newer ct: ignored and never rewritten.
+// newer tix: ignored and never rewritten.
 const RecordFormat = 1
 
-const recordComment = "What ct has shipped into this vault (ct vault init / ct vault update): for each file, the sha256 of the shipped content (LF line endings, one trailing newline; .base files are hashed over their parsed YAML) and the ct version that wrote or confirmed it. A file whose content still has this hash counts as unedited: ct vault update updates it, unless the hash is from a newer ct, which it keeps. Don't edit it by hand."
+const recordComment = "What tix has shipped into this vault (tix vault init / tix vault update): for each file, the sha256 of the shipped content (LF line endings, one trailing newline; .base files are hashed over their parsed YAML) and the tix version that wrote or confirmed it. A file whose content still has this hash counts as unedited: tix vault update updates it, unless the hash is from a newer tix, which it keeps. Don't edit it by hand."
 
 // Shipped is a record's entry for one file.
 type Shipped struct {
@@ -41,7 +41,7 @@ type recordState int
 const (
 	recordAbsent recordState = iota
 	recordOK
-	recordNewer   // from a newer ct: never rewritten
+	recordNewer   // from a newer tix: never rewritten
 	recordInvalid // rewritten only when files were written anyway
 )
 
@@ -62,7 +62,7 @@ func loadRecord(vault string) (Record, recordState, string) {
 		return empty, recordInvalid, fmt.Sprintf("%s isn't valid JSON (%v); using the built-in history only", RecordName, err)
 	}
 	if rec.Format > RecordFormat {
-		return empty, recordNewer, fmt.Sprintf("%s is from a newer ct; using the built-in history only", RecordName)
+		return empty, recordNewer, fmt.Sprintf("%s is from a newer tix; using the built-in history only", RecordName)
 	}
 	if rec.Files == nil {
 		rec.Files = map[string]Shipped{}
@@ -91,7 +91,7 @@ func writeAtomic(dest string, data []byte, mode fs.FileMode, keep bool) error {
 	var tmp string
 	var f *os.File
 	for {
-		tmp = filepath.Join(dir, "."+filepath.Base(dest)+"."+randomID()+".ct-tmp")
+		tmp = filepath.Join(dir, "."+filepath.Base(dest)+"."+randomID()+".tix-tmp")
 		var err error
 		f, err = os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
 		if err == nil {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/links"
+	"github.com/zero4573/tix/internal/links"
 )
 
 func layoutVault(t *testing.T) string {
@@ -24,7 +24,7 @@ func layoutVault(t *testing.T) string {
 	put(t, v, "tickets/MAN-2/logs/x.md", "a reserved folder without its note\n")
 	put(t, v, "tickets/jira/PROJ-3/PROJ-3.md", "---\nsource: jira\n---\nalready moved\n")
 	put(t, v, "archive/tickets/MAN-4/MAN-4.md", "---\nsource: manual\n---\n")
-	put(t, v, "archive/tickets/PROJ-9/design.md", "kept by ct clean\n")
+	put(t, v, "archive/tickets/PROJ-9/design.md", "kept by tix clean\n")
 	put(t, v, "projects/p/p.md", "![[tickets/PROJ-12/logs/2026-10-01]] [[archive/tickets/PROJ-9/design]] [[MAN-1]]\n")
 	return v
 }

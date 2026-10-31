@@ -1,4 +1,4 @@
-# ct spec promote: snapshots, the move, one version note per ticket, conflicts
+# tix spec promote: snapshots, the move, one version note per ticket, conflicts
 env V=home/Documents/Obsidian/a
 env W1=home/Projects/work-a/MAN-1
 env W2=home/Projects/work-a/MAN-2
@@ -18,49 +18,49 @@ cp ws1.json $W1/workspace.json
 cp ws2.json $W2/workspace.json
 
 # the help describes the transaction and points at the doc
-exec ct spec promote --help
+exec tix spec promote --help
 stdout '^  conflict check: '
 stdout '^  plan and stage: '
 stdout '^  commit point: the journal specs-stage/<slug>\.journal'
 stdout '^  apply: base, kept list, the copy.s files kept as theirs to \.trash/, note,'
-stdout 'finished by the next ct spec\s+promote \(before any other check of any repo\) or ct spec start'
+stdout 'finished by the next tix spec\s+promote \(before any other check of any repo\) or tix spec start'
 stdout 'takes the vault lock for it'
 stdout 'holds that file back'
 stdout 'specs-after/\.<slug>\.kept'
 stdout 'docs/spec-versions\.md'
 
 # nothing in the copy yet: nothing to promote, nothing written; repos without vault specs are skipped
-exec ct spec promote MAN-1
+exec tix spec promote MAN-1
 stdout '^github-acme-ledger: nothing to promote$'
 ! stdout plain
 ! exists $V/tickets/manual/MAN-1/specs-base
 
-# a copy made without ct spec start has no snapshot: refused before anything is written
+# a copy made without tix spec start has no snapshot: refused before anything is written
 cp p1-new.md $C1/posting/spec.md
-! exec ct spec promote MAN-1
-stderr 'github-acme-ledger: the copy tickets/manual/MAN-1/specs/github-acme-ledger/ has no snapshot tickets/manual/MAN-1/specs-base/github-acme-ledger/: run ct spec start MAN-1 github-acme-ledger first'
+! exec tix spec promote MAN-1
+stderr 'github-acme-ledger: the copy tickets/manual/MAN-1/specs/github-acme-ledger/ has no snapshot tickets/manual/MAN-1/specs-base/github-acme-ledger/: run tix spec start MAN-1 github-acme-ledger first'
 ! exists $V/tickets/manual/MAN-1/specs-base
 ! exists $V/projects/github-acme-ledger/spec-versions
 cmp $V/projects/github-acme-ledger/specs/posting/spec.md posting.md
 # with --json the refusal is in the output too, so stdout alone never reads as nothing to promote
-! exec ct spec promote --json MAN-1
+! exec tix spec promote --json MAN-1
 stdout '"error": "github-acme-ledger: the copy tickets/manual/MAN-1/specs/github-acme-ledger/ has no snapshot'
 stdout '"repos": \[\]'
 # an error before the run is in the JSON too
-! exec ct spec promote --json --resolve nosuch=ours MAN-1
+! exec tix spec promote --json --resolve nosuch=ours MAN-1
 stdout '"error": "--resolve nosuch: not a repo of MAN-1'
 stdout '"repos": \[\]'
 ! exists $V/tickets/manual/MAN-1/specs-base
 rm $C1/posting/spec.md
 
 # both tickets start: the snapshots of projects/ promote compares against
-exec ct spec start MAN-1 github-acme-ledger
+exec tix spec start MAN-1 github-acme-ledger
 stdout 'snapshot tickets/manual/MAN-1/specs-base/github-acme-ledger/ taken'
-exec ct spec start MAN-2 github-acme-ledger
+exec tix spec start MAN-2 github-acme-ledger
 
 # MAN-2 promotes a new capability first
 cp journal.md $C2/journal/spec.md
-exec ct spec promote MAN-2
+exec tix spec promote MAN-2
 stdout '^github-acme-ledger: promoted 1 files \(journal\); version projects/github-acme-ledger/spec-versions/github-acme-ledger-spec-MAN-2.md$'
 cmp $V/projects/github-acme-ledger/specs/journal/spec.md journal.md
 ! exists $V/tickets/manual/MAN-2/specs-base/github-acme-ledger/journal/spec.md
@@ -68,7 +68,7 @@ cmp $V/tickets/manual/MAN-2/specs-after/github-acme-ledger/journal/spec.md journ
 
 # a clean promote: base, move, after, version note
 cp p1-new.md $C1/posting/spec.md
-exec ct spec promote MAN-1
+exec tix spec promote MAN-1
 stdout '^github-acme-ledger: promoted 1 files \(posting\); version projects/github-acme-ledger/spec-versions/github-acme-ledger-spec-MAN-1.md$'
 cmp $V/tickets/manual/MAN-1/specs-base/github-acme-ledger/posting/spec.md posting.md
 ! exists $V/tickets/manual/MAN-1/specs-base/github-acme-ledger/journal/spec.md
@@ -89,23 +89,23 @@ grep '^### REQ-LED-2 · Reverse$' $N1
 mkdir $C1/journal $C1/posting
 cp p1-v2.md $C1/posting/spec.md
 cp journal.md $C1/journal/spec.md
-exec ct spec promote MAN-1
+exec tix spec promote MAN-1
 stdout '^github-acme-ledger: promoted 2 files \(journal, posting\); version projects/github-acme-ledger/spec-versions/github-acme-ledger-spec-MAN-1.md$'
 cmp $V/tickets/manual/MAN-1/specs-base/github-acme-ledger/posting/spec.md posting.md
 cmp $V/projects/github-acme-ledger/specs/posting/spec.md p1-v2.md
 grep '^files: \[journal/spec.md, posting/spec.md\]$' $N1
 exec ls $V/projects/github-acme-ledger/spec-versions
 cmp stdout versions.txt
-exec ct spec promote MAN-1
+exec tix spec promote MAN-1
 stdout '^github-acme-ledger: nothing to promote$'
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 stdout '^  added REQ-LED-2 · Reverse \(posting, proposed\)$'
 stdout '^  status REQ-LED-1 · Post \(posting, proposed -> implemented\)$'
 
 # a clash: MAN-2 changes posting, which MAN-1 changed since MAN-2's snapshot
 mkdir $C2/posting
 cp p2-clash.md $C2/posting/spec.md
-! exec ct spec promote MAN-2
+! exec tix spec promote MAN-2
 stdout '^github-acme-ledger: refused: another ticket changed posting/spec.md in projects/github-acme-ledger/specs/ since this ticket''s snapshot$'
 stdout '^  changed by: MAN-1 \(projects/github-acme-ledger/spec-versions/github-acme-ledger-spec-MAN-1.md, promoted 20\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\)$'
 stdout '^  theirs \(projects/\):$'
@@ -122,7 +122,7 @@ cmp $C2/posting/spec.md p2-clash.md
 cmp $V/projects/github-acme-ledger/specs/posting/spec.md p1-v2.md
 ! exists $V/tickets/manual/MAN-2/specs-after/github-acme-ledger/posting/spec.md
 # the same as data
-! exec ct spec promote --json MAN-2
+! exec tix spec promote --json MAN-2
 stdout '"ticket": "MAN-2"'
 stdout '"status": "refused"'
 stdout '"files": \[\s*"posting/spec.md"\s*\]'
@@ -133,9 +133,9 @@ stdout '"capability": "posting",\s*"file": "posting/spec.md",\s*"requirements": 
 cmp $C2/posting/spec.md p2-clash.md
 
 # bad --resolve values change nothing
-! exec ct spec promote --resolve github-acme-ledger=mine MAN-2
+! exec tix spec promote --resolve github-acme-ledger=mine MAN-2
 stderr 'want <slug>=theirs, <slug>=ours or <slug>=merged'
-! exec ct spec promote --resolve github-acme-other=ours MAN-2
+! exec tix spec promote --resolve github-acme-other=ours MAN-2
 stderr 'github-acme-other: not a repo of MAN-2 with its specs in the vault'
 exists $C2/posting/spec.md
 
@@ -143,7 +143,7 @@ exists $C2/posting/spec.md
 # goes, projects/ stays, the snapshot moves on by theirs too
 mkdir $C2/journal
 cp journal.md $C2/journal/spec.md
-exec ct spec promote --resolve github-acme-ledger=theirs MAN-2
+exec tix spec promote --resolve github-acme-ledger=theirs MAN-2
 stdout '^github-acme-ledger: kept theirs for posting/spec.md$'
 stdout '^github-acme-ledger: promoted 1 files \(journal\); '
 cmp $V/tickets/manual/MAN-2/specs-after/github-acme-ledger/posting/spec.md p1-v2.md
@@ -160,7 +160,7 @@ exists $V/tickets/manual/MAN-2/specs-after/.github-acme-ledger.kept
 grep '^posting/spec.md$' $V/tickets/manual/MAN-2/specs-after/.github-acme-ledger.kept
 mkdir $C2/journal
 cp journal-v2.md $C2/journal/spec.md
-exec ct spec promote MAN-2
+exec tix spec promote MAN-2
 stdout '^github-acme-ledger: promoted 1 files \(journal\); '
 cmp $V/tickets/manual/MAN-2/specs-after/github-acme-ledger/posting/spec.md p1-v2.md
 cmp $V/tickets/manual/MAN-2/specs-after/github-acme-ledger/journal/spec.md journal-v2.md
@@ -168,25 +168,25 @@ grep '^files: \[journal/spec.md\]$' $V/projects/github-acme-ledger/spec-versions
 # a change made on top of theirs is no conflict
 mkdir $C2/posting
 cp p2-ontheirs.md $C2/posting/spec.md
-exec ct spec promote --json MAN-2
+exec tix spec promote --json MAN-2
 stdout '"status": "promoted"'
 stdout '"capabilities": \[\s*"posting"\s*\]'
 cmp $V/projects/github-acme-ledger/specs/posting/spec.md p2-ontheirs.md
 cmp $V/tickets/manual/MAN-2/specs-base/github-acme-ledger/posting/spec.md p1-v2.md
 # the version credits MAN-2 with its own change only, not MAN-1's under it
-exec ct spec log github-acme-ledger
+exec tix spec log github-acme-ledger
 stdout '^       posting: \+REQ-LED-9$'
 ! stdout 'posting: REQ-LED-1 proposed→implemented \+REQ-LED-2 \+REQ-LED-9'
 
 # keep ours: MAN-1 changes posting again after MAN-2 did; its copy replaces projects/
 mkdir $C1/posting
 cp p1-v3.md $C1/posting/spec.md
-! exec ct spec promote MAN-1
+! exec tix spec promote MAN-1
 stdout '^  changed by: MAN-2 '
 stdout '^    added REQ-LED-9 · Batch \(posting, proposed\)$'
 stdout '^    added REQ-LED-4 · Split \(posting, proposed\)$'
 stdout '^  clash: posting \(posting/spec.md\): both changed the file, no requirement in common$'
-exec ct spec promote --resolve github-acme-ledger=ours MAN-1
+exec tix spec promote --resolve github-acme-ledger=ours MAN-1
 stdout '^github-acme-ledger: kept ours for posting/spec.md$'
 stdout '^github-acme-ledger: promoted 1 files \(posting\); version '
 cmp $V/projects/github-acme-ledger/specs/posting/spec.md p1-v3.md
@@ -198,11 +198,11 @@ cmp stdout versions.txt
 # merged by hand: the copy is accepted as the merge on top of theirs
 mkdir $C2/posting
 cp p2-clash.md $C2/posting/spec.md
-! exec ct spec promote MAN-2
+! exec tix spec promote MAN-2
 stdout '--resolve github-acme-ledger=merged'
 cp p1-v2.md $C2/posting/spec.md
-! exec ct spec promote MAN-2
-exec ct spec promote --resolve github-acme-ledger=merged MAN-2
+! exec tix spec promote MAN-2
+exec tix spec promote --resolve github-acme-ledger=merged MAN-2
 stdout '^github-acme-ledger: kept merged for posting/spec.md$'
 stdout '^github-acme-ledger: promoted 1 files \(posting\); version '
 cmp $V/projects/github-acme-ledger/specs/posting/spec.md p1-v2.md
@@ -213,7 +213,7 @@ cmp $V/tickets/manual/MAN-2/specs-after/github-acme-ledger/posting/spec.md p1-v2
 # a copy that already holds theirs needs no flag
 mkdir $C1/posting
 cp p1-v2.md $C1/posting/spec.md
-exec ct spec promote MAN-1
+exec tix spec promote MAN-1
 ! stdout refused
 stdout '^github-acme-ledger: promoted 1 files \(posting\); version '
 cmp $V/projects/github-acme-ledger/specs/posting/spec.md p1-v2.md
@@ -225,21 +225,21 @@ mkdir $W3 $V/tickets/manual/MAN-3
 cp man.md $V/tickets/manual/MAN-3/MAN-3.md
 expand ws3.json
 cp ws3.json $W3/workspace.json
-exec ct spec start MAN-3 github-acme-ledger posting
+exec tix spec start MAN-3 github-acme-ledger posting
 cmp $C3/posting/spec.md p1-v2.md
 mkdir $C1/posting
 cp p1-v3.md $C1/posting/spec.md
-exec ct spec promote MAN-1
+exec tix spec promote MAN-1
 cmp $V/projects/github-acme-ledger/specs/posting/spec.md p1-v3.md
 cp p2-clash.md $C3/posting/spec.md
-! exec ct spec promote MAN-3
+! exec tix spec promote MAN-3
 stdout 'refused: another ticket changed posting/spec.md'
 stdout '^  changed by: MAN-1 '
 cmp $C3/posting/spec.md p2-clash.md
 cmp $V/projects/github-acme-ledger/specs/posting/spec.md p1-v3.md
 cmp $V/tickets/manual/MAN-3/specs-base/github-acme-ledger/posting/spec.md p1-v2.md
 ! exists $V/tickets/manual/MAN-3/specs-after
-exec ct spec promote --resolve github-acme-ledger=theirs MAN-3
+exec tix spec promote --resolve github-acme-ledger=theirs MAN-3
 stdout '^github-acme-ledger: nothing to promote$'
 cmp $V/.trash/MAN-3-spec-theirs/github-acme-ledger/posting/spec.md p2-clash.md
 ! exists $C3/posting/spec.md
@@ -250,21 +250,21 @@ cmp $V/projects/github-acme-ledger/specs/posting/spec.md p1-v3.md
 mkdir $V/tickets/manual/MAN-1/specs-stage/github-acme-ledger
 cp $N1 $V/tickets/manual/MAN-1/specs-stage/github-acme-ledger/note.md
 cp journal.txt $V/tickets/manual/MAN-1/specs-stage/github-acme-ledger.journal
-! exec ct spec diff MAN-1
-stderr 'github-acme-ledger: promote pending: run ct spec promote MAN-1'
-! exec ct spec show github-acme-ledger@MAN-1
-stderr 'promote pending: run ct spec promote MAN-1'
-exec ct spec log github-acme-ledger
-stdout 'promote pending: run ct spec promote MAN-1'
-exec ct spec diff MAN-2
-exec ct spec start MAN-1 github-acme-ledger
+! exec tix spec diff MAN-1
+stderr 'github-acme-ledger: promote pending: run tix spec promote MAN-1'
+! exec tix spec show github-acme-ledger@MAN-1
+stderr 'promote pending: run tix spec promote MAN-1'
+exec tix spec log github-acme-ledger
+stdout 'promote pending: run tix spec promote MAN-1'
+exec tix spec diff MAN-2
+exec tix spec start MAN-1 github-acme-ledger
 ! exists $V/tickets/manual/MAN-1/specs-stage
-exec ct spec diff MAN-1
+exec tix spec diff MAN-1
 ! stderr pending
 
 # a stage left without a journal (a run stopped before its commit point) is deleted
 mkdir $V/tickets/manual/MAN-1/specs-stage/github-acme-ledger/moves
-exec ct spec promote MAN-1
+exec tix spec promote MAN-1
 stdout '^github-acme-ledger: nothing to promote$'
 ! exists $V/tickets/manual/MAN-1/specs-stage
 
@@ -289,7 +289,7 @@ cp x0.md $S5/prev/base/posting/spec.md
 cp absent5.txt $S5/prev/absent
 cp note5.md $S5/note.md
 cp journal5.txt $S5.journal
-! exec ct spec promote MAN-5
+! exec tix spec promote MAN-5
 stdout '^github-acme-ledger: finished the pending promote first:$'
 stdout '^github-acme-ledger: held back posting/spec\.md: projects/ holds MAN-\d.s recorded after copy \(projects/github-acme-ledger/spec-versions/github-acme-ledger-spec-MAN-\d\.md\)$'
 stdout '^github-acme-ledger: refused: another ticket changed posting/spec.md'
@@ -305,21 +305,21 @@ cp x0.md $S5/prev/base/posting/spec.md
 cp absent5.txt $S5/prev/absent
 cp note5.md $S5/note.md
 cp journal5.txt $S5.journal
-exec ct spec start MAN-5 github-acme-ledger
+exec tix spec start MAN-5 github-acme-ledger
 stdout '^github-acme-ledger: held back posting/spec\.md: projects/ holds MAN-'
-stdout '^run ct spec promote MAN-5 to resolve$'
+stdout '^run tix spec promote MAN-5 to resolve$'
 cmp $V/projects/github-acme-ledger/specs/posting/spec.md theirs5.md
 ! exists $V/tickets/manual/MAN-5/specs-stage
 ! exists $V/tickets/manual/MAN-5/specs-after/github-acme-ledger/posting/spec.md
 ! exists $V/.vault.lock.d
-! exec ct spec promote MAN-5
+! exec tix spec promote MAN-5
 stdout '^github-acme-ledger: refused: another ticket changed posting/spec.md'
-exec ct spec promote --resolve github-acme-ledger=theirs MAN-5
+exec tix spec promote --resolve github-acme-ledger=theirs MAN-5
 cmp $V/projects/github-acme-ledger/specs/posting/spec.md theirs5.md
 cmp $V/.trash/MAN-5-spec-theirs/github-acme-ledger/posting/spec.md mine.md
 
 # errors
-! exec ct spec promote MAN-99
+! exec tix spec promote MAN-99
 stderr 'no workspace for MAN-99'
 
 -- x0.md --

@@ -9,14 +9,14 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/zero4573/claude-tickets/internal/fsx"
+	"github.com/zero4573/tix/internal/fsx"
 )
 
 // A session can write a checkout's .git file and a main clone's
 // .git/commondir or .git/worktrees/<n>/{commondir,gitdir}, git's
 // indirection files. Pointed at a folder the session made, they would
 // have host git load that folder's config (and run the programs it
-// names). checkDir reads them in Go before ct runs git in a folder.
+// names). checkDir reads them in Go before tix runs git in a folder.
 
 var (
 	rootsMu sync.Mutex
@@ -71,7 +71,7 @@ func checkDir(dir string) error {
 // file is a gitdir pointer; a .git folder is the repository only when it
 // passes is_git_directory, else git looks on; then the folder itself is a
 // bare repository (or the inside of a .git) when it passes
-// is_git_directory. What git would refuse or die on, ct refuses too.
+// is_git_directory. What git would refuse or die on, tix refuses too.
 func locate(dir string) (gitDir, common string, err error) {
 	dotgit := ""
 	for d := resolve(dir); ; d = filepath.Dir(d) {

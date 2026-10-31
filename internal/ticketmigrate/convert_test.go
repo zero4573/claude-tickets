@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/assets"
+	"github.com/zero4573/tix/assets"
 )
 
 const v1Board = `---
@@ -239,7 +239,7 @@ func TestConvertBacklog(t *testing.T) {
 	}
 }
 
-// W6-claude-tickets-M01: the comments equal the shipped templates' text byte
+// W6-tix-M01: the comments equal the shipped templates' text byte
 // for byte, so a template edit breaks the build until they follow.
 func TestCommentsMatchShippedTemplates(t *testing.T) {
 	read := func(name string) string {
@@ -261,7 +261,7 @@ func TestCommentsMatchShippedTemplates(t *testing.T) {
 	}
 }
 
-// W6-claude-tickets-C01: any v1 Dispositions comment is replaced.
+// W6-tix-C01: any v1 Dispositions comment is replaced.
 func TestConvertReviewReplacesComment_v1Variants(t *testing.T) {
 	in := "## Dispositions\n" +
 		"<!-- The lead's: one line per finding, `<ID> · resolved · <how>`, or `<ID> · deferred · [[<ticket>]] · <why> ([[review-disposition-v1]])` -->\n" +
@@ -272,7 +272,7 @@ func TestConvertReviewReplacesComment_v1Variants(t *testing.T) {
 	}
 }
 
-// W6-claude-tickets-C02: a v1 table quoted in a code fence or an HTML
+// W6-tix-C02: a v1 table quoted in a code fence or an HTML
 // comment is left alone.
 func TestConvertBoardSkipsFencesAndComments(t *testing.T) {
 	table := "| ID | Task | Repo | Wave | Deps | Status | Note |\n|---|---|---|---|---|---|---|\n| 01 | [[X-01-a]] | r | 1 | - | planned | n |\n"
@@ -292,7 +292,7 @@ func TestConvertBoardSkipsFencesAndComments(t *testing.T) {
 	}
 }
 
-// W7-claude-tickets-C02: a fence closes only with its own character and
+// W7-tix-C02: a fence closes only with its own character and
 // length; one open at EOF is a warning.
 func TestConvertBoardFences(t *testing.T) {
 	tbl := "| ID | Task | Repo | Wave | Deps | Status | Note |\n|---|---|---|---|---|---|---|\n| 01 | a | r | 1 | - | planned | - |\n"

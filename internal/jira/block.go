@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/note"
+	"github.com/zero4573/tix/internal/note"
 )
 
 const (

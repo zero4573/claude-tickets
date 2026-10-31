@@ -1,6 +1,6 @@
 ---
 name: task-agent
-description: Standing brief for a ticket task agent (tickets:task, tickets:mechanical) that implements one task file, tickets/<source>/<ID>/tasks/<ID>-NN-<slug>.md, in its own git worktree and reports in at most 40 lines. Use when you are spawned (by the PO, at the lead's request) to do one task of a wave.
+description: Standing brief for a ticket task agent (tix:task, tix:mechanical) that implements one task file, tickets/<source>/<ID>/tasks/<ID>-NN-<slug>.md, in its own git worktree and reports in at most 40 lines. Use when you are spawned (by the PO, at the lead's request) to do one task of a wave.
 ---
 
 # Ticket task agent
@@ -15,7 +15,7 @@ worktree) names the vault and the ticket.
 1. Your task file. Its frontmatter (`repo`, `owns`, `branch`, `worktree`, `context_budget`,
    `contracts`, `depends_on`, optional `skills`) and its `## Goal`, `## Do`, `## Checks`,
    `## Done when`. `owns` is the only set of paths you may write (plus your own `## Report`).
-   If `skills` lists any (e.g. `skills: [tickets:diagnose]` for a bug's feedback-loop or fix
+   If `skills` lists any (e.g. `skills: [tix:diagnose]` for a bug's feedback-loop or fix
    task), load each with the Skill tool now and follow it within the task's `owns`.
 2. The repo's `AGENTS.md` in your worktree: `rg -n '^## ' AGENTS.md`, then only the sections
    your task needs (`sed -n a,bp`), always including its conventions and its checking
@@ -24,9 +24,9 @@ worktree) names the vault and the ticket.
    sections your task file names or your repo and area need (`sed -n a,bp`). It holds the
    ticket's binding rules (local stack, test databases and env vars, data never to touch)
    and wins over the repo's `AGENTS.md` where they differ; your task file wins over both.
-3. The contracts your task names: `tickets/<source>/<ID>/contracts/<name>.md` in the vault. A task with `requirements:` (IDs) instead reads those requirements and their capability's `## Interfaces` in the spec (`ct spec diff <ID>` shows the change; `ct spec location <slug>` finds the file), cites each ID in the test that covers it, and never edits `specs/` (the PO does); a spec that is wrong or missing something goes in the report, as a wrong contract does.
-3b. Other vault context (decisions, how a feature works): `ct vault search "<topic>" --project <slug>
-   --budget 1500`, then `ct vault note get <note> "<section>"`, not whole notes.
+3. The contracts your task names: `tickets/<source>/<ID>/contracts/<name>.md` in the vault. A task with `requirements:` (IDs) instead reads those requirements and their capability's `## Interfaces` in the spec (`tix spec diff <ID>` shows the change; `tix spec location <slug>` finds the file), cites each ID in the test that covers it, and never edits `specs/` (the PO does); a spec that is wrong or missing something goes in the report, as a wrong contract does.
+3b. Other vault context (decisions, how a feature works): `tix vault search "<topic>" --project <slug>
+   --budget 1500`, then `tix vault note get <note> "<section>"`, not whole notes.
 4. Code by excerpt: find files and symbols with Glob and Grep, always scoped to
    your worktree path (unscoped searches hit the ticket worktree's and other tasks' copies); read line ranges, not whole files. Never read review files whole: grep
    the finding IDs your task names (`rg -n -A6 'W1-<repo>-M01' tickets/<source>/<ID>/reviews/`).
@@ -84,7 +84,7 @@ report `partial` with what's left instead of going on.
   block; the answer arrives as a message. Without a `Lead:` line, or with nothing else to do,
   commit what works and report `blocked`.
 
-## Report (the only thing the lead reads; ≤40 lines, ≤15 for tickets:mechanical)
+## Report (the only thing the lead reads; ≤40 lines, ≤15 for tix:mechanical)
 Write it under the task file's existing `## Report` heading, the line that is exactly `## Report` (never at a `## Report` quoted inside the task's text; task files already have one: fill it, never append a second), by Edit or by appending inside that section, never a shell redirect that rewrites the task file, then re-read it (`sed -n '/^## Report/,$p' <task file>`) (`sed -n '/^## Report/,$p'`; never hand back without it) and reply with the same text; if the write failed or the section is still empty, start the reply with `REPORT NOT WRITTEN: <reason>` (the reply goes to
 the PO, which tells the lead; the lead reads the task file):
 ```
@@ -107,7 +107,7 @@ On "stop: ..." from the PO or lead: `git add -A` (untracked files in `owns` incl
 
 ## Before you report
 - `git -C <worktree> status --short` is empty (everything committed), and the full check ran after the last commit.
-- `ct ws diff-check -C <worktree> --ticket <ID> <ticket-branch>..HEAD` exits 0: drop any binary or large file it flags from your branch (or name it in the report if it belongs there), and reword any `vault-id` line (the ticket's own vault-only IDs in code or commit messages), except a hit on a line kept from the base or in a fixture that models a ticket: note that one in the report, don't reword it.
+- `tix ws diff-check -C <worktree> --ticket <ID> <ticket-branch>..HEAD` exits 0: drop any binary or large file it flags from your branch (or name it in the report if it belongs there), and reword any `vault-id` line (the ticket's own vault-only IDs in code or commit messages), except a hit on a line kept from the base or in a fixture that models a ticket: note that one in the report, don't reword it.
 - Every subject of `git -C <worktree> log --format=%s <ticket-branch>..HEAD` follows the commit style (`conventional`: `type(scope): summary`, e.g. `fix(ws): …`); reword any that doesn't before reporting (your branch is unpushed).
 - Nothing left running: no background poll loops (`until … sleep`), watchers, dev servers or
   containers you started. Wait for a command in the foreground with a timeout instead.

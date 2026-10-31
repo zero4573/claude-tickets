@@ -9,7 +9,7 @@ tags: [pr-feedback]
 ---
 # {{title}}
 
-Review feedback on the open PRs for [[TICKET-ID]], written by `/tickets:pr-feedback`.
+Review feedback on the open PRs for [[TICKET-ID]], written by `/tix:pr-feedback`.
 Each row is one review thread: what was asked, what was done in the
 worktree (uncommitted until you commit), and a reply ready to paste into
 Bitbucket. `threads` in the frontmatter records each thread's last update, so

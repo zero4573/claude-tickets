@@ -16,26 +16,26 @@ import (
 
 	"github.com/rogpeppe/go-internal/testscript"
 
-	"github.com/zero4573/claude-tickets/internal/cli"
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/tasksplugin"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/cli"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/tasksplugin"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 func TestMain(m *testing.M) {
 	testscript.Main(m, map[string]func(){
-		"ct": func() { overrideContainer(); cli.Main() },
-		// ct-tty is ct with stdin and stdout taken for a terminal (testscript
+		"tix": func() { overrideContainer(); cli.Main() },
+		// tix-tty is tix with stdin and stdout taken for a terminal (testscript
 		// gives it pipes), for the sessions that run in this terminal
-		"ct-tty": func() { overrideContainer(); cli.AssumeTerminal(); cli.Main() },
+		"tix-tty": func() { overrideContainer(); cli.AssumeTerminal(); cli.Main() },
 	})
 }
 
-// overrideContainer makes ct's container check follow $CT_TEST_CONTAINER,
+// overrideContainer makes tix's container check follow $TIX_TEST_CONTAINER,
 // which only Setup sets ("0" by default: the host; a script sets "1" to see
-// ct refuse in a container). The shipped binary never reads it.
+// tix refuse in a container). The shipped binary never reads it.
 func overrideContainer() {
-	switch os.Getenv("CT_TEST_CONTAINER") {
+	switch os.Getenv("TIX_TEST_CONTAINER") {
 	case "0":
 		gitx.ContainerOverride = func() bool { return false }
 	case "1":
@@ -51,20 +51,20 @@ var stubs = map[string]string{
 	"claude": `#!/bin/sh
 echo "$@" >> "$WORK/calls/claude"
 pwd >> "$WORK/calls/claude-cwd"
-echo "CLAUDE_TICKETS_VAULT=$CLAUDE_TICKETS_VAULT" >> "$WORK/calls/claude-env"
-echo "CLAUDE_TICKETS_DEV_BIN=$CLAUDE_TICKETS_DEV_BIN" >> "$WORK/calls/claude-env"
+echo "TIX_VAULT=$TIX_VAULT" >> "$WORK/calls/claude-env"
+echo "TIX_DEV_BIN=$TIX_DEV_BIN" >> "$WORK/calls/claude-env"
 echo "PATH=$PATH" >> "$WORK/calls/claude-env"
 echo "$$" >> "$WORK/calls/claude-pid"
-# ct sync: keep the plan, and leave a follow-up as the skill would
+# tix sync: keep the plan, and leave a follow-up as the skill would
 if [ -f tickets/.sync-plan.json ]; then
   cat tickets/.sync-plan.json >> "$WORK/calls/sync-plans"
   echo "Check the HTML parts of the plan" > tickets/.sync-followups
 fi
-# /tickets:save (ct clean --save): marks the ticket saved when $WORK/save-ok exists
+# /tix:save (tix clean --save): marks the ticket saved when $WORK/save-ok exists
 case " $* " in
-  *" -p /tickets:save "*)
+  *" -p /tix:save "*)
     if [ -f "$WORK/save-ok" ]; then
-      id=$(basename "$PWD"); f=$(ls "$CLAUDE_TICKETS_VAULT"/tickets/*/"$id/$id.md" "$CLAUDE_TICKETS_VAULT/tickets/$id/$id.md" 2>/dev/null | head -n 1)
+      id=$(basename "$PWD"); f=$(ls "$TIX_VAULT"/tickets/*/"$id/$id.md" "$TIX_VAULT/tickets/$id/$id.md" 2>/dev/null | head -n 1)
       { head -n 1 "$f"; echo "saved: $(date +%Y-%m-%dT%H:%M:%S)"; tail -n +2 "$f"; } > "$f.tmp" && mv "$f.tmp" "$f"
     fi ;;
 esac
@@ -78,13 +78,20 @@ esac
 	"notify-send": `#!/bin/sh
 echo "$@" >> "$WORK/calls/notify-send"
 `,
+	// kiro-cli: one line of arguments per run, its cwd and the variables
+	// tix sets for it
+	"kiro-cli": `#!/bin/sh
+echo "$@" >> "$WORK/calls/kiro"
+pwd >> "$WORK/calls/kiro-cwd"
+for v in TIX_VAULT SANDBOX_ADD_DIRS SANDBOX_RO_PATHS GOMODCACHE; do eval "echo $v=\$$v" >> "$WORK/calls/kiro-env"; done
+`,
 	"editor": `#!/bin/sh
 echo "$@" >> "$WORK/calls/editor"
 `,
 	// git is the real one, except in a fake checkout (an empty .git dir):
 	// status says it's dirty when it has a .dirty file
 	"git": `#!/bin/sh
-# ct puts "-c key=value" pairs (hooks and fsmonitor off) before "-C dir"
+# tix puts "-c key=value" pairs (hooks and fsmonitor off) before "-C dir"
 d=
 prev=
 for a in "$@"; do
@@ -103,7 +110,7 @@ exec "$REAL_GIT" "$@"
 }
 
 // faketasks 404|bad: serves the Tasks plugin release for the rest of the
-// script (CLAUDE_TICKETS_TASKS_URL): every file is a 404, or bytes that
+// script (TIX_TASKS_URL): every file is a 404, or bytes that
 // don't match the pinned sha256s. Each request's path is appended to
 // $WORK/calls/tasks.
 func faketasks(ts *testscript.TestScript, neg bool, args []string) {
@@ -126,7 +133,7 @@ func faketasks(ts *testscript.TestScript, neg bool, args []string) {
 		fmt.Fprintln(w, "not the release")
 	}))
 	ts.Defer(s.Close)
-	ts.Setenv("CLAUDE_TICKETS_TASKS_URL", s.URL)
+	ts.Setenv("TIX_TASKS_URL", s.URL)
 }
 
 func TestScripts(t *testing.T) {
@@ -146,7 +153,7 @@ func TestScripts(t *testing.T) {
 			"faketasks": faketasks,
 			"cmpvault":  cmpvault,
 			// live-session <dir>: records this (running) test process as the
-			// session of workspace dir, as ct start does
+			// session of workspace dir, as tix start does
 			"live-session": func(ts *testscript.TestScript, neg bool, args []string) {
 				if neg || len(args) != 1 {
 					ts.Fatalf("usage: live-session <dir>")
@@ -154,7 +161,7 @@ func TestScripts(t *testing.T) {
 				ts.Check(workspace.RecordSession(ts.MkAbs(args[0]), "start"))
 			},
 			// samepid <dir>: the last session recorded in workspace dir has
-			// the PID the claude stub last ran as (ct became claude: exec)
+			// the PID the claude stub last ran as (tix became claude: exec)
 			"samepid": func(ts *testscript.TestScript, neg bool, args []string) {
 				if len(args) != 1 {
 					ts.Fatalf("usage: samepid <dir>")
@@ -176,9 +183,9 @@ func TestScripts(t *testing.T) {
 			},
 		},
 		Condition: func(cond string) (bool, error) {
-			// [container]: the scripts run as on the host (CT_TEST_CONTAINER=0), so
-			// it is false; it stays so a script's own `env CT_TEST_CONTAINER=1`
-			// (a ct that thinks it is in a container) doesn't change what runs
+			// [container]: the scripts run as on the host (TIX_TEST_CONTAINER=0), so
+			// it is false; it stays so a script's own `env TIX_TEST_CONTAINER=1`
+			// (a tix that thinks it is in a container) doesn't change what runs
 			if cond == "container" {
 				return false, nil
 			}
@@ -201,10 +208,10 @@ func TestScripts(t *testing.T) {
 			if err := os.MkdirAll(filepath.Join(plugin, ".claude-plugin"), 0o755); err != nil {
 				return err
 			}
-			if err := os.WriteFile(filepath.Join(plugin, ".claude-plugin", "plugin.json"), []byte(`{"name": "tickets"}`), 0o644); err != nil {
+			if err := os.WriteFile(filepath.Join(plugin, ".claude-plugin", "plugin.json"), []byte(`{"name": "tix"}`), 0o644); err != nil {
 				return err
 			}
-			env.Setenv("CLAUDE_TICKETS_PLUGIN", plugin)
+			env.Setenv("TIX_PLUGIN", plugin)
 			syncData, err := filepath.Abs(filepath.Join("testdata", "sync"))
 			if err != nil {
 				return err
@@ -220,7 +227,11 @@ func TestScripts(t *testing.T) {
 			env.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
 			env.Setenv("OBSIDIAN_ROOT", filepath.Join(home, "Documents", "Obsidian"))
 			env.Setenv("PATH", stubDir+string(os.PathListSeparator)+env.Getenv("PATH"))
-			env.Setenv("CLAUDE_TICKETS_VAULT", "")
+			env.Setenv("TIX_VAULT", "")
+			// the agent CLI and the sandbox folders come from the tests only
+			for _, v := range []string{"TIX_AGENT", "TIX_KIRO", "SANDBOX_ADD_DIRS", "SANDBOX_RO_PATHS"} {
+				env.Setenv(v, "")
+			}
 			env.Setenv("REAL_GIT", realGit)
 			env.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 			env.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(work, "gitconfig"))
@@ -228,11 +239,11 @@ func TestScripts(t *testing.T) {
 				env.Setenv("GIT_"+who+"_NAME", "Jane Doe")
 				env.Setenv("GIT_"+who+"_EMAIL", "jane@example.com")
 			}
-			env.Setenv("CT_TEST_CONTAINER", "0")
-			// ct vault init never reaches the real Tasks releases: this
+			env.Setenv("TIX_TEST_CONTAINER", "0")
+			// tix vault init never reaches the real Tasks releases: this
 			// refuses at once (faketasks serves a fake one)
-			env.Setenv("CLAUDE_TICKETS_TASKS_URL", "http://127.0.0.1:1/tasks")
-			// The pinned version and the settings ct writes, for fixtures
+			env.Setenv("TIX_TASKS_URL", "http://127.0.0.1:1/tasks")
+			// The pinned version and the settings tix writes, for fixtures
 			pin, err := tasksplugin.Embedded()
 			if err != nil {
 				return err

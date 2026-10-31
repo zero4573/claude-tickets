@@ -12,14 +12,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/followup"
-	"github.com/zero4573/claude-tickets/internal/jira"
-	"github.com/zero4573/claude-tickets/internal/mcp"
-	"github.com/zero4573/claude-tickets/internal/platform"
-	"github.com/zero4573/claude-tickets/internal/session"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/followup"
+	"github.com/zero4573/tix/internal/jira"
+	"github.com/zero4573/tix/internal/mcp"
+	"github.com/zero4573/tix/internal/platform"
+	"github.com/zero4573/tix/internal/session"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 func syncCmd() *cobra.Command {
@@ -37,15 +37,15 @@ change, and blocked follows the blockers' status. Sources with
 "sync": false (e.g. manual tickets, which you write in Obsidian) are
 skipped.
 
-For jira, ct sync syncs by itself, talking to the source's MCP server (its
-URL from $CLAUDE_TICKETS_MCP_CONFIG; no model, no tokens). It lists the open
+For jira, tix sync syncs by itself, talking to the source's MCP server (its
+URL from $TIX_MCP_CONFIG; no model, no tokens). It lists the open
 tickets with their last-updated time, compares them with the notes'
 frontmatter, and looks up the rest by key. For each ticket that moved,
 Jira's changelog says what changed, and only that part of the note is
 rewritten: the table and frontmatter for field changes, the description,
 or the recent comments. Changes the note doesn't show (time tracking, rank,
 sprint, ...) only move the timestamp. Claude (headless,
-$CLAUDE_TICKETS_CLAUDE, the ticket-sync skill, with the source's "model" in
+$TIX_CLAUDE, the ticket-sync skill, with the source's "model" in
 .sources.json, default sonnet) is started only for a description or
 comments that Jira can only give as HTML. Other sources run the skill over
 everything.
@@ -126,7 +126,7 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 			return fmt.Errorf("no source '%s' in %s", only, cfgFile)
 		}
 		if sc.Sync != nil && !*sc.Sync {
-			fmt.Printf("ct sync: '%s' has \"sync\": false (its tickets are managed in the vault); nothing to sync\n", only)
+			fmt.Printf("tix sync: '%s' has \"sync\": false (its tickets are managed in the vault); nothing to sync\n", only)
 			return nil
 		}
 	}
@@ -139,11 +139,11 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 		sources = append(sources, k)
 	}
 	if len(sources) == 0 {
-		fmt.Printf("ct sync: no enabled sources to sync in %s\n", cfgFile)
+		fmt.Printf("tix sync: no enabled sources to sync in %s\n", cfgFile)
 		return nil
 	}
 
-	// The skill and ct sync write ticket notes without listing them: snapshot
+	// The skill and tix sync write ticket notes without listing them: snapshot
 	// tickets/ here and, after a run that wrote something (a source that ran),
 	// refresh the index for exactly the files that changed.
 	before, beforeErr = snapshotTickets(ctx.Vault)
@@ -165,7 +165,7 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 	}
 	defer logf.Close()
 	// What each source did, for the notification and the log
-	summaryF, err := os.CreateTemp("", "ct-sync-summary.")
+	summaryF, err := os.CreateTemp("", "tix-sync-summary.")
 	if err != nil {
 		return err
 	}
@@ -206,9 +206,9 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 		if model == "" {
 			model = "sonnet"
 		}
-		both(fmt.Sprintf("=== ct sync %s vault=%s source=%s", time.Now().Format(time.RFC3339), ctx.Vault, src))
+		both(fmt.Sprintf("=== tix sync %s vault=%s source=%s", time.Now().Format(time.RFC3339), ctx.Vault, src))
 
-		claudePrompt := "/tickets:ticket-sync " + src + " --followups tickets/.sync-followups"
+		claudePrompt := "/tix:ticket-sync " + src + " --followups tickets/.sync-followups"
 		runClaude := true
 		var js *jira.Sync
 		if src == "jira" && !full {
@@ -227,7 +227,7 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 			}
 			if err != nil {
 				if !errors.Is(err, jira.ErrReported) {
-					fmt.Fprintln(os.Stderr, "ct: "+err.Error())
+					fmt.Fprintln(os.Stderr, "tix: "+err.Error())
 				}
 				say(fmt.Sprintf("%s: couldn't reach Jira through the '%s' MCP server (see the messages above)", src, sc.MCP))
 				followups = append(followups, fmt.Sprintf("ticket-sync %s: the run failed before syncing; check %s", src, config.TildePath(logFile)))
@@ -252,27 +252,27 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 				}{js.Plan.Source, js.Plan.CloudID, js.Plan.AccountID, js.HTML}); err != nil {
 					return err
 				}
-				claudePrompt = "/tickets:ticket-sync " + src + " --plan tickets/.sync-plan.json --followups tickets/.sync-followups"
+				claudePrompt = "/tix:ticket-sync " + src + " --plan tickets/.sync-plan.json --followups tickets/.sync-followups"
 				runClaude = true
-				both(fmt.Sprintf("ct sync: %s: %d HTML-only part(s) go to Claude", src, len(js.HTML)))
+				both(fmt.Sprintf("tix sync: %s: %d HTML-only part(s) go to Claude", src, len(js.HTML)))
 			} else {
-				both(fmt.Sprintf("ct sync: %s: written without Claude", src))
+				both(fmt.Sprintf("tix sync: %s: written without Claude", src))
 			}
 		}
 
 		if runClaude {
 			_ = os.Remove(fuFile)
 			// --strict-mcp-config: only the MCP servers given on the command line
-			// (by $CLAUDE_TICKETS_CLAUDE, or whatever wraps claude), not the
+			// (by $TIX_CLAUDE, or whatever wraps claude), not the
 			// claude.ai connectors tied to the login, which need interactive auth.
-			// $CLAUDE_TICKETS_SESSION_SETTINGS carries your own rules (e.g. which
+			// $TIX_SESSION_SETTINGS carries your own rules (e.g. which
 			// MCP tools a sync may never call).
 			wrote = true
 			argv, err := session.Command()
 			if err != nil {
 				return err
 			}
-			if s := os.Getenv("CLAUDE_TICKETS_SESSION_SETTINGS"); s != "" {
+			if s := os.Getenv("TIX_SESSION_SETTINGS"); s != "" {
 				argv = append(argv, "--settings", s)
 			}
 			argv = append(argv, "-p", claudePrompt, "--model", model, "--strict-mcp-config",
@@ -294,7 +294,7 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 			_ = os.Remove(planFile)
 		}
 
-		// In plan mode ct sync keeps the sync state (the skill keeps it otherwise)
+		// In plan mode tix sync keeps the sync state (the skill keeps it otherwise)
 		if js != nil && !contains(failed, src) {
 			if err := saveSyncState(stateFile, src, js, ticketsFailed); err != nil {
 				warnf("couldn't update %s: %v", stateFile, err)
@@ -312,7 +312,7 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 			warnf("couldn't write the follow-up note: %v", err)
 		} else if n != "" {
 			rel, _ := filepath.Rel(ctx.Vault, n)
-			both("ct sync: follow-ups for you in " + rel)
+			both("tix sync: follow-ups for you in " + rel)
 			noteRel = filepath.ToSlash(rel)
 			noteName = filepath.Base(n)
 		}
@@ -324,16 +324,16 @@ func ticketSync(ctx vault.Context, only string, full bool) error {
 		if noteName != "" {
 			body += "\nFollow-ups: " + noteName
 		}
-		notify("normal", "ct sync done", body)
+		notify("normal", "tix sync done", body)
 		return nil
 	}
 	body := "See " + logFile
 	if noteName != "" {
 		body += " and " + noteName
 	}
-	title := fmt.Sprintf("ct sync: %d ticket(s) failed", len(ticketsFailed))
+	title := fmt.Sprintf("tix sync: %d ticket(s) failed", len(ticketsFailed))
 	if len(failed) > 0 {
-		title = "ct sync: " + strings.Join(failed, " ") + " failed"
+		title = "tix sync: " + strings.Join(failed, " ") + " failed"
 	}
 	notify("critical", title, body)
 	return exitError(1)
@@ -361,7 +361,7 @@ func notify(urgency, title, body string) {
 	if urgency == "critical" {
 		u = platform.Critical
 	}
-	platform.Notify("ct sync", title, body, u)
+	platform.Notify("tix sync", title, body, u)
 }
 
 // knownChildren is the epics' children the last planned run recorded

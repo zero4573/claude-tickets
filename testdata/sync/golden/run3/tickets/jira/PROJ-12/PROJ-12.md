@@ -25,7 +25,7 @@ updated: TODAY
 
 <!-- source:start -->
 ## Source (Jira)
-> Synced from Jira by ct sync. Edits here are overwritten. Dashboard: [[tickets.base|Tickets]]
+> Synced from Jira by tix sync. Edits here are overwritten. Dashboard: [[tickets.base|Tickets]]
 
 | | |
 |---|---|

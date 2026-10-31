@@ -1,6 +1,6 @@
-# ct start --dev: a dev workspace's sessions run the ct and plugin built from
-# its claude-tickets checkout; go is a stub that writes a fake ct, which
-# records any run of it (the installed ct must never run it)
+# tix start --dev: a dev workspace's sessions run the tix and plugin built from
+# its tix checkout; go is a stub that writes a fake tix, which
+# records any run of it (the installed tix must never run it)
 [windows] skip
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a
 mkdir home/Documents/Obsidian/a/tickets/MAN-1
@@ -8,8 +8,8 @@ cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
 cp go-stub stub/go
 chmod 755 stub/go
 env WS=$WORK/home/Projects/work-a/MAN-1
-mkdir $WS/github-acme-tickets/cmd/ct $WS/github-acme-tickets/assets/plugin/.claude-plugin $WS/github-acme-tickets/assets/plugin/hooks $WS/github-acme-billing
-cp main.go $WS/github-acme-tickets/cmd/ct/main.go
+mkdir $WS/github-acme-tickets/cmd/tix $WS/github-acme-tickets/assets/plugin/.claude-plugin $WS/github-acme-tickets/assets/plugin/hooks $WS/github-acme-billing
+cp main.go $WS/github-acme-tickets/cmd/tix/main.go
 cp plugin.json $WS/github-acme-tickets/assets/plugin/.claude-plugin/plugin.json
 cp hooks.json $WS/github-acme-tickets/assets/plugin/hooks/hooks.json
 cp main.go $WS/github-acme-billing/main.go
@@ -19,71 +19,71 @@ exec git -C $WS/github-acme-tickets commit -q -m init
 expand workspace.json
 cp workspace.json $WS/workspace.json
 
-exec ct start --help
-stdout '--dev string +run the workspace.s sessions on the plugin and ct built'
+exec tix start --help
+stdout '--dev string +run the workspace.s sessions on the plugin and tix built'
 ! stdout 'write-plugin'
 
-# Not a claude-tickets checkout, or not a repo of the workspace: nothing starts
-! exec ct-tty start --no-fetch --dev github-acme-billing MAN-1
-stderr '^ct start: github-acme-billing is not a claude-tickets checkout$'
+# Not a tix checkout, or not a repo of the workspace: nothing starts
+! exec tix-tty start --no-fetch --dev github-acme-billing MAN-1
+stderr '^tix start: github-acme-billing is not a tix checkout$'
 ! exists calls/claude
 ! grep '"dev"' $WS/workspace.json
-! exec ct-tty start --no-fetch --dev github-acme-nope MAN-1
-stderr '^ct start: github-acme-nope is not a repo of MAN-1.s workspace \(ct ws add first\)$'
+! exec tix-tty start --no-fetch --dev github-acme-nope MAN-1
+stderr '^tix start: github-acme-nope is not a repo of MAN-1.s workspace \(tix ws add first\)$'
 
-# --dev records it, builds ct, copies the checkout's plugin (its hooks run
-# the built ct), and the session gets that plugin and the built ct first on
+# --dev records it, builds tix, copies the checkout's plugin (its hooks run
+# the built tix), and the session gets that plugin and the built tix first on
 # its own PATH
-exec ct-tty start --no-fetch --dev github-acme-tickets MAN-1
-stdout '^ct start: dev mode: plugin and ct from github-acme-tickets \([0-9a-f]+\)$'
+exec tix-tty start --no-fetch --dev github-acme-tickets MAN-1
+stdout '^tix start: dev mode: plugin and tix from github-acme-tickets \([0-9a-f]+\)$'
 grep '"dev": \{' $WS/workspace.json
 grep '"slug": "github-acme-tickets"' $WS/workspace.json
-grep '/MAN-1/github-acme-tickets build -buildvcs=false -o .*/MAN-1/.cache/dev/bin/ct ./cmd/ct$' calls/go
+grep '/MAN-1/github-acme-tickets build -buildvcs=false -o .*/MAN-1/.cache/dev/bin/tix ./cmd/tix$' calls/go
 grep 'GOCACHE=.*/MAN-1/.cache/go/build$' calls/go-env
-! exists calls/built-ct
+! exists calls/built-tix
 exists $WS/.cache/dev/plugin/.claude-plugin/plugin.json
-grep '"command": "\\".*/MAN-1/.cache/dev/bin/ct\\" hook agent-state' $WS/.cache/dev/plugin/hooks/hooks.json
+grep '"command": "\\".*/MAN-1/.cache/dev/bin/tix\\" hook agent-state' $WS/.cache/dev/plugin/hooks/hooks.json
 grep '^--plugin-dir .*/MAN-1/.cache/dev/plugin --add-dir' calls/claude
 grep '^PATH=.*/MAN-1/.cache/dev/bin:' calls/claude-env
-grep '^CLAUDE_TICKETS_DEV_BIN=.*/MAN-1/.cache/dev/bin$' calls/claude-env
+grep '^TIX_DEV_BIN=.*/MAN-1/.cache/dev/bin$' calls/claude-env
 ! grep '"PATH"' $WS/.claude/settings.json
 
 # Uncommitted changes in the checkout: the build has them, the line says so
-cp main.go $WS/github-acme-tickets/cmd/ct/extra.go
+cp main.go $WS/github-acme-tickets/cmd/tix/extra.go
 rm calls/claude calls/claude-env $WS/.sessions.json
-exec ct-tty start --no-fetch MAN-1
-stdout '^ct start: dev mode: plugin and ct from github-acme-tickets \([0-9a-f]+-dirty\)$'
-rm $WS/github-acme-tickets/cmd/ct/extra.go
+exec tix-tty start --no-fetch MAN-1
+stdout '^tix start: dev mode: plugin and tix from github-acme-tickets \([0-9a-f]+-dirty\)$'
+rm $WS/github-acme-tickets/cmd/tix/extra.go
 
 # A later start keeps it, and builds and copies again
 rm calls/claude calls/go $WS/.sessions.json
 cp main.go $WS/.cache/dev/plugin/marker
-exec ct-tty start --no-fetch MAN-1
-stdout 'dev mode: plugin and ct from github-acme-tickets'
+exec tix-tty start --no-fetch MAN-1
+stdout 'dev mode: plugin and tix from github-acme-tickets'
 exists calls/go
 ! exists $WS/.cache/dev/plugin/marker
 grep '--plugin-dir .*/MAN-1/.cache/dev/plugin ' calls/claude
-! exists calls/built-ct
+! exists calls/built-tix
 
 # A failing build fails the start, with go's output; no fallback
 rm calls/claude $WS/.sessions.json
 cp go-stub stub/go-fail
-! exec ct-tty start --no-fetch MAN-1
-stderr 'cmd/ct/main.go:1: syntax error'
-stderr '^ct start: building ct in github-acme-tickets failed'
+! exec tix-tty start --no-fetch MAN-1
+stderr 'cmd/tix/main.go:1: syntax error'
+stderr '^tix start: building tix in github-acme-tickets failed'
 ! exists calls/claude
 rm stub/go-fail
 
 # --dev none clears it: the installed plugin, no PATH
 rm calls/claude-env
-exec ct-tty start --no-fetch --dev none MAN-1
+exec tix-tty start --no-fetch --dev none MAN-1
 ! stdout 'dev mode'
 ! grep '"dev"' $WS/workspace.json
 ! grep '/.cache/dev/plugin' calls/claude
 grep '--plugin-dir .*/plugin --add-dir' calls/claude
 ! grep '^PATH=.*/.cache/dev/bin' calls/claude-env
 ! grep '"PATH"' $WS/.claude/settings.json
-grep '^CLAUDE_TICKETS_DEV_BIN=$' calls/claude-env
+grep '^TIX_DEV_BIN=$' calls/claude-env
 
 -- man-1.md --
 ---
@@ -106,21 +106,21 @@ package main
 -- plugin.json --
 {"name": "tickets"}
 -- hooks.json --
-{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "ct hook agent-state idle"}]}]}}
+{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "tix hook agent-state idle"}]}]}}
 -- go-stub --
 #!/bin/sh
-# go build -buildvcs=false -o <out> ./cmd/ct: records the call and writes a fake ct that
+# go build -buildvcs=false -o <out> ./cmd/tix: records the call and writes a fake tix that
 # records any run of it
 echo "$PWD $*" >> "$WORK/calls/go"
 env | grep '^GO' >> "$WORK/calls/go-env"
 if [ -e "$WORK/stub/go-fail" ]; then
-  echo 'cmd/ct/main.go:1: syntax error' >&2
+  echo 'cmd/tix/main.go:1: syntax error' >&2
   exit 1
 fi
 out=$4
 cat > "$out" <<'CT'
 #!/bin/sh
-echo "$@" >> "$WORK/calls/built-ct"
+echo "$@" >> "$WORK/calls/built-tix"
 exit 2
 CT
 chmod 755 "$out"

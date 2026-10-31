@@ -25,7 +25,7 @@ What is in and what is out.
 <!-- One line per wave: Wave 1: tasks 01-04 · what it delivers -->
 
 ## Relationships
-<!-- Read by /tickets:save: depends-on changes (project → project, over what), group membership, or "none" -->
+<!-- Read by /tix:save: depends-on changes (project → project, over what), group membership, or "none" -->
 
 ## Root cause
 <!-- Bugs only: the cause, traced to file:line -->

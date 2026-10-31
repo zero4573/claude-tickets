@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/textdiff"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/textdiff"
 )
 
 // Tree is a specs folder's files by slash-separated path relative to the

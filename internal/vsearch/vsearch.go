@@ -1,7 +1,7 @@
 // Package vsearch is hybrid retrieval over a vindex.Index: semantic cosine,
-// BM25 and a link boost, with filters and a token budget (ct vault search),
-// and related notes (ct vault related). The API is the vault-search-cli-v1
-// contract's "ct vault search" and "ct vault related".
+// BM25 and a link boost, with filters and a token budget (tix vault search),
+// and related notes (tix vault related). The API is the vault-search-cli-v1
+// contract's "tix vault search" and "tix vault related".
 package vsearch
 
 import (
@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/embed"
-	"github.com/zero4573/claude-tickets/internal/vindex"
+	"github.com/zero4573/tix/internal/embed"
+	"github.com/zero4573/tix/internal/vindex"
 )
 
 // Score weights and the link boost.

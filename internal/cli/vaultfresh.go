@@ -3,10 +3,10 @@ package cli
 import (
 	"path/filepath"
 
-	"github.com/zero4573/claude-tickets/internal/vindex"
+	"github.com/zero4573/tix/internal/vindex"
 )
 
-// Freshness: the notes ct writes go through vindex.Refresh, which does
+// Freshness: the notes tix writes go through vindex.Refresh, which does
 // nothing without an index and reports its own errors without failing the
 // command.
 func init() { afterNoteWrite = func(vault, rel string) { refreshIndex(vault, rel) } }

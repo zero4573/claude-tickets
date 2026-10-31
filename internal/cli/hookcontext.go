@@ -14,11 +14,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/note"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/note"
 )
 
-// defaultContextWarn is where ct hook context warns, in tokens.
+// defaultContextWarn is where tix hook context warns, in tokens.
 var defaultContextWarn = []int{150_000, 200_000, 250_000}
 
 func hookContextCmd() *cobra.Command {
@@ -28,13 +28,13 @@ func hookContextCmd() *cobra.Command {
 		Long: `Reads the context size of the session from its transcript (the token usage
 of the last reply) and, once per threshold, shows a warning and tells the
 session; past the last threshold, on every prompt. A ticket session's PO is
-told to run /tickets:po-refresh itself (it checkpoints, then prints the
+told to run /tix:po-refresh itself (it checkpoints, then prints the
 command to type); any other session to suggest /compact. The thresholds are
-CLAUDE_TICKETS_CONTEXT_WARN (tokens, comma separated; default
+TIX_CONTEXT_WARN (tokens, comma separated; default
 150000,200000,250000). Silent when the size can't be read; never fails.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if out := contextHook(os.Stdin, contextThresholds(os.Getenv("CLAUDE_TICKETS_CONTEXT_WARN")), contextStateDir()); out != nil {
+			if out := contextHook(os.Stdin, contextThresholds(os.Getenv("TIX_CONTEXT_WARN")), contextStateDir()); out != nil {
 				_ = json.NewEncoder(os.Stdout).Encode(out)
 			}
 			return nil
@@ -47,7 +47,7 @@ func hookResumeCmd() *cobra.Command {
 		Use:   "resume",
 		Short: "After /clear or /compact, point a ticket session back at its board (SessionStart)",
 		Long: `For SessionStart with source clear or compact in a ticket workspace: adds
-the PO's resume step (step 0 of /tickets:work-ticket from board.md and
+the PO's resume step (step 0 of /tix:work-ticket from board.md and
 relay.md) to the session's context, so a cleared or compacted session
 carries on without being told. After a compaction it also says the agents
 are still running, so the PO never takes it for a new session (whose agents
@@ -80,7 +80,7 @@ func pruneContextState(dir string) {
 	}
 }
 
-// contextThresholds parses CLAUDE_TICKETS_CONTEXT_WARN, sorted; the default
+// contextThresholds parses TIX_CONTEXT_WARN, sorted; the default
 // when it's empty or has no valid number.
 func contextThresholds(v string) []int {
 	var out []int
@@ -144,9 +144,9 @@ func contextHook(in io.Reader, thresholds []int, stateDir string) *hookOutput {
 	}
 	size := fmt.Sprintf("Context at %dk tokens (past %dk)", tokens/1000, thresholds[level-1]/1000)
 	if ticket {
-		msg := fmt.Sprintf("%s: the PO refreshes %s (/tickets:po-refresh).", size, when)
+		msg := fmt.Sprintf("%s: the PO refreshes %s (/tix:po-refresh).", size, when)
 		return &hookOutput{SystemMessage: msg, Specific: hookSpecificOutput{Event: "UserPromptSubmit",
-			Context: fmt.Sprintf("%s. Run /tickets:po-refresh yourself %s: it checkpoints board.md and relay.md, then prints the command for the user.", size, when)}}
+			Context: fmt.Sprintf("%s. Run /tix:po-refresh yourself %s: it checkpoints board.md and relay.md, then prints the command for the user.", size, when)}}
 	}
 	msg := fmt.Sprintf("%s: run /compact %s.", size, when)
 	return &hookOutput{SystemMessage: msg, Specific: hookSpecificOutput{Event: "UserPromptSubmit",
@@ -201,17 +201,17 @@ func contextTokens(transcript string) (int, bool) {
 	return tokens, ok
 }
 
-const resumeCleared = "Ticket %s: you are its PO (/tickets:work-ticket %s). The conversation was just cleared: " +
-	"redo step 0 (Resume) of /tickets:work-ticket %s from board.md and the Open part of relay.md, then carry on. " +
-	"If that playbook is no longer in your context, run /tickets:work-ticket %s."
+const resumeCleared = "Ticket %s: you are its PO (/tix:work-ticket %s). The conversation was just cleared: " +
+	"redo step 0 (Resume) of /tix:work-ticket %s from board.md and the Open part of relay.md, then carry on. " +
+	"If that playbook is no longer in your context, run /tix:work-ticket %s."
 
 // resumeCompacted keeps step 0 from taking a compaction for a new session:
 // the agents of this conversation survive it, whatever the session id says.
-const resumeCompacted = "Ticket %s: you are its PO (/tickets:work-ticket %s). The conversation was just compacted: " +
+const resumeCompacted = "Ticket %s: you are its PO (/tix:work-ticket %s). The conversation was just compacted: " +
 	"it is the same conversation, and the lead and every agent in po: agents: are still running. " +
-	"Redo step 0 (Resume) of /tickets:work-ticket %s from board.md and the Open part of relay.md, taking the same-session " +
+	"Redo step 0 (Resume) of /tix:work-ticket %s from board.md and the Open part of relay.md, taking the same-session " +
 	"path even if po: session: differs from $CLAUDE_CODE_SESSION_ID (then set it to that id; never mark tasks orphaned " +
-	"or spawn a second lead), then carry on. If that playbook is no longer in your context, run /tickets:work-ticket %s."
+	"or spawn a second lead), then carry on. If that playbook is no longer in your context, run /tix:work-ticket %s."
 
 func resumeHook(in io.Reader) *hookOutput {
 	var p struct {

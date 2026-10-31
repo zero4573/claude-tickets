@@ -1,19 +1,19 @@
 ---
 name: tidy
-description: Rewrite a ticket branch's unpushed commits into coherent ones with Jujutsu (/tickets:tidy), the tree unchanged byte for byte, in a scratch clone, then move the branch with a backup ref. Use when the user runs /tickets:tidy, asks to clean up or squash the ticket's history before saving and pushing, or when a task agent has skills [tickets:tidy].
+description: Rewrite a ticket branch's unpushed commits into coherent ones with Jujutsu (/tix:tidy), the tree unchanged byte for byte, in a scratch clone, then move the branch with a backup ref. Use when the user runs /tix:tidy, asks to clean up or squash the ticket's history before saving and pushing, or when a task agent has skills [tix:tidy].
 argument-hint: "[repo slug ...; default: every repo with unpushed commits]"
 ---
 
-# /tickets:tidy [repo ...]
+# /tix:tidy [repo ...]
 
-Order: tidy → `/tickets:save` (which pushes). Tidy only rewrites history, never content.
+Order: tidy → `/tix:save` (which pushes). Tidy only rewrites history, never content.
 Tidy before the save that pushes: a rewrite gives unpushed commits new SHAs, and save pins each vault spec version to the pushed SHA, so the pinned one is the final one.
 
 ## Started by the PO
 
-The user runs `/tickets:tidy` in the PO session. Outside a ticket workspace (no `board.md`
+The user runs `/tix:tidy` in the PO session. Outside a ticket workspace (no `board.md`
 next to `CLAUDE.md`), say so and stop. Otherwise add a relay entry with
-`ct relay add <ID> --from user --to lead --kind request "tidy history: <repos or all>"` (never
+`tix relay add <ID> --from user --to lead --kind request "tidy history: <repos or all>"` (never
 edit `relay.md` by hand; it prints `R-nn`) and wake the
 lead (SendMessage "new request R-nn"; no live lead: planned when the next one is spawned).
 
@@ -33,9 +33,9 @@ lead (SendMessage "new request R-nn"; no live lead: planned when the next one is
    Then `git update-ref refs/tidy-backup/<branch> <old>` and move the branch with
    `git update-ref refs/heads/<branch> <new> <old>` (the old value guards a race). The
    tree is the same, so `git status --short` must stay empty: check.
-3. Run the repo's checks, then `ct ws mark <ID> tidy`.
+3. Run the repo's checks, then `tix ws mark <ID> tidy`.
 4. Record the old→new mapping (old range, new commit list) in the ticket note's
-   `## Review`, and delete the scratch clones with `ct ws tidy-clean <ID>` (the sandbox denies `rm -rf`;
+   `## Review`, and delete the scratch clones with `tix ws tidy-clean <ID>` (the sandbox denies `rm -rf`;
    it keeps an unmerged clone, `--force` only after the user agrees).
 
 Never touch pushed commits, never `reset --hard`.

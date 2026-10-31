@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/zero4573/claude-tickets/internal/vindex"
+	"github.com/zero4573/tix/internal/vindex"
 )
 
 // BM25 parameters.

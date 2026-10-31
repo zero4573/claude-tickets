@@ -10,7 +10,7 @@ import (
 
 // A nested repository committed as a gitlink (its own .git folder in the
 // work tree, which Check doesn't read) with a planted clean filter, and a
-// .gitmodules asking for its dirtiness: ct's status and diffs don't run
+// .gitmodules asking for its dirtiness: tix's status and diffs don't run
 // git in it.
 func TestInTreeGitlinkNotEntered(t *testing.T) {
 	sup, marker, _ := plantedRepo(t)
@@ -43,7 +43,7 @@ func TestInTreeGitlinkNotEntered(t *testing.T) {
 		_, _ = Out(sup, args...)
 	}
 	if ran(marker) {
-		t.Error("ct's git ran the nested repo's clean filter")
+		t.Error("tix's git ran the nested repo's clean filter")
 	}
 	for _, args := range [][]string{{"add", "-A"}, {"add", "--update"}, {"add", "-qu", "x"}, {"commit", "-am", "x"},
 		{"commit", "--all", "-m", "x"}, {"status", "--ignore-submodules=none"}, {"diff", "--ignore-submodules=dirty"},
@@ -74,15 +74,15 @@ func TestInTreeGitlinkNotEntered(t *testing.T) {
 		}
 	}
 	// the flag goes last, so an earlier value (here one git would take
-	// from an abbreviation ct missed) can't win: no child runs
+	// from an abbreviation tix missed) can't win: no child runs
 	os.Remove(marker)
 	_, _ = Out(sup, "status", "--porcelain")
 	if ran(marker) {
-		t.Error("ct's status ran the nested repo's clean filter")
+		t.Error("tix's status ran the nested repo's clean filter")
 	}
 }
 
-// ct's git runs in a submodule's own work tree: the core.worktree git
+// tix's git runs in a submodule's own work tree: the core.worktree git
 // wrote into its config under the superproject's .git/modules passes when
 // it leads into the superproject's work tree.
 func TestRunInSubmoduleWorkTree(t *testing.T) {

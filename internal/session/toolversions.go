@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/vault"
 )
 
-const toolVersionsHeader = "# Written by ct; regenerated on every start, so don't edit it."
+const toolVersionsHeader = "# Written by tix; regenerated on every start, so don't edit it."
 
 // WriteToolVersions writes <dir>/.tool-versions for the repos (slug to
 // worktree path, may be empty) from the toolVersions setting of vault, so
@@ -21,8 +21,8 @@ const toolVersionsHeader = "# Written by ct; regenerated on every start, so don'
 // repos' go.mod files, every other tool from the setting; only installed
 // versions are written. A tool with no installed version is reported to
 // warn and left out; nothing resolved removes a stale file that starts with
-// the header. ct owns the root file: an existing one is overwritten (a
-// user-written one included) and `ct ws rm` removes it. The write is atomic.
+// the header. tix owns the root file: an existing one is overwritten (a
+// user-written one included) and `tix ws rm` removes it. The write is atomic.
 func WriteToolVersions(dir, vault_ string, repos map[string]string, warn func(string)) error {
 	if warn == nil {
 		warn = func(string) {}
@@ -63,14 +63,14 @@ func WriteToolVersions(dir, vault_ string, repos map[string]string, warn func(st
 		if tool == "golang" && goReq != "" {
 			v = pickGo(inst, goReq)
 			if v == "" {
-				warn(fmt.Sprintf("ct: .tool-versions: golang %s isn't installed (asdf install golang %s)", goReq, goReq))
+				warn(fmt.Sprintf("tix: .tool-versions: golang %s isn't installed (asdf install golang %s)", goReq, goReq))
 			} else {
 				fromGoMod = true
 			}
 		} else {
 			v = pickWanted(inst, want)
 			if v == "" {
-				warn(fmt.Sprintf("ct: .tool-versions: %s %s isn't installed (asdf install %s %s)", tool, want, tool, installHint(want)))
+				warn(fmt.Sprintf("tix: .tool-versions: %s %s isn't installed (asdf install %s %s)", tool, want, tool, installHint(want)))
 			}
 		}
 		if v != "" {

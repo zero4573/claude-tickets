@@ -1,4 +1,4 @@
-# ct clean: --save when claude fails; a dev workspace saves on the installed plugin and ct; a run that fails after rewriting finishes on re-run; archive collision; IDs as typed
+# tix clean: --save when claude fails; a dev workspace saves on the installed plugin and tix; a run that fails after rewriting finishes on re-run; archive collision; IDs as typed
 env V=home/Documents/Obsidian/a
 env W=home/Projects/work-a
 mkdir $V/.obsidian $V/inbox $V/notes
@@ -14,12 +14,12 @@ mkdir failstub
 cp failclaude failstub/claude
 chmod 0755 failstub/claude
 env PATH=$WORK/failstub:$PATH
-! exec ct clean --yes --save MAN-60
-stdout 'MAN-60: running /tickets:save'
-stdout 'MAN-60: skipped: /tickets:save failed'
+! exec tix clean --yes --save MAN-60
+stdout 'MAN-60: running /tix:save'
+stdout 'MAN-60: skipped: /tix:save failed'
 exists $V/tickets/MAN-60/MAN-60.md
 exists $W/MAN-60/workspace.json
-exec sh -c 'cat home/Documents/Obsidian/a/inbox/*-ct-clean-follow-ups.md'
+exec sh -c 'cat home/Documents/Obsidian/a/inbox/*-tix-clean-follow-ups.md'
 stdout 'MAN-60.*couldn.t save it'
 
 # 3. .trash is a file: the run fails after rewriting links; fixing it and
@@ -27,12 +27,12 @@ stdout 'MAN-60.*couldn.t save it'
 cp synced.md $V/tickets/PROJ-60/PROJ-60.md
 cp links60.md $V/notes/links60.md
 cp empty $V/.trash
-! exec ct clean --yes PROJ-60
+! exec tix clean --yes PROJ-60
 stdout 'PROJ-60: '
 exists $V/tickets/PROJ-60/PROJ-60.md
 grep '\[PROJ-60\]\(https://x.example/browse/PROJ-60\)' $V/notes/links60.md
 rm $V/.trash
-exec ct clean --yes PROJ-60
+exec tix clean --yes PROJ-60
 stdout 'PROJ-60: moved to .trash/PROJ-60; rewrote 0 link\(s\) in 0 note\(s\)'
 ! exists $V/tickets/PROJ-60
 
@@ -40,34 +40,34 @@ stdout 'PROJ-60: moved to .trash/PROJ-60; rewrote 0 link\(s\) in 0 note\(s\)'
 cp manual.md $V/tickets/MAN-61/MAN-61.md
 mkdir $V/archive/tickets/MAN-61
 cp manual.md $V/archive/tickets/MAN-61/MAN-61.md
-! exec ct clean --yes MAN-61
+! exec tix clean --yes MAN-61
 stdout 'MAN-61: move: destination exists'
 exists $V/tickets/MAN-61/MAN-61.md
 
 # 5. IDs are matched as typed (lower case is not found), exit 1
 cp synced61.md $V/tickets/PROJ-61/PROJ-61.md
-! exec ct clean --dry-run proj-61
+! exec tix clean --dry-run proj-61
 stdout 'proj-61: skip: not a ticket in the vault'
 
 
-# 6. a dev workspace (ct start --dev): --save runs the installed plugin and
-# ct; nothing is built (here a build would fail) or copied from the checkout
+# 6. a dev workspace (tix start --dev): --save runs the installed plugin and
+# tix; nothing is built (here a build would fail) or copied from the checkout
 cp unsaved-manual.md $V/tickets/MAN-62/MAN-62.md
 cp empty $V/tickets/MAN-62/design.md
 env WS=$WORK/$W/MAN-62
-mkdir $WS/github-acme-tickets/cmd/ct $WS/github-acme-tickets/assets/plugin/.claude-plugin
+mkdir $WS/github-acme-tickets/cmd/tix $WS/github-acme-tickets/assets/plugin/.claude-plugin
 cp empty $WS/github-acme-tickets/assets/plugin/.claude-plugin/plugin.json
 expand dev-workspace.json
 cp dev-workspace.json $WS/workspace.json
 cp gofail stub/go
 chmod 0755 stub/go
-! exec ct clean --yes --save MAN-62
-stdout 'MAN-62: running /tickets:save'
+! exec tix clean --yes --save MAN-62
+stdout 'MAN-62: running /tix:save'
 ! stdout 'dev mode'
-! stderr 'building ct'
+! stderr 'building tix'
 ! exists calls/go
 ! exists $WS/.cache/dev
-exec sh -c 'grep "/tickets:save" "$WORK/calls/claude" | tail -n 1'
+exec sh -c 'grep "/tix:save" "$WORK/calls/claude" | tail -n 1'
 stdout '--plugin-dir '
 ! stdout '\.cache/dev'
 
@@ -108,7 +108,7 @@ See [[PROJ-60]].
 -- gofail --
 #!/bin/sh
 echo "$PWD $*" >> "$WORK/calls/go"
-echo 'cmd/ct/main.go:1: syntax error' >&2
+echo 'cmd/tix/main.go:1: syntax error' >&2
 exit 1
 -- dev-workspace.json --
 {

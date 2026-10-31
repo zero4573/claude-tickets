@@ -1,5 +1,5 @@
 {
-  "_comment": "The Obsidian Tasks plugin release ct vault init and nix/obsidian.nix install. Bump version and every sha256 together (hex, sha256sum of each release asset); see UPDATES.md.",
+  "_comment": "The Obsidian Tasks plugin release tix vault init and nix/obsidian.nix install. Bump version and every sha256 together (hex, sha256sum of each release asset); see UPDATES.md.",
   "id": "obsidian-tasks-plugin",
   "repo": "obsidian-tasks-group/obsidian-tasks",
   "version": "8.4.0",

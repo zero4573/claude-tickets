@@ -1,9 +1,9 @@
 ---
 name: ticket-sync
-description: Sync the user's open tickets from one ticket source (jira, ...) listed in the vault's tickets/.sources.json into the Obsidian vault's tickets/ folder, one note per ticket, skipping unchanged tickets and closing ones the source has closed. Run headless as /tickets:ticket-sync <source> by the ct sync command from the vault root; use when asked to sync or pull tickets into the vault.
+description: Sync the user's open tickets from one ticket source (jira, ...) listed in the vault's tickets/.sources.json into the Obsidian vault's tickets/ folder, one note per ticket, skipping unchanged tickets and closing ones the source has closed. Run headless as /tix:ticket-sync <source> by the tix sync command from the vault root; use when asked to sync or pull tickets into the vault.
 ---
 
-# /tickets:ticket-sync <source>
+# /tix:ticket-sync <source>
 
 You run unattended from the root of an Obsidian vault (the cwd), with the
 source's MCP server (read-only) and file tools. Nobody can answer
@@ -30,9 +30,9 @@ Read first:
 - The vault's `AGENTS.md`, for note rules and the ticket structure, and
   `templates/ticket-synced.md`, for the note layout.
 
-## Plan mode: `/tickets:ticket-sync <source> --plan <file> --followups <file>`
+## Plan mode: `/tix:ticket-sync <source> --plan <file> --followups <file>`
 
-For jira, the `ct sync` command syncs by itself, without a model. It
+For jira, the `tix sync` command syncs by itself, without a model. It
 reconciles every note against Jira, reads each changed ticket's changelog,
 and rewrites only the part of the note that changed: the frontmatter and the
 source block's table, `### Description`, `### Recent comments`, or an epic's
@@ -77,7 +77,7 @@ as a task, without the checkbox: `Check [[PROJ-63]]: <what's wrong and what
 to do>`. The command turns the lines into a follow-up note in `inbox/`.
 
 Without `--plan` (a source with no command-side sync, or
-`ct sync --full`), follow every step below, rendering notes in the same
+`tix sync --full`), follow every step below, rendering notes in the same
 layout the command writes (see **The source block**). The `--followups`
 file works the same way if it's given.
 
@@ -90,8 +90,8 @@ native key as-is (Jira `PROJ-12`); otherwise it's
 `^[A-Z][A-Z0-9_]*(-[A-Z0-9]+)+$`. Upper-case it and replace other
 characters with `-` if needed. The note is `tickets/<source>/<ID>/<ID>.md`,
 `<source>` being this source's key in `.sources.json` (the same as its
-`source:`), as ct sync writes them. A note of the ID already elsewhere (an
-older vault's `tickets/<ID>/<ID>.md`, before `ct vault update` moves it)
+`source:`), as tix sync writes them. A note of the ID already elsewhere (an
+older vault's `tickets/<ID>/<ID>.md`, before `tix vault update` moves it)
 is refreshed where it is, never written twice.
 
 ## What you own in a ticket note
@@ -206,7 +206,7 @@ table, then `### Children` (epics only), `### Description` and
 ```markdown
 <!-- source:start -->
 ## Source (<Source name>)
-> Synced from <Source name> by ct sync. Edits here are overwritten. Dashboard: [[tickets.base|Tickets]]
+> Synced from <Source name> by tix sync. Edits here are overwritten. Dashboard: [[tickets.base|Tickets]]
 
 | | |
 |---|---|

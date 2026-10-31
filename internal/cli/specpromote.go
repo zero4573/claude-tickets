@@ -15,15 +15,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/links"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/spec"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/links"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/spec"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
-// promoteNow is the clock of ct spec promote (a seam for tests).
+// promoteNow is the clock of tix spec promote (a seam for tests).
 var promoteNow = time.Now
 
 // The steps of a promote's apply phase and its commit point, one seam each
@@ -124,7 +124,7 @@ func specPromoteCmd() *cobra.Command {
 		Long: `For every repo of the ticket's workspace whose specs live in the vault and
 whose copy tickets/<source>/<ID>/specs/<slug>/ holds files, one transaction:
   conflict check: a copy file whose projects/<slug>/specs/ version differs
-     from this ticket's snapshots (specs-base/<slug>/, taken by ct spec start,
+     from this ticket's snapshots (specs-base/<slug>/, taken by tix spec start,
      and specs-after/<slug>/ when there is one) was changed by another ticket
      since. The repo is refused and nothing is written for it; the output
      names the files, the other tickets' version notes that hold them, both
@@ -141,10 +141,10 @@ whose copy tickets/<source>/<ID>/specs/<slug>/ holds files, one transaction:
      after, then each copy file into projects/<slug>/specs/, then (links
      across the vault follow) out of the copy; journal and stage are then
      removed
-A run that stops after the commit point is finished by the next ct spec
-promote (before any other check of any repo) or ct spec start of the
+A run that stops after the commit point is finished by the next tix spec
+promote (before any other check of any repo) or tix spec start of the
 ticket (which takes the vault lock for it, failing at once when another
-session holds it); until then ct spec diff and show refuse the ticket, log
+session holds it); until then tix spec diff and show refuse the ticket, log
 notes it and pin skips it. A stage without a journal is deleted by promote.
 The finishing run never overwrites a projects/ file changed (by another
 ticket or by hand) after this promote planned: it holds that file back (its snapshot entries
@@ -162,8 +162,8 @@ other change into the copy by hand and re-running with --resolve <slug>=merged (
 as the merge: the ticket's before side becomes the current projects/
 content of those files). A copy file that already equals projects/ byte for
 byte counts as merged without the flag. --json prints the results as data.
-Exit 1 when any repo was refused. A copy without the snapshot ct spec start
-takes is an error, before anything is written: run ct spec start <ID> <slug>
+Exit 1 when any repo was refused. A copy without the snapshot tix spec start
+takes is an error, before anything is written: run tix spec start <ID> <slug>
 (it snapshots projects/ as it is then) and promote again. The transaction
 and the reasons for it: docs/spec-versions.md, "Promote".`,
 		Args: cobra.ExactArgs(1),
@@ -1489,7 +1489,7 @@ func printPromote(out io.Writer, id string, pr promoteResult) {
 
 // needsStart fails when the ticket's copy for slug holds files but has no
 // snapshot to tell another ticket's change from its own: the copy was made
-// without ct spec start. It also fails while a ct spec start's rebase is
+// without tix spec start. It also fails while a tix spec start's rebase is
 // unfinished (pendingRebase).
 func needsStart(ctx vault.Context, id, slug string) error {
 	cp, err := spec.ReadTree(spec.CopyDir(ctx.Vault, id, slug))
@@ -1503,11 +1503,11 @@ func needsStart(ctx vault.Context, id, slug string) error {
 	if base != nil {
 		return pendingRebase(ctx, id, slug)
 	}
-	return fmt.Errorf("%s: the copy %s/ has no snapshot %s/: run ct spec start %s %s first (it snapshots projects/%s/specs/ as it is now; another ticket's change made before that can't be told from this ticket's)",
+	return fmt.Errorf("%s: the copy %s/ has no snapshot %s/: run tix spec start %s %s first (it snapshots projects/%s/specs/ as it is now; another ticket's change made before that can't be told from this ticket's)",
 		slug, vaultRel(ctx.Vault, spec.CopyDir(ctx.Vault, id, slug)), vaultRel(ctx.Vault, spec.BaseDir(ctx.Vault, id, slug)), id, slug, slug)
 }
 
-// pendingRebase refuses a repo whose ct spec start stopped between its two
+// pendingRebase refuses a repo whose tix spec start stopped between its two
 // snapshot writes (spec.PendingRebase): until a start finishes it, a
 // rebased file's base and after disagree.
 func pendingRebase(ctx vault.Context, id, slug string) error {
@@ -1521,7 +1521,7 @@ func pendingRebase(ctx vault.Context, id, slug string) error {
 }
 
 // refuseUnfilled refuses a promotion whose after snapshot lacks a file the
-// ticket promoted earlier (a move under an older ct that stopped part way)
+// ticket promoted earlier (a move under an older tix that stopped part way)
 // when another ticket promoted that file since: projects/ then holds that
 // ticket's content, and taking it (spec.TicketAfter) would record it as
 // this ticket's change. Without such a promotion projects/ still holds the
@@ -1540,7 +1540,7 @@ func refuseUnfilled(ctx vault.Context, id, slug string, after, projects spec.Tre
 		if !ok {
 			continue
 		}
-		return fmt.Errorf("%s: %s/ lacks %s, which this ticket promoted (a promotion stopped part way), and %s promoted it since (%s, promoted %s): projects/%s/specs/ no longer holds this ticket's content. Run ct spec start %s %s %s to copy it again, redo the change, then promote",
+		return fmt.Errorf("%s: %s/ lacks %s, which this ticket promoted (a promotion stopped part way), and %s promoted it since (%s, promoted %s): projects/%s/specs/ no longer holds this ticket's content. Run tix spec start %s %s %s to copy it again, redo the change, then promote",
 			slug, vaultRel(ctx.Vault, spec.AfterDir(ctx.Vault, id, slug)), f, o.Version.ID(), vaultRel(ctx.Vault, o.Path), o.Version.Promoted, slug, id, slug, strings.SplitN(f, "/", 2)[0])
 	}
 	return nil

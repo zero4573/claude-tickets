@@ -1,16 +1,16 @@
-// Package assets holds the files ct ships inside its binary, so a single
+// Package assets holds the files tix ships inside its binary, so a single
 // executable is a complete install:
 //
-//	vault-scaffold/        what ct vault init copies into a vault, plus
+//	vault-scaffold/        what tix vault init copies into a vault, plus
 //	                       obsidian-types.json, the property types it merges
 //	                       into Obsidian's settings
 //	scaffold-history.json  the hash of every version of each scaffold file
-//	                       ct has shipped, so ct vault update knows an
+//	                       tix has shipped, so tix vault update knows an
 //	                       unedited old copy (generated: go generate ./assets)
 //	plugin/                the Claude Code plugin (skills, task and review agents, hooks)
 //	obsidian/              the Tasks community plugin's pin (tasks-plugin.json)
 //	                       and the workflow's settings for it
-//	                       (tasks-settings.json), what ct vault init installs,
+//	                       (tasks-settings.json), what tix vault init installs,
 //	                       shared with nix/obsidian.nix
 //
 // The scaffold and obsidian/ are read straight from the embedded files; the

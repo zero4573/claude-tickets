@@ -1,6 +1,6 @@
-// Package config holds where claude-tickets keeps its state (per OS: see
+// Package config holds where tix keeps its state (per OS: see
 // platform.DirsFor) and the settings it reads from the environment
-// (CLAUDE_TICKETS_*) and from config.json in its config directory.
+// (TIX_*) and from config.json in its config directory.
 package config
 
 import (
@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/platform"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/platform"
 )
 
 func Home() string { return platform.Home() }
@@ -40,17 +40,17 @@ func TildePath(p string) string {
 	return "~" + string(filepath.Separator) + rel
 }
 
-// Dir is the config directory (Linux: ~/.config/claude-tickets; see
+// Dir is the config directory (Linux: ~/.config/tix; see
 // platform.DirsFor).
 func Dir() string { return platform.Current().Config }
 
 func File() string { return filepath.Join(Dir(), "config.json") }
 
-// CacheDir is the cache directory ($CLAUDE_TICKETS_CACHE; Linux:
-// ~/.cache/claude-tickets).
+// CacheDir is the cache directory ($TIX_CACHE; Linux:
+// ~/.cache/tix).
 func CacheDir() string { return platform.Current().Cache }
 
-// StateDir is where logs go ($CLAUDE_TICKETS_STATE_DIR; Linux:
+// StateDir is where logs go ($TIX_STATE_DIR; Linux:
 // ~/.local/state).
 func StateDir() string { return platform.Current().Logs }
 
@@ -61,11 +61,11 @@ func ObsidianRoot() string {
 	return filepath.Join(Home(), "Documents", "Obsidian")
 }
 
-// LaunchVault is set (CLAUDE_TICKETS_VAULT) for the sessions ct starts.
-var LaunchVault = os.Getenv("CLAUDE_TICKETS_VAULT")
+// LaunchVault is set (TIX_VAULT) for the sessions tix starts.
+var LaunchVault = os.Getenv("TIX_VAULT")
 
 // DefaultVaultFile holds the default vault's name (or path). Before
-// claude-tickets had its own config dir it lived in ~/.config/tickets, which
+// tix had its own config dir it lived in ~/.config/tickets, which
 // is still read while the new file doesn't exist.
 func DefaultVaultFile() string {
 	f := filepath.Join(Dir(), "default-vault")

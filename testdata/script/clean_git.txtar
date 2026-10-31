@@ -1,4 +1,4 @@
-# ct clean: git safety (stale index on dry run, shared-clone stash, agent state, squash-merged branch pruned, dirty lead blocks covered)
+# tix clean: git safety (stale index on dry run, shared-clone stash, agent state, squash-merged branch pruned, dirty lead blocks covered)
 expand gitconfig
 env V=home/Documents/Obsidian/a
 env W=home/Projects/work-a
@@ -76,7 +76,7 @@ exec git -C $W/PROJ-74/x push -q origin HEAD:feature/PROJ-74
 exec git -C $M push -q origin --delete feature/PROJ-74
 exec git -C $M fetch -q --prune origin
 # PROJ-75: pushed, but an initialized submodule holds a local commit that
-# ct's status doesn't see
+# tix's status doesn't see
 exec git -C $M worktree add -q -b feature/PROJ-75 $WORK/$W/PROJ-75/x
 exec git -C $W/PROJ-75/x submodule add -q git@example.invalid:remote.git lib
 exec git -C $W/PROJ-75/x -c user.name=a -c user.email=a@example.com commit -q -m lib
@@ -90,7 +90,7 @@ expand $W/PROJ-70/workspace.json $W/PROJ-71/workspace.json $W/PROJ-72/workspace.
 
 exec sh -c 'find home/Documents home/Projects remote.git -printf "%p %T@ %s %m\n" | sort'
 cp stdout before.txt
-exec ct clean --dry-run
+exec tix clean --dry-run
 cp stdout plan.txt
 exec sh -c 'find home/Documents home/Projects remote.git -printf "%p %T@ %s %m\n" | sort'
 cmp stdout before.txt
@@ -109,14 +109,14 @@ stdout 'MAN-71 \(closed\): skip: uncommitted changes in x'
 # says what already went to the trash
 mkdir $V/.trash/PROJ-73-ignored-files/x
 cp empty $V/.trash/PROJ-73-ignored-files/x/node_modules
-! exec ct clean --yes PROJ-73
+! exec tix clean --yes PROJ-73
 stderr 'not removed: couldn''t move its nested repository .*; its ignored files were already copied to .*/\.trash/PROJ-73-ignored-files/x'
 exists $W/PROJ-73/x/node_modules/inner/.git
 exists $W/PROJ-73/x/.env
 rm $V/.trash/PROJ-73-ignored-files/x/node_modules
 
 # The squash-merged one goes; its branch stays in the main clone
-exec ct clean --yes PROJ-73
+exec tix clean --yes PROJ-73
 stdout 'PROJ-73: removed its workspace; moved to .trash/PROJ-73'
 ! exists $W/PROJ-73
 stdout 'ignored files moved to .*/\.trash/PROJ-73-ignored-files/x: \.env'
@@ -136,7 +136,7 @@ grep '^changed$' $V/.trash/PROJ-73-ignored-files/x/node_modules/dep3/.env
 exec git -C $M rev-parse --verify -q refs/heads/feature/PROJ-73
 
 # the one with the submodule stays, with the same reason on a real run
-! exec ct clean --yes PROJ-75
+! exec tix clean --yes PROJ-75
 stdout 'PROJ-75.*submodule checked out in x'
 exists $W/PROJ-75/x/lib/.git
 
@@ -177,7 +177,7 @@ source: manual
 covered-by: "[[MAN-70]]"
 ---
 -- gitconfig --
-# Trusted only because it is the user's global config (ct checks a repo's
+# Trusted only because it is the user's global config (tix checks a repo's
 # own config, never this): the local remotes stand in for real hosts
 [url "$WORK/"]
 	insteadOf = git@example.invalid:

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/note"
+	"github.com/zero4573/tix/internal/note"
 )
 
 func TestVersionRoundTrip(t *testing.T) {
@@ -316,7 +316,7 @@ func TestPendingRebase(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := PendingRebase(v, "PROJ-12", "acme-orders")
-	if err == nil || !strings.Contains(err.Error(), "run ct spec start PROJ-12 acme-orders again") {
+	if err == nil || !strings.Contains(err.Error(), "run tix spec start PROJ-12 acme-orders again") {
 		t.Fatalf("want the rerun named, got %v", err)
 	}
 	if !errors.Is(err, ErrRebasePending) {
@@ -329,7 +329,7 @@ func TestPendingRebase(t *testing.T) {
 	if _, _, err := VersionSides(v, "acme-orders", Version{Ticket: "[[PROJ-13]]", Slug: "acme-orders"}); err != nil {
 		t.Fatalf("other ticket: %v", err)
 	}
-	if got := RefreshPending("PROJ-12", "acme-orders"); got != "refresh pending: run ct spec start PROJ-12 acme-orders" {
+	if got := RefreshPending("PROJ-12", "acme-orders"); got != "refresh pending: run tix spec start PROJ-12 acme-orders" {
 		t.Fatalf("note %q", got)
 	}
 }

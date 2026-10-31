@@ -18,7 +18,7 @@ func retroText(t *testing.T, path string) string {
 func TestRetroRulesPinned(t *testing.T) {
 	cases := map[string][]string{
 		"plugin/skills/lead/SKILL.md": {
-			"`ct ws diff-check -C <ws>/<slug> --ticket <ID> HEAD..task/<ID>-NN-<task-slug>`",
+			"`tix ws diff-check -C <ws>/<slug> --ticket <ID> HEAD..task/<ID>-NN-<task-slug>`",
 			"exit 3 → don't merge",
 			"NO REPORT",
 			"get `</dev/null`",
@@ -43,7 +43,7 @@ func TestRetroRulesPinned(t *testing.T) {
 			"follows the commit style",
 			"get `</dev/null`",
 			"Commits: <sha> <subject>",
-			"`ct ws diff-check -C <worktree> --ticket <ID> <ticket-branch>..HEAD` exits 0",
+			"`tix ws diff-check -C <worktree> --ticket <ID> <ticket-branch>..HEAD` exits 0",
 			"`board.md` `commit-style:` wins",
 			"Checks: <the repo's full check command>",
 			"except a hit on a line kept from the base or in a fixture that models a ticket: note that one in the report",

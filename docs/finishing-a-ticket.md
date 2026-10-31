@@ -1,8 +1,8 @@
 # Finishing a ticket: tidy, save and push
 
-The order is fixed: tidy, then `/tickets:save`, which pushes the ticket
+The order is fixed: tidy, then `/tix:save`, which pushes the ticket
 branches. Sessions commit (signed, when the session has a signing key) on the ticket
-branches and push only through `/tickets:save`: never a force push, a branch or tag
+branches and push only through `/tix:save`: never a force push, a branch or tag
 delete, or a task branch.
 
 ```mermaid
@@ -10,15 +10,15 @@ sequenceDiagram
   participant U as you
   participant P as PO session
   participant L as lead
-  participant W as ct ws
+  participant W as tix ws
   participant H as host
-  U->>P: /tickets:tidy
+  U->>P: /tix:tidy
   P->>L: tidy task per repo with unpushed commits (jj, scratch clone)
   L->>L: same tree check, backup ref, move the branch
-  L->>W: ct ws mark ID tidy
-  U->>P: /tickets:save
+  L->>W: tix ws mark ID tidy
+  U->>P: /tix:save
   P->>P: session logs, kb-drafts to projects/, ticket summary
-  P->>W: ct ws marks ID
+  P->>W: tix ws marks ID
   W-->>P: ok, stale or none per repo
   P->>P: every commit to push signed?
   P->>H: git push -u origin feature branch (fast-forward only)
@@ -27,11 +27,11 @@ sequenceDiagram
 
 ## Tidy
 
-`/tickets:tidy` rewrites the ticket branch's unpushed commits into coherent ones with
+`/tix:tidy` rewrites the ticket branch's unpushed commits into coherent ones with
 Jujutsu, in a scratch clone `tasks/tidy-<slug>`, never in the ticket worktree. The result must
 have exactly the same tree. Before moving the branch, the lead saves the old tip as
 `refs/tidy-backup/<branch>` and updates the branch with the old value as a guard. Pushed
-commits are never touched. The lead deletes the scratch clones with `ct ws tidy-clean <ID>`
+commits are never touched. The lead deletes the scratch clones with `tix ws tidy-clean <ID>`
 (it keeps a clone it cannot show is merged: its bookmark is not yet on the ticket branch, or
 the clone has no repo in the workspace, no bookmark or no `.git` of its own; it then exits
 nonzero with a warning; `--force` drops it, `--dry-run` only lists). It works in the sandbox, where
@@ -39,20 +39,20 @@ nonzero with a warning; `--force` drops it, `--dry-run` only lists). It works in
 
 ## Marks
 
-`ct ws mark <ID> <tidy> [<slug>...]` records, per repo, HEAD, its tree and the time.
+`tix ws mark <ID> <tidy> [<slug>...]` records, per repo, HEAD, its tree and the time.
 A repo with uncommitted changes is skipped with a warning and the command exits 1. A repo
-whose worktree is missing is skipped with a warning. `ct ws marks <ID>` prints one line per
+whose worktree is missing is skipped with a warning. `tix ws marks <ID>` prints one line per
 repo (`tidy ok|stale|none`): `ok` means the marked tree is the current
 one, `stale` means commits came after it, `none` means never marked. It exits 3 unless
 every mark is `ok`. Because any later commit makes the mark stale, tidy runs last.
 
 ## The push gate
 
-`/tickets:save` pushes last, after the logs, kb-drafts, links, the ticket note and the
+`/tix:save` pushes last, after the logs, kb-drafts, links, the ticket note and the
 vault lock release. For each repo of the workspace (`workspace.json`), on its feature
 branch only (never a `tasks/*` branch):
 
-- the marks: `ct ws marks <ID>` must exit 0. When some are `stale` or `none`, save asks
+- the marks: `tix ws marks <ID>` must exit 0. When some are `stale` or `none`, save asks
   whether to save anyway; if you say yes it still asks again before pushing;
 - the signatures: every commit to push (`git log --format=%G? <branch> --not --remotes`)
   must be signed. A repo with an unsigned one is not pushed: re-sign it on the host (for

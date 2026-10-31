@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/links"
-	tnote "github.com/zero4573/claude-tickets/internal/note"
+	"github.com/zero4573/tix/internal/links"
+	tnote "github.com/zero4573/tix/internal/note"
 )
 
 // Move is one ticket folder MigrateLayout moves (or, dry, would move):
@@ -43,7 +43,7 @@ var moveTrees = links.MoveTrees
 // MigrateLayout moves an old vault's ticket folders, tickets/<ID>/ and
 // archive/tickets/<ID>/, under their source: tickets/<source>/<ID>/ and
 // archive/tickets/<source>/<ID>/. The source is the note's frontmatter
-// source when it names one (ct sync and ct new write it), else the one
+// source when it names one (tix sync and tix new write it), else the one
 // tickets/.sources.json gives the ID (tnote.GuessSource); a folder whose
 // source can't be told, or whose new place is taken, stays where it is
 // with a warning. Path-qualified links to the files are rewritten (bare

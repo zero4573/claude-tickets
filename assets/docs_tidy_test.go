@@ -7,11 +7,11 @@ import (
 )
 
 func TestTidySkill(t *testing.T) {
-	const order = "tidy → `/tickets:save` (which pushes)"
+	const order = "tidy → `/tix:save` (which pushes)"
 	want := map[string][]string{
-		"tidy": {"ct ws mark <ID> tidy", "^{tree}", "update-ref", "--not --remotes",
+		"tidy": {"tix ws mark <ID> tidy", "^{tree}", "update-ref", "--not --remotes",
 			"immutable_heads()", "jj absorb --from", "jj abandon", "jj git clone --colocate",
-			"--boundary", "--is-ancestor", "--allow-backwards", "ct ws tidy-clean <ID>", "tasks/tidy-<slug>", order},
+			"--boundary", "--is-ancestor", "--allow-backwards", "tix ws tidy-clean <ID>", "tasks/tidy-<slug>", order},
 	}
 	for name, strs := range want {
 		b, err := fs.ReadFile(Files, "plugin/skills/"+name+"/SKILL.md")
@@ -61,8 +61,8 @@ func TestPRFeedbackPushesThroughSave(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(b)
-	if n := strings.Count(text, "/tickets:save"); n < 2 {
-		t.Errorf("pr-feedback names /tickets:save %d times, want the rules and the closing message", n)
+	if n := strings.Count(text, "/tix:save"); n < 2 {
+		t.Errorf("pr-feedback names /tix:save %d times, want the rules and the closing message", n)
 	}
 	if !strings.Contains(text, "anyway at its marks gate") {
 		t.Error("pr-feedback must say to push anyway at save's marks gate (feedback makes the marks stale)")
@@ -78,7 +78,7 @@ func TestTidyCleanNamed(t *testing.T) {
 	if strings.Contains(text, "rm -rf` is denied, give") {
 		t.Error("tidy still tells the user to delete the clone by hand")
 	}
-	dir, cmd := strings.Index(text, "tasks/tidy-<slug>"), strings.Index(text, "ct ws tidy-clean <ID>")
+	dir, cmd := strings.Index(text, "tasks/tidy-<slug>"), strings.Index(text, "tix ws tidy-clean <ID>")
 	if dir < 0 || cmd < 0 {
 		t.Fatal("tidy must name the clone dir and the command that deletes it")
 	}
@@ -94,12 +94,12 @@ func TestSavePushesLast(t *testing.T) {
 	}
 	text := string(b)
 	push := strings.Index(text, "### 8. Push the ticket branches")
-	release := strings.Index(text, "Run `ct vault lock release <vault> <ID>`")
+	release := strings.Index(text, "Run `tix vault lock release <vault> <ID>`")
 	if push < 0 || release < 0 || push < release {
 		t.Fatalf("save: the push step (%d) must come after the lock release (%d)", push, release)
 	}
 	step := text[push:]
-	for _, s := range []string{"ct ws marks <ID>", "save anyway", "AskUserQuestion", "%G?", "--not --remotes",
+	for _, s := range []string{"tix ws marks <ID>", "save anyway", "AskUserQuestion", "%G?", "--not --remotes",
 		"push -u <remote> <branch>", "branch.<branch>.remote", "`tasks/*`", "--force", "--delete",
 		"rebase --exec 'git commit --amend --no-edit -S'", "Rejected", "the exact command"} {
 		if !strings.Contains(step, s) {
@@ -118,7 +118,7 @@ func TestNoWsSign(t *testing.T) {
 			return err
 		}
 		if strings.Contains(string(b), "ws sign") || strings.Contains(string(b), "--skip-marks") {
-			t.Errorf("%s still names ct ws sign (removed: sessions sign, /tickets:save pushes)", p)
+			t.Errorf("%s still names tix ws sign (removed: sessions sign, /tix:save pushes)", p)
 		}
 		return nil
 	})

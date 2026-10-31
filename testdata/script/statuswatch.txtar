@@ -1,11 +1,11 @@
-# ct status --watch without a terminal (testscript gives ct pipes): the
-# table once, as plain ct status prints it, and a warning on stderr; flag
+# tix status --watch without a terminal (testscript gives tix pipes): the
+# table once, as plain tix status prints it, and a warning on stderr; flag
 # validation fails before anything is printed
 
-# no vault: the same error as plain ct status, no escape sequences
-! exec ct status
+# no vault: the same error as plain tix status, no escape sequences
+! exec tix status
 cp stderr plain-err.txt
-! exec ct status -w
+! exec tix status -w
 cmp stderr plain-err.txt
 ! stdout .
 ! stderr '\x1b'
@@ -13,10 +13,10 @@ cmp stderr plain-err.txt
 mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/tickets/MAN-1 home/Documents/Obsidian/a/tickets/MAN-2
 
 # no workspaces yet
-exec ct status -w
+exec tix status -w
 stdout '^Vault a \(sessions run in their own terminal\)$'
-stdout '^No ticket workspaces under .*/work-a \(start one with ct start <ID>\)\.$'
-stderr '^ct status: --watch needs a terminal; printed once$'
+stdout '^No ticket workspaces under .*/work-a \(start one with tix start <ID>\)\.$'
+stderr '^tix status: --watch needs a terminal; printed once$'
 
 # MAN-1 waiting on you with its process alive, MAN-2 working
 mkdir home/Projects/work-a/MAN-1 home/Projects/work-a/MAN-2
@@ -30,48 +30,48 @@ cp state-working.json home/Projects/work-a/MAN-2/.agent-state
 mkdir home/Projects/work-a/MAN-1/repo-a/.git
 live-session home/Projects/work-a/MAN-1
 
-exec ct status
+exec tix status
 cp stdout plain.txt
 ! stderr .
 
-# piped: stdout byte-identical to plain ct status, one warning line
-exec ct status -w
+# piped: stdout byte-identical to plain tix status, one warning line
+exec tix status -w
 cmp stdout plain.txt
-stderr '^ct status: --watch needs a terminal; printed once\n$'
+stderr '^tix status: --watch needs a terminal; printed once\n$'
 ! stdout '\x1b'
 stdout '(?s)^Vault a \(sessions run in their own terminal\)\n.*MAN-1 .*needs-input.*\nMAN-2 '
 stdout '^MAN-1 +manual +needs-input +new '
 ! stdout 'WINDOW'
 
-exec ct status --watch --interval 5s
+exec tix status --watch --interval 5s
 cmp stdout plain.txt
-stderr '^ct status: --watch needs a terminal; printed once$'
+stderr '^tix status: --watch needs a terminal; printed once$'
 
-# watch mode only needs stdout to be a terminal: ct-tty (stdin and stdout
+# watch mode only needs stdout to be a terminal: tix-tty (stdin and stdout
 # taken for one) doesn't fake that, so it prints once too
-exec ct-tty status -w --interval 1m
+exec tix-tty status -w --interval 1m
 cmp stdout plain.txt
 stderr 'printed once'
 
 # --interval needs --watch, even with the default value
-! exec ct status --interval 2s
-stderr '^ct: --interval needs --watch$'
+! exec tix status --interval 2s
+stderr '^tix: --interval needs --watch$'
 ! stdout .
 
 # --interval: a duration of at least 1s
-! exec ct status -w --interval 500ms
+! exec tix status -w --interval 500ms
 stderr 'invalid argument "500ms" for "--interval" flag: want a duration of at least 1s'
 ! stdout .
-! exec ct status -w --interval 0s
+! exec tix status -w --interval 0s
 stderr 'at least 1s'
 ! stdout .
-! exec ct status -w --interval=-1s
+! exec tix status -w --interval=-1s
 stderr 'at least 1s'
 ! stdout .
-! exec ct status -w --interval abc
+! exec tix status -w --interval abc
 stderr 'at least 1s'
 ! stdout .
-! exec ct status -w --interval 2
+! exec tix status -w --interval 2
 stderr 'at least 1s'
 ! stdout .
 

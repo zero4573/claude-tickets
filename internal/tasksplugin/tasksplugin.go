@@ -1,5 +1,5 @@
 // Package tasksplugin installs the Obsidian Tasks community plugin into a
-// vault (ct vault init): the release pinned in
+// vault (tix vault init): the release pinned in
 // assets/obsidian/tasks-plugin.json (shared with nix/obsidian.nix),
 // downloaded and checked against the pinned sha256s before anything is
 // written, and swapped into place whole. An installed plugin is never
@@ -24,10 +24,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zero4573/claude-tickets/assets"
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/version"
+	"github.com/zero4573/tix/assets"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/version"
 )
 
 const (
@@ -35,9 +35,9 @@ const (
 	settingsFile = "obsidian/tasks-settings.json"
 	// maxFileSize caps each download (the 8.4.0 main.js is about 1 MB)
 	maxFileSize = 32 << 20
-	// tempPrefix starts the names of ct's temporary directories in
+	// tempPrefix starts the names of tix's temporary directories in
 	// .obsidian/ (outside plugins/, so Obsidian never takes one for a plugin)
-	tempPrefix = ".ct-tasks-"
+	tempPrefix = ".tix-tasks-"
 	// DefaultTimeout bounds the download of all the files together
 	DefaultTimeout = 60 * time.Second
 )
@@ -84,7 +84,7 @@ func ParsePin(data []byte) (Pin, error) {
 	return p, nil
 }
 
-// Embedded is the pin built into ct.
+// Embedded is the pin built into tix.
 func Embedded() (Pin, error) {
 	data, err := assets.Obsidian.ReadFile(pinFile)
 	if err != nil {
@@ -273,7 +273,7 @@ func fetch(ctx context.Context, client *http.Client, url string) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "ct/"+version.Version)
+	req.Header.Set("User-Agent", "tix/"+version.Version)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

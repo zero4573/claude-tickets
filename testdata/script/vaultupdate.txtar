@@ -1,8 +1,8 @@
-# ct vault update: brings the files ct ships into a vault up to date
+# tix vault update: brings the files tix ships into a vault up to date
 env V=$WORK/home/Documents/Obsidian/demo
 
 # init records what it shipped
-exec ct vault init demo
+exec tix vault init demo
 exists $V/.scaffold.json
 grep '"AGENTS.md"' $V/.scaffold.json
 grep '"format": 1' $V/.scaffold.json
@@ -10,8 +10,8 @@ grep '"format": 1' $V/.scaffold.json
 
 # nothing to do: nothing written, the lock released
 cp $V/.scaffold.json rec1
-exec ct vault update demo
-stdout '^ct vault update: .*/demo$'
+exec tix vault update demo
+stdout '^tix vault update: .*/demo$'
 stdout 'added 0, updated 0, up to date [0-9]+, edited 0 \(kept\)$'
 ! stdout '^  [-+~!] '
 cmp $V/.scaffold.json rec1
@@ -33,8 +33,8 @@ cp $V/.workflow.json workflow.json
 cp $V/tickets/.sources.json sources.json
 cp $V/.obsidian/types.json types.json
 
-exec ct vault update demo --dry-run
-stdout '^ct vault update: .*/demo \(dry run: nothing is written\)$'
+exec tix vault update demo --dry-run
+stdout '^tix vault update: .*/demo \(dry run: nothing is written\)$'
 stdout '^  ~ templates/ticket-manual.md \(would update\)$'
 stdout '^  \+ templates/base.md \(would add\)$'
 stdout '^  ! AGENTS.md \(edited, kept\)$'
@@ -49,18 +49,18 @@ cmp $V/templates/ticket-manual.md old-ticket-manual.md
 ! exists $V/.vault.lock.d
 
 # --diff: a dry run with the differences (vault copy -> shipped)
-exec ct vault update demo --diff
+exec tix vault update demo --diff
 stdout '^--- AGENTS.md \(vault\)$'
-stdout '^\+\+\+ AGENTS.md \(ct dev\)$'
+stdout '^\+\+\+ AGENTS.md \(tix dev\)$'
 stdout '^-mine$'
 stdout '^--- templates/ticket-manual.md \(vault\)$'
 stdout '^-<!-- A manual ticket: you write and manage it here, ticket-sync never$'
-stdout '^\+<!-- A manual ticket: you write and manage it here, ct sync never$'
+stdout '^\+<!-- A manual ticket: you write and manage it here, tix sync never$'
 cmp $V/templates/ticket-manual.md old-ticket-manual.md
 ! exists $V/templates/base.md
 ! exists $V/.scaffold.json
 
-exec ct vault update demo
+exec tix vault update demo
 stdout '^  ~ templates/ticket-manual.md \(updated\)$'
 stdout '^  \+ templates/base.md \(added\)$'
 stdout '^  ! AGENTS.md \(edited, kept\)$'
@@ -69,8 +69,8 @@ stdout '^  x pending.md \(not shipped any more, unedited; removed\)$'
 ! exists $V/done.md
 ! exists $V/pending.md
 stdout 'added 1, updated 1, removed 2, up to date [0-9]+, edited 1 \(kept\)$'
-stdout 'take the shipped version of a file with ct vault update --take <file>'
-grep 'ct sync never' $V/templates/ticket-manual.md
+stdout 'take the shipped version of a file with tix vault update --take <file>'
+grep 'tix sync never' $V/templates/ticket-manual.md
 exists $V/templates/base.md
 grep '^mine$' $V/AGENTS.md
 exists $V/.scaffold.json
@@ -84,113 +84,113 @@ cmp $V/inbox/note.md note.md
 
 # again: nothing to do
 cp $V/.scaffold.json rec2
-exec ct vault update demo
+exec tix vault update demo
 stdout 'added 0, updated 0, up to date [0-9]+, edited 1 \(kept\)$'
 cmp $V/.scaffold.json rec2
 
 # init only adds, and says what's out of date
 cp old-ticket-manual.md $V/templates/ticket-manual.md
 rm $V/.scaffold.json
-exec ct vault init demo
+exec tix vault init demo
 stdout 'added 0 file\(s\), kept [0-9]+ existing'
-stdout '^ct vault init: 1 shipped file\(s\) are out of date; ct vault update brings them up to date \(--dry-run to preview\)$'
-stdout '^ct vault init: 1 shipped file\(s\) edited in the vault are kept; ct vault update --diff'
+stdout '^tix vault init: 1 shipped file\(s\) are out of date; tix vault update brings them up to date \(--dry-run to preview\)$'
+stdout '^tix vault init: 1 shipped file\(s\) edited in the vault are kept; tix vault update --diff'
 cmp $V/templates/ticket-manual.md old-ticket-manual.md
 
 # --take: the shipped version, the old one kept as .bak
-exec ct vault update demo --take AGENTS.md
+exec tix vault update demo --take AGENTS.md
 stdout '^  ~ AGENTS.md \(taken; the old one is kept as AGENTS.md.bak\)$'
 stdout '^  ~ templates/ticket-manual.md \(updated\)$'
 stdout 'added 0, updated 1, taken 1, up to date [0-9]+, edited 0 \(kept\)$'
-! stdout 'ct vault update --take <file>'
+! stdout 'tix vault update --take <file>'
 grep '^mine$' $V/AGENTS.md.bak
 ! grep '^mine$' $V/AGENTS.md
 # never over an earlier .bak
 cp mine.md $V/AGENTS.md
-! exec ct vault update demo --take AGENTS.md
+! exec tix vault update demo --take AGENTS.md
 stderr 'AGENTS.md.bak exists; move it away first'
 grep '^mine$' $V/AGENTS.md
-! exec ct vault update demo --dry-run --take AGENTS.md
+! exec tix vault update demo --dry-run --take AGENTS.md
 stderr 'AGENTS.md.bak exists'
 rm $V/AGENTS.md.bak
-exec ct vault update demo --dry-run --take AGENTS.md
+exec tix vault update demo --dry-run --take AGENTS.md
 stdout '^  ~ AGENTS.md \(would take; the old one would be kept as AGENTS.md.bak\)$'
 # by a path inside the vault too, never outside it
-exec ct vault update demo --dry-run --take $V/AGENTS.md
+exec tix vault update demo --dry-run --take $V/AGENTS.md
 stdout '^  ~ AGENTS.md \(would take; the old one would be kept as AGENTS.md.bak\)$'
-! exec ct vault update demo --dry-run --take $WORK/mine.md
+! exec tix vault update demo --dry-run --take $WORK/mine.md
 stderr 'mine.md is outside the vault'
 grep '^mine$' $V/AGENTS.md
 ! exists $V/AGENTS.md.bak
 
-! exec ct vault update demo --take nope.md
-stderr 'not a file ct ships: nope.md'
-! exec ct vault update demo --diff --take AGENTS.md
+! exec tix vault update demo --take nope.md
+stderr 'not a file tix ships: nope.md'
+! exec tix vault update demo --diff --take AGENTS.md
 stderr '--diff only reports'
-! exec ct vault update nope
+! exec tix vault update nope
 stderr 'no vault named .nope.'
 
-# a file only a newer ct shipped (its record entry is a version this ct
+# a file only a newer tix shipped (its record entry is a version this tix
 # doesn't know): kept, never deleted; once edited, it's reported as such
 env O=$WORK/home/Documents/Obsidian/old
-exec ct vault init old
+exec tix vault init old
 cp retired.md $O/templates/retired.md
 cp retired-record.json $O/.scaffold.json
-exec ct vault update old
-stdout '^  > templates/retired.md \(newer than this ct; kept\)$'
-stdout 'newer than this ct 1 \(kept\)$'
-stdout 'never downgraded; update ct, or replace one with --take <file>'
+exec tix vault update old
+stdout '^  > templates/retired.md \(newer than this tix; kept\)$'
+stdout 'newer than this tix 1 \(kept\)$'
+stdout 'never downgraded; update tix, or replace one with --take <file>'
 exists $O/templates/retired.md
 grep '"templates/retired.md"' $O/.scaffold.json
 exec sh -c 'echo x >> $O/templates/retired.md'
-exec ct vault update old
+exec tix vault update old
 stdout '^  - templates/retired.md \(not shipped any more, edited; kept\)$'
 exists $O/templates/retired.md
 
-# a shipped file a newer ct wrote: never downgraded, by update or init;
+# a shipped file a newer tix wrote: never downgraded, by update or init;
 # --take still replaces it
 cp newer.md $O/templates/base.md
 cp newer-file-record.json $O/.scaffold.json
-exec ct vault update old --diff
-stdout '^  > templates/base.md \(newer than this ct; kept\)$'
+exec tix vault update old --diff
+stdout '^  > templates/base.md \(newer than this tix; kept\)$'
 stdout '^-newer$'
-exec ct vault update old
-stdout '^  > templates/base.md \(newer than this ct; kept\)$'
-stdout 'added 0, updated 0, up to date [0-9]+, edited 0 \(kept\), newer than this ct 1 \(kept\)$'
+exec tix vault update old
+stdout '^  > templates/base.md \(newer than this tix; kept\)$'
+stdout 'added 0, updated 0, up to date [0-9]+, edited 0 \(kept\), newer than this tix 1 \(kept\)$'
 cmp $O/templates/base.md newer.md
 grep '"version": "9.0"' $O/.scaffold.json
-exec ct vault init old
+exec tix vault init old
 ! stdout 'out of date'
 cmp $O/templates/base.md newer.md
-exec ct vault update old --take templates/base.md
+exec tix vault update old --take templates/base.md
 stdout '^  ~ templates/base.md \(taken; the old one is kept as templates/base.md.bak\)$'
 cmp $O/templates/base.md.bak newer.md
 ! grep '^newer$' $O/templates/base.md
 ! grep '"version": "9.0"' $O/.scaffold.json
 
-# a record from a newer ct: ignored, never rewritten
+# a record from a newer tix: ignored, never rewritten
 cp newer-record.json $O/.scaffold.json
-exec ct vault update old
-stderr '.scaffold.json is from a newer ct; using the built-in history only'
+exec tix vault update old
+stderr '.scaffold.json is from a newer tix; using the built-in history only'
 cmp $O/.scaffold.json newer-record.json
 
 # a folder or a symlink at a shipped path: edited, never followed, written or taken
 env N=$WORK/home/Documents/Obsidian/nr
-exec ct vault init nr
+exec tix vault init nr
 mkdir $N/done.md
 cp note.md $N/done.md/inside.md
 symlink $N/pending.md -> $WORK/note.md
 cp mine.md $N/follow-ups.md
-exec ct vault update nr
+exec tix vault update nr
 stdout '^  - done.md \(not shipped any more, edited; kept: delete it by hand once you no longer need it\)$'
 stdout '^  - pending.md \(not shipped any more, edited; kept: delete it by hand once you no longer need it\)$'
 stdout '^  - follow-ups.md \(not shipped any more, edited; kept: delete it by hand once you no longer need it\)$'
 stdout 'edited 0 \(kept\), not shipped any more 3$'
 stderr 'follow-ups.md: no longer shipped and edited, kept'
 ! stdout 'removed'
-! exec ct vault update nr --take done.md
+! exec tix vault update nr --take done.md
 stderr 'done.md isn.t shipped any more'
-! exec ct vault update nr --take pending.md
+! exec tix vault update nr --take pending.md
 stderr 'pending.md isn.t shipped any more'
 cmp $N/follow-ups.md mine.md
 cmp $N/done.md/inside.md note.md
@@ -199,12 +199,12 @@ cmp $WORK/note.md note.md
 ! exists $N/pending.md.bak
 
 # a dry run doesn't wait for (or touch) a lock someone else holds
-exec ct vault lock acquire $N PROJ-12
-exec ct vault update nr --dry-run
+exec tix vault lock acquire $N PROJ-12
+exec tix vault update nr --dry-run
 stdout 'would add 0, would update 0'
-exec ct vault lock status $N
+exec tix vault lock status $N
 stdout 'PROJ-12'
-exec ct vault lock release $N PROJ-12
+exec tix vault lock release $N PROJ-12
 
 -- old-done.md --
 ```tasks

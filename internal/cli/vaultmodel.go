@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/modelcache"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/modelcache"
 )
 
 func init() { vaultSubcommands = append(vaultSubcommands, vaultModelCmd) }
@@ -19,15 +19,15 @@ func init() { vaultSubcommands = append(vaultSubcommands, vaultModelCmd) }
 func vaultModelCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "model",
-		Short: "Manage the local embedding model used by ct vault search",
+		Short: "Manage the local embedding model used by tix vault search",
 		Long: `The local embedding model (and the llama.cpp library that runs it) behind
-ct vault index and ct vault search. Both are pinned, downloaded once on the
+tix vault index and tix vault search. Both are pinned, downloaded once on the
 host into ` + config.TildePath(modelcache.Dir()) + ` and verified by sha256; sessions
 get that directory read-only. Without them, search is keyword-only.
 
-  ct vault model status [<id>] [--json]   what is present
-  ct vault model fetch [<id>]             download and verify (on the host)
-  ct vault model list [--json]            the pinned model ids`,
+  tix vault model status [<id>] [--json]   what is present
+  tix vault model fetch [<id>]             download and verify (on the host)
+  tix vault model list [--json]            the pinned model ids`,
 	}
 	cmd.AddCommand(usageExit(vaultModelStatusCmd()), usageExit(vaultModelFetchCmd()), usageExit(vaultModelListCmd()))
 	return usageExit(cmd)
@@ -49,7 +49,7 @@ func vaultModelStatusCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := modelID(args)
 			if _, ok := modelcache.Lookup(id); !ok {
-				return exitWith(2, fmt.Errorf("unknown model %q (ct vault model list)", id))
+				return exitWith(2, fmt.Errorf("unknown model %q (tix vault model list)", id))
 			}
 			st := modelcache.StatusOf(id)
 			if asJSON {
@@ -97,10 +97,10 @@ on the host, sessions then get the directory read-only.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := modelID(args)
 			if _, ok := modelcache.Lookup(id); !ok {
-				return exitWith(2, fmt.Errorf("unknown model %q (ct vault model list)", id))
+				return exitWith(2, fmt.Errorf("unknown model %q (tix vault model list)", id))
 			}
 			if gitx.InContainer() {
-				return errors.New("ct vault model fetch writes the host cache: run it on the host")
+				return errors.New("tix vault model fetch writes the host cache: run it on the host")
 			}
 			if err := modelcache.Fetch(ctxOf(cmd), id, os.Stdout); err != nil {
 				return err

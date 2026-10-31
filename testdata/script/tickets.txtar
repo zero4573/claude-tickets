@@ -2,10 +2,10 @@ mkdir home/Documents/Obsidian/a/.obsidian
 mkdir home/Documents/Obsidian/a/templates
 cp ticket-manual.md home/Documents/Obsidian/a/templates/ticket-manual.md
 
-# ct new: next free ID, the template filled in
-exec ct new --type bug --priority high 'Fix "the" thing'
+# tix new: next free ID, the template filled in
+exec tix new --type bug --priority high 'Fix "the" thing'
 stdout 'home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md$'
-exec ct new 'Second'
+exec tix new 'Second'
 stdout 'tickets/manual/MAN-2/MAN-2.md$'
 grep '^title: MAN-1$' home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
 grep '^summary: "Fix \\"the\\" thing"$' home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
@@ -13,41 +13,41 @@ grep '^created: 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]$' home/Documents/Obsidian/a/t
 grep '^ticket-type: bug$' home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
 grep '^priority: "high"$' home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
 grep '^# MAN-1: Fix "the" thing$' home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
-! exec ct new --type nope x
+! exec tix new --type nope x
 stderr 'type must be dev, bug'
 
 # The manual source's idPrefix from .sources.json
 mkdir home/Documents/Obsidian/a/tickets
 cp sources.json home/Documents/Obsidian/a/tickets/.sources.json
-exec ct new 'Third'
+exec tix new 'Third'
 stdout 'OPS-1/OPS-1.md$'
 
-# An archived ticket's number (ct clean) is never reused
+# An archived ticket's number (tix clean) is never reused
 mkdir home/Documents/Obsidian/a/archive/tickets/OPS-5
-exec ct new 'Fourth'
+exec tix new 'Fourth'
 stdout 'OPS-6/OPS-6.md$'
 # nor one in a source's archive folder, or an old vault's tickets/<ID>/
 mkdir home/Documents/Obsidian/a/archive/tickets/manual/OPS-8
-exec ct new 'Fifth'
+exec tix new 'Fifth'
 stdout 'tickets/manual/OPS-9/OPS-9.md$'
 mkdir home/Documents/Obsidian/a/tickets/OPS-10
-exec ct new 'Sixth'
+exec tix new 'Sixth'
 stdout 'tickets/manual/OPS-11/OPS-11.md$'
 
-# ct start --list: open tickets; --all adds done and closed ones
+# tix start --list: open tickets; --all adds done and closed ones
 mkdir home/Documents/Obsidian/a/tickets/MAN-3
 cp done.md home/Documents/Obsidian/a/tickets/MAN-3/MAN-3.md
-exec ct start --list
+exec tix start --list
 stdout '^MAN-1\tnew\tFix "the" thing$'
 stdout '^MAN-2\tnew\tSecond$'
 ! stdout MAN-3
-exec ct start --list --all
+exec tix start --list --all
 stdout '^MAN-3\tdone\tFinished$'
 
-# Completion offers open tickets; ct start takes one, so nothing after it
-exec ct __complete start ''
+# Completion offers open tickets; tix start takes one, so nothing after it
+exec tix __complete start ''
 stdout '^MAN-2\tSecond \[new\]$'
-exec ct __complete start MAN-1 ''
+exec tix __complete start MAN-1 ''
 ! stdout '^MAN-'
 
 -- ticket-manual.md --

@@ -7,10 +7,10 @@ THIRD_PARTY_NOTICES.md".
 
 | Skill | Adapted from |
 |---|---|
-| `skills/clarify` (`tickets:clarify`) | `grilling`, `grill-me` and `to-questionnaire` |
-| `skills/diagnose` (`tickets:diagnose`) | `diagnosing-bugs` |
-| `skills/retro` (`/tickets:retro`) | `retro` |
-| `skills/teach` (`/tickets:teach`) | `teach` (with its mission, resources, learning-record and glossary formats) |
+| `skills/clarify` (`tix:clarify`) | `grilling`, `grill-me` and `to-questionnaire` |
+| `skills/diagnose` (`tix:diagnose`) | `diagnosing-bugs` |
+| `skills/retro` (`/tix:retro`) | `retro` |
+| `skills/teach` (`/tix:teach`) | `teach` (with its mission, resources, learning-record and glossary formats) |
 
 ## mattpocock/skills
 

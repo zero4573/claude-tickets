@@ -1,14 +1,14 @@
-# ct vault model: status with nothing present, list, and the fetch refusals.
+# tix vault model: status with nothing present, list, and the fetch refusals.
 # No real download happens here (the fetch itself is a unit test in
 # internal/modelcache).
 
 # Nothing fetched yet: status says so and names the fix.
-exec ct vault model status
+exec tix vault model status
 stdout 'model:    bge-small-en-v1.5 \(384 dims\)'
 stdout 'missing'
-stdout 'problem:  .*ct vault model fetch'
+stdout 'problem:  .*tix vault model fetch'
 
-exec ct vault model status bge-small-en-v1.5 --json
+exec tix vault model status bge-small-en-v1.5 --json
 stdout '"model":"bge-small-en-v1.5"'
 stdout '"dims":384'
 stdout '"model_ok":false'
@@ -16,29 +16,29 @@ stdout '"lib_ok":false'
 stdout '"model_path":".*bge-small-en-v1.5-q8_0.gguf"'
 stdout '"problem":"[^"]'
 
-! exec ct vault model status no-such-model
+! exec tix vault model status no-such-model
 stderr 'unknown model "no-such-model"'
-exec sh -c 'ct vault model status no-such-model 2>/dev/null; echo $?'
+exec sh -c 'tix vault model status no-such-model 2>/dev/null; echo $?'
 stdout '^2$'
-exec sh -c 'ct vault model status a b 2>/dev/null; echo $?'
+exec sh -c 'tix vault model status a b 2>/dev/null; echo $?'
 stdout '^2$'
-exec sh -c 'ct vault model list --bogus 2>/dev/null; echo $?'
+exec sh -c 'tix vault model list --bogus 2>/dev/null; echo $?'
 stdout '^2$'
 
 # list marks the default.
-exec ct vault model list
+exec tix vault model list
 stdout '^bge-small-en-v1.5  384 dims \(default\)$'
-exec ct vault model list --json
+exec tix vault model list --json
 stdout '"id":"bge-small-en-v1.5"'
 stdout '"default":true'
 
 # fetch refuses an unknown id, and inside a container it refuses to run.
-! exec ct vault model fetch no-such-model
+! exec tix vault model fetch no-such-model
 stderr 'unknown model "no-such-model"'
-exec sh -c 'ct vault model fetch no-such-model 2>/dev/null; echo $?'
+exec sh -c 'tix vault model fetch no-such-model 2>/dev/null; echo $?'
 stdout '^2$'
-[container] ! exec ct vault model fetch
+[container] ! exec tix vault model fetch
 [container] stderr 'run it on the host'
 
 # Nothing was written by any of it.
-! exists home/.cache/claude-tickets/models
+! exists home/.cache/tix/models

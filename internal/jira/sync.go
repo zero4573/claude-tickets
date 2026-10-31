@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/mcp"
-	"github.com/zero4573/claude-tickets/internal/note"
+	"github.com/zero4573/tix/internal/mcp"
+	"github.com/zero4573/tix/internal/note"
 )
 
 // ErrReported is a failure already reported through Say (and Followup).
@@ -110,7 +110,7 @@ func (s *Sync) search(jql string, fields []string) ([]issue, error) {
 			if note.ValidKey(is.Key) {
 				all = append(all, is)
 			} else {
-				s.Log(fmt.Sprintf("ct sync: %s: skipping an issue with an unexpected key %q", s.Source, is.Key))
+				s.Log(fmt.Sprintf("tix sync: %s: skipping an issue with an unexpected key %q", s.Source, is.Key))
 			}
 		}
 		if (page.IsLast != nil && *page.IsLast) || page.NextPageToken == "" {
@@ -344,7 +344,7 @@ func (s *Sync) Connect() error {
 // MakePlan reconciles the notes with Jira, and writes what needs no
 // fetching (gone tags, blocked flips).
 func (s *Sync) MakePlan() error {
-	s.Log("ct sync: " + s.Source + ": listing open tickets...")
+	s.Log("tix sync: " + s.Source + ": listing open tickets...")
 	remote, err := s.search(s.Query, []string{"updated", "status"})
 	if err != nil {
 		return err
@@ -368,7 +368,7 @@ func (s *Sync) MakePlan() error {
 	}
 	left := map[string]issue{}
 	if len(leavers) > 0 {
-		s.Log(fmt.Sprintf("ct sync: %s: checking %d ticket(s) no longer in your open list...", s.Source, len(leavers)))
+		s.Log(fmt.Sprintf("tix sync: %s: checking %d ticket(s) no longer in your open list...", s.Source, len(leavers)))
 		got, err := s.byKeys([]string{"updated", "status", "assignee"}, leavers)
 		if err != nil {
 			return err

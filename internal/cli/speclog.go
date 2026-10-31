@@ -9,13 +9,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/spec"
-	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/spec"
+	"github.com/zero4573/tix/internal/vault"
 )
 
-// Where a version stands, as ct spec log reads it.
+// Where a version stands, as tix spec log reads it.
 const (
 	stateUnpinned = "unpinned"
 	statePinned   = "pinned"    // pinned, no main clone to resolve it in
@@ -23,7 +23,7 @@ const (
 	stateNotFound = "not-found" // pinned, not found on the base
 )
 
-// logVersion is one version as ct spec log prints it: the note's fields,
+// logVersion is one version as tix spec log prints it: the note's fields,
 // resolved at read time (nothing is written), and its change.
 type logVersion struct {
 	ID   string `json:"id"`
@@ -56,7 +56,7 @@ func specSlug(ctx vault.Context, arg string) (slug, dir string, loc spec.Locatio
 		loc = spec.Location{Kind: spec.InVault, Dir: spec.VaultDir(ctx.Vault, slug), Field: spec.InVault}
 	}
 	if loc.Kind == spec.Unset {
-		return slug, dir, loc, fmt.Errorf("%s: no specs (no specs: field in %s and no specs/ in a main clone; see ct spec location)", slug, vaultRel(ctx.Vault, spec.ProjectNote(ctx.Vault, slug)))
+		return slug, dir, loc, fmt.Errorf("%s: no specs (no specs: field in %s and no specs/ in a main clone; see tix spec location)", slug, vaultRel(ctx.Vault, spec.ProjectNote(ctx.Vault, slug)))
 	}
 	return slug, dir, loc, nil
 }
@@ -177,7 +177,7 @@ ticket, the promotion date, the pinned commit and branch (or unpinned), where
 the base holds it (merged <sha>, or not found on <base>) and its first tag,
 then its requirement changes per capability (+ added, - removed, ~ changed,
 status flips as from→to). Merged and tags are resolved in the main clone at
-read time; the notes aren't written (ct spec pin --refresh does that).
+read time; the notes aren't written (tix spec pin --refresh does that).
 With a capability, only the versions that promoted one of its files, and
 that capability's change. --json prints the versions as data.
 For a slug whose specs live in the repo, prints the base's git log of
@@ -314,7 +314,7 @@ spec <rev> is:
     merged (or pinned) commit it holds, so @v1.4.0 is the spec as of that
     release; an unpinned version never matches
 --diff prints that version's change (requirement changes, then the raw
-diff, as ct spec diff) instead. For a repo spec, <rev> is a commit or tag of
+diff, as tix spec diff) instead. For a repo spec, <rev> is a commit or tag of
 the main clone, the tree is its specs/ and --diff its change to specs/.`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {

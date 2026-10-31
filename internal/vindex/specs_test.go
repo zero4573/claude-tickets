@@ -28,7 +28,7 @@ func writeSpec(t *testing.T, repo, capName, body string) {
 }
 
 func TestUpdateSpecs(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
+	t.Setenv("TIX_EMBEDDER", "none")
 	repo, cache := t.TempDir(), t.TempDir()
 	git(t, repo, "init", "-q", "-b", "main")
 	writeSpec(t, repo, "ledger", "# Ledger\n\nThe quokka ledger.\n")
@@ -60,11 +60,11 @@ func TestUpdateSpecs(t *testing.T) {
 
 	// Same tree: untouched. An edit on a branch the clone is on, not its
 	// default branch, is not read.
-	before, _ := os.Stat(filepath.Join(root, ".ct", "index", "meta.json"))
+	before, _ := os.Stat(filepath.Join(root, ".tix", "index", "meta.json"))
 	if _, _, err := UpdateSpecs(cache, "acme-billing", repo, UpdateOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	after, _ := os.Stat(filepath.Join(root, ".ct", "index", "meta.json"))
+	after, _ := os.Stat(filepath.Join(root, ".tix", "index", "meta.json"))
 	if !after.ModTime().Equal(before.ModTime()) {
 		t.Fatal("index rewritten for an unchanged tree")
 	}
@@ -72,7 +72,7 @@ func TestUpdateSpecs(t *testing.T) {
 	if out, err := exec.Command("git", "clone", "-q", repo, clone).CombinedOutput(); err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}
-	// ct's git refuses a local-path origin; nothing below fetches
+	// tix's git refuses a local-path origin; nothing below fetches
 	git(t, clone, "remote", "set-url", "origin", "git@example.invalid:acme/billing.git")
 	git(t, clone, "checkout", "-q", "-b", "other")
 	writeSpec(t, clone, "ledger", "# Ledger\n\nThe quokka ledgex.\n")
@@ -89,7 +89,7 @@ func TestUpdateSpecs(t *testing.T) {
 }
 
 func TestUpdateSpecsSameSizeEdit(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
+	t.Setenv("TIX_EMBEDDER", "none")
 	repo, cache := t.TempDir(), t.TempDir()
 	git(t, repo, "init", "-q", "-b", "main")
 	writeSpec(t, repo, "ledger", "# Ledger\n\nquokka\n")
@@ -110,7 +110,7 @@ func TestUpdateSpecsSameSizeEdit(t *testing.T) {
 }
 
 func TestUpdateSpecsNone(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
+	t.Setenv("TIX_EMBEDDER", "none")
 	repo, cache := t.TempDir(), t.TempDir()
 	git(t, repo, "init", "-q", "-b", "main")
 	git(t, repo, "commit", "-q", "--allow-empty", "-m", "init")

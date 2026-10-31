@@ -7,7 +7,7 @@ import (
 
 func TestLibSearchDirsDropsRelative(t *testing.T) {
 	abs := t.TempDir()
-	t.Setenv("CLAUDE_TICKETS_LIB_PATH", "rel:.:"+abs)
+	t.Setenv("TIX_LIB_PATH", "rel:.:"+abs)
 	var got []string
 	for _, d := range libSearchDirs() {
 		if !filepath.IsAbs(d) {

@@ -1,12 +1,12 @@
 {
-  # Obsidian, set up for claude-tickets (Linux, Flathub through nix-flatpak).
+  # Obsidian, set up for tix (Linux, Flathub through nix-flatpak).
   #
   # NixOS module: installs the Flathub Obsidian. Its manifest (flathub/md.obsidian.Obsidian) requests
   # --filesystem=home plus /mnt, /run/media, /media, a Discord-RPC socket dir,
   # read-only gnupg, read-only fonts, and a persisted ~/.ssh. Revoke all of
   # that and scope it down to just the vault folder.
   nixosModule = { config, lib, ... }: {
-    options.claude-tickets.obsidian.vaultRoot = lib.mkOption {
+    options.tix.obsidian.vaultRoot = lib.mkOption {
       type = lib.types.str;
       default = "~/Documents/Obsidian";
       description = "Folder holding the Obsidian vaults; the only one the Obsidian flatpak may access.";
@@ -25,7 +25,7 @@
         "!~/.local/share/fonts"
         # A path, not xdg-documents/...: that resolves through user-dirs.dirs,
         # which may not exist, and then flatpak silently grants nothing
-        "${config.claude-tickets.obsidian.vaultRoot}:create"
+        "${config.tix.obsidian.vaultRoot}:create"
       ];
       sockets = [ "wayland" "fallback-x11" "pulseaudio" "!ssh-auth" ];
       persistent = [ "!~/.ssh" ];
@@ -36,10 +36,10 @@
   #  * Tasks community plugin: seeded once. Installs the plugin files only if
   #    missing, and only creates community-plugins.json if it doesn't exist
   #    yet.  After that, Obsidian's own in-app plugin updater/toggle owns it.
-  #    The release is pinned in assets/obsidian/tasks-plugin.json, which ct
+  #    The release is pinned in assets/obsidian/tasks-plugin.json, which tix
   #    vault init seeds from too (one pin for both).
   #  * Tasks plugin settings: enforced. assets/obsidian/tasks-settings.json is
-  #    the source of truth (ct vault init writes it to a vault without any),
+  #    the source of truth (tix vault init writes it to a vault without any),
   #    written to every vault's data.json on every switch -- changes made in
   #    Obsidian's settings UI are reset unless copied back here:
   #      cp <vault root>/<vault>/.obsidian/plugins/obsidian-tasks-plugin/data.json \
@@ -56,12 +56,12 @@
   # rewrites obsidian.json on exit -- the next switch catches up.
   homeModule = { config, lib, pkgs, ... }:
     let
-      cfg = config.programs.claude-tickets.obsidian;
+      cfg = config.programs.tix.obsidian;
       inherit (cfg) vaults;
       root = cfg.vaultRoot;
 
       # The Tasks plugin release (obsidian-tasks-group/obsidian-tasks): one
-      # pin, shared with ct vault init, holding the version and the hex
+      # pin, shared with tix vault init, holding the version and the hex
       # sha256 of each release asset. Bump it there (see UPDATES.md).
       tasksPin = builtins.fromJSON (builtins.readFile ../assets/obsidian/tasks-plugin.json);
       pluginId = tasksPin.id;
@@ -152,7 +152,7 @@
         run ${setIfUnset} "$vault_dir/.obsidian/app.json" readableLineLength false
       '';
     in {
-      options.programs.claude-tickets.obsidian = {
+      options.programs.tix.obsidian = {
         vaults = lib.mkOption {
           type = lib.types.listOf lib.types.str;
           default = [ ];
@@ -162,7 +162,7 @@
         vaultRoot = lib.mkOption {
           type = lib.types.str;
           default = "${config.home.homeDirectory}/Documents/Obsidian";
-          description = "Folder holding the vaults (OBSIDIAN_ROOT for the claude-tickets commands).";
+          description = "Folder holding the vaults (OBSIDIAN_ROOT for the tix commands).";
         };
       };
 

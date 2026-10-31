@@ -10,11 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/spec"
-	"github.com/zero4573/claude-tickets/internal/ticketconv"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/spec"
+	"github.com/zero4573/tix/internal/ticketconv"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 func ticketCmd() *cobra.Command {
@@ -38,7 +38,7 @@ new key: the issue gets the note's summary, Description and Acceptance
 criteria, you as assignee and, when a synced epic covers the ticket, that epic
 as parent. Then tickets/manual/<MAN-n>/ moves to tickets/<source>/<KEY>/ (files
 renamed, links across the vault following, the ID rewritten inside the folder,
-the note turned into a synced one for ct sync to fill), and the workspace
+the note turned into a synced one for tix sync to fill), and the workspace
 <MAN-n> is renamed to <KEY> with its worktrees repaired. The branch keeps its
 name. The session's conversation starts fresh.
 
@@ -65,7 +65,7 @@ failure past the create, run it again to finish (no second issue).`,
 			err = ticketconv.Run(o)
 			var pe *ticketconv.PartialError
 			if errors.As(err, &pe) {
-				fmt.Fprintln(cmd.ErrOrStderr(), "ct: "+pe.Msg)
+				fmt.Fprintln(cmd.ErrOrStderr(), "tix: "+pe.Msg)
 				return exitError(1)
 			}
 			return err
@@ -84,7 +84,7 @@ func ticketPublishCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "publish <ID> [--dry-run] [--description-file <path>|-]",
 		Short: "Print the ticket's description with its ## Spec change section rewritten",
-		Long: `Builds the "## Spec change" section from "ct spec diff" for the ticket and
+		Long: `Builds the "## Spec change" section from "tix spec diff" for the ticket and
 for each ticket it covers (the ones with a workspace) and prints the ticket's
 description with it: the section replaced in place, or appended when the
 description has none. Everything else is left byte for byte. --dry-run
@@ -125,7 +125,7 @@ description into the ticket through the session's MCP tools.`,
 					return err
 				}
 				if !ok {
-					return fmt.Errorf("%s has no source block with a description (ct sync writes it)", id)
+					return fmt.Errorf("%s has no source block with a description (tix sync writes it)", id)
 				}
 			} else {
 				desc, err = readDescription(cmd.InOrStdin(), descFile)
@@ -158,7 +158,7 @@ description into the ticket through the session's MCP tools.`,
 			}
 			body := spec.RenderChange(diffs...)
 			if strings.TrimSpace(body) == "" && spec.HasChange(desc) && !allowEmpty {
-				return errors.New("no spec change was found, but the description's ## Spec change section has one (a missing baseline? see ct spec promote); the section is left as is. If the change was really reverted, pass --allow-empty to clear it")
+				return errors.New("no spec change was found, but the description's ## Spec change section has one (a missing baseline? see tix spec promote); the section is left as is. If the change was really reverted, pass --allow-empty to clear it")
 			}
 			out := cmd.OutOrStdout()
 			updated := spec.ReplaceChange(desc, body)
@@ -192,9 +192,9 @@ func ticketStubCmd() *cobra.Command {
 		Long: `Writes tickets/<source>/<ID>/<ID>.md for a ticket just filed at a synced
 source, in the synced layout with an empty source block, its covered-by set to
 the lead. For a manual lead it also adds the ticket to the lead's covers, which
-ct sync keeps. For a lead that is itself synced (a source epic) the lead's
+tix sync keeps. For a lead that is itself synced (a source epic) the lead's
 covers belong to the source and are left alone: only the child's covered-by is
-written (and ct sync keeps it until the note's first sync). ct sync finds the
+written (and tix sync keeps it until the note's first sync). tix sync finds the
 note by ID, fills the source block and fields, and keeps covered-by.
 
 Refused when the ticket already has a note, when the lead has none, when the
@@ -251,7 +251,7 @@ func readDescription(in io.Reader, path string) (string, error) {
 
 // sourceDescription reads the text under "### Description" in a note's
 // source block, up to "### Recent comments" or the block's end, without
-// trailing blank lines (as ct sync wrote it).
+// trailing blank lines (as tix sync wrote it).
 func sourceDescription(file string) (string, bool, error) {
 	data, err := os.ReadFile(file)
 	if err != nil {

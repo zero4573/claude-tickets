@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/note"
+	"github.com/zero4573/tix/internal/note"
 )
 
 func writeNote(t *testing.T, vault, source, id, body string) string {
@@ -21,7 +21,7 @@ func writeNote(t *testing.T, vault, source, id, body string) string {
 	return p
 }
 
-// A stub filed under a source epic (ct ticket stub) is not in the epic's
+// A stub filed under a source epic (tix ticket stub) is not in the epic's
 // children yet: the epic's refresh keeps its covered-by, but clears that of a
 // synced note that left the epic.
 func TestWriteChildrenKeepsStubCoveredBy(t *testing.T) {

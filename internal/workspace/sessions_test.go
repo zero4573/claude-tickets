@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/proc"
+	"github.com/zero4573/tix/internal/proc"
 )
 
 // onHost runs a test as on the host (the sandbox CI may run in counts as a

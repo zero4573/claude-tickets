@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/vaultlock"
+	"github.com/zero4573/tix/internal/vaultlock"
 )
 
 func removedSetup(t *testing.T) (Source, string) {
@@ -131,7 +131,7 @@ func TestApplyLocked(t *testing.T) {
 	}
 }
 
-// W6-claude-tickets-S02: a retired view edited after Classify is kept, with
+// W6-tix-S02: a retired view edited after Classify is kept, with
 // a warning and its record entry.
 func TestApplyKeepsRetiredViewEditedBeforeRemove(t *testing.T) {
 	src, v := removedSetup(t)
@@ -166,7 +166,7 @@ func TestApplyKeepsRetiredViewEditedBeforeRemove(t *testing.T) {
 	}
 }
 
-// W6-claude-tickets-C04: DryRun ignores Locked: no lock, nothing written.
+// W6-tix-C04: DryRun ignores Locked: no lock, nothing written.
 func TestApplyDryRunWithLockedWritesNothing(t *testing.T) {
 	src, v := removedSetup(t)
 	dir, err := vaultlock.Dir(v)

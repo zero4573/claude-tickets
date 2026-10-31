@@ -1,19 +1,19 @@
 ---
 name: spec-init
-description: Bootstrap a repo's living specs from its code (/tickets:spec-init <repo>), in a ct spec session. Gathers the vault notes, the code layout, README, docs and tests, gates a capability list with the user, files an "add specs for <repo>" ticket, has one tickets:spec-writer subagent draft each capability's spec.md (requirements inferred, with file:line and covering tests), and writes specs/README.md and a docs/architecture.md skeleton as drafts in the ticket folder. Shallow on purpose. Use when the user asks to add, bootstrap or write specs for a repo that has none.
+description: Bootstrap a repo's living specs from its code (/tix:spec-init <repo>), in a tix spec session. Gathers the vault notes, the code layout, README, docs and tests, gates a capability list with the user, files an "add specs for <repo>" ticket, has one tix:spec-writer subagent draft each capability's spec.md (requirements inferred, with file:line and covering tests), and writes specs/README.md and a docs/architecture.md skeleton as drafts in the ticket folder. Shallow on purpose. Use when the user asks to add, bootstrap or write specs for a repo that has none.
 argument-hint: "<repo slug>"
 ---
 
-# /tickets:spec-init <repo>
+# /tix:spec-init <repo>
 
-Runs in a `ct spec` session: every repo is read-only, so the output is a ticket plus
+Runs in a `tix spec` session: every repo is read-only, so the output is a ticket plus
 drafts in the vault, never a commit. Spec format: `docs/spec-workflow.md`
-("Layout and format"); the `tickets:spec` skill has it too. Without a repo, ask which.
+("Layout and format"); the `tix:spec` skill has it too. Without a repo, ask which.
 Shallow on purpose: capabilities, interfaces, the main requirements. A spec deepens
 when a ticket touches it.
 
 ## 1. Gather
-- `ct vault search "<repo>" --project <slug> --budget 1500`, then `ct vault note get`
+- `tix vault search "<repo>" --project <slug> --budget 1500`, then `tix vault note get`
   by section: the project notes (features, sequences, data, decisions), `depends-on`,
   groups.
 - The code layout: the repo's top-level packages or modules (Glob, `ls`) are
@@ -27,19 +27,19 @@ what it does, never by a ticket. Ask the user to edit and approve it (AskUserQue
 or free text for edits). Draft nothing before the approval.
 
 ## 3. Location, asked once
-`ct spec location <slug>`. With neither `specs/` in the repo nor a `specs:` field in its
+`tix spec location <slug>`. With neither `specs/` in the repo nor a `specs:` field in its
 project note, ask once (AskUserQuestion: repo, or vault only) and write the field.
 
 ## 4. File the ticket
-Run `/tickets:new-ticket` for "add specs for <repo>" (title and source as it asks).
+Run `/tix:new-ticket` for "add specs for <repo>" (title and source as it asks).
 Its ID and source give the ticket folder `tickets/<source>/<ID>/`.
 
 ## 5. Draft, one subagent per capability
 Output root `<out>`: for `specs: vault`, `tickets/<source>/<ID>/specs/<slug>/` (the
 ticket-folder copy of the vault spec: `<out><capability>/spec.md`; make it first with
-`ct spec start <ID> <slug>`, which promote needs); for `specs: repo`,
+`tix spec start <ID> <slug>`, which promote needs); for `specs: repo`,
 `tickets/<source>/<ID>/spec-init/` (the ticket's session copies it into the repo's
-`specs/` after review). Spawn all `tickets:spec-writer` agents in one message, each with:
+`specs/` after review). Spawn all `tix:spec-writer` agents in one message, each with:
 the repo slug and path, the capability name and its one line, the packages and files
 you found for it, the repo's `depends-on` (for Interfaces), and the exact output path
 `<out><capability>/spec.md`. They write only that file and report in 5 lines.
@@ -56,7 +56,7 @@ Write, as the session (vault paths only):
   promotes it as a spec. The ticket's session copies it to `docs/architecture.md`.
 
 ## 7. Check and review
-Run `ct spec check --dir <out>` on the drafts (it flags missing fields, more than 3
+Run `tix spec check --dir <out>` on the drafts (it flags missing fields, more than 3
 markers, duplicate IDs); fix what it flags. Read each draft once: every requirement is
 `status: inferred` and has `file:line` evidence and covering tests (or says none), no
 more than 3 `[NEEDS CLARIFICATION: ...]` per requirement, no invented behavior.

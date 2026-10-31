@@ -15,7 +15,7 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/zero4573/claude-tickets/assets"
+	"github.com/zero4573/tix/assets"
 )
 
 func TestNorm(t *testing.T) {
@@ -209,7 +209,7 @@ func TestClassify(t *testing.T) {
 		"current.md":       UpToDate,
 		"crlf.md":          UpToDate,
 		"stale.md":         Stale,
-		"recorded.md":      Newer, // recorded, unknown to this ct: a newer ct wrote it
+		"recorded.md":      Newer, // recorded, unknown to this tix: a newer tix wrote it
 		"edited.md":        Edited,
 		"dir.md":           Edited,
 		"t/nested.md":      UpToDate,
@@ -352,13 +352,13 @@ func TestApply(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(v, ".vault.lock.d")); err == nil {
 		t.Error("the lock wasn't released")
 	}
-	tmps, _ := filepath.Glob(filepath.Join(v, ".*.ct-tmp"))
+	tmps, _ := filepath.Glob(filepath.Join(v, ".*.tix-tmp"))
 	if len(tmps) > 0 {
 		t.Error("temp files left:", tmps)
 	}
 
 	rec := loadRec(t, v)
-	if rec.Format != RecordFormat || !strings.Contains(rec.Comment, "ct vault update") {
+	if rec.Format != RecordFormat || !strings.Contains(rec.Comment, "tix vault update") {
 		t.Errorf("record header: %+v", rec)
 	}
 	newHash := Hash([]byte("new\n"))
@@ -372,7 +372,7 @@ func TestApply(t *testing.T) {
 		t.Errorf("record %v, want %v", rec.Files, want)
 	}
 
-	// Again, with a newer ct: nothing to do, the record isn't rewritten
+	// Again, with a newer tix: nothing to do, the record isn't rewritten
 	age(t, v, RecordName)
 	res, err = Apply(v, src, Options{Version: "2.0"})
 	if err != nil {
@@ -436,7 +436,7 @@ func TestApplyKeepsEntries(t *testing.T) {
 
 func TestApplyAddOnly(t *testing.T) {
 	src, v := applySetup(t)
-	res, err := Apply(v, src, Options{Version: "1.0", AddOnly: true, Owner: "ct-vault-init"})
+	res, err := Apply(v, src, Options{Version: "1.0", AddOnly: true, Owner: "tix-vault-init"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -496,7 +496,7 @@ func TestApplyTake(t *testing.T) {
 	write(t, v, "edited.md", "mine again\n")
 	for _, tc := range []struct{ take, err string }{
 		{"edited.md", "edited.md.bak exists; move it away first"},
-		{"nope.md", "not a file ct ships: nope.md"},
+		{"nope.md", "not a file tix ships: nope.md"},
 		{"gone.md", "gone.md isn't shipped any more"},
 	} {
 		before := snapshot(t, v)
@@ -533,7 +533,7 @@ func TestApplyRecordFormats(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0], "newer ct") {
+	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0], "newer tix") {
 		t.Errorf("warnings %v", res.Warnings)
 	}
 	if read(t, v, RecordName) != newer {

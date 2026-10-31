@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/spec"
-	"github.com/zero4573/claude-tickets/internal/vaultlock"
+	"github.com/zero4573/tix/internal/spec"
+	"github.com/zero4573/tix/internal/vaultlock"
 )
 
-// ct spec start finishes a pending promote under the vault lock: the file
+// tix spec start finishes a pending promote under the vault lock: the file
 // another ticket promoted since is held back and listed with what
 // resolves it, and promote then refuses it naming that ticket.
 func TestStartReplayHoldsBack(t *testing.T) {
@@ -32,7 +32,7 @@ func TestStartReplayHoldsBack(t *testing.T) {
 	for _, want := range []string{
 		"acme-app: held back b/spec.md: projects/ holds T-2's recorded after copy (projects/acme-app/spec-versions/acme-app-spec-T-2.md)\n",
 		"acme-app: promoted 1 files (a); version projects/acme-app/spec-versions/acme-app-spec-T-1.md\n",
-		"run ct spec promote T-1 to resolve\n",
+		"run tix spec promote T-1 to resolve\n",
 	} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output lacks %q:\n%s", want, out.String())
@@ -56,12 +56,12 @@ func TestStartPendingLockHeld(t *testing.T) {
 	e := newHeldEnv(t)
 	e.begin("T-1", map[string]string{"b/spec.md": "b1"})
 	e.crash("T-1", failPut("b/spec.md"))
-	if err := vaultlock.TryAcquire(e.v, "ct save T-9"); err != nil {
+	if err := vaultlock.TryAcquire(e.v, "tix save T-9"); err != nil {
 		t.Fatal(err)
 	}
 	before := vaultState(t, e.v)
 	_, err := specStart(e.ctx, "T-1", e.r.Slug, []string{"a"})
-	if err == nil || !strings.Contains(err.Error(), "the vault lock is held by 'ct save T-9'") || !strings.Contains(err.Error(), "run ct spec promote T-1") {
+	if err == nil || !strings.Contains(err.Error(), "the vault lock is held by 'tix save T-9'") || !strings.Contains(err.Error(), "run tix spec promote T-1") {
 		t.Fatalf("want a lock refusal: %v", err)
 	}
 	if !reflect.DeepEqual(vaultState(t, e.v), before) {
@@ -90,7 +90,7 @@ func TestStartJournalAfterCheck(t *testing.T) {
 	}
 	defer func() { startChecked = func() {} }()
 	_, err := specStart(e.ctx, "T-1", e.r.Slug, []string{"b"})
-	if err == nil || !strings.Contains(err.Error(), "promote pending: run ct spec promote T-1") {
+	if err == nil || !strings.Contains(err.Error(), "promote pending: run tix spec promote T-1") {
 		t.Fatalf("want a refusal: %v", err)
 	}
 	if !reflect.DeepEqual(vaultState(t, e.v), before) {

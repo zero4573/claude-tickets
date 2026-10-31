@@ -11,30 +11,30 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/assets"
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/session"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/assets"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/session"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 // devNone is the --dev value that turns a dev workspace back into a plain one.
 const devNone = "none"
 
-const devHelp = "run the workspace's sessions on the plugin and ct built from its claude-tickets checkout <slug> (kept for later starts; none: back to the installed ones)"
+const devHelp = "run the workspace's sessions on the plugin and tix built from its tix checkout <slug> (kept for later starts; none: back to the installed ones)"
 
-// goBuild builds ct from a claude-tickets checkout into out, with env added
-// to ct's own, and returns go's output. A seam: tests swap it.
+// goBuild builds tix from a tix checkout into out, with env added
+// to tix's own, and returns go's output. A seam: tests swap it.
 var goBuild = func(checkout, out string, env map[string]string) ([]byte, error) {
 	return goBuildCmd(checkout, out, env).CombinedOutput()
 }
 
 // goBuildCmd is the go build of goBuild. -buildvcs=false: stamping VCS
-// info runs git in the checkout, outside ct's checked git, where the
+// info runs git in the checkout, outside tix's checked git, where the
 // checkout's own config (fsmonitor, filters) could run a program.
 func goBuildCmd(checkout, out string, env map[string]string) *exec.Cmd {
-	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", out, "./cmd/ct")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", out, "./cmd/tix")
 	cmd.Dir = checkout
 	cmd.Env = os.Environ()
 	for k, v := range env {
@@ -43,19 +43,19 @@ func goBuildCmd(checkout, out string, env map[string]string) *exec.Cmd {
 	return cmd
 }
 
-// ctFile is the name of a ct executable on this OS.
-func ctFile() string {
+// tixFile is the name of a tix executable on this OS.
+func tixFile() string {
 	if runtime.GOOS == "windows" {
-		return "ct.exe"
+		return "tix.exe"
 	}
-	return "ct"
+	return "tix"
 }
 
 // devCheckout is the checkout of the workspace repo slug when it's a
-// claude-tickets one (it has cmd/ct and assets/plugin).
+// tix one (it has cmd/tix and assets/plugin).
 func devCheckout(info workspace.Info, slug string) (string, bool) {
 	for _, r := range info.Repos {
-		if r.Slug == slug && fsx.IsDir(filepath.Join(r.Path, "cmd", "ct")) && fsx.IsDir(filepath.Join(r.Path, "assets", "plugin")) {
+		if r.Slug == slug && fsx.IsDir(filepath.Join(r.Path, "cmd", "tix")) && fsx.IsDir(filepath.Join(r.Path, "assets", "plugin")) {
 			return r.Path, true
 		}
 	}
@@ -63,12 +63,12 @@ func devCheckout(info workspace.Info, slug string) (string, bool) {
 }
 
 func notDevCheckout(slug string) error {
-	fmt.Fprintf(os.Stderr, "ct start: %s is not a claude-tickets checkout\n", slug)
+	fmt.Fprintf(os.Stderr, "tix start: %s is not a tix checkout\n", slug)
 	return exitError(1)
 }
 
 // checkDev is nil when slug can be key's dev checkout (or is none):
-// a repo of its workspace that is a claude-tickets checkout.
+// a repo of its workspace that is a tix checkout.
 func checkDev(ctx vault.Context, key, slug string) error {
 	if slug == devNone {
 		return nil
@@ -78,7 +78,7 @@ func checkDev(ctx vault.Context, key, slug string) error {
 		return err
 	}
 	if !slices.ContainsFunc(info.Repos, func(r workspace.Repo) bool { return r.Slug == slug }) {
-		fmt.Fprintf(os.Stderr, "ct start: %s is not a repo of %s's workspace (ct ws add first)\n", slug, key)
+		fmt.Fprintf(os.Stderr, "tix start: %s is not a repo of %s's workspace (tix ws add first)\n", slug, key)
 		return exitError(1)
 	}
 	if _, ok := devCheckout(info, slug); !ok {
@@ -114,24 +114,24 @@ func setDev(ctx vault.Context, keys []string, slug string) error {
 	return nil
 }
 
-// devBuild is a dev workspace's build: its plugin dir, the dir of its ct
-// (first on the sessions' PATH) and that ct.
+// devBuild is a dev workspace's build: its plugin dir, the dir of its tix
+// (first on the sessions' PATH) and that tix.
 type devBuild struct {
-	plugin, bin, ct string
+	plugin, bin, tix string
 }
 
 // devMode is what prepareTicketSession does with a dev workspace's build.
 type devMode int
 
 const (
-	devIgnore  devMode = iota // the installed plugin and ct (ct clean)
-	devRebuild                // build ct and copy the plugin first
+	devIgnore  devMode = iota // the installed plugin and tix (tix clean)
+	devRebuild                // build tix and copy the plugin first
 )
 
 // prepareDev is the build of a dev workspace (nil when dir isn't one or
-// mode is devIgnore). With devRebuild it builds ct into <dir>/.cache/dev/bin
+// mode is devIgnore). With devRebuild it builds tix into <dir>/.cache/dev/bin
 // and copies the checkout's plugin to <dir>/.cache/dev/plugin, its hooks
-// running that ct; it never runs the built ct. A failed build fails:
+// running that tix; it never runs the built tix. A failed build fails:
 // nothing falls back to the installed ones.
 func prepareDev(dir string, mode devMode) (*devBuild, error) {
 	if mode == devIgnore {
@@ -148,7 +148,7 @@ func prepareDev(dir string, mode devMode) (*devBuild, error) {
 		return nil, nil
 	}
 	b := devBuild{plugin: filepath.Join(session.DevDir(dir), "plugin"), bin: filepath.Join(session.DevDir(dir), "bin")}
-	b.ct = filepath.Join(b.bin, ctFile())
+	b.tix = filepath.Join(b.bin, tixFile())
 	slug := info.Dev.Slug
 	checkout, ok := devCheckout(info, slug)
 	if !ok {
@@ -157,9 +157,9 @@ func prepareDev(dir string, mode devMode) (*devBuild, error) {
 	if err := os.MkdirAll(b.bin, 0o755); err != nil {
 		return nil, err
 	}
-	if out, err := goBuild(checkout, b.ct, session.GoEnv(dir)); err != nil {
+	if out, err := goBuild(checkout, b.tix, session.GoEnv(dir)); err != nil {
 		os.Stderr.Write(out)
-		fmt.Fprintf(os.Stderr, "ct start: building ct in %s failed (%v)\n", slug, err)
+		fmt.Fprintf(os.Stderr, "tix start: building tix in %s failed (%v)\n", slug, err)
 		return nil, exitError(1)
 	}
 	// The checkout may have changed during the build (another branch).
@@ -168,10 +168,10 @@ func prepareDev(dir string, mode devMode) (*devBuild, error) {
 	}
 	// Read through an os.Root at the checkout: a linked assets/ (or any
 	// link swapped in during the copy) can't reach outside it.
-	if err := assets.MaterializeTo(checkout, "assets/plugin", b.plugin, b.ct); err != nil {
+	if err := assets.MaterializeTo(checkout, "assets/plugin", b.plugin, b.tix); err != nil {
 		return nil, fmt.Errorf("copying the plugin of %s: %w", slug, err)
 	}
-	fmt.Printf("ct start: dev mode: plugin and ct from %s (%s)\n", slug, devVersion(checkout))
+	fmt.Printf("tix start: dev mode: plugin and tix from %s (%s)\n", slug, devVersion(checkout))
 	return &b, nil
 }
 

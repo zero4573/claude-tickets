@@ -1,4 +1,4 @@
-# Builds the fixtures of the ct sync tests: jq -n --arg state 1|2|3 -f fixtures.jq
+# Builds the fixtures of the tix sync tests: jq -n --arg state 1|2|3 -f fixtures.jq
 def st($name; $cat): {name: $name, statusCategory: {key: $cat}};
 def todo: st("To Do"; "new");
 def doing: st("In Progress"; "indeterminate");

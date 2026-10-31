@@ -33,7 +33,7 @@ type LlamaOptions struct {
 
 // DefaultLibPath is a list of extra directories (os.PathListSeparator
 // separated) searched for the native dependencies of the llama.cpp library
-// (libstdc++, libgomp), after $CLAUDE_TICKETS_LIB_PATH. The Nix package sets
+// (libstdc++, libgomp), after $TIX_LIB_PATH. The Nix package sets
 // it with -ldflags -X.
 var DefaultLibPath string
 

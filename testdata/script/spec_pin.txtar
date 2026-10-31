@@ -1,4 +1,4 @@
-# ct spec pin: pin a ticket's vault spec version to the pushed commit, re-pin
+# tix spec pin: pin a ticket's vault spec version to the pushed commit, re-pin
 # after a rewrite, and resolve merged and tags with --refresh
 [windows] skip 'real git and sh stubs'
 env V=home/Documents/Obsidian/a
@@ -12,10 +12,10 @@ cp ledger.md $V/projects/github-acme-ledger/github-acme-ledger.md
 cp posting.md $V/projects/github-acme-ledger/specs/posting/spec.md
 expand ws.json
 cp ws.json $W/workspace.json
-exec ct spec start MAN-1 github-acme-ledger
+exec tix spec start MAN-1 github-acme-ledger
 
 # a main clone and the ticket worktree; a push is its origin/ ref moving
-# (ct's git refuses a local path as a remote url)
+# (tix's git refuses a local path as a remote url)
 exec git init -q -b main $R
 cp app.txt $R/app.txt
 exec git -C $R add -A
@@ -25,37 +25,37 @@ exec git -C $R symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
 exec git -C $R worktree add -q -b feature/MAN-1 $WORK/$W/ledger main
 
 # no version note yet: nothing to pin
-exec ct spec pin MAN-1
+exec tix spec pin MAN-1
 ! stdout .
 
 # promoted, the branch not pushed: left unpinned
 cp p-new.md $C/posting/spec.md
-exec ct spec promote MAN-1
+exec tix spec promote MAN-1
 cp change.txt $W/ledger/app.txt
 exec git -C $W/ledger commit -q -am change
-exec ct spec pin MAN-1
+exec tix spec pin MAN-1
 stdout '^github-acme-ledger: not pushed, left unpinned$'
 grep '^commit: ""$' $N
 
 # pushed: pinned to the branch head
 exec git -C $W/ledger update-ref refs/remotes/origin/feature/MAN-1 HEAD
-exec ct spec pin MAN-1
+exec tix spec pin MAN-1
 stdout '^github-acme-ledger: pinned [0-9a-f]{7}$'
 grep '^commit: [0-9a-f]{40}$' $N
 grep '^pinned: 20\d\d-\d\d-\d\dT\d\d:\d\d:\d\d$' $N
 grep '^merged: ""$' $N
 grep '^Pinned to [0-9a-f]{7} on feature/MAN-1$' $N
 grep '^### REQ-LED-2 · Reverse$' $N
-exec ct spec pin MAN-1
+exec tix spec pin MAN-1
 stdout '^github-acme-ledger: already pinned$'
 
 # a promotion that changes the promoted files clears the pin; the next pin sets it again
 mkdir $C/posting
 cp p-v2.md $C/posting/spec.md
-exec ct spec promote MAN-1
+exec tix spec promote MAN-1
 grep '^commit: ""$' $N
 grep '^Unpinned: promoted, not pushed yet$' $N
-exec ct spec pin MAN-1
+exec tix spec pin MAN-1
 stdout '^github-acme-ledger: pinned [0-9a-f]{7}$'
 
 # a held vault lock fails pin at once, naming the holder
@@ -64,15 +64,15 @@ exec git -C $W/ledger commit -q -am more
 exec git -C $W/ledger update-ref refs/remotes/origin/feature/MAN-1 HEAD
 mkdir $V/.vault.lock.d
 cp owner.txt $V/.vault.lock.d/owner
-! exec ct spec pin MAN-1
-stderr 'held by ''ct save PROJ-9'''
+! exec tix spec pin MAN-1
+stderr 'held by ''tix save PROJ-9'''
 rm $V/.vault.lock.d
 
 # a stale lock (a crashed holder) is taken over, not refused
 mkdir $V/.vault.lock.d
 cp owner.txt $V/.vault.lock.d/owner
 exec touch -d '2 hours ago' $V/.vault.lock.d/owner
-exec ct spec pin MAN-1
+exec tix spec pin MAN-1
 stdout '^github-acme-ledger: pinned [0-9a-f]{7}$'
 ! exists $V/.vault.lock.d
 
@@ -81,61 +81,61 @@ exec git -C $W/ledger commit -q --amend -m 'more, reworded'
 exec git -C $W/ledger update-ref refs/remotes/origin/feature/MAN-1 HEAD
 exec git -C $W/ledger rev-parse HEAD
 cp stdout head.txt
-exec ct spec pin MAN-1
+exec tix spec pin MAN-1
 stdout '^github-acme-ledger: pinned [0-9a-f]{7}$'
 exec sh -c 'grep -q "^commit: $(cat head.txt)$" '$N
 
 # --refresh before the merge: not found on the base
-exec ct spec pin --refresh github-acme-ledger
+exec tix spec pin --refresh github-acme-ledger
 stdout '^github-acme-ledger MAN-1: not found on main$'
 grep '^merged: ""$' $N
 
 # merged with a merge commit, then tagged
 exec git -C $R merge -q --no-ff -m 'merge MAN-1' feature/MAN-1
 exec git -C $R update-ref refs/remotes/origin/main HEAD
-exec ct spec pin --refresh github/acme/ledger
+exec tix spec pin --refresh github/acme/ledger
 stdout '^github-acme-ledger MAN-1: merged [0-9a-f]{7}$'
 exec sh -c 'grep -q "^merged: $(cat head.txt)$" '$N
 grep '^tags: \[\]$' $N
 exec git -C $R tag v1.0.0
-exec ct spec pin --refresh github-acme-ledger
+exec tix spec pin --refresh github-acme-ledger
 stdout '^github-acme-ledger MAN-1: merged [0-9a-f]{7}, in v1.0.0$'
 grep '^tags: \[v1.0.0\]$' $N
 grep ', in v1.0.0$' $N
-exec ct spec pin MAN-1
+exec tix spec pin MAN-1
 stdout '^github-acme-ledger: already pinned$'
 
 # an unpinned version of another ticket is listed as such
 mkdir $V/projects/github-acme-ledger/spec-versions
 cp man2-version.md $V/projects/github-acme-ledger/spec-versions/github-acme-ledger-spec-MAN-2.md
-exec ct spec pin --refresh github-acme-ledger
+exec tix spec pin --refresh github-acme-ledger
 stdout '^github-acme-ledger MAN-2: unpinned$'
 
 # a rebase marker blocks only its own ticket: pin and --refresh skip the
 # marked version with a note and go on with the others
 mkdir $V/tickets/manual/MAN-2/specs-base
 cp marker.txt $V/tickets/manual/MAN-2/specs-base/.github-acme-ledger.rebase
-exec ct spec pin --refresh github-acme-ledger
+exec tix spec pin --refresh github-acme-ledger
 stdout '^github-acme-ledger MAN-1: merged [0-9a-f]{7}, in v1.0.0$'
 stdout '^github-acme-ledger MAN-2: unpinned$'
 cp marker.txt $V/tickets/manual/MAN-1/specs-base/.github-acme-ledger.rebase
-exec ct spec pin --refresh github-acme-ledger
-stdout '^github-acme-ledger MAN-1: refresh pending: run ct spec start MAN-1 github-acme-ledger, skipped$'
+exec tix spec pin --refresh github-acme-ledger
+stdout '^github-acme-ledger MAN-1: refresh pending: run tix spec start MAN-1 github-acme-ledger, skipped$'
 stdout '^github-acme-ledger MAN-2: unpinned$'
-exec ct spec pin MAN-1
-stdout '^github-acme-ledger: refresh pending: run ct spec start MAN-1 github-acme-ledger, left as it is$'
+exec tix spec pin MAN-1
+stdout '^github-acme-ledger: refresh pending: run tix spec start MAN-1 github-acme-ledger, left as it is$'
 rm $V/tickets/manual/MAN-1/specs-base/.github-acme-ledger.rebase
 rm $V/tickets/manual/MAN-2/specs-base/.github-acme-ledger.rebase
-exec ct spec pin MAN-1
+exec tix spec pin MAN-1
 stdout '^github-acme-ledger: already pinned$'
 
 # errors
-! exec ct spec pin
+! exec tix spec pin
 stderr 'accepts 1 arg'
-! exec ct spec pin --refresh github-acme-ledger MAN-1
-! exec ct spec pin --refresh nope
+! exec tix spec pin --refresh github-acme-ledger MAN-1
+! exec tix spec pin --refresh nope
 stderr 'no main clone'
-! exec ct spec pin MAN-99
+! exec tix spec pin MAN-99
 stderr 'no workspace for MAN-99'
 
 -- marker.txt --
@@ -161,7 +161,7 @@ tags: [project]
   {"provider": "github", "owner": "acme", "repo": "ledger", "slug": "github-acme-ledger", "path": "$WORK/home/Projects/work-a/MAN-1/ledger", "base": "main", "branch": "feature/MAN-1", "mode": "worktree", "targetVersion": null}
 ]}
 -- owner.txt --
-ct save PROJ-9
+tix save PROJ-9
 -- app.txt --
 app
 -- change.txt --

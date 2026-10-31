@@ -1,6 +1,6 @@
 // Package vbench generates a deterministic, realistically shaped vault and
 // measures how many tokens an agent needs to find context in it the old way
-// (ls, grep, whole-note reads) against the new way (ct vault search with a
+// (ls, grep, whole-note reads) against the new way (tix vault search with a
 // budget). It backs `make bench`.
 package vbench
 

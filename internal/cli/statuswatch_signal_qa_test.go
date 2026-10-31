@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 const (
@@ -92,7 +92,7 @@ func TestRunStatusWatchSignals(t *testing.T) {
 
 // QA (MAN-15), design section 6 / dev-notes "Panic in a refresh": a panic
 // inside a refresh (its own goroutine) still restores the terminal before
-// ct crashes. Run in a child process, since the panic ends it.
+// tix crashes. Run in a child process, since the panic ends it.
 func TestRunStatusWatchPanicRestores(t *testing.T) {
 	if os.Getenv("MAN15_QA_PANIC_CHILD") == "1" {
 		// a bug inside a refresh

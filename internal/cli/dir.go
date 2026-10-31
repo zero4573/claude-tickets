@@ -5,16 +5,16 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/repo"
-	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/repo"
+	"github.com/zero4573/tix/internal/vault"
 )
 
 func dirCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "dir work|tickets|repos",
 		Short: "Print a directory of the current vault: its work, tickets or repo directory",
-		Long: `Prints one of the current vault's directories, for cd "$(ct dir repos)":
+		Long: `Prints one of the current vault's directories, for cd "$(tix dir repos)":
   work     the ticket workspaces (workRoot)
   tickets  the vault's tickets folder
   repos    the main clones (projectsRoot), narrowed: while a level (the

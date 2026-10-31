@@ -1,12 +1,12 @@
-# ct start: a manual ticket's CLAUDE.md names its commit style, never the ID in subjects
+# tix start: a manual ticket's CLAUDE.md names its commit style, never the ID in subjects
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a/github/acme/x/.git
 mkdir home/Documents/Obsidian/a/tickets/MAN-1
 cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
 cp board.md home/Documents/Obsidian/a/tickets/MAN-1/board.md
 expand user-settings.json
-env CLAUDE_TICKETS_SESSION_SETTINGS=$WORK/user-settings.json
+env TIX_SESSION_SETTINGS=$WORK/user-settings.json
 
-exec ct-tty start --no-fetch MAN-1
+exec tix-tty start --no-fetch MAN-1
 grep 'subjects never carry the ticket ID' home/Projects/work-a/MAN-1/CLAUDE.md
 grep 'style: conventional commits' home/Projects/work-a/MAN-1/CLAUDE.md
 grep 'normally on .feature/<description>.' home/Projects/work-a/MAN-1/CLAUDE.md

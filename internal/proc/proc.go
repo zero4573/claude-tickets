@@ -1,4 +1,4 @@
-// Package proc tells whether a process is still the one ct recorded: a
+// Package proc tells whether a process is still the one tix recorded: a
 // PID plus an identity (its start time), so a PID the OS has since given
 // to another process doesn't count. The OS differences live in the
 // build-tagged proc_<os>.go files.
@@ -14,7 +14,7 @@ var ErrUnsupported = errors.New("process identity not supported here")
 
 // Identity is an opaque string unique to a running process: its start time
 // (plus the boot id on Linux), so a reused PID gives a different value.
-// Exec keeps it, so ct's identity just before exec is the new program's.
+// Exec keeps it, so tix's identity just before exec is the new program's.
 func Identity(pid int) (string, error) {
 	if pid <= 0 {
 		return "", ErrNotRunning

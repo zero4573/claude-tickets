@@ -217,7 +217,7 @@ func TestMigrateNoTicketsFolder(t *testing.T) {
 	}
 }
 
-// W6-claude-tickets-S01: a failed status-file write is a warning; the other
+// W6-tix-S01: a failed status-file write is a warning; the other
 // files and tickets still migrate.
 func TestMigrateStatusWriteFailureIsAWarning(t *testing.T) {
 	v := vault(t)

@@ -1,4 +1,4 @@
-# ct ticket convert: a manual ticket filed at the fake Jira, its vault folder
+# tix ticket convert: a manual ticket filed at the fake Jira, its vault folder
 # and workspace moved to the new key (real git, fake Jira from mcptest).
 mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/tickets/manual/MAN-1/tasks home/Documents/Obsidian/a/tickets/manual/MAN-2 home/Documents/Obsidian/a/tickets/manual/MAN-3 home/Documents/Obsidian/a/tickets/jira/PROJ-2 home/Documents/Obsidian/a/tickets/manual/MAN-4
 cp proj-2.md home/Documents/Obsidian/a/tickets/jira/PROJ-2/PROJ-2.md
@@ -15,43 +15,43 @@ exec git -C seed add -A
 exec git -C seed commit -q -m init
 exec git clone -q --bare seed remote/acme/billing.git
 exec git -C seed remote add origin $WORK/remote/acme/billing.git
-exec ct ws clone github/acme/billing
-exec ct ws add MAN-1 github-acme-billing --base main --desc 'Fix the Thing'
+exec tix ws clone github/acme/billing
+exec tix ws add MAN-1 github-acme-billing --base main --desc 'Fix the Thing'
 exec git -C home/Projects/repo-a/github/acme/billing worktree add -q -b task/MAN-1-01-first $WORK/home/Projects/work-a/MAN-1/tasks/billing-01 main
 exists home/Projects/work-a/MAN-1/tasks/billing-01/README.md
 fakejira jira.json
 
 # refusals change nothing
-! exec ct ticket convert MAN-1
+! exec tix ticket convert MAN-1
 stderr '--to <source> is required'
-! exec ct ticket convert MAN-1 --to nope
+! exec tix ticket convert MAN-1 --to nope
 stderr 'no source .nope.'
-! exec ct ticket convert MAN-1 --to manual
+! exec tix ticket convert MAN-1 --to manual
 stderr 'not a synced source'
-! exec ct ticket convert MAN-1 --to off
+! exec tix ticket convert MAN-1 --to off
 stderr 'disabled'
-! exec ct ticket convert MAN-1 --to local
+! exec tix ticket convert MAN-1 --to local
 stderr '"sync": false'
-! exec ct ticket convert PROJ-9 --to jira
+! exec tix ticket convert PROJ-9 --to jira
 stderr 'no ticket PROJ-9'
-! exec ct ticket convert MAN-2 --to jira --project PROJ
+! exec tix ticket convert MAN-2 --to jira --project PROJ
 stderr 'MAN-2 is not a manual ticket'
 live-session home/Projects/work-a/MAN-1
-! exec ct ticket convert MAN-1 --to jira --project PROJ
+! exec tix ticket convert MAN-1 --to jira --project PROJ
 stderr 'MAN-1.s session is running'
 ! exists home/Documents/Obsidian/a/tickets/jira/PROJ-8
 rm home/Projects/work-a/MAN-1/.sessions.json
 rm home/Projects/work-a/MAN-1/.agent-state
 
 # no project given, none on the source
-! exec ct ticket convert MAN-1 --to jira
+! exec tix ticket convert MAN-1 --to jira
 stderr 'no project to file in'
 # a type the project doesn't have
-! exec ct ticket convert MAN-1 --to jira --project PROJ --type Saga
+! exec tix ticket convert MAN-1 --to jira --project PROJ --type Saga
 stderr 'no issue type .Saga.'
 # a failed create changes nothing
 fakejira jira-fail.json
-! exec ct ticket convert MAN-1 --to jira --project PROJ
+! exec tix ticket convert MAN-1 --to jira --project PROJ
 stderr 'nothing changed'
 stderr 'no permission to create'
 exists home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
@@ -60,7 +60,7 @@ exists home/Projects/work-a/MAN-1/workspace.json
 fakejira jira.json
 
 # --dry-run shows what would be filed and changes nothing
-exec ct ticket convert MAN-1 --to jira --project PROJ --dry-run
+exec tix ticket convert MAN-1 --to jira --project PROJ --dry-run
 stdout 'MAN-1 -> jira'
 stdout 'project:  PROJ'
 stdout 'type:     Story'
@@ -74,13 +74,13 @@ exists home/Documents/Obsidian/a/tickets/manual/MAN-1/MAN-1.md
 ! exists home/Documents/Obsidian/a/tickets/jira/PROJ-8
 
 # a full convert
-exec ct ticket convert MAN-1 --to jira --project PROJ
+exec tix ticket convert MAN-1 --to jira --project PROJ
 stdout 'filed PROJ-8 at jira: https://acme.atlassian.net/browse/PROJ-8'
 stdout 'moved tickets/manual/MAN-1 to tickets/jira/PROJ-8'
 stdout 'renamed workspace .*/work-a/MAN-1 to .*/work-a/PROJ-8'
 stdout 'converted MAN-1 to PROJ-8'
 stdout 'starts fresh'
-stdout 'next: ct sync --source jira'
+stdout 'next: tix sync --source jira'
 ! exists home/Documents/Obsidian/a/tickets/manual/MAN-1
 ! exists home/Projects/work-a/MAN-1
 exists home/Documents/Obsidian/a/tickets/jira/PROJ-8/PROJ-8.md
@@ -121,24 +121,24 @@ stdout 'work-a/PROJ-8/github-acme-billing'
 stdout 'work-a/PROJ-8/tasks/billing-01'
 ! stdout 'work-a/MAN-1'
 # once done there is nothing left to resume
-! exec ct ticket convert MAN-1 --to jira --project PROJ
+! exec tix ticket convert MAN-1 --to jira --project PROJ
 stderr 'no ticket MAN-1'
 
 # a failure past the create: the workspace's new name is taken. The vault side
 # is done, the message names the key, and a re-run finishes without filing again
-exec ct ws add MAN-4 github-acme-billing --base main --desc 'Second thing'
+exec tix ws add MAN-4 github-acme-billing --base main --desc 'Second thing'
 cp man-4.md home/Documents/Obsidian/a/tickets/manual/MAN-4/MAN-4.md
 mkdir home/Projects/work-a/PROJ-9
-! exec ct ticket convert MAN-4 --to jira --project PROJ --type Task
+! exec tix ticket convert MAN-4 --to jira --project PROJ --type Task
 stdout 'filed PROJ-9 at jira'
-stderr 'ct: MAN-4 was moved in the vault, but its workspace wasn.t renamed'
+stderr 'tix: MAN-4 was moved in the vault, but its workspace wasn.t renamed'
 stderr 'the issue PROJ-9 exists at jira'
-stderr 'run again: ct ticket convert MAN-4 --to jira'
+stderr 'run again: tix ticket convert MAN-4 --to jira'
 exists home/Documents/Obsidian/a/tickets/jira/PROJ-9/PROJ-9.md
 grep '^converted-from: MAN-4$' home/Documents/Obsidian/a/tickets/jira/PROJ-9/PROJ-9.md
 exists home/Projects/work-a/MAN-4/workspace.json
 rm home/Projects/work-a/PROJ-9
-exec ct ticket convert MAN-4 --to jira --project PROJ --type Task
+exec tix ticket convert MAN-4 --to jira --project PROJ --type Task
 stdout 'already filed and moved as PROJ-9'
 stdout 'converted MAN-4 to PROJ-9'
 ! stdout 'filed PROJ-10'
@@ -146,14 +146,14 @@ stdout 'converted MAN-4 to PROJ-9'
 grep '"id": "PROJ-9"' home/Projects/work-a/PROJ-9/workspace.json
 ! grep 'converted-from' home/Documents/Obsidian/a/tickets/jira/PROJ-9/PROJ-9.md
 exec git -C home/Projects/work-a/PROJ-9/github-acme-billing status --short
-! exec ct ticket convert MAN-4 --to jira --project PROJ
+! exec tix ticket convert MAN-4 --to jira --project PROJ
 stderr 'no ticket MAN-4'
 
 # a lost create response: the message says the issue may exist, and nothing changes
 fakejira jira-drop.json
 mkdir home/Documents/Obsidian/a/tickets/manual/MAN-5
 cp man-5.md home/Documents/Obsidian/a/tickets/manual/MAN-5/MAN-5.md
-! exec ct ticket convert MAN-5 --to jira --project PROJ --type Task
+! exec tix ticket convert MAN-5 --to jira --project PROJ --type Task
 stderr 'may exist'
 stderr 'check the PROJ project'
 ! stderr 'nothing changed'
@@ -162,11 +162,11 @@ stderr 'check the PROJ project'
 # convert holds the vault lock while it works and releases it: a lock it
 # already holds as its own owner is taken over, then freed
 fakejira jira-high.json
-exec ct vault lock acquire home/Documents/Obsidian/a 'ct ticket convert'
-exec ct ticket convert MAN-5 --to jira --project PROJ --type Task
+exec tix vault lock acquire home/Documents/Obsidian/a 'tix ticket convert'
+exec tix ticket convert MAN-5 --to jira --project PROJ --type Task
 stdout 'converted MAN-5 to PROJ-31'
-exec ct vault lock status home/Documents/Obsidian/a
-! stdout 'ct ticket convert'
+exec tix vault lock status home/Documents/Obsidian/a
+! stdout 'tix ticket convert'
 
 -- sources.json --
 {"sources": {
@@ -291,7 +291,7 @@ tags: [ticket, manual]
 ## Description
 Do it.
 -- gitconfig --
-# Trusted only because it is the user's global config (ct checks a repo's
+# Trusted only because it is the user's global config (tix checks a repo's
 # own config, never this): the local remotes stand in for real hosts
 [protocol "file"]
 	allow = always

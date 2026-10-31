@@ -11,9 +11,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/gitx"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/gitx"
 )
 
 // List names every vault: a directory under the Obsidian root holding
@@ -66,10 +66,10 @@ func workspaceVault(dir string) string {
 	return ""
 }
 
-// Default is the default vault: CLAUDE_TICKETS_VAULT (a session's vault,
+// Default is the default vault: TIX_VAULT (a session's vault,
 // or the caller's when one command runs another), else the vault of the
 // ticket or kb workspace the current directory is in, else the name saved
-// by `ct vault default`. ok is false when none of them names a vault.
+// by `tix vault default`. ok is false when none of them names a vault.
 func Default() (path string, ok bool, err error) {
 	name := config.LaunchVault
 	if name == "" {
@@ -85,7 +85,7 @@ func Default() (path string, ok bool, err error) {
 	}
 	p, err := Resolve(name)
 	if err != nil {
-		return "", false, fmt.Errorf("default vault '%s' isn't a vault (ct vault default to change it), ignoring it", name)
+		return "", false, fmt.Errorf("default vault '%s' isn't a vault (tix vault default to change it), ignoring it", name)
 	}
 	return p, true, nil
 }
@@ -104,7 +104,7 @@ func Current() (string, error) {
 		return p, nil
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "ct: "+err.Error())
+		fmt.Fprintln(os.Stderr, "tix: "+err.Error())
 	}
 	vaults := List()
 	switch {
@@ -114,9 +114,9 @@ func Current() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return "", fmt.Errorf("no Obsidian vaults under %s (set one up with ct vault init)", config.ObsidianRoot())
+		return "", fmt.Errorf("no Obsidian vaults under %s (set one up with tix vault init)", config.ObsidianRoot())
 	default:
-		return "", fmt.Errorf("no default vault, and several under %s (%s): pick one with ct vault default <name>",
+		return "", fmt.Errorf("no default vault, and several under %s (%s): pick one with tix vault default <name>",
 			config.ObsidianRoot(), strings.Join(vaults, " "))
 	}
 }
@@ -179,7 +179,7 @@ type Context struct {
 }
 
 // Require resolves the current vault and exports it as
-// CLAUDE_TICKETS_VAULT for the commands and sessions this one starts.
+// TIX_VAULT for the commands and sessions this one starts.
 func Require() (Context, error) {
 	v, err := Current()
 	if err != nil {
@@ -188,14 +188,14 @@ func Require() (Context, error) {
 	return use(v)
 }
 
-// use validates v's locations, exports v as CLAUDE_TICKETS_VAULT and
+// use validates v's locations, exports v as TIX_VAULT and
 // tells gitx the roots its worktrees' clones live in.
 func use(v string) (Context, error) {
 	l := LocationsOf(v)
 	if err := l.Validate(); err != nil {
 		return Context{}, err
 	}
-	os.Setenv("CLAUDE_TICKETS_VAULT", v)
+	os.Setenv("TIX_VAULT", v)
 	gitx.TrustRoots(l.ProjectsRoot, l.WorkRoot)
 	return Context{v, l}, nil
 }
@@ -262,6 +262,19 @@ func PathsSame(a, b string) bool {
 	return a != "" && b != "" && canonical(a) == canonical(b)
 }
 
+// AgentOf is the agent CLI the vault's sessions run, its .workflow.json
+// "agent" (claude or kiro; "" when unset: claude, unless $TIX_AGENT or
+// --agent says otherwise).
+func AgentOf(vault string) string {
+	var wf struct {
+		Agent string `json:"agent"`
+	}
+	if data, err := os.ReadFile(filepath.Join(vault, ".workflow.json")); err == nil {
+		_ = json.Unmarshal(data, &wf)
+	}
+	return wf.Agent
+}
+
 // ToolVersionsOf reads the toolVersions object of <vault>/.workflow.json
 // (asdf plugin name to a version or "latest") and merges it over the
 // defaults golang and python at latest, per key; a key set to "" or "none"
@@ -279,13 +292,13 @@ func ToolVersionsOf(vault string) (map[string]string, []string, string) {
 		ToolVersions map[string]any `json:"toolVersions"`
 	}
 	if err := json.Unmarshal(data, &wf); err != nil {
-		return out, nil, fmt.Sprintf("ct: %s: %v; using the default tool versions", file, err)
+		return out, nil, fmt.Sprintf("tix: %s: %v; using the default tool versions", file, err)
 	}
 	set := map[string]string{}
 	for k, v := range wf.ToolVersions {
 		str, ok := v.(string)
 		if !ok {
-			return out, nil, fmt.Sprintf("ct: %s: toolVersions.%s isn't a string; using the default tool versions", file, k)
+			return out, nil, fmt.Sprintf("tix: %s: toolVersions.%s isn't a string; using the default tool versions", file, k)
 		}
 		set[k] = str
 	}

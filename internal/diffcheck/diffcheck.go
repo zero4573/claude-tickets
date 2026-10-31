@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/gitx"
+	"github.com/zero4573/tix/internal/gitx"
 )
 
 // DefaultMaxSize is the size limit when none is given (1 MiB).

@@ -140,10 +140,10 @@ func (a snap) equal(b snap) bool {
 	return true
 }
 
-// leftovers is the ct temporary folders in obs.
+// leftovers is the tix temporary folders in obs.
 func leftovers(t *testing.T, obs string) []string {
 	t.Helper()
-	m, _ := filepath.Glob(filepath.Join(obs, ".ct-tasks-*"))
+	m, _ := filepath.Glob(filepath.Join(obs, ".tix-tasks-*"))
 	return m
 }
 
@@ -411,8 +411,8 @@ func TestLeftoversRemoved(t *testing.T) {
 	s := newServer(t, nil)
 	obs, plugin := vault(t)
 	installed(t, plugin, `{"version": "9.9.9"}`)
-	write(t, filepath.Join(obs, ".ct-tasks-staging-x", "main.js"), "x")
-	write(t, filepath.Join(obs, ".ct-tasks-old-x", "main.js"), "x")
+	write(t, filepath.Join(obs, ".tix-tasks-staging-x", "main.js"), "x")
+	write(t, filepath.Join(obs, ".tix-tasks-old-x", "main.js"), "x")
 	if _, _, err := s.installer().Ensure(obs); err != nil {
 		t.Fatal(err)
 	}

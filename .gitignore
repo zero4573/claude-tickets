@@ -1,7 +1,7 @@
 
 # Build output (make, make cross, go build)
-/ct
-/ct.exe
+/tix
+/tix.exe
 /dist/
 # Written by ./configure
 /config.mk

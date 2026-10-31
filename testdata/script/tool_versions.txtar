@@ -1,6 +1,6 @@
-# .tool-versions: written at the workspace root by ct start, ct spec and ct
+# .tool-versions: written at the workspace root by tix start, tix spec and tix
 # teach, from the repos' go.mod and the vault's toolVersions setting, with
-# installed versions only; ct ws rm removes it. ct ws add isn't scripted here
+# installed versions only; tix ws rm removes it. tix ws add isn't scripted here
 # (it needs a real clone with commits; ws.txtar has those, the unit tests
 # cover the writer).
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a/github/acme/x/.git
@@ -11,39 +11,39 @@ mkdir home/.asdf/installs/python/3.12.3 home/.asdf/installs/python/3.13.7
 cp workflow.json home/Documents/Obsidian/a/.workflow.json
 
 # no repo yet: the settings (golang latest, python pinned)
-exec ct-tty start --no-fetch MAN-1
-grep '^# Written by ct; regenerated on every start, so don.t edit it.$' home/Projects/work-a/MAN-1/.tool-versions
+exec tix-tty start --no-fetch MAN-1
+grep '^# Written by tix; regenerated on every start, so don.t edit it.$' home/Projects/work-a/MAN-1/.tool-versions
 grep '^golang 1.26.1$' home/Projects/work-a/MAN-1/.tool-versions
 grep '^python 3.13.7$' home/Projects/work-a/MAN-1/.tool-versions
 grep '^- Tools: .go., .gofmt. and .python3. come from .\.tool-versions.' home/Projects/work-a/MAN-1/CLAUDE.md
 
-# ct ws rm removes the file with the workspace
-exec ct ws rm MAN-1
+# tix ws rm removes the file with the workspace
+exec tix ws rm MAN-1
 ! exists home/Projects/work-a/MAN-1/.tool-versions
-exec ct-tty start --no-fetch MAN-1
+exec tix-tty start --no-fetch MAN-1
 
 # a repo with a go.mod: its Go line picks the newest installed 1.25
 mkdir home/Projects/work-a/MAN-1/acme-x
 cp go.mod home/Projects/work-a/MAN-1/acme-x/go.mod
 expand workspace.json
 cp workspace.json home/Projects/work-a/MAN-1/workspace.json
-exec ct-tty start --no-fetch --force MAN-1
+exec tix-tty start --no-fetch --force MAN-1
 grep '^golang 1.25.5$' home/Projects/work-a/MAN-1/.tool-versions
 grep '^# golang: go.mod of acme-x;' home/Projects/work-a/MAN-1/.tool-versions
 
 # a pinned version that isn't installed: a warning, the tool left out
 cp workflow-missing.json home/Documents/Obsidian/a/.workflow.json
-exec ct-tty start --no-fetch --force MAN-1
-stderr 'ct: .tool-versions: python 9.9.9 isn.t installed \(asdf install python 9.9.9\)'
+exec tix-tty start --no-fetch --force MAN-1
+stderr 'tix: .tool-versions: python 9.9.9 isn.t installed \(asdf install python 9.9.9\)'
 ! grep '^python' home/Projects/work-a/MAN-1/.tool-versions
 
-# ct spec and ct teach write it too
+# tix spec and tix teach write it too
 mkdir home/Documents/Obsidian/a/learning/rust-async
 cp workflow.json home/Documents/Obsidian/a/.workflow.json
-exec ct spec --no-fetch
+exec tix spec --no-fetch
 grep '^golang 1.26.1$' home/Projects/work-a/.spec-a/.tool-versions
 grep '^python 3.13.7$' home/Projects/work-a/.spec-a/.tool-versions
-exec ct-tty teach rust-async
+exec tix-tty teach rust-async
 grep '^golang 1.26.1$' home/Projects/work-a/.teach-a/rust-async/.tool-versions
 
 -- man-1.md --

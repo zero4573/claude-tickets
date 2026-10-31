@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/embed"
-	"github.com/zero4573/claude-tickets/internal/vindex"
+	"github.com/zero4573/tix/internal/embed"
+	"github.com/zero4573/tix/internal/vindex"
 )
 
 // BenchmarkSearch20k is a top-10 hybrid search over 20,000 synthetic 384-dim

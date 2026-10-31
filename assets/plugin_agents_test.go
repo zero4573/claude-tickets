@@ -125,7 +125,7 @@ func TestPluginAgents(t *testing.T) {
 			t.Errorf("%s: preloads no brief skill", e.Name())
 		}
 		for _, s := range skills {
-			skill := strings.TrimPrefix(s, "tickets:")
+			skill := strings.TrimPrefix(s, "tix:")
 			if _, err := fs.Stat(Files, "plugin/skills/"+skill+"/SKILL.md"); err != nil {
 				t.Errorf("%s: skill %s isn't in the plugin", e.Name(), s)
 			}
@@ -139,7 +139,7 @@ func TestPluginAgents(t *testing.T) {
 	}
 }
 
-// The briefs and the lead's playbook (the tickets:lead skill) agree with the
+// The briefs and the lead's playbook (the tix:lead skill) agree with the
 // ticket-folder contract: review caps and path (AC6), the files the lead and
 // the PO read on demand, and the templates the lead names.
 func TestWaveSkillsReferences(t *testing.T) {
@@ -211,9 +211,9 @@ func TestWaveSkillsReferences(t *testing.T) {
 	}
 }
 
-// The PO/lead split (MAN-16): /tickets:work-ticket is the PO, which spawns
-// one tickets:lead and every agent it asks for, relays through a capped
-// relay.md, and points at /tickets:po-refresh; the lead never asks the user
+// The PO/lead split (MAN-16): /tix:work-ticket is the PO, which spawns
+// one tix:lead and every agent it asks for, relays through a capped
+// relay.md, and points at /tix:po-refresh; the lead never asks the user
 // itself and ends each run with the final block the PO acts on.
 func TestPOAndLeadSkills(t *testing.T) {
 	read := func(p string) string {
@@ -230,7 +230,7 @@ func TestPOAndLeadSkills(t *testing.T) {
 		t.Errorf("work-ticket (PO) is %d lines, cap 135", n)
 	}
 	for _, s := range []string{
-		"`tickets:lead`", "`tickets:analyst`", "`relay.md`", "/tickets:po-refresh", "≤3 calls",
+		"`tix:lead`", "`tix:analyst`", "`relay.md`", "/tix:po-refresh", "≤3 calls",
 		"`lead:`", "`po:`", "AskUserQuestion", "Lead: <agentId>",
 		"`wait-tasks`", "`wait-user`", "`rotate`", "`handover-done`", "never two at once",
 		"**A compaction is always the same session**",
@@ -291,8 +291,8 @@ func TestPOAndLeadSkills(t *testing.T) {
 		t.Error("po-refresh: /clear guard missing")
 	}
 	// it picks by itself, or takes clear|compact; an unsafe clear waits or compacts
-	for _, s := range []string{"/tickets:po-refresh [clear|compact]", "**Wait**", "**Compact now**", "Safe now:",
-		"/clear\n/tickets:work-ticket <ID>\n", "**on your own**", "`autoCompactWindow`"} {
+	for _, s := range []string{"/tix:po-refresh [clear|compact]", "**Wait**", "**Compact now**", "Safe now:",
+		"/clear\n/tix:work-ticket <ID>\n", "**on your own**", "`autoCompactWindow`"} {
 		if !strings.Contains(refresh, s) {
 			t.Errorf("po-refresh: missing %q", s)
 		}
@@ -376,9 +376,9 @@ func TestAdaptedSkills(t *testing.T) {
 	}
 
 	clarify := read("plugin/skills/clarify/SKILL.md")
-	for _, s := range []string{"AskUserQuestion", "**≤4 questions**", "(Recommended)", "`tickets:analyst`",
+	for _, s := range []string{"AskUserQuestion", "**≤4 questions**", "(Recommended)", "`tix:analyst`",
 		"frontier", "skip", "--from user --to lead", "## Questions", "Brief:", "[NEEDS CLARIFICATION]",
-		"/tickets:clarify questionnaire <who>", "tickets/<source>/<ID>/<ID>-questionnaire-<slug>.md"} {
+		"/tix:clarify questionnaire <who>", "tickets/<source>/<ID>/<ID>-questionnaire-<slug>.md"} {
 		if !strings.Contains(clarify, s) {
 			t.Errorf("clarify: missing %q", s)
 		}
@@ -389,7 +389,7 @@ func TestAdaptedSkills(t *testing.T) {
 		}
 	}
 	po := read("plugin/skills/work-ticket/SKILL.md") + read("plugin/skills/work-ticket/kickoff.md")
-	for _, s := range []string{"`tickets:clarify`", "/tickets:clarify questionnaire", "<ID>-questionnaire-<slug>.md", "#follow-up"} {
+	for _, s := range []string{"`tix:clarify`", "/tix:clarify questionnaire", "<ID>-questionnaire-<slug>.md", "#follow-up"} {
 		if !strings.Contains(po, s) {
 			t.Errorf("PO (work-ticket, kickoff): missing %q", s)
 		}
@@ -397,22 +397,22 @@ func TestAdaptedSkills(t *testing.T) {
 
 	diagnose := read("plugin/skills/diagnose/SKILL.md")
 	for _, s := range []string{"## 1. Build a feedback loop", "## 2. Reproduce", "## 3. Hypothesise",
-		"## 4. Fix", "## 5. Regression test", "<REDACTED>", "skills: [tickets:diagnose]"} {
+		"## 4. Fix", "## 5. Regression test", "<REDACTED>", "skills: [tix:diagnose]"} {
 		if !strings.Contains(diagnose, s) {
 			t.Errorf("diagnose: missing %q", s)
 		}
 	}
 	lead := read("plugin/skills/lead/SKILL.md") + read("plugin/skills/lead/reference.md")
-	for _, s := range []string{"`tickets:diagnose`", "build the feedback loop", "`plan.md ## Root cause`", "`tickets:clarify`"} {
+	for _, s := range []string{"`tix:diagnose`", "build the feedback loop", "`plan.md ## Root cause`", "`tix:clarify`"} {
 		if !strings.Contains(lead, s) {
 			t.Errorf("lead: missing %q", s)
 		}
 	}
-	if !strings.Contains(read("plugin/skills/task-agent/SKILL.md"), "skills: [tickets:diagnose]") {
+	if !strings.Contains(read("plugin/skills/task-agent/SKILL.md"), "skills: [tix:diagnose]") {
 		t.Error("task-agent: doesn't load the skills its task file lists")
 	}
 	handover := read("plugin/skills/lead/handover.md")
-	for _, s := range []string{"`/tickets:retro`", "**at most 8**", "retro: <change>"} {
+	for _, s := range []string{"`/tix:retro`", "**at most 8**", "retro: <change>"} {
 		if !strings.Contains(handover, s) {
 			t.Errorf("handover: missing %q", s)
 		}
@@ -424,7 +424,7 @@ func TestAdaptedSkills(t *testing.T) {
 		"`<topic>-notes.md`", "`lessons/<topic>-NNNN-<name>.md`", "`reference/<topic>-<name>.md`",
 		"`records/<topic>-NNNN-<name>.md`", "`quizzes/<topic>-NNNN-<name>.html`",
 		"`learning-topic`", "`lesson`", "`learning-record`", "`learning-reference`",
-		"ct vault lock acquire <vault> teach-<topic>", "**WebSearch**", "**WebFetch**",
+		"tix vault lock acquire <vault> teach-<topic>", "**WebSearch**", "**WebFetch**",
 		"zone of proximal development", "the same number of words", "## Wisdom",
 	} {
 		if !strings.Contains(teach, s) {
@@ -484,13 +484,13 @@ func TestScaffoldForPOAndTeach(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(string(b), "ct vault search") {
-			t.Errorf("skill %s does not mention ct vault search", sk)
+		if !strings.Contains(string(b), "tix vault search") {
+			t.Errorf("skill %s does not mention tix vault search", sk)
 		}
 	}
 	data, _ := fs.ReadFile(Scaffold, "vault-scaffold/AGENTS.md")
 	agents := string(data)
-	for _, s := range []string{"relay.md", "`lead:`, `lead-since:` and `po:`", "### Learning topics", "ct teach",
+	for _, s := range []string{"relay.md", "`lead:`, `lead-since:` and `po:`", "### Learning topics", "tix teach",
 		"`learning/<topic>/`", "teach-<topic>`)", "questionnaire"} {
 		if !strings.Contains(agents, s) {
 			t.Errorf("vault AGENTS.md: missing %q", s)
@@ -498,8 +498,8 @@ func TestScaffoldForPOAndTeach(t *testing.T) {
 	}
 	// The workflow prose moved out of AGENTS.md into the skills (task 10).
 	workflow, _ := fs.ReadFile(Files, "plugin/skills/work-ticket/workflow.md")
-	for _, s := range []string{"`tickets:lead`", "`tickets:analyst`", "`tickets:clarify`", "`tickets:diagnose`",
-		"/tickets:po-refresh", "`/tickets:retro`", "`lead:` and\n`po:`"} {
+	for _, s := range []string{"`tix:lead`", "`tix:analyst`", "`tix:clarify`", "`tix:diagnose`",
+		"/tix:po-refresh", "`/tix:retro`", "`lead:` and\n`po:`"} {
 		if !strings.Contains(string(workflow), s) {
 			t.Errorf("work-ticket/workflow.md: missing %q", s)
 		}
@@ -626,9 +626,9 @@ func TestSpecPlanningFlows(t *testing.T) {
 		return string(b)
 	}
 	spec := read("plugin/skills/spec/SKILL.md")
-	for _, s := range []string{"## Planning a change", "## Analyze", "`tickets:clarify`", "`ct spec location <slug>`",
-		"`## Spec change`", "[NEEDS CLARIFICATION", "blocks filing", "`spec-draft.md`", "`ct spec check", "--json",
-		"`/tickets:new-ticket`", "copy in the ticket folder", "`/tickets:save` promotes", "Never edit a spec in analyze"} {
+	for _, s := range []string{"## Planning a change", "## Analyze", "`tix:clarify`", "`tix spec location <slug>`",
+		"`## Spec change`", "[NEEDS CLARIFICATION", "blocks filing", "`spec-draft.md`", "`tix spec check", "--json",
+		"`/tix:new-ticket`", "copy in the ticket folder", "`/tix:save` promotes", "Never edit a spec in analyze"} {
 		if !strings.Contains(spec, s) {
 			t.Errorf("spec skill: missing %q", s)
 		}
@@ -646,8 +646,8 @@ func TestSpecPlanningFlows(t *testing.T) {
 }
 
 // The lead, task agent and reviewer sides of the spec workflow and the retro
-// rules: ready specs, requirement IDs, review against ct spec diff, relay
-// entries only through ct relay, quoted heredocs, fixture sync at merge, and
+// rules: ready specs, requirement IDs, review against tix spec diff, relay
+// entries only through tix relay, quoted heredocs, fixture sync at merge, and
 // the task agent's report discipline.
 func TestSpecWorkflowLeadSide(t *testing.T) {
 	read := func(p string) string {
@@ -666,16 +666,16 @@ func TestSpecWorkflowLeadSide(t *testing.T) {
 			}
 		}
 	}
-	has("lead/SKILL.md", lead, "`specs.md`", "ct relay add <ID>", "ct relay state <ID>", "never `>>` or `sed -i` on `relay.md`",
+	has("lead/SKILL.md", lead, "`specs.md`", "tix relay add <ID>", "tix relay state <ID>", "never `>>` or `sed -i` on `relay.md`",
 		"<<'EOF'", "never an unquoted heredoc", "fixture sync", "goldens or fixtures another repo copies")
-	has("lead/specs.md", specs, "ct spec diff", "## Specs", "`ready`", "`requirements:`", "`## Interfaces`",
+	has("lead/specs.md", specs, "tix spec diff", "## Specs", "`ready`", "`requirements:`", "`## Interfaces`",
 		"only shapes private to this ticket's tasks", "never edit `specs/`", "`implemented`", "waits until that one is `merged`")
 	has("lead/handover.md", read("plugin/skills/lead/handover.md"), "## Specs", "`specs.md`")
 	has("agents/lead.md", read("plugin/agents/lead.md"), "ready specs")
 	task := read("plugin/skills/task-agent/SKILL.md")
 	has("task-agent", task, "`requirements:`", "cites each ID", "never edits `specs/`", "sed -n '/^## Report/,$p'",
 		"never hand back without it", "never a shell redirect that rewrites the task file")
-	has("wave-review", read("plugin/skills/wave-review/SKILL.md"), "`ct spec diff <ID>`", "`proposed` requirement",
+	has("wave-review", read("plugin/skills/wave-review/SKILL.md"), "`tix spec diff <ID>`", "`proposed` requirement",
 		"`implemented` one", "the PO flips them to `implemented`", "ticket-private shapes only")
 	if strings.Contains(lead, "`relay.md`: `R-nn") || strings.Contains(lead, "rg -o 'R-[0-9]+' relay.md") {
 		t.Error("lead/SKILL.md still allocates relay ids by hand")
@@ -711,11 +711,11 @@ func TestSpecInitSkill(t *testing.T) {
 			t.Errorf("spec-init: frontmatter lacks %q", f)
 		}
 	}
-	for _, s := range []string{"ct vault search", "top-level packages", "## 2. Gate", "Draft nothing before the approval",
-		"ct spec location", "/tickets:new-ticket", "tickets:spec-writer", "one message",
+	for _, s := range []string{"tix vault search", "top-level packages", "## 2. Gate", "Draft nothing before the approval",
+		"tix spec location", "/tix:new-ticket", "tix:spec-writer", "one message",
 		"tickets/<source>/<ID>/specs/<slug>/", "tickets/<source>/<ID>/spec-init/", "<capability>/spec.md",
 		"status: inferred", "file:line", "NEEDS CLARIFICATION", "depends-on", "docs/architecture.md",
-		"<out>README.md", "ct spec check --dir <out>", "tickets/<source>/<ID>/docs-architecture.md", "Shallow on purpose", "never a commit"} {
+		"<out>README.md", "tix spec check --dir <out>", "tickets/<source>/<ID>/docs-architecture.md", "Shallow on purpose", "never a commit"} {
 		if !strings.Contains(skill, s) {
 			t.Errorf("spec-init: missing %q", s)
 		}
@@ -730,8 +730,8 @@ func TestSpecInitSkill(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(readme), "`/tickets:spec-init`") {
-		t.Error("README skill table doesn't list /tickets:spec-init")
+	if !strings.Contains(string(readme), "`/tix:spec-init`") {
+		t.Error("README skill table doesn't list /tix:spec-init")
 	}
 }
 
@@ -746,18 +746,18 @@ func TestSaveAndNewTicketSpecSide(t *testing.T) {
 		return strings.Join(strings.Fields(string(data)), " ")
 	}
 	save := read("plugin/skills/save/SKILL.md")
-	for _, s := range []string{"`ct ticket publish <ID> --dry-run --description-file <f>`", "`ct ticket publish <ID> --description-file <f>`", "`ct spec promote <ID> --json`", "Check the JSON's `error` (or a non-zero exit) first", "when `others` is empty, say `projects/` was edited by hand or by an unknown ticket", "--resolve <slug>=theirs", "one question per clashing repo", "keep theirs, keep ours, merge by hand", "`ct spec promote <ID> --resolve <slug>=merged`", "`ct spec pin <ID>`", "`editJiraIssue`", "`getTransitionsForJiraIssue`",
-		"`transitionJiraIssue`", "ask **once** with AskUserQuestion", "`ct spec diff <ID>`", "`specs:` and `requirements:`",
-		"`ct vault links move`", "has no remote description", "are not reachable in this session"} {
+	for _, s := range []string{"`tix ticket publish <ID> --dry-run --description-file <f>`", "`tix ticket publish <ID> --description-file <f>`", "`tix spec promote <ID> --json`", "Check the JSON's `error` (or a non-zero exit) first", "when `others` is empty, say `projects/` was edited by hand or by an unknown ticket", "--resolve <slug>=theirs", "one question per clashing repo", "keep theirs, keep ours, merge by hand", "`tix spec promote <ID> --resolve <slug>=merged`", "`tix spec pin <ID>`", "`editJiraIssue`", "`getTransitionsForJiraIssue`",
+		"`transitionJiraIssue`", "ask **once** with AskUserQuestion", "`tix spec diff <ID>`", "`specs:` and `requirements:`",
+		"`tix vault links move`", "has no remote description", "are not reachable in this session"} {
 		if !strings.Contains(save, s) {
 			t.Errorf("save: missing %q", s)
 		}
 	}
-	if strings.Contains(save, "ct spec baseline") {
-		t.Error("save: names the removed ct spec baseline")
+	if strings.Contains(save, "tix spec baseline") {
+		t.Error("save: names the removed tix spec baseline")
 	}
 	nt := read("plugin/skills/new-ticket/SKILL.md")
-	for _, s := range []string{"`ct ticket stub <NEW-ID> --source <source> --summary \"<title>\" --covered-by <lead>`",
+	for _, s := range []string{"`tix ticket stub <NEW-ID> --source <source> --summary \"<title>\" --covered-by <lead>`",
 		"don't write that note by hand", "The PO tells the lead"} {
 		if !strings.Contains(nt, s) {
 			t.Errorf("new-ticket: missing %q", s)
@@ -765,7 +765,7 @@ func TestSaveAndNewTicketSpecSide(t *testing.T) {
 	}
 }
 
-// Skills add relay entries only through ct relay add, never by hand.
+// Skills add relay entries only through tix relay add, never by hand.
 func TestSkillsNeverAppendRelayByHand(t *testing.T) {
 	err := fs.WalkDir(Files, "plugin/skills", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".md") {
@@ -778,7 +778,7 @@ func TestSkillsNeverAppendRelayByHand(t *testing.T) {
 		text := strings.Join(strings.Fields(string(data)), " ")
 		for _, bad := range []string{"append `relay.md` line", "append one `relay.md` entry", "append a `relay.md` entry"} {
 			if strings.Contains(text, bad) {
-				t.Errorf("%s: %q (use ct relay add)", p, bad)
+				t.Errorf("%s: %q (use tix relay add)", p, bad)
 			}
 		}
 		return nil
@@ -791,8 +791,8 @@ func TestSkillsNeverAppendRelayByHand(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(string(data), "ct relay add") {
-			t.Errorf("%s: no ct relay add", p)
+		if !strings.Contains(string(data), "tix relay add") {
+			t.Errorf("%s: no tix relay add", p)
 		}
 	}
 	data, _ := fs.ReadFile(Files, "plugin/skills/clarify/SKILL.md")
@@ -843,18 +843,18 @@ func TestSaveStepOrder(t *testing.T) {
 		}
 		return i
 	}
-	promote := idx("`ct spec promote <ID> --json`")
+	promote := idx("`tix spec promote <ID> --json`")
 	links := idx("### 5. Check links")
 	push := idx("### 8. Push the ticket branches")
 	publish := idx("### 9. Publish the descriptions and offer transitions")
-	lock := idx("Run `ct vault lock release <vault> <ID>`")
+	lock := idx("Run `tix vault lock release <vault> <ID>`")
 	if !(promote < links && links < lock && lock < push && push < publish) {
 		t.Errorf("save: step order wrong: promote %d links %d lock %d push %d publish %d", promote, links, lock, push, publish)
 	}
-	if pin := idx("`ct spec pin <ID>`"); pin < push || pin > publish {
-		t.Errorf("save: ct spec pin must follow the push (step 8): pin %d push %d publish %d", pin, push, publish)
+	if pin := idx("`tix spec pin <ID>`"); pin < push || pin > publish {
+		t.Errorf("save: tix spec pin must follow the push (step 8): pin %d push %d publish %d", pin, push, publish)
 	}
-	for _, s := range []string{"`getTransitionsForJiraIssue`", "`transitionJiraIssue`", "`editJiraIssue`", "ct ticket publish"} {
+	for _, s := range []string{"`getTransitionsForJiraIssue`", "`transitionJiraIssue`", "`editJiraIssue`", "tix ticket publish"} {
 		if i := strings.Index(text, s); i < push {
 			t.Errorf("save: %s appears before the push step", s)
 		}
@@ -876,12 +876,12 @@ func TestNewTicketStubWording(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := strings.Join(strings.Fields(string(data)), " ")
-	for _, bad := range []string{"is never yours to write before", "ct sync` writes a synced ticket's note at", "never write the note yourself"} {
+	for _, bad := range []string{"is never yours to write before", "tix sync` writes a synced ticket's note at", "never write the note yourself"} {
 		if strings.Contains(text, bad) {
 			t.Errorf("new-ticket: stale %q", bad)
 		}
 	}
-	for _, s := range []string{"never a manual child, which `ct ticket stub` refuses", "filed at a synced source",
+	for _, s := range []string{"never a manual child, which `tix ticket stub` refuses", "filed at a synced source",
 		"don't add a follow-up \"add to `covers`\" line", "Under a manual lead, a manual child"} {
 		if !strings.Contains(text, s) {
 			t.Errorf("new-ticket: missing %q", s)
@@ -889,7 +889,7 @@ func TestNewTicketStubWording(t *testing.T) {
 	}
 }
 
-// Every skill that makes a ticket's copy of a vault spec makes it with ct spec
+// Every skill that makes a ticket's copy of a vault spec makes it with tix spec
 // start, which takes the snapshot promote compares against; save handles a
 // copy made without it.
 func TestSpecCopiesStartWithSnapshot(t *testing.T) {
@@ -901,13 +901,13 @@ func TestSpecCopiesStartWithSnapshot(t *testing.T) {
 		return strings.Join(strings.Fields(string(data)), " ")
 	}
 	for _, c := range []struct{ file, want string }{
-		{"plugin/skills/spec/SKILL.md", "`ct spec start <ID> <slug> [<capability>…]`, never by hand"},
-		{"plugin/skills/work-ticket/specs.md", "`ct spec start <ID> <slug> [<capability>…]`"},
+		{"plugin/skills/spec/SKILL.md", "`tix spec start <ID> <slug> [<capability>…]`, never by hand"},
+		{"plugin/skills/work-ticket/specs.md", "`tix spec start <ID> <slug> [<capability>…]`"},
 		{"plugin/skills/work-ticket/specs.md", "never copy by hand"},
-		{"plugin/skills/spec-init/SKILL.md", "make it first with `ct spec start <ID> <slug>`"},
-		{"plugin/skills/save/SKILL.md", "it checks against the snapshot `ct spec start` took"},
-		{"plugin/skills/save/SKILL.md", "names the `ct spec start <ID> <slug>` to run"},
-		{"plugin/skills/save/SKILL.md", "against the snapshot `ct spec start` took"},
+		{"plugin/skills/spec-init/SKILL.md", "make it first with `tix spec start <ID> <slug>`"},
+		{"plugin/skills/save/SKILL.md", "it checks against the snapshot `tix spec start` took"},
+		{"plugin/skills/save/SKILL.md", "names the `tix spec start <ID> <slug>` to run"},
+		{"plugin/skills/save/SKILL.md", "against the snapshot `tix spec start` took"},
 	} {
 		if !strings.Contains(read(c.file), c.want) {
 			t.Errorf("%s: missing %q", c.file, c.want)

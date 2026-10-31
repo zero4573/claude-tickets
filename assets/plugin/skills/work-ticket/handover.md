@@ -1,6 +1,6 @@
 # work-ticket: hand-over
 
-Read by the PO (`/tickets:work-ticket <ID>`) when the lead's final block ends with
+Read by the PO (`/tix:work-ticket <ID>`) when the lead's final block ends with
 `Next: handover-done`. It ends with `lead: none` and the user told the ticket is ready for
 review, or with the lead woken again because a review finding is still open.
 
@@ -21,5 +21,5 @@ of accepting. Each printed `<file>: <ID>` needs a fix task, a `kept:` reason or 
 
 ## 2. Accept
 If it prints nothing, set `lead: none`, tell the user the ticket is ready for review
-(`ct ws diff <ID>`, changes can be asked for here; then, in the user's order, tidy,
-`/tickets:save`, which pushes the ticket branches (it asks again if they chose to skip tidy)), and suggest a refresh (`SKILL.md` 6).
+(`tix ws diff <ID>`, changes can be asked for here; then, in the user's order, tidy,
+`/tix:save`, which pushes the ticket branches (it asks again if they chose to skip tidy)), and suggest a refresh (`SKILL.md` 6).

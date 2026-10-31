@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/scaffold"
+	"github.com/zero4573/tix/internal/scaffold"
 )
 
 func gitT(t *testing.T, dir string, args ...string) {

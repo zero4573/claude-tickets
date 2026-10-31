@@ -1,5 +1,5 @@
 // Package followup writes follow-up notes: when an unattended command
-// (ct sync, ct ws gc) leaves something for you to check or
+// (tix sync, tix ws gc) leaves something for you to check or
 // do, it's a task in a note in the vault's inbox/, which the vault's task
 // views (inbox.md, Tickets) pick up.
 package followup

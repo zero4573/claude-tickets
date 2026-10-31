@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/vaultlock"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/vaultlock"
 )
 
 // StubOptions is a ticket just filed at its source, under a lead ticket.
@@ -39,7 +39,7 @@ func yamlScalar(s string) string {
 }
 
 // Stub writes the note of a ticket filed at a synced source in the synced
-// layout, with an empty source block for ct sync to fill (it finds the note
+// layout, with an empty source block for tix sync to fill (it finds the note
 // by ID), covered-by the lead, and, for a manual lead, adds the ticket to the
 // lead's covers; a synced lead's covers belong to its source, so they are left
 // alone. It refuses an existing note and a closed lead, and changes nothing on
@@ -66,7 +66,7 @@ func Stub(o StubOptions) error {
 	if strings.TrimSpace(o.Summary) == "" {
 		return errors.New("--summary is required")
 	}
-	const owner = "ct ticket stub"
+	const owner = "tix ticket stub"
 	if err := vaultlock.Acquire(o.Vault, owner); err != nil {
 		return fmt.Errorf("couldn't take the vault lock, nothing changed: %w", err)
 	}

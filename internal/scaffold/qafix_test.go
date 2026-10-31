@@ -8,17 +8,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/vaultlock"
+	"github.com/zero4573/tix/internal/vaultlock"
 )
 
 // TestApplyWaitsForAnotherRun: the lock is per run, so a run waits while
 // another update or init holds it, even one with the same (default)
 // owner name; Acquire would let a holder of the same name straight in.
 func TestApplyWaitsForAnotherRun(t *testing.T) {
-	for _, o := range []Options{{Version: "1.0"}, {Version: "1.0", AddOnly: true, Owner: "ct-vault-init"}} {
+	for _, o := range []Options{{Version: "1.0"}, {Version: "1.0", AddOnly: true, Owner: "tix-vault-init"}} {
 		held := o.Owner
 		if held == "" {
-			held = "ct-vault-update"
+			held = "tix-vault-update"
 		}
 		src, v := applySetup(t)
 		if err := vaultlock.Acquire(v, held); err != nil {
@@ -60,7 +60,7 @@ func TestApplyWaitsForAnotherRun(t *testing.T) {
 // temp file another run left is never touched.
 func TestWriteAtomicConcurrent(t *testing.T) {
 	dir := t.TempDir()
-	other := filepath.Join(dir, ".a.md.ct-tmp")
+	other := filepath.Join(dir, ".a.md.tix-tmp")
 	if err := os.WriteFile(other, []byte("another run's\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -73,10 +73,10 @@ func TestWriteAtomicConcurrent(t *testing.T) {
 			t.Error(err)
 		}
 	}
-	if read(t, dir, "a.md") != "x\n" || read(t, dir, ".a.md.ct-tmp") != "another run's\n" {
+	if read(t, dir, "a.md") != "x\n" || read(t, dir, ".a.md.tix-tmp") != "another run's\n" {
 		t.Error("wrong contents")
 	}
-	left, _ := filepath.Glob(filepath.Join(dir, ".a.md.*.ct-tmp"))
+	left, _ := filepath.Glob(filepath.Join(dir, ".a.md.*.tix-tmp"))
 	if len(left) > 0 {
 		t.Error("temp files left:", left)
 	}
@@ -125,18 +125,18 @@ func TestApplyKeepsMode(t *testing.T) {
 }
 
 // TestApplyNeverDowngrades: a file whose content is what the record says
-// was shipped, in a version this ct doesn't know, came from a newer ct: it
+// was shipped, in a version this tix doesn't know, came from a newer tix: it
 // isn't replaced (also not by init), its record entry stays, and only an
 // explicit --take replaces it (the old copy kept as .bak).
 func TestApplyNeverDowngrades(t *testing.T) {
 	src, v := applySetup(t)
 	newer := "newer\n"
 	write(t, v, "current.md", newer)
-	write(t, v, "gone-newer.md", "from a newer ct\n") // a file this ct never shipped
+	write(t, v, "gone-newer.md", "from a newer tix\n") // a file this tix never shipped
 	age(t, v, "current.md")
 	prev := map[string]Shipped{
 		"current.md":    {Hash([]byte(newer)), "9.0"},
-		"gone-newer.md": {Hash([]byte("from a newer ct\n")), "9.0"},
+		"gone-newer.md": {Hash([]byte("from a newer tix\n")), "9.0"},
 	}
 	if err := saveRecord(v, prev); err != nil {
 		t.Fatal(err)
@@ -151,7 +151,7 @@ func TestApplyNeverDowngrades(t *testing.T) {
 			t.Errorf("states %v", got)
 		}
 		if res.Done["current.md"] != "" || read(t, v, "current.md") != newer || !mtime(t, v, "current.md").Equal(old) {
-			t.Error("a newer ct's file was replaced")
+			t.Error("a newer tix's file was replaced")
 		}
 		rec := loadRec(t, v)
 		if rec.Files["current.md"] != prev["current.md"] || rec.Files["gone-newer.md"] != prev["gone-newer.md"] {

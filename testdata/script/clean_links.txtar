@@ -1,4 +1,4 @@
-# ct clean: link rewriting edge cases (aliases, headings, blocks, embeds, path forms, code, CRLF, BOM, frontmatter forms, sync-owned places)
+# tix clean: link rewriting edge cases (aliases, headings, blocks, embeds, path forms, code, CRLF, BOM, frontmatter forms, sync-owned places)
 env V=home/Documents/Obsidian/a
 mkdir $V/.obsidian $V/tickets/PROJ-12 $V/tickets/PROJ-120 $V/tickets/PROJ-1 $V/tickets/MAN-5 $V/tickets/PROJ-40 $V/templates $V/notes
 cp proj-12.md $V/tickets/PROJ-12/PROJ-12.md
@@ -13,7 +13,7 @@ cp empty $V/pending.md
 cp empty $V/tickets.base
 exec sh -c 'printf -- "---\r\ntitle: crlf\r\n---\r\nSee [[PROJ-12]].\r\n" > home/Documents/Obsidian/a/notes/crlf.md'
 exec sh -c 'printf "\357\273\277---\nrelated: [\"[[PROJ-12]]\"]\n---\nBOM [[PROJ-12]]\n" > home/Documents/Obsidian/a/notes/bom.md'
-exec ct clean --yes
+exec tix clean --yes
 stdout 'PROJ-12: moved to .trash/PROJ-12; rewrote'
 stdout 'warning: notes/fm.md:9 still links \[\[PROJ-12\]\]'
 exec cat $V/notes/body.md
@@ -27,9 +27,9 @@ stdout '\\r'
 grep 'See \[PROJ-12\]\(https://x.example/browse/PROJ-12\)\.' $V/notes/crlf.md
 grep 'BOM \[PROJ-12\]' $V/notes/bom.md
 grep 'related: \["\[PROJ-12\]' $V/notes/bom.md
-exec sh -c 'cat home/Documents/Obsidian/a/inbox/*-ct-clean-follow-ups.md'
-stdout 'notes/fm.md:9 still links PROJ-12 \(removed by ct clean\) in a frontmatter form it can.t rewrite'
-! exec ct vault links check $V
+exec sh -c 'cat home/Documents/Obsidian/a/inbox/*-tix-clean-follow-ups.md'
+stdout 'notes/fm.md:9 still links PROJ-12 \(removed by tix clean\) in a frontmatter form it can.t rewrite'
+! exec tix vault links check $V
 stdout -count=1 'unresolved link'
 stdout 'notes/fm.md:9: unresolved link \[\[PROJ-12\]\]'
 stdout '3 link\(s\) in sync-owned parts'

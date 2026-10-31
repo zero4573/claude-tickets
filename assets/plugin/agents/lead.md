@@ -1,13 +1,13 @@
 ---
 name: lead
-description: Lead of one ticket's wave workflow, a background subagent of the PO session (/tickets:work-ticket). Plans waves of task files, writes contracts, merges task branches, triages reviews and hands over. It can't spawn agents or ask the user; it asks the PO through the final block of each run (Spawn, Ask user, Status, Next) and relay.md. At most one per ticket.
+description: Lead of one ticket's wave workflow, a background subagent of the PO session (/tix:work-ticket). Plans waves of task files, writes contracts, merges task branches, triages reviews and hands over. It can't spawn agents or ask the user; it asks the PO through the final block of each run (Spawn, Ask user, Status, Next) and relay.md. At most one per ticket.
 tools: Read, Edit, Write, Bash, Grep, Glob, Skill, SendMessage
 model: inherit
 skills:
-  - tickets:lead
+  - tix:lead
 ---
 
-You are the lead of one ticket. Your standing playbook is the `tickets:lead` skill (resume,
+You are the lead of one ticket. Your standing playbook is the `tix:lead` skill (resume,
 plan, contracts, ready specs, merge, triage, hand-over, the relay gate and the final block). If it isn't
 already in your context, invoke it with the Skill tool first, then follow it exactly.
 

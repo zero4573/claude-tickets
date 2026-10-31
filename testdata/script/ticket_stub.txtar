@@ -1,32 +1,32 @@
-# ct ticket stub: the note of a ticket just filed under the lead, in the synced
+# tix ticket stub: the note of a ticket just filed under the lead, in the synced
 # layout, and the lead's covers.
-exec ct vault init demo --defaults
+exec tix vault init demo --defaults
 cp sources.json home/Documents/Obsidian/demo/tickets/.sources.json
 mkdir home/Documents/Obsidian/demo/tickets/manual/MAN-1 home/Documents/Obsidian/demo/tickets/jira/PROJ-3
 cp man-1.md home/Documents/Obsidian/demo/tickets/manual/MAN-1/MAN-1.md
 mkdir home/Documents/Obsidian/demo/tickets/manual/MAN-2
 cp man-2.md home/Documents/Obsidian/demo/tickets/manual/MAN-2/MAN-2.md
 cp proj-3.md home/Documents/Obsidian/demo/tickets/jira/PROJ-3/PROJ-3.md
-env CLAUDE_TICKETS_VAULT=$WORK/home/Documents/Obsidian/demo
+env TIX_VAULT=$WORK/home/Documents/Obsidian/demo
 
 # refusals change nothing
-! exec ct ticket stub PROJ-9 --covered-by MAN-1 --summary x
+! exec tix ticket stub PROJ-9 --covered-by MAN-1 --summary x
 stderr '--source is required'
-! exec ct ticket stub PROJ-9 --source jira --summary x
+! exec tix ticket stub PROJ-9 --source jira --summary x
 stderr '--covered-by'
-! exec ct ticket stub PROJ-9 --source jira --covered-by MAN-1
+! exec tix ticket stub PROJ-9 --source jira --covered-by MAN-1
 stderr '--summary is required'
-! exec ct ticket stub PROJ-9 --source jira --covered-by MAN-9 --summary x
+! exec tix ticket stub PROJ-9 --source jira --covered-by MAN-9 --summary x
 stderr 'no note for MAN-9'
-! exec ct ticket stub PROJ-3 --source jira --covered-by MAN-1 --summary x
+! exec tix ticket stub PROJ-3 --source jira --covered-by MAN-1 --summary x
 stderr 'already has a note'
-! exec ct ticket stub PROJ-9 --source manual --covered-by MAN-1 --summary x
+! exec tix ticket stub PROJ-9 --source manual --covered-by MAN-1 --summary x
 stderr 'not a synced source'
 ! exists home/Documents/Obsidian/demo/tickets/jira/PROJ-9
 grep '^covers: \["\[\[PROJ-2\]\]"\]$' home/Documents/Obsidian/demo/tickets/manual/MAN-1/MAN-1.md
 
 # the stub
-exec ct ticket stub PROJ-9 --source jira --covered-by MAN-1 --summary 'Add export: CSV'
+exec tix ticket stub PROJ-9 --source jira --covered-by MAN-1 --summary 'Add export: CSV'
 stdout '^PROJ-9: stub note written, covered by MAN-1$'
 grep '^title: PROJ-9$' home/Documents/Obsidian/demo/tickets/jira/PROJ-9/PROJ-9.md
 grep '^summary: "Add export: CSV"$' home/Documents/Obsidian/demo/tickets/jira/PROJ-9/PROJ-9.md
@@ -38,20 +38,20 @@ grep '^<!-- source:start -->$' home/Documents/Obsidian/demo/tickets/jira/PROJ-9/
 grep '^covers: \["\[\[PROJ-2\]\]", "\[\[PROJ-9\]\]"\]$' home/Documents/Obsidian/demo/tickets/manual/MAN-1/MAN-1.md
 
 # not twice
-! exec ct ticket stub PROJ-9 --source jira --covered-by MAN-1 --summary again
+! exec tix ticket stub PROJ-9 --source jira --covered-by MAN-1 --summary again
 stderr 'already has a note'
 grep '^covers: \["\[\[PROJ-2\]\]", "\[\[PROJ-9\]\]"\]$' home/Documents/Obsidian/demo/tickets/manual/MAN-1/MAN-1.md
 ! exists home/Documents/Obsidian/demo/.vault.lock.d
 
 # a closed lead is refused; a non-epic lead is warned about
-! exec ct ticket stub PROJ-8 --source jira --covered-by MAN-2 --summary x
+! exec tix ticket stub PROJ-8 --source jira --covered-by MAN-2 --summary x
 stderr 'MAN-2 is closed'
 ! exists home/Documents/Obsidian/demo/tickets/jira/PROJ-8
-exec ct ticket stub PROJ-8 --source jira --covered-by MAN-1 --summary y
+exec tix ticket stub PROJ-8 --source jira --covered-by MAN-1 --summary y
 stdout 'warning: MAN-1 is not an epic'
 
 # a synced (source epic) lead: only the child's covered-by is written
-exec ct ticket stub PROJ-7 --source jira --covered-by PROJ-3 --summary z
+exec tix ticket stub PROJ-7 --source jira --covered-by PROJ-3 --summary z
 stdout 'PROJ-3 is synced from jira: its covers are left to the source'
 grep '^covered-by: "\[\[PROJ-3\]\]"$' home/Documents/Obsidian/demo/tickets/jira/PROJ-7/PROJ-7.md
 ! grep 'PROJ-7' home/Documents/Obsidian/demo/tickets/jira/PROJ-3/PROJ-3.md

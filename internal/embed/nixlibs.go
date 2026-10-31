@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/gitx"
+	"github.com/zero4573/tix/internal/gitx"
 )
 
 // NixLibsAttr is the flake output that holds libgomp and libstdc++.
@@ -15,13 +15,13 @@ const NixLibsAttr = "llamaRuntimeLibs"
 
 // RuntimeLibDir is for tests and benchmarks (the shipped binary does not call
 // it, its search order is unchanged). It returns a directory to put in
-// CLAUDE_TICKETS_LIB_PATH so the llama.cpp runtime libraries are found without
+// TIX_LIB_PATH so the llama.cpp runtime libraries are found without
 // setting it by hand, or "" when nothing needs adding: the variable is set, the
 // libraries are already in the search path, or there is no nix (the system
 // loader is then trusted). Otherwise it builds .#llamaRuntimeLibs from the
 // flake that contains the working directory.
 func RuntimeLibDir() (string, error) {
-	return runtimeLibDir(libSearchDirs(), os.Getenv("CLAUDE_TICKETS_LIB_PATH") != "", nixBuild)
+	return runtimeLibDir(libSearchDirs(), os.Getenv("TIX_LIB_PATH") != "", nixBuild)
 }
 
 func runtimeLibDir(dirs []string, envSet bool, build func(flakeRoot string) (string, error)) (string, error) {
@@ -43,11 +43,11 @@ func runtimeLibDir(dirs []string, envSet bool, build func(flakeRoot string) (str
 	}
 	out, err := build(root)
 	if err != nil {
-		return "", fmt.Errorf("finding %s: %w (set CLAUDE_TICKETS_LIB_PATH to a directory holding them)", strings.Join(depLibs, ", "), err)
+		return "", fmt.Errorf("finding %s: %w (set TIX_LIB_PATH to a directory holding them)", strings.Join(depLibs, ", "), err)
 	}
 	for _, n := range depLibs {
 		if findLib([]string{out}, n) == "" {
-			return "", fmt.Errorf("%s has no %s (set CLAUDE_TICKETS_LIB_PATH)", out, n)
+			return "", fmt.Errorf("%s has no %s (set TIX_LIB_PATH)", out, n)
 		}
 	}
 	return out, nil
@@ -101,7 +101,7 @@ func nixBuild(root string) (string, error) {
 	cmd, gitTree := nixCmd(nix, root)
 	if gitTree {
 		// nix reads the git tree through git: the repo's own config must
-		// pass ct's allowlist first, as for any git ct runs
+		// pass tix's allowlist first, as for any git tix runs
 		if err := gitx.Check(root); err != nil {
 			return "", err
 		}

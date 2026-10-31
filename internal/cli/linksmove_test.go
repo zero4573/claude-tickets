@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/links"
+	"github.com/zero4573/tix/internal/links"
 )
 
 func linksMoveVault(t *testing.T) string {

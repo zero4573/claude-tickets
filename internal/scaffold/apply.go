@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zero4573/claude-tickets/internal/vaultlock"
+	"github.com/zero4573/tix/internal/vaultlock"
 )
 
 // beforeRemove is a test seam: called just before a retired view is
@@ -18,9 +18,9 @@ var beforeRemove func(abs string)
 type Options struct {
 	DryRun  bool     // report only: nothing is created, written, renamed or locked
 	Take    []string // edited files to replace with the shipped version (the old one kept as <file>.bak)
-	Version string   // the ct version recorded with what it writes
-	Owner   string   // the vault lock's owner, made unique per run (default ct-vault-update)
-	AddOnly bool     // ct vault init: only missing files are written; stale ones are counted
+	Version string   // the tix version recorded with what it writes
+	Owner   string   // the vault lock's owner, made unique per run (default tix-vault-update)
+	AddOnly bool     // tix vault init: only missing files are written; stale ones are counted
 	Locked  bool     // the caller holds the vault lock: Apply doesn't take it (ignored with DryRun, which never locks)
 }
 
@@ -72,7 +72,7 @@ func Apply(vault string, src Source, o Options) (Result, error) {
 		case len(src.History[rel]) > 0:
 			return Result{}, fmt.Errorf("%s isn't shipped any more", rel)
 		default:
-			return Result{}, fmt.Errorf("not a file ct ships: %s", rel)
+			return Result{}, fmt.Errorf("not a file tix ships: %s", rel)
 		}
 	}
 
@@ -81,7 +81,7 @@ func Apply(vault string, src Source, o Options) (Result, error) {
 		// shared name would let two runs write at once
 		owner := o.Owner
 		if owner == "" {
-			owner = "ct-vault-update"
+			owner = "tix-vault-update"
 		}
 		owner = UniqueOwner(owner)
 		if err := vaultlock.Acquire(vault, owner); err != nil {
@@ -224,7 +224,7 @@ func sameRecord(a, b map[string]Shipped) bool {
 // takeRel is the vault-relative, slash-separated path a --take names: a
 // path relative to the vault root, or one (absolute, or relative to the
 // current directory) that's inside the vault. known says whether a
-// vault-relative path is one ct ships or has shipped. Paths outside the
+// vault-relative path is one tix ships or has shipped. Paths outside the
 // vault are refused.
 func takeRel(vault, t string, known func(rel string) bool) (string, error) {
 	clean := filepath.Clean(t)

@@ -1,4 +1,4 @@
-module github.com/zero4573/claude-tickets
+module github.com/zero4573/tix
 
 go 1.26.0
 

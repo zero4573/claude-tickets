@@ -8,8 +8,8 @@ import (
 )
 
 func TestDevSettingsNeverSetPath(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_CACHE", t.TempDir())
-	t.Setenv("CLAUDE_TICKETS_SESSION_SETTINGS", "")
+	t.Setenv("TIX_CACHE", t.TempDir())
+	t.Setenv("TIX_SESSION_SETTINGS", "")
 	dir := t.TempDir()
 	if err := WriteSettings(dir); err != nil {
 		t.Fatal(err)
@@ -33,7 +33,7 @@ func TestDevSettingsNeverSetPath(t *testing.T) {
 }
 
 func TestDevCommandPlugin(t *testing.T) {
-	t.Setenv("CLAUDE_TICKETS_CLAUDE", "")
+	t.Setenv("TIX_CLAUDE", "")
 	d := t.TempDir()
 	argv := CommandPlugin("plugin-dir", d, filepath.Join(d, "missing"))
 	want := []string{"claude", "--plugin-dir", "plugin-dir", "--add-dir=" + d}

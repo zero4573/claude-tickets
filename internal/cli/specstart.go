@@ -11,14 +11,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/spec"
-	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/spec"
+	"github.com/zero4573/tix/internal/vault"
 )
 
-// startResult is what ct spec start did for one ticket and repo.
+// startResult is what tix spec start did for one ticket and repo.
 type startResult struct {
 	Copy     string         // the copy folder, vault-relative with a trailing /
 	Snapshot string         // the snapshot folder, vault-relative with a trailing /
@@ -40,11 +40,11 @@ func printStartReplay(out io.Writer, id string, rp *promoteResult) {
 	}
 	printPromote(out, id, *rp)
 	if len(rp.Held) > 0 {
-		fmt.Fprintf(out, "run ct spec promote %s to resolve\n", id)
+		fmt.Fprintf(out, "run tix spec promote %s to resolve\n", id)
 	}
 }
 
-// startChecked runs between ct spec start's first check for a pending
+// startChecked runs between tix spec start's first check for a pending
 // promote and what follows it (a seam for tests).
 var startChecked = func() {}
 
@@ -62,8 +62,8 @@ func startReplay(ctx vault.Context, id, slug string) (*promoteResult, error) {
 	if !pending {
 		return nil, spec.PendingPromote(ctx.Vault, id, slug)
 	}
-	lk := &pinLock{vault: ctx.Vault, owner: "ct spec start " + id,
-		then: fmt.Sprintf("nothing written (a promote of %s is pending and needs it: try again, or run ct spec promote %s)", id, id)}
+	lk := &pinLock{vault: ctx.Vault, owner: "tix spec start " + id,
+		then: fmt.Sprintf("nothing written (a promote of %s is pending and needs it: try again, or run tix spec promote %s)", id, id)}
 	if err := lk.take(); err != nil {
 		return nil, err
 	}
@@ -88,14 +88,14 @@ repeat run adds capabilities; for each file it copies (one the copy
 doesn't have) it first rebases the snapshot onto projects/'s current file,
 so a change another ticket promoted before that start is not this
 ticket's change, and says so ("rebased <file>"). A file the ticket already
-promoted keeps its snapshot, and so its promoted change in ct spec diff,
+promoted keeps its snapshot, and so its promoted change in tix spec diff,
 unless another ticket changed it in projects/ since: then it is rebased
-too and that earlier change leaves the diff, the version history (ct spec
-log) and the version's view (ct spec show). A run stopped between its two
-snapshot writes is finished by the next ct spec start. A promote of the
+too and that earlier change leaves the diff, the version history (tix spec
+log) and the version's view (tix spec show). A run stopped between its two
+snapshot writes is finished by the next tix spec start. A promote of the
 ticket that stopped after its commit point is finished first, under the
 vault lock (failing at once when another session holds it); the files it
-held back are listed, for ct spec promote <ID> to resolve. ct spec
+held back are listed, for tix spec promote <ID> to resolve. tix spec
 promote compares projects/ against it, so a change another ticket
 promotes after this start is refused instead of overwritten; it refuses
 a copy that has no snapshot.`,
@@ -137,7 +137,7 @@ func specStart(ctx vault.Context, id, slug string, caps []string) (startResult, 
 		return res, fmt.Errorf("invalid repo slug %q", slug)
 	}
 	if f := note.Get(spec.ProjectNote(ctx.Vault, slug), "specs"); f != spec.InVault {
-		return res, fmt.Errorf("%s: its specs are not in the vault (%s needs specs: vault; ct spec location %s)",
+		return res, fmt.Errorf("%s: its specs are not in the vault (%s needs specs: vault; tix spec location %s)",
 			slug, config.TildePath(spec.ProjectNote(ctx.Vault, slug)), slug)
 	}
 	// a promote of this ticket that passed its commit point and stopped
@@ -165,7 +165,7 @@ func specStart(ctx vault.Context, id, slug string, caps []string) (startResult, 
 			}
 		}
 		if n == 0 {
-			return res, fmt.Errorf("%s: no capability %s in projects/%s/specs/ (a new one: run ct spec start %s %s without it first, then write it in the copy folder)", slug, c, slug, id, slug)
+			return res, fmt.Errorf("%s: no capability %s in projects/%s/specs/ (a new one: run tix spec start %s %s without it first, then write it in the copy folder)", slug, c, slug, id, slug)
 		}
 	}
 	sort.Strings(files)
@@ -256,16 +256,16 @@ func specStart(ctx vault.Context, id, slug string, caps []string) (startResult, 
 var writeSnapshot = spec.WriteTree
 
 // rebaseStart rebases the snapshot entries of the files a repeat start is
-// about to copy (toCopy) onto projects/, so neither ct spec diff nor ct spec
+// about to copy (toCopy) onto projects/, so neither tix spec diff nor tix spec
 // promote takes another ticket's change made before this start for this
 // ticket's. A file the ticket's version note lists as promoted keeps its
 // entries (they hold the ticket's promoted change) unless projects/ changed
 // it since that promotion; then it is rebased too, and its earlier change
-// leaves the diff, the version history (ct spec log) and the version's view
-// (ct spec show). The snapshots are written before any copy file: first the
+// leaves the diff, the version history (tix spec log) and the version's view
+// (tix spec show). The snapshots are written before any copy file: first the
 // rebase marker naming the files, then base, then after, then the marker is
 // removed. A run that stops between the two snapshots leaves the marker;
-// ct spec promote refuses while it is there, and the next ct spec start,
+// tix spec promote refuses while it is there, and the next tix spec start,
 // whatever capabilities it names, rebases the marker's files again.
 func rebaseStart(ctx vault.Context, id, slug string, projects, base spec.Tree, toCopy []string, res *startResult) error {
 	marker := spec.RebaseMarker(ctx.Vault, id, slug)
@@ -308,7 +308,7 @@ func rebaseStart(ctx vault.Context, id, slug string, projects, base spec.Tree, t
 		return err
 	}
 	interrupted := func(err error) error {
-		return fmt.Errorf("%w (the snapshots are part way rebased: run ct spec start %s %s again to finish them)", err, id, slug)
+		return fmt.Errorf("%w (the snapshots are part way rebased: run tix spec start %s %s again to finish them)", err, id, slug)
 	}
 	if err := writeSnapshot(spec.BaseDir(ctx.Vault, id, slug), nb); err != nil {
 		return interrupted(err)
@@ -330,7 +330,7 @@ func rebaseStart(ctx vault.Context, id, slug string, projects, base spec.Tree, t
 	return nil
 }
 
-// readRebaseMarker lists the files of a rebase a ct spec start left part
+// readRebaseMarker lists the files of a rebase a tix spec start left part
 // way (see rebaseStart); none without a marker.
 func readRebaseMarker(path string) ([]string, error) {
 	b, err := os.ReadFile(path)
@@ -381,7 +381,7 @@ func printStart(out io.Writer, slug string, res startResult) {
 	}
 	for _, f := range res.Rebased {
 		if moved[f] {
-			fmt.Fprintf(out, "  rebased %s in the snapshot (projects/ changed it since this ticket promoted it: its earlier change leaves ct spec diff, ct spec log and ct spec show)\n", f)
+			fmt.Fprintf(out, "  rebased %s in the snapshot (projects/ changed it since this ticket promoted it: its earlier change leaves tix spec diff, tix spec log and tix spec show)\n", f)
 		} else {
 			fmt.Fprintf(out, "  rebased %s in the snapshot onto projects/\n", f)
 		}

@@ -5,7 +5,7 @@ capability specs: `specs/<capability>/spec.md`, requirements `REQ-<PREFIX>-<n>`)
 `SKILL.md` says and ignore this file.
 
 ## Reading the change
-- `ct spec diff <ID> [--stat]` is the ticket's spec change for every repo, wherever its specs live
+- `tix spec diff <ID> [--stat]` is the ticket's spec change for every repo, wherever its specs live
   (repo or vault); never look for the location yourself. Only the PO writes specs: you, the
   tasks and the reviewers never edit `specs/`.
 - `board.md ## Specs`, one line per capability: `- [ ] <slug>/<capability> · draft|ready|building|merged · needs <slug>/<capability>, …|- · <REQ IDs>`.
@@ -24,7 +24,7 @@ capability specs: `specs/<capability>/spec.md`, requirements `REQ-<PREFIX>-<n>`)
 
 ## Review
 - One review per capability once its tasks merge: the reviewer's prompt adds the capability, its
-  requirement IDs and `ct spec diff <ID>`.
+  requirement IDs and `tix spec diff <ID>`.
 - The reviewer lists the IDs that pass (a `proposed` requirement implemented and cited by a test, no
   contradiction of an `implemented` one). Relay that list to the PO, who flips them to
   `implemented`; you never do. A failing ID is a fix task in the next wave.

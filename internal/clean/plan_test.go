@@ -151,7 +151,7 @@ func TestPlanSaved(t *testing.T) {
 	ticket(t, o.Vault, "PROJ-2", "status: closed", jira+"PROJ-2", "saved: 2026-10-01T10:00:00")
 	put(t, o.Vault, "tickets/jira/PROJ-2/design.md", "x")
 	got := plan(o)
-	if got["PROJ-1"].Action != Skip || !strings.HasPrefix(got["PROJ-1"].Reason, "needs /tickets:save") ||
+	if got["PROJ-1"].Action != Skip || !strings.HasPrefix(got["PROJ-1"].Reason, "needs /tix:save") ||
 		!strings.Contains(got["PROJ-1"].Task, "[[PROJ-1]] (closed) wasn't saved") || got["PROJ-2"].Action != Trash {
 		t.Errorf("unsaved: %+v", got)
 	}
@@ -195,7 +195,7 @@ func TestPlanSafety(t *testing.T) {
 	git(t, clone, "commit", "--quiet", "--allow-empty", "-m", "base")
 	git(t, clone, "push", "--quiet", "origin", "HEAD:main")
 	git(t, clone, "worktree", "add", "--quiet", "-b", "feature/PROJ-1", wt)
-	// ct's git refuses a local-path origin; nothing below fetches or pushes
+	// tix's git refuses a local-path origin; nothing below fetches or pushes
 	git(t, clone, "remote", "set-url", "origin", "git@example.invalid:acme/repo.git")
 	put(t, o.WorkRoot, "PROJ-1/workspace.json", `{"id": "PROJ-1", "repos": [{"slug": "repo", "path": "`+wt+`", "base": "main", "targetVersion": "1.0"}]}`)
 
@@ -239,7 +239,7 @@ func TestRun(t *testing.T) {
 	}
 	want := []string{
 		"MAN-4 (closed): remove the workspace; archive to archive/tickets/manual/MAN-4",
-		"MAN-5 (closed): skip: needs /tickets:save (worked (requirements.md), not saved)",
+		"MAN-5 (closed): skip: needs /tix:save (worked (requirements.md), not saved)",
 		"PROJ-12 (closed): move to .trash/PROJ-12; rewrite 3 link(s) in 2 note(s) to https://acme.atlassian.net/browse/PROJ-12; keep 1 file(s) in archive/tickets/jira/PROJ-12",
 	}
 	if strings.Join(desc, "\n") != strings.Join(want, "\n") {
@@ -315,7 +315,7 @@ func TestRunSave(t *testing.T) {
 		},
 		RemoveWorkspace: func(id string) error { return os.RemoveAll(filepath.Join(o.WorkRoot, id)) },
 	})
-	if res.Cleaned != 1 || !strings.Contains(out.String(), "MAN-2: skipped: /tickets:save failed (invalid argument); see save.log") {
+	if res.Cleaned != 1 || !strings.Contains(out.String(), "MAN-2: skipped: /tix:save failed (invalid argument); see save.log") {
 		t.Errorf("%+v\n%s", res, out.String())
 	}
 	if _, err := os.Stat(filepath.Join(o.Vault, "archive/tickets/manual/MAN-1/MAN-1.md")); err != nil {

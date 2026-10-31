@@ -16,16 +16,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/chunk"
-	"github.com/zero4573/claude-tickets/internal/embed"
-	"github.com/zero4573/claude-tickets/internal/links"
-	"github.com/zero4573/claude-tickets/internal/lock"
-	"github.com/zero4573/claude-tickets/internal/modelcache"
-	"github.com/zero4573/claude-tickets/internal/note"
+	"github.com/zero4573/tix/internal/chunk"
+	"github.com/zero4573/tix/internal/embed"
+	"github.com/zero4573/tix/internal/links"
+	"github.com/zero4573/tix/internal/lock"
+	"github.com/zero4573/tix/internal/modelcache"
+	"github.com/zero4573/tix/internal/note"
 )
 
 // ModelHint is printed (stderr, once per index) when there is no embedder.
-const ModelHint = "ct: no embedding model, keyword search only; on the host run: ct vault model fetch"
+const ModelHint = "tix: no embedding model, keyword search only; on the host run: tix vault model fetch"
 
 const batchSize = 32
 
@@ -73,21 +73,22 @@ func Update(vault string, o UpdateOptions) (UpdateStats, error) {
 }
 
 // UpdateSource is Update with the documents taken from src. The index files
-// live under Dir(root) and the locks under root/.ct, so one root holds one
+// live under Dir(root) and the locks under root/.tix, so one root holds one
 // index; for the vault, root is the vault and src is VaultSource(vault).
 func UpdateSource(vault string, src Source, o UpdateOptions) (UpdateStats, error) {
 	start := time.Now()
 	var st UpdateStats
-	ct := filepath.Join(vault, ".ct")
+	tix := filepath.Join(vault, ".tix")
+	MigrateLegacy(vault)
 	if err := os.MkdirAll(Dir(vault), 0o755); err != nil {
 		return st, err
 	}
-	if _, err := os.Stat(filepath.Join(ct, ".gitignore")); err != nil {
-		if err := os.WriteFile(filepath.Join(ct, ".gitignore"), []byte("*\n"), 0o644); err != nil {
+	if _, err := os.Stat(filepath.Join(tix, ".gitignore")); err != nil {
+		if err := os.WriteFile(filepath.Join(tix, ".gitignore"), []byte("*\n"), 0o644); err != nil {
 			return st, err
 		}
 	}
-	err := lock.With(filepath.Join(ct, "index.lock"), func() error { return update(vault, src, o, &st) })
+	err := lock.With(filepath.Join(tix, "index.lock"), func() error { return update(vault, src, o, &st) })
 	st.Took = time.Since(start)
 	return st, err
 }
@@ -424,7 +425,7 @@ func update(vault string, src Source, o UpdateOptions, st *UpdateStats) error {
 		}
 		// Only the renames run under the commit lock, so readers never wait for
 		// embedding.
-		if err := lock.With(filepath.Join(vault, ".ct", "index.commit.lock"), func() error {
+		if err := lock.With(filepath.Join(vault, ".tix", "index.commit.lock"), func() error {
 			return sg.commit(first, beforeNotesWrite)
 		}); err != nil {
 			return err
@@ -471,7 +472,7 @@ func unwrap(s string) string {
 	return strings.TrimSuffix(strings.TrimSpace(s), `\`)
 }
 
-// Refresh updates the index for files changed by a ct write (vault-relative
+// Refresh updates the index for files changed by a tix write (vault-relative
 // paths). With no index it does nothing; errors go to stderr, never to the caller.
 func Refresh(vault string, files ...string) {
 	if _, err := os.Stat(filepath.Join(Dir(vault), "meta.json")); err != nil {
@@ -482,7 +483,7 @@ func Refresh(vault string, files ...string) {
 		only = files
 	}
 	if _, err := Update(vault, UpdateOptions{Files: only}); err != nil {
-		fmt.Fprintf(os.Stderr, "ct: vault index not updated: %v\n", err)
+		fmt.Fprintf(os.Stderr, "tix: vault index not updated: %v\n", err)
 	}
 }
 

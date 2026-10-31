@@ -1,6 +1,6 @@
 # The ticket workflow
 
-`ct start <ID>` opens a session that runs `/tickets:work-ticket <ID>`. That session is the
+`tix start <ID>` opens a session that runs `/tix:work-ticket <ID>`. That session is the
 product owner (PO). It talks to you, runs one lead agent, and spawns every agent the lead
 asks for, because subagents cannot spawn agents. The lead plans in waves of small tasks.
 Each task runs in its own worktree under `tasks/` on its own branch, and the lead merges
@@ -13,9 +13,9 @@ sequenceDiagram
   participant L as lead
   participant T as task agents
   participant R as reviewers
-  U->>P: ct start ID
-  P->>P: resume from board.md, or kickoff: repos, base, version, ct ws add, ct ws refresh
-  P->>U: clarify (tickets:clarify): rounds of questions with a recommended answer
+  U->>P: tix start ID
+  P->>P: resume from board.md, or kickoff: repos, base, version, tix ws add, tix ws refresh
+  P->>U: clarify (tix:clarify): rounds of questions with a recommended answer
   P->>L: spawn (plan.md, contracts/, tasks/, board.md)
   L-->>P: Spawn: wave of tasks
   P->>T: one agent per task, in parallel (up to 4)
@@ -82,7 +82,7 @@ disposition, and how each ticket type shapes the plan.
 
 ## Checking a range for binary and large files
 
-`ct ws diff-check [-C <dir>] [--max-size 1M] [--ticket <ID>] <rev-range>` walks every non-merge commit of a
+`tix ws diff-check [-C <dir>] [--max-size 1M] [--ticket <ID>] <rev-range>` walks every non-merge commit of a
 range and flags each file the commit adds or modifies that git treats as binary or whose
 blob is over the size limit (bytes, or a number with K, M or G; default 1M). Deletions are
 ignored, so a file added and removed within the range is still reported. Each flagged file is
@@ -90,7 +90,7 @@ one stdout line, tab separated: `binary`, `large` or `binary,large`, the size in
 short sha and the path. Exit 0 means clean, 3 means something was flagged (with a count on
 stderr), 1 means a usage error, a directory that is not a git checkout or a bad range.
 
-For `A..B` ranges it also flags `spec-id` lines for duplicate requirement IDs (see [the ct ws commands](workspace-commands.md#diff-check)).
+For `A..B` ranges it also flags `spec-id` lines for duplicate requirement IDs (see [the tix ws commands](workspace-commands.md#diff-check)).
 
 It also prints two informational line kinds that never change the exit code: `note test-changed <name> <short sha> <path>` when a commit changes or removes a Go `Test*`, `Benchmark*`, `Fuzz*` or `Example*` func that its first parent had (or, with name `-`, an existing `testdata/**/*.txtar` file), and `note unsigned - <short sha> :commit` for a commit with no signature when `commit.gpgsign` is true.
 
@@ -110,7 +110,7 @@ that models a ticket as a note, not a must-fix.
 ```mermaid
 sequenceDiagram
   participant T as task agent
-  participant C as ct ws diff-check
+  participant C as tix ws diff-check
   participant L as lead
   T->>C: ticket branch..HEAD, before reporting
   C-->>T: exit 0, or flagged files to drop
@@ -122,7 +122,7 @@ sequenceDiagram
 A task agent runs it over its own branch before reporting, with `--ticket <ID>` for a ticket that has a vault folder. The lead runs it before each merge and the wave reviewer over the diff it reviews;
 on exit 3 it does not merge and asks for a follow-up that drops the files from the unpushed
 task branch, unless one is expected (a lockfile) and the board line says so. On exit 1 or an
-older `ct` without the command, the lead reads the commit log instead.
+older `tix` without the command, the lead reads the commit log instead.
 
 ## Checks that run in the sandbox
 
@@ -136,15 +136,15 @@ pushes only through a host broker.
   test parallelism with `TESTFLAGS`). Tests never rely on file permissions, since root
   ignores them.
 - Commits are signed by the session when the sandbox gives it a signing-only agent;
-  `/tickets:save` pushes only signed commits, see [finishing a ticket](finishing-a-ticket.md).
+  `/tix:save` pushes only signed commits, see [finishing a ticket](finishing-a-ticket.md).
 
 ## Manual and synced tickets
 
 | | Synced ticket | Manual ticket |
 |---|---|---|
-| Source | `ct sync` writes the note from the source | `ct new` writes it; never synced |
+| Source | `tix sync` writes the note from the source | `tix new` writes it; never synced |
 | Branch | `feature/<ID>[-<description>]` | `feature/<description>` (no ID) |
-| `ct ws add` | `--desc` optional | needs `--desc` or `--branch` |
+| `tix ws add` | `--desc` optional | needs `--desc` or `--branch` |
 | Commit subject | `<ID> <summary>` by default | the ticket's chosen style, never an ID |
 | Where its key may appear | code, commits, branches, PRs | only in the vault |
 
@@ -153,12 +153,12 @@ entries, review findings) stay out of code, docs, commit messages and pushed bra
 For a manual ticket the kickoff asks for a commit style, recorded in `board.md`:
 Conventional Commits (`type(scope): summary`) or the repo's own convention without an ID.
 A synced ticket uses `<ID> <summary>` unless the repo's `AGENTS.md` says otherwise.
-`ct ws add` refuses a manual ticket's branch that another workspace already has recorded.
+`tix ws add` refuses a manual ticket's branch that another workspace already has recorded.
 
 Task lists cross the Jira boundary in both directions without becoming vault tasks.
-`/tickets:new-ticket` files a description that has a task list as HTML (`contentFormat:
+`/tix:new-ticket` files a description that has a task list as HTML (`contentFormat:
 "html"`, Jira's `task-list`/`task-item` markup), because Jira turns markdown `- [ ]` items
-into plain bullets. `ct sync` (and the ticket-sync skill, for HTML bodies) writes Jira task
+into plain bullets. `tix sync` (and the ticket-sync skill, for HTML bodies) writes Jira task
 items back as plain bullets with the state as text, `- \[ \] item` and `- \[x\] item`, so
 they never show up as checkboxes in the vault's task views.
 

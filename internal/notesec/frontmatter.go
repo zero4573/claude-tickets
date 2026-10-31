@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/zero4573/claude-tickets/internal/mdsec"
+	"github.com/zero4573/tix/internal/mdsec"
 )
 
 var keyLine = regexp.MustCompile(`^([A-Za-z0-9_][A-Za-z0-9_.-]*):(?:[ \t]+(.*))?$`)
@@ -443,7 +443,7 @@ func ListField(src []byte, key string) []string {
 	return items
 }
 
-// UsageError is a bad argument (ct exits 2).
+// UsageError is a bad argument (tix exits 2).
 type UsageError struct{ Msg string }
 
 func (e *UsageError) Error() string { return e.Msg }

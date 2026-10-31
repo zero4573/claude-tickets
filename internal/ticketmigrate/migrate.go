@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	tnote "github.com/zero4573/claude-tickets/internal/note"
+	"github.com/zero4573/tix/internal/fsx"
+	tnote "github.com/zero4573/tix/internal/note"
 )
 
 // FileChange is a converted file: its vault-relative path (slash form), and

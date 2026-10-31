@@ -8,17 +8,17 @@ import (
 	"path/filepath"
 	"strings"
 
-	tnote "github.com/zero4573/claude-tickets/internal/note"
+	tnote "github.com/zero4573/tix/internal/note"
 )
 
 // Ctx is where a write comes from.
 type Ctx struct {
 	Vault     string
 	Workspace string // the ticket workspace's ID, "" outside one
-	Save      bool   // /tickets:save's shared-notes mode
+	Save      bool   // /tix:save's shared-notes mode
 }
 
-// RefusedError is a write the rules don't allow (ct exits 3).
+// RefusedError is a write the rules don't allow (tix exits 3).
 type RefusedError struct{ Msg string }
 
 func (e *RefusedError) Error() string { return e.Msg }
@@ -106,7 +106,7 @@ func covers(vault, id string) map[string]bool {
 	return out
 }
 
-const whoWrites = `(AGENTS.md, "Who writes what" 3); /tickets:save passes --save`
+const whoWrites = `(AGENTS.md, "Who writes what" 3); /tix:save passes --save`
 
 // Check applies the write rules to a write of rel (vault-relative, with
 // slashes) touching target. A nil result means it is allowed. Check reads
@@ -170,11 +170,11 @@ func check(c Ctx, rel string, src []byte, t Target) (coveredOnly bool, err error
 				coveredOnly = true
 				break
 			}
-			return false, refuse("refusing to write %s: a ticket's agents write only inside %s/ until /tickets:save %s", rel, tnote.RelDir(c.Vault, c.Workspace), whoWrites)
+			return false, refuse("refusing to write %s: a ticket's agents write only inside %s/ until /tix:save %s", rel, tnote.RelDir(c.Vault, c.Workspace), whoWrites)
 		}
 	default:
 		if !strings.HasPrefix(rel, "inbox/") {
-			return false, refuse("refusing to write %s: outside a ticket workspace agents write only inside inbox/ until /tickets:save %s", rel, whoWrites)
+			return false, refuse("refusing to write %s: outside a ticket workspace agents write only inside inbox/ until /tix:save %s", rel, whoWrites)
 		}
 	}
 	if !isTicket {

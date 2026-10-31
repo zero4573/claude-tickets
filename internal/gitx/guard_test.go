@@ -101,7 +101,7 @@ func TestDotGitSymlinkRefused(t *testing.T) {
 }
 
 // A fetch refspec writing refs/heads/* would delete local branches on
-// ct's fetch --prune.
+// tix's fetch --prune.
 func TestBranchDeletingRefspecRefused(t *testing.T) {
 	clone, wt := repo(t)
 	git(t, clone, "branch", "keep")
@@ -113,7 +113,7 @@ func TestBranchDeletingRefspecRefused(t *testing.T) {
 	if !HasRef(clone, "refs/heads/keep") || !HasRef(wt, "refs/heads/feature/PROJ-12") {
 		t.Error("a local branch went")
 	}
-	// The second layer: ct's fetch names its own refspec and refmap
+	// The second layer: tix's fetch names its own refspec and refmap
 	if err := Timeout(30e9, clone, "fetch", "--quiet", "--prune", "origin"); err != nil {
 		t.Fatalf("a clean fetch: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestSubmoduleConfigChecked(t *testing.T) {
 }
 
 // A call without -C runs in a neutral folder: git doesn't find the repo
-// of ct's working directory (where a pager or a filter could be planted).
+// of tix's working directory (where a pager or a filter could be planted).
 func TestNoDirRunsNeutral(t *testing.T) {
 	repo, _, script := plantedRepo(t)
 	git(t, repo, "config", "pager.ls-remote", script)
@@ -177,7 +177,7 @@ func TestNoDirRunsNeutral(t *testing.T) {
 		t.Fatalf("Dir %q, Err %v; want %q", cmd.Dir, cmd.Err, neutralDir())
 	}
 	if out, err := Command("rev-parse", "--show-toplevel").Output(); err == nil {
-		t.Errorf("git found a repository from ct's cwd: %s", out)
+		t.Errorf("git found a repository from tix's cwd: %s", out)
 	}
 	if c := CommandIn(repo, "status"); !slices.Contains(c.Args, "-C") || c.Err == nil {
 		t.Errorf("CommandIn: %q, %v", c.Args, c.Err)

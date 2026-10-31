@@ -1,4 +1,4 @@
-// Package clean is ct clean: it finds the vault's finished tickets, checks
+// Package clean is tix clean: it finds the vault's finished tickets, checks
 // that nothing of theirs would be lost (running sessions, uncommitted or
 // unpushed work, an unsaved session), and removes them: a synced ticket's
 // folder goes to the vault's .trash/ (links to it become links to its
@@ -15,12 +15,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/links"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/links"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
-// Action is what ct clean does with a ticket.
+// Action is what tix clean does with a ticket.
 type Action int
 
 const (
@@ -53,7 +53,7 @@ type Item struct {
 	// Task is the follow-up task for a skip the user can act on
 	Task     string
 	Explicit bool // named on the command line
-	// Save: run /tickets:save first, in SaveIn's workspace
+	// Save: run /tix:save first, in SaveIn's workspace
 	Save   bool
 	SaveIn string
 	URL    string
@@ -108,7 +108,7 @@ func usableURL(s string) bool {
 	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
 
-// Plan decides, for every ticket (or o.IDs), what ct clean does, reading
+// Plan decides, for every ticket (or o.IDs), what tix clean does, reading
 // only. Tickets that aren't finished are left out unless named.
 func Plan(o Options) []Item {
 	if o.Now.IsZero() {
@@ -133,7 +133,7 @@ func Plan(o Options) []Item {
 		}
 	}
 	// A lead goes only with (or after) every ticket it covers: their notes
-	// still get its /tickets:save, and their work is in its workspace
+	// still get its /tix:save, and their work is in its workspace
 	for changed := true; changed; {
 		changed = false
 		planned := map[string]bool{}
@@ -189,7 +189,7 @@ func planOne(o Options, id string, explicit bool) (Item, bool) {
 		return skip(it, "not finished (status "+st+")", ""), explicit
 	}
 	if it.Status == "done" && synced {
-		return skip(it, "done synced ticket (ct sync would re-create it)", ""), true
+		return skip(it, "done synced ticket (tix sync would re-create it)", ""), true
 	}
 	if o.Days > 0 {
 		if age := ageDays(file, fm["updated"], o.Now); age < o.Days {
@@ -226,13 +226,13 @@ func planOne(o Options, id string, explicit bool) (Item, bool) {
 	}
 	if state, why := note.SaveStateOf(o.Vault, saveIn, id); state == note.Unsaved {
 		if !o.Save || saveIn == "" {
-			return skip(it, "needs /tickets:save ("+why+")", fmt.Sprintf(
-				"[[%s]] (%s) wasn't saved (%s): ct start %s, run /tickets:save, then ct clean %s (or ct clean --save %s)",
+			return skip(it, "needs /tix:save ("+why+")", fmt.Sprintf(
+				"[[%s]] (%s) wasn't saved (%s): tix start %s, run /tix:save, then tix clean %s (or tix clean --save %s)",
 				id, it.Status, why, filepath.Base(firstNonEmpty(saveIn, o.wsDir(id))), id, id)), true
 		}
 		if slug := nullVersion(saveIn); slug != "" {
-			return skip(it, "needs /tickets:save, and "+slug+" has no target version (a headless save can't ask)", fmt.Sprintf(
-				"[[%s]] (%s) wasn't saved, and its workspace has no target version for %s: ct start %s, run /tickets:save, then ct clean %s",
+			return skip(it, "needs /tix:save, and "+slug+" has no target version (a headless save can't ask)", fmt.Sprintf(
+				"[[%s]] (%s) wasn't saved, and its workspace has no target version for %s: tix start %s, run /tix:save, then tix clean %s",
 				id, it.Status, slug, filepath.Base(saveIn), id)), true
 		}
 		it.Save, it.SaveIn = true, filepath.Base(saveIn)
@@ -257,7 +257,7 @@ func firstNonEmpty(a, b string) string {
 }
 
 // nullVersion is the slug of a workspace repo without a target version
-// (/tickets:save would ask for it).
+// (/tix:save would ask for it).
 func nullVersion(dir string) string {
 	info, _ := workspace.Read(dir)
 	for _, r := range info.Repos {
@@ -299,7 +299,7 @@ func Order(items []Item) []Item {
 	return out
 }
 
-// SyncOwned is a links Skip/Exempt test: a place ct sync owns in a synced
+// SyncOwned is a links Skip/Exempt test: a place tix sync owns in a synced
 // ticket's note (a sync-owned frontmatter field, the source block).
 func SyncOwned() func(links.Place) bool {
 	cache := map[string]map[string]string{}

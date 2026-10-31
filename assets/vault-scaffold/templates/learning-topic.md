@@ -10,7 +10,7 @@ tags: [learning]
 ---
 # {{title}}
 
-<!-- learning/<topic>/<topic>.md, kept by /tickets:teach (ct teach <topic>). status: active,
+<!-- learning/<topic>/<topic>.md, kept by /tix:teach (tix teach <topic>). status: active,
 paused or done. Add the topic's name to tags. Each new lesson, reference note and record gets
 a line in its list. -->
 

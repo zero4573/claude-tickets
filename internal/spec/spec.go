@@ -102,7 +102,7 @@ func ParseFile(file string) (*Spec, error) {
 	return Parse(file, b), nil
 }
 
-// MaxSpecSize caps a spec.md that ct reads: the parser runs on the host
+// MaxSpecSize caps a spec.md that tix reads: the parser runs on the host
 // over files a session can write.
 const MaxSpecSize = 1 << 20
 

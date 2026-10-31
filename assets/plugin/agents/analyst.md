@@ -1,6 +1,6 @@
 ---
 name: analyst
-description: Read-only helper of the PO session (/tickets:work-ticket) that answers one user question about a ticket's code, repos or vault notes from Grep, Glob, Read, git history and the vault, in at most 20 lines with file:line citations. Never writes anything.
+description: Read-only helper of the PO session (/tix:work-ticket) that answers one user question about a ticket's code, repos or vault notes from Grep, Glob, Read, git history and the vault, in at most 20 lines with file:line citations. Never writes anything.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/lock"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/lock"
 )
 
 type Repo struct {
@@ -31,11 +31,34 @@ type Repo struct {
 // Clone is the repo's main clone under the projects root.
 func (r Repo) Clone() string { return r.Provider + "/" + r.Owner + "/" + r.Repo }
 
-// Warnings is where Read reports the repos it leaves out (ct status --watch
+// Warnings is where Read reports the repos it leaves out (tix status --watch
 // shows them in its frame instead of letting them land on the screen).
 var Warnings io.Writer = os.Stderr
 
 func File(dir string) string { return filepath.Join(dir, "workspace.json") }
+
+// Agent is the agent CLI the workspace's last session ran (workspace.json
+// "agent"; "" before tix recorded it: claude).
+func Agent(dir string) string {
+	var doc struct {
+		Agent string `json:"agent"`
+	}
+	if data, err := os.ReadFile(File(dir)); err == nil {
+		_ = json.Unmarshal(data, &doc)
+	}
+	if doc.Agent == "" {
+		return "claude"
+	}
+	return doc.Agent
+}
+
+// SetAgent records the agent CLI of the session starting in dir.
+func SetAgent(dir, agent string) error {
+	return Update(File(dir), func(doc map[string]any) error {
+		doc["agent"] = agent
+		return nil
+	})
+}
 
 // Update changes a JSON file under a lock (so parallel writers, e.g.
 // subagents adding worktrees, don't lose each other's changes): the
@@ -93,11 +116,11 @@ func Migrate(oldDir, newDir string) (bool, error) {
 		return false, nil
 	}
 	if _, err := os.Stat(newDir); err == nil {
-		fmt.Fprintf(warnOut, "warning: %s is left over next to %s and ct no longer lists it; move what you need out of it and remove it\n", oldDir, newDir)
+		fmt.Fprintf(warnOut, "warning: %s is left over next to %s and tix no longer lists it; move what you need out of it and remove it\n", oldDir, newDir)
 		return false, nil
 	}
 	if Running(oldDir) {
-		return false, fmt.Errorf("a session is running in %s: close it first, then run ct again", oldDir)
+		return false, fmt.Errorf("a session is running in %s: close it first, then run tix again", oldDir)
 	}
 	if err := os.Rename(oldDir, newDir); err != nil {
 		return false, err
@@ -153,12 +176,12 @@ type Info struct {
 	ID    string `json:"id"`
 	Vault string `json:"vault"`
 	Repos []Repo `json:"repos"`
-	// Dev is set in a dev workspace (ct start --dev): its sessions run the
-	// plugin and ct built from that repo's checkout
+	// Dev is set in a dev workspace (tix start --dev): its sessions run the
+	// plugin and tix built from that repo's checkout
 	Dev *Dev `json:"dev,omitempty"`
 }
 
-// Dev names the claude-tickets checkout a dev workspace builds from.
+// Dev names the tix checkout a dev workspace builds from.
 type Dev struct {
 	Slug string `json:"slug"`
 }
@@ -193,7 +216,7 @@ func Read(dir string) (Info, error) {
 		if r.Path != "" && filepath.IsAbs(r.Path) && fsx.Inside(resolved(r.Path), root) {
 			kept = append(kept, r)
 		} else {
-			fmt.Fprintf(Warnings, "ct: %s: ignoring %s at %q: not inside the workspace\n", File(dir), r.Slug, r.Path)
+			fmt.Fprintf(Warnings, "tix: %s: ignoring %s at %q: not inside the workspace\n", File(dir), r.Slug, r.Path)
 		}
 	}
 	info.Repos = kept
@@ -232,7 +255,7 @@ type Status struct {
 }
 
 // Session tells whether a workspace's session is running, in this order:
-//  1. its recorded process (.sessions.json: ct start, ct teach, ct spec) is
+//  1. its recorded process (.sessions.json: tix start, tix teach, tix spec) is
 //     alive on this host; when every record is provably dead, it isn't
 //     running, whatever .agent-state says;
 //  2. when no record can be checked (none, another host, a container, an

@@ -19,7 +19,7 @@ const (
 	KindInterface = "interface"
 )
 
-// Finding is one thing ct spec check reports.
+// Finding is one thing tix spec check reports.
 type Finding struct {
 	Repo    string `json:"repo"`
 	Kind    string `json:"kind"`

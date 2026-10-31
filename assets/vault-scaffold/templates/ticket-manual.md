@@ -29,11 +29,11 @@ tags: [ticket, manual]
 ---
 # {{title}}
 
-<!-- A manual ticket: you write and manage it here, ct sync never
+<!-- A manual ticket: you write and manage it here, tix sync never
 touches it. Name the note after its ID (MAN-<n>, the next free number;
-`ct new "<summary>"` does it for you), set `summary` and `ticket-type`
+`tix new "<summary>"` does it for you), set `summary` and `ticket-type`
 (dev | bug | investigation | chore | epic), fill in the three sections
-below, then run `ct start <ID>`. The ticket's own agents may update
+below, then run `tix start <ID>`. The ticket's own agents may update
 these sections (record what you decided with them, tick met criteria). Set `status: closed` yourself when it's finished.
 Dependencies: list tickets as "[[ID]]" in parent, blocked-by, blocks and
 related, and set blocked: true while a blocker is open. To work several
@@ -69,4 +69,4 @@ target versions if known.
 <!-- Written when the ticket reaches status: review -->
 
 ## Knowledge
-<!-- Notes created or updated by /tickets:save -->
+<!-- Notes created or updated by /tix:save -->

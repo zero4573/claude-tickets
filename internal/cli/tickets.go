@@ -18,11 +18,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/platform"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/platform"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 // completeIDs offers IDs (with their summary and status) from list,
@@ -71,12 +71,12 @@ func newCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   `new [--type dev|bug|investigation|chore|epic] [--priority <p>] [--open] "<summary>"`,
 		Short: "Create a manual ticket",
-		Long: `Creates a manual ticket in the current vault (ct vault default): one you
+		Long: `Creates a manual ticket in the current vault (tix vault default): one you
 write and manage in Obsidian, never synced from a remote source. It takes
 the next free ID (<prefix>-<n>, prefix from the manual source's idPrefix in
 tickets/.sources.json, MAN by default), creates tickets/manual/<ID>/<ID>.md from
 templates/ticket-manual.md, and prints its path. Fill in its Description
-and Acceptance criteria, then run ct start <ID>: manual tickets go
+and Acceptance criteria, then run tix start <ID>: manual tickets go
 through the same agent workflow as synced ones.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -99,7 +99,7 @@ through the same agent workflow as synced ones.`,
 				link := "obsidian://open?path=" + strings.ReplaceAll(url.PathEscape(path), "/", "%2F")
 				argv := platform.OpenCommand(link)
 				if err := exec.Command(argv[0], argv[1:]...).Run(); err != nil {
-					fmt.Fprintf(os.Stderr, "ct: couldn't open Obsidian; open %s yourself\n", path)
+					fmt.Fprintf(os.Stderr, "tix: couldn't open Obsidian; open %s yourself\n", path)
 				}
 			}
 			return nil
@@ -148,7 +148,7 @@ func newTicket(vaultDir, summary, typ, priority string) (string, error) {
 		return "", err
 	}
 	// Next free number, past every ticket folder's (any source, an old
-	// vault's tickets/<ID>/) and the archived tickets' too (ct clean): a
+	// vault's tickets/<ID>/) and the archived tickets' too (tix clean): a
 	// reused ID would give two notes one name. mkdir is atomic, so two
 	// concurrent runs can't take the same ID
 	n := 0
@@ -223,11 +223,11 @@ first:
   REPOS   worktrees, and how many have uncommitted changes
 
 A session runs in the terminal where it was started. It counts as running
-when its process (recorded by ct start) is alive on this host, else, when
+when its process (recorded by tix start) is alive on this host, else, when
 that can't be checked, when its .agent-state is less than a day old and not
 exited.
 
-With --watch (-w), ct status stays on screen and redraws the table until
+With --watch (-w), tix status stays on screen and redraws the table until
 Ctrl-C: every --interval (a duration such as 2s or 1m; default 2s, at least
 1s) and within a second of any session's .agent-state changing. The first
 line says when the table was last refreshed; rows that don't fit the
@@ -257,7 +257,7 @@ prints the table once, as without -w, with a warning on stderr.`,
 	return cmd
 }
 
-// statusView is what ct status shows: the header line, then the rows or,
+// statusView is what tix status shows: the header line, then the rows or,
 // without any, the empty line. Plain and watch mode both render it.
 type statusView struct {
 	header string
@@ -271,7 +271,7 @@ func buildStatus(ctx vault.Context) statusView {
 		rows:   statusRows(ctx),
 	}
 	if len(v.rows) == 0 {
-		v.empty = fmt.Sprintf("No ticket workspaces under %s (start one with ct start <ID>).", ctx.WorkRoot)
+		v.empty = fmt.Sprintf("No ticket workspaces under %s (start one with tix start <ID>).", ctx.WorkRoot)
 	}
 	return v
 }
@@ -378,7 +378,7 @@ func openCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "open <ID> | --list",
 		Short: "Open a ticket's workspace in your editor",
-		Long: `Opens a ticket's workspace in your editor: $CLAUDE_TICKETS_EDITOR, a command
+		Long: `Opens a ticket's workspace in your editor: $TIX_EDITOR, a command
 with any arguments; when unset, ttt if it is on PATH, else code (VS Code).
 
 ttt gets each worktree path, then the ticket's vault folder, as a multi-root
@@ -417,9 +417,9 @@ func openWorkspace(ctx vault.Context, key string) error {
 	dir := filepath.Join(ctx.WorkRoot, key)
 	info, err := workspace.Read(dir)
 	if err != nil {
-		return fmt.Errorf("%s has no workspace in the %s vault (%s): start it with ct start %s", key, filepath.Base(ctx.Vault), dir, key)
+		return fmt.Errorf("%s has no workspace in the %s vault (%s): start it with tix start %s", key, filepath.Base(ctx.Vault), dir, key)
 	}
-	editor := strings.Fields(os.Getenv("CLAUDE_TICKETS_EDITOR"))
+	editor := strings.Fields(os.Getenv("TIX_EDITOR"))
 	if len(editor) == 0 {
 		editor = []string{"code"}
 		if _, err := exec.LookPath("ttt"); err == nil {
@@ -428,7 +428,7 @@ func openWorkspace(ctx vault.Context, key string) error {
 	}
 	path, err := exec.LookPath(editor[0])
 	if err != nil {
-		return fmt.Errorf("editor '%s' not found (set CLAUDE_TICKETS_EDITOR)", editor[0])
+		return fmt.Errorf("editor '%s' not found (set TIX_EDITOR)", editor[0])
 	}
 	target := dir
 	switch filepath.Base(editor[0]) {
@@ -457,7 +457,7 @@ func openWorkspace(ctx vault.Context, key string) error {
 	return execReplaceOrRun(path, append(editor, target))
 }
 
-// execReplaceOrRun replaces ct with argv (path is argv[0] resolved), or
+// execReplaceOrRun replaces tix with argv (path is argv[0] resolved), or
 // runs it where exec isn't possible.
 func execReplaceOrRun(path string, argv []string) error {
 	if err := execReplace(path, argv, os.Environ()); err != nil {
@@ -468,7 +468,7 @@ func execReplaceOrRun(path string, argv []string) error {
 	return nil
 }
 
-// passExit turns a command's exit status into ct's.
+// passExit turns a command's exit status into tix's.
 func passExit(err error) error {
 	var ee *exec.ExitError
 	if errors.As(err, &ee) {

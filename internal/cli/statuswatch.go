@@ -16,12 +16,12 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/watch"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/watch"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
-// minInterval bounds how often ct status --watch recomputes the table (a
+// minInterval bounds how often tix status --watch recomputes the table (a
 // git status per worktree): .agent-state changes still show sooner.
 const minInterval = time.Second
 
@@ -48,27 +48,27 @@ func (f *intervalFlag) Set(s string) error {
 }
 
 // stdoutIsTerminal: watch mode draws on stdout and reads no input, so it
-// only needs stdout to be a terminal (unlike isTerminal, which ct-tty fakes).
+// only needs stdout to be a terminal (unlike isTerminal, which tix-tty fakes).
 var stdoutIsTerminal = func() bool { return term.IsTerminal(int(os.Stdout.Fd())) }
 
 // printStatusOnce is watch mode where it can't redraw: the table once, as
-// plain ct status prints it, and why on stderr.
+// plain tix status prints it, and why on stderr.
 func printStatusOnce(ctx vault.Context, why string) error {
 	if err := writeStatus(os.Stdout, buildStatus(ctx)); err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "ct status: --watch needs %s; printed once\n", why)
+	fmt.Fprintf(os.Stderr, "tix status: --watch needs %s; printed once\n", why)
 	return nil
 }
 
-// runStatusWatch keeps ct status's table on the terminal (the alternate
+// runStatusWatch keeps tix status's table on the terminal (the alternate
 // screen) until Ctrl-C or SIGTERM, which end it with status 0 and the
 // terminal as it was.
 func runStatusWatch(parent context.Context, ctx vault.Context, interval time.Duration) error {
 	if parent == nil {
 		parent = context.Background()
 	}
-	// First, so no signal can kill ct between entering the alternate screen
+	// First, so no signal can kill tix between entering the alternate screen
 	// and being ready to leave it
 	sigCtx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -81,7 +81,7 @@ func runStatusWatch(parent context.Context, ctx vault.Context, interval time.Dur
 	defer stopResize()
 
 	// workspace.Read's warnings go into the frame, not over it. Left in
-	// place on return: an abandoned refresh may still be running, and ct
+	// place on return: an abandoned refresh may still be running, and tix
 	// exits right after
 	warns := &lineCollector{}
 	workspace.Warnings = warns

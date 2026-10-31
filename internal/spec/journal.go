@@ -11,15 +11,15 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/note"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/note"
 )
 
 // JournalHeader is a promote journal's first line.
 const JournalHeader = "promote-journal v2"
 
 // The operations of a promote journal (JournalPath), one per line after
-// JournalHeader, applied in order by ct spec promote. Every put comes
+// JournalHeader, applied in order by tix spec promote. Every put comes
 // before any drop.
 const (
 	// OpReplaceTree "replace-tree base|after": the staged tree replaces
@@ -329,7 +329,7 @@ func ReadJournal(vault, id, slug string) (ops []Op, ok bool, err error) {
 
 // PendingPromote is nil unless ticket id's promote journal for slug exists:
 // a promote passed its commit point and stopped, so the snapshots, note and
-// projects/ may be part way written until ct spec promote (or ct spec
+// projects/ may be part way written until tix spec promote (or tix spec
 // start) finishes it. The error names that rerun.
 func PendingPromote(vault, id, slug string) error {
 	_, err := os.Lstat(JournalPath(vault, id, slug))
@@ -353,7 +353,7 @@ func (e *pendingPromoteError) Is(target error) bool { return target == ErrPromot
 // PromotePendingNote is the note a listing gives a version whose ticket's
 // promote journal is there.
 func PromotePendingNote(id string) string {
-	return "promote pending: run ct spec promote " + id
+	return "promote pending: run tix spec promote " + id
 }
 
 // Pending is PendingRebase, then PendingPromote: nil when ticket id's

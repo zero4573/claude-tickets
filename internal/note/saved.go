@@ -7,8 +7,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 // SaveState is whether what a ticket's session learned is in the vault.
@@ -24,11 +24,11 @@ func (s SaveState) String() string {
 	return [...]string{"unsaved", "saved", "nothing to save"}[s]
 }
 
-// summaryRe is the start of the summary block /tickets:save appends to the
+// summaryRe is the start of the summary block /tix:save appends to the
 // ticket note (before it wrote the saved: marker).
 var summaryRe = regexp.MustCompile(`(?m)^---\ncreated: \*\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\*\n`)
 
-// SaveStateOf tells whether ticket id's work was saved (/tickets:save), and
+// SaveStateOf tells whether ticket id's work was saved (/tix:save), and
 // why. wsDir is the workspace it was worked in (<workRoot>/<ID>, or its
 // lead's for a covered ticket).
 //

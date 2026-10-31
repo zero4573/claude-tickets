@@ -1,4 +1,4 @@
-# ct ws gc: finished, idle workspaces go (dirty ones become follow-ups),
+# tix ws gc: finished, idle workspaces go (dirty ones become follow-ups),
 # caches of stopped sessions go, running sessions are left alone
 mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/tickets/MAN-1 home/Documents/Obsidian/a/tickets/MAN-2 home/Documents/Obsidian/a/tickets/MAN-3
 cp done.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
@@ -12,7 +12,7 @@ cp ws3.json home/Projects/work-a/MAN-3/workspace.json
 cp empty home/Projects/work-a/MAN-2/repo/.dirty
 exec touch -d '20 days ago' home/Projects/work-a/MAN-1/workspace.json home/Projects/work-a/MAN-2/workspace.json home/Projects/work-a/MAN-3/workspace.json
 
-exec ct ws gc --dry-run
+exec tix ws gc --dry-run
 stdout 'would remove MAN-1 \(done\)'
 stdout 'would remove MAN-2 \(done\)'
 stdout 'would drop the caches of MAN-3'
@@ -20,7 +20,7 @@ exists home/Projects/work-a/MAN-1/workspace.json
 
 # MAN-3's session is running: its caches stay
 live-session home/Projects/work-a/MAN-3
-exec ct ws gc
+exec tix ws gc
 stdout 'remove MAN-1 \(done\)'
 stdout 'removed workspace .*/MAN-1$'
 ! exists home/Projects/work-a/MAN-1
@@ -30,22 +30,22 @@ stderr 'kept MAN-2'
 exists home/Projects/work-a/MAN-2/workspace.json
 ! stdout 'caches of MAN-3'
 exists home/Projects/work-a/MAN-3/.cache/go/build
-stdout 'follow-ups in .*/inbox/.*-ct-ws-gc-follow-ups.md'
-exec sh -c 'cat home/Documents/Obsidian/a/inbox/*-ct-ws-gc-follow-ups.md'
-stdout '^source-command: ct-ws-gc$'
-stdout '^- \[ \] Clean up the workspace of \[\[MAN-2\]\] \(done\): .* Review it with ct ws diff MAN-2, then ct ws rm MAN-2 \(--drop-ignored for ignored files only\) #ct-ws-gc ➕ '
+stdout 'follow-ups in .*/inbox/.*-tix-ws-gc-follow-ups.md'
+exec sh -c 'cat home/Documents/Obsidian/a/inbox/*-tix-ws-gc-follow-ups.md'
+stdout '^source-command: tix-ws-gc$'
+stdout '^- \[ \] Clean up the workspace of \[\[MAN-2\]\] \(done\): .* Review it with tix ws diff MAN-2, then tix ws rm MAN-2 \(--drop-ignored for ignored files only\) #tix-ws-gc ➕ '
 
 rm home/Projects/work-a/MAN-3/.sessions.json
-exec ct ws gc --days 30
+exec tix ws gc --days 30
 ! stdout 'remove MAN-2'
 stdout 'drop the caches of MAN-3'
 ! exists home/Projects/work-a/MAN-3/.cache
 
 # the guards still refuse inside a container
-env CT_TEST_CONTAINER=1
-! exec ct ws gc
+env TIX_TEST_CONTAINER=1
+! exec tix ws gc
 stderr 'gc: run it on the host, not inside a container'
-! exec ct clean --yes
+! exec tix clean --yes
 stderr 'clean: run it on the host, not inside a container'
 -- done.md --
 ---

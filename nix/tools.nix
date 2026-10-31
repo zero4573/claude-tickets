@@ -1,42 +1,42 @@
-# The claude-tickets package, for one pkgs: the `ct` binary (Go), the
+# The tix package, for one pkgs: the `tix` binary (Go), the
 # Claude Code plugin. Linux and macOS.
 { pkgs, lib, env ? { } }:
 let
   inherit (pkgs.stdenv.hostPlatform) isLinux;
 
   # The Claude Code plugin (skills, task and review agents, hooks). Its hooks run
-  # `ct hook ...`: here the bare binary (no cycle with the ct wrapper,
+  # `tix hook ...`: here the bare binary (no cycle with the tix wrapper,
   # which points at this plugin), with notify-send for questions
-  ctHook = pkgs.runCommand "ct-hook" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
-    makeWrapper ${lib.getExe ctBin} $out/bin/ct \
+  ctHook = pkgs.runCommand "tix-hook" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
+    makeWrapper ${lib.getExe tixBin} $out/bin/tix \
       ${lib.optionalString isLinux "--suffix PATH : ${lib.makeBinPath [ pkgs.libnotify ]}"}
   '';
-  plugin = pkgs.runCommand "claude-tickets-plugin" { } ''
+  plugin = pkgs.runCommand "tix-plugin" { } ''
     cp -r ${../assets/plugin} $out
     chmod -R u+w $out
     substituteInPlace $out/hooks/hooks.json \
-      --replace-fail '"ct hook ' '"${ctHook}/bin/ct hook '
+      --replace-fail '"tix hook ' '"${ctHook}/bin/tix hook '
   '';
 
   version = "0.1.0";
-  ctBin = pkgs.buildGoModule {
-    pname = "ct";
+  tixBin = pkgs.buildGoModule {
+    pname = "tix";
     inherit version;
     src = lib.fileset.toSource {
       root = ../.;
       fileset = lib.fileset.unions [
-        ../go.mod ../go.sum ../cmd ../internal ../assets ../ct_test.go ../ct_sync_test.go ../testdata
+        ../go.mod ../go.sum ../cmd ../internal ../assets ../tix_test.go ../tix_sync_test.go ../testdata
         # The assets tests check the docs, README and AGENTS.md the skills refer to
         ../docs ../README.md ../AGENTS.md
       ];
     };
     # Refresh whenever go.mod/go.sum change: set lib.fakeHash, run `nix build .#default` on the host, paste the hash it reports
     vendorHash = "sha256-mTX4/p9otTdny5gQRO/jmlv0TS9w4BhWv49YXVCEohA=";
-    subPackages = [ "cmd/ct" ];
-    ldflags = [ "-s" "-w" "-X github.com/zero4573/claude-tickets/internal/version.Version=${version}" ]
+    subPackages = [ "cmd/tix" ];
+    ldflags = [ "-s" "-w" "-X github.com/zero4573/tix/internal/version.Version=${version}" ]
       # The prebuilt llama.cpp library needs libstdc++ and libgomp, which NixOS keeps out of the
-      # default search path: ct preloads them from here (CLAUDE_TICKETS_LIB_PATH goes first)
-      ++ lib.optional isLinux "-X github.com/zero4573/claude-tickets/internal/embed.DefaultLibPath=${lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]}";
+      # default search path: tix preloads them from here (TIX_LIB_PATH goes first)
+      ++ lib.optional isLinux "-X github.com/zero4573/tix/internal/embed.DefaultLibPath=${lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]}";
     # Every package, and the CLI tests (stub claude, editor; real git,
     # openssh for the tests' SSH-signed commits)
     nativeCheckInputs = with pkgs; [ coreutils git openssh ];
@@ -45,32 +45,32 @@ let
       go test ./...
       runHook postCheck
     '';
-    meta.mainProgram = "ct";
+    meta.mainProgram = "tix";
   };
 
-  # Defaults ct sees unless the environment says otherwise
-  defaultsEnv = { CLAUDE_TICKETS_PLUGIN = plugin; } // env;
+  # Defaults tix sees unless the environment says otherwise
+  defaultsEnv = { TIX_PLUGIN = plugin; } // env;
 
-  # The tools ct runs: git, fzf (the vault picker), bash
-  # (CLAUDE_TICKETS_MCP_PREPARE) and notify-send (ct sync)
+  # The tools tix runs: git, fzf (the vault picker), bash
+  # (TIX_MCP_PREPARE) and notify-send (tix sync)
   tools = with pkgs; [ git coreutils fzf bash ] ++ lib.optional isLinux pkgs.libnotify;
 
-  ct = pkgs.runCommand "claude-tickets"
+  tix = pkgs.runCommand "tix"
     {
       nativeBuildInputs = [ pkgs.makeWrapper ];
-      meta.mainProgram = "ct";
+      meta.mainProgram = "tix";
     } ''
     mkdir -p $out/bin
-    makeWrapper ${lib.getExe ctBin} $out/bin/ct \
+    makeWrapper ${lib.getExe tixBin} $out/bin/tix \
       ${lib.concatStrings (lib.mapAttrsToList (k: v: "--set-default ${k} ${lib.escapeShellArg (toString v)} ") defaultsEnv)} \
       --suffix PATH : ${lib.makeBinPath tools}
     mkdir -p $out/share/zsh/site-functions $out/share/bash-completion/completions $out/share/fish/vendor_completions.d
-    ${lib.getExe ctBin} completion zsh > $out/share/zsh/site-functions/_ct
-    ${lib.getExe ctBin} completion bash > $out/share/bash-completion/completions/ct
-    ${lib.getExe ctBin} completion fish > $out/share/fish/vendor_completions.d/ct.fish
+    ${lib.getExe tixBin} completion zsh > $out/share/zsh/site-functions/_tix
+    ${lib.getExe tixBin} completion bash > $out/share/bash-completion/completions/tix
+    ${lib.getExe tixBin} completion fish > $out/share/fish/vendor_completions.d/tix.fish
   '';
   # libgomp and libstdc++ of the prebuilt llama.cpp in one directory (Linux): go test and make
-  # bench find them through embed.RuntimeLibDir when CLAUDE_TICKETS_LIB_PATH is unset
+  # bench find them through embed.RuntimeLibDir when TIX_LIB_PATH is unset
   llamaRuntimeLibs = pkgs.runCommand "llama-runtime-libs" { } ''
     mkdir -p $out
     ln -s ${pkgs.stdenv.cc.cc.lib}/lib/libstdc++.so.6 $out/
@@ -79,7 +79,7 @@ let
 in
 {
   inherit plugin llamaRuntimeLibs;
-  default = ct;
+  default = tix;
   # What sessions run themselves (on PATH inside a sandbox, for instance)
-  sessionTools = [ ct ];
+  sessionTools = [ tix ];
 }

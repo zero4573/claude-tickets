@@ -1,8 +1,8 @@
-# ct vault update moves the ticket folders under their source and migrates
+# tix vault update moves the ticket folders under their source and migrates
 # the tickets to the checklist formats
 env V=$WORK/home/Documents/Obsidian/mig
-exec ct vault init mig
-# a vault of an earlier ct: the old task views, v1 tickets
+exec tix vault init mig
+# a vault of an earlier tix: the old task views, v1 tickets
 cp old-pending.md $V/pending.md
 mkdir $V/tickets/PROJ-1/reviews
 cp ticket-active.md $V/tickets/PROJ-1/PROJ-1.md
@@ -20,15 +20,15 @@ cp p.md $V/projects/p.md
 cp $V/.scaffold.json rec0
 
 # dry run: reports, writes nothing, takes no lock
-exec ct vault update mig --dry-run
+exec tix vault update mig --dry-run
 stdout '^  x pending.md \(not shipped any more, unedited; would remove\)$'
 stdout '^  \* tickets/PROJ-1/ \(PROJ-1-status.md would add; board.md, backlog.md, reviews/wave-1-acme-api.md would convert\)$'
 stdout '^  \* tickets/PROJ-3/ \(PROJ-3-status.md would add; board.md would convert\)$'
 ! stdout '\* tickets/PROJ-2'
 stdout '^  > tickets/PROJ-2/ -> tickets/jira/PROJ-2/ \(would move\)$'
-stdout '^ct vault update: would move 3 ticket folder\(s\) under their source$'
+stdout '^tix vault update: would move 3 ticket folder\(s\) under their source$'
 cmp $V/projects/p.md p.md
-stdout '^ct vault update: tickets that would be migrated 2, already current 0, closed \(skipped\) 1$'
+stdout '^tix vault update: tickets that would be migrated 2, already current 0, closed \(skipped\) 1$'
 exists $V/pending.md
 ! exists $V/tickets/PROJ-1/PROJ-1-status.md
 cmp $V/tickets/PROJ-1/board.md v1-board.md
@@ -36,7 +36,7 @@ cmp $V/.scaffold.json rec0
 ! exists $V/.vault.lock.d
 
 # --diff shows the converted files
-exec ct vault update mig --diff
+exec tix vault update mig --diff
 stdout '^--- tickets/PROJ-1/board.md \(vault\)$'
 stdout '^-\| 01 \| \[\[PROJ-1-01-api\]\] \| acme-api \| 1 \| - \| merged abc1234 \| R-03 \|$'
 stdout '^\+- \[x\] 01 · merged abc1234 · \[\[PROJ-1-01-api\]\] · acme-api · w1 · deps - · R-03$'
@@ -44,17 +44,17 @@ stdout '^\+- \[ \] W1-acme-api-M01 · open$'
 cmp $V/tickets/PROJ-1/board.md v1-board.md
 
 # the real run
-exec ct vault update mig
+exec tix vault update mig
 stdout '^  x pending.md \(not shipped any more, unedited; removed\)$'
 stdout '^  > tickets/PROJ-1/ -> tickets/jira/PROJ-1/ \(moved\)$'
 stdout '^  > tickets/PROJ-2/ -> tickets/jira/PROJ-2/ \(moved\)$'
-stdout '^ct vault update: moved 3 ticket folder\(s\) under their source, rewrote 1 link\(s\) in 1 note\(s\)$'
+stdout '^tix vault update: moved 3 ticket folder\(s\) under their source, rewrote 1 link\(s\) in 1 note\(s\)$'
 ! exists $V/tickets/PROJ-1
 exists $V/tickets/.sources.json
 grep '^see \[\[tickets/jira/PROJ-1/board\|the board\]\] and \[\[PROJ-2\]\]$' $V/projects/p.md
 stdout '^  \* tickets/jira/PROJ-1/ \(PROJ-1-status.md added; board.md, backlog.md, reviews/wave-1-acme-api.md converted\)$'
 stdout '^  \* tickets/jira/PROJ-3/ \(PROJ-3-status.md added; board.md converted\)$'
-stdout '^ct vault update: tickets migrated 2, already current 0, closed \(skipped\) 1$'
+stdout '^tix vault update: tickets migrated 2, already current 0, closed \(skipped\) 1$'
 ! exists $V/pending.md
 ! exists $V/.vault.lock.d
 grep '^title: PROJ-1 status$' $V/tickets/jira/PROJ-1/PROJ-1-status.md
@@ -70,15 +70,15 @@ grep '^- W1-acme-api-M01 · a.go:1' $V/tickets/jira/PROJ-1/reviews/wave-1-acme-a
 grep '^- \[x\] 01 · merged' $V/tickets/jira/PROJ-3/board.md
 cmp $V/tickets/jira/PROJ-2/board.md v1-board.md
 ! exists $V/tickets/jira/PROJ-2/PROJ-2-status.md
-! exists $V/tickets/jira/PROJ-1/.board.md.ct-tmp
+! exists $V/tickets/jira/PROJ-1/.board.md.tix-tmp
 
 # a second run changes nothing
 exec sh -c 'cat $V/tickets/jira/PROJ-1/board.md $V/tickets/jira/PROJ-1/backlog.md $V/tickets/jira/PROJ-1/reviews/wave-1-acme-api.md > $WORK/after1'
 cp $V/.scaffold.json rec1
-exec ct vault update mig
+exec tix vault update mig
 ! stdout '^  [-+~!x*>] '
 ! stdout 'ticket folder'
-stdout '^ct vault update: tickets migrated 0, already current 2, closed \(skipped\) 1$'
+stdout '^tix vault update: tickets migrated 0, already current 2, closed \(skipped\) 1$'
 exec sh -c 'cat $V/tickets/jira/PROJ-1/board.md $V/tickets/jira/PROJ-1/backlog.md $V/tickets/jira/PROJ-1/reviews/wave-1-acme-api.md > $WORK/after2'
 cmp $WORK/after1 $WORK/after2
 cmp $V/.scaffold.json rec1
@@ -87,7 +87,7 @@ cmp $V/.scaffold.json rec1
 mkdir $V/tickets/PROJ-4
 cp ticket-active.md $V/tickets/PROJ-4/PROJ-4.md
 cp v1-board-bad.md $V/tickets/PROJ-4/board.md
-exec ct vault update mig
+exec tix vault update mig
 stdout '^  > tickets/PROJ-4/ -> tickets/jira/PROJ-4/ \(moved\)$'
 stderr 'tickets/jira/PROJ-4/board.md:11: not converted \(a row of 2 columns, want 7\); convert it by hand'
 cmp $V/tickets/jira/PROJ-4/board.md v1-board-bad.md

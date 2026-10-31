@@ -15,36 +15,38 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/modelcache"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/repo"
-	"github.com/zero4573/claude-tickets/internal/session"
-	"github.com/zero4573/claude-tickets/internal/spec"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/harness"
+	"github.com/zero4573/tix/internal/modelcache"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/repo"
+	"github.com/zero4573/tix/internal/session"
+	"github.com/zero4573/tix/internal/spec"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 func specCmd() *cobra.Command {
 	var cont, print, noFetch bool
+	var agent string
 	cmd := &cobra.Command{
-		Use:   `spec [--continue] [--print] [--no-fetch] ["<question>"]`,
+		Use:   `spec [--continue] [--agent claude|kiro] [--print] [--no-fetch] ["<question>"]`,
 		Short: "Ask about the projects the vault describes, without a ticket",
-		Long: `Ask about the projects the vault describes (the current vault, ct vault
+		Long: `Ask about the projects the vault describes (the current vault, tix vault
 default): repos, how they work together, architecture, data flows, past
 tickets, without creating a ticket.
 It runs a Claude session (the spec skill) with:
   * the vault, read-write, as the knowledge base
   * every repo in its projectsRoot, read-only, freshly fetched on the host; the
-    session explores branches in its own clones (ct spec repo), where it may
+    session explores branches in its own clones (tix spec repo), where it may
     build and test, but never commits or pushes
-  * ct new, to turn issues it finds into manual tickets
+  * tix new, to turn issues it finds into manual tickets
   * the MCP servers your claude command provides
 
 Unknowns get investigated. What's learned is drafted into the vault's
-inbox/, and /tickets:save in the session promotes it into projects/,
+inbox/, and /tix:save in the session promotes it into projects/,
 knowledge-base/ and references/.
 
 --print answers one question and exits (claude -p), no session; progress
@@ -58,20 +60,21 @@ is shown live and logged to ` + logPath("spec-<vault>") + `.`,
 			if err != nil {
 				return err
 			}
-			return specSession(ctx, question, cont, print, !noFetch)
+			return specSession(ctx, question, cont, print, !noFetch, agent)
 		},
 	}
 	cmd.Flags().BoolVarP(&cont, "continue", "c", false, "continue the last spec conversation for this vault")
 	cmd.Flags().BoolVarP(&print, "print", "p", false, "answer one question and exit")
 	cmd.Flags().BoolVar(&noFetch, "no-fetch", false, "skip fetching every main clone from its remote first")
+	cmd.Flags().StringVar(&agent, "agent", "", agentHelp)
 	cmd.AddCommand(specRepoCmd(), specLocationCmd(), specCheckCmd(), specDiffCmd(), specStartCmd(), specPromoteCmd(),
 		specPinCmd(), specLogCmd(), specShowCmd())
 	return cmd
 }
 
-func specSession(ctx vault.Context, question string, cont, print, fetch bool) error {
+func specSession(ctx vault.Context, question string, cont, print, fetch bool, agent string) error {
 	// A session may have no git credentials (e.g. sandboxed), so bring every
-	// main clone's remote branches up to date here; ct spec repo fetch passes
+	// main clone's remote branches up to date here; tix spec repo fetch passes
 	// them on to the session
 	if fetch {
 		if err := wsFetch(ctx, nil); err != nil {
@@ -80,7 +83,7 @@ func specSession(ctx vault.Context, question string, cont, print, fetch bool) er
 	}
 	name := filepath.Base(ctx.Vault)
 	// A workspace like a ticket's, but with no repos of its own (hidden, so
-	// ct status and ct ws ls skip it)
+	// tix status and tix ws ls skip it)
 	dir := filepath.Join(ctx.WorkRoot, ".spec-"+name)
 	// The workspace was once called .kb-<vault>: keep its clones
 	if moved, err := workspace.Migrate(filepath.Join(ctx.WorkRoot, ".kb-"+name), dir); err != nil {
@@ -97,45 +100,58 @@ func specSession(ctx vault.Context, question string, cont, print, fetch bool) er
 	}); err != nil {
 		return err
 	}
-	if err := session.Trust(dir); err != nil {
-		warnf("couldn't mark %s as trusted in %s: %v", dir, session.ClaudeConfig(), err)
+	h, err := harness.Select(agent, vault.AgentOf(ctx.Vault))
+	if err != nil {
+		return err
 	}
-	// Identifies this session's inbox/ drafts for /tickets:save
+	if prev := workspace.Agent(dir); cont && prev != h.Name() {
+		warnf("the last spec session ran %s, not %s, so it can't be continued: starting a new one", prev, h.Name())
+		cont = false
+	}
+	if err := workspace.SetAgent(dir, h.Name()); err != nil {
+		warnf("couldn't record the agent in %s: %v", workspace.File(dir), err)
+	}
+	// Identifies this session's inbox/ drafts for /tix:save
 	sessionID := "spec-" + name + "-" + time.Now().Format("20060102-1504")
 	// The exploration clones (in this directory) are the session's own, so it
 	// may edit, build and test in them. The main clones stay untouched, and
 	// nothing is committed or pushed.
-	if err := session.WriteSettings(dir, append(session.ReposReadOnly(ctx.ProjectsRoot), "Bash(git commit:*)", "Bash(git push:*)")...); err != nil {
-		return err
-	}
 	writeToolVersions(ctx, dir)
-	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(specClaudeMD(ctx, dir, sessionID)), 0o644); err != nil {
+	s := harness.Session{
+		Dir:          dir,
+		Dirs:         []string{ctx.Vault},
+		ReposRoot:    ctx.ProjectsRoot,
+		ReadOnly:     []string{modelcache.Dir()},
+		DenyShell:    []string{"git commit", "git push"},
+		Instructions: specClaudeMD(ctx, dir, sessionID),
+		Settings:     true,
+		Skill:        "spec",
+		Args:         question,
+		Continue:     cont,
+		Print:        print,
+	}
+	if question == "" {
+		s.Skill = ""
+	}
+	if err := h.Prepare(s); err != nil {
 		return err
 	}
-
-	argv, err := session.Command(ctx.Vault, ctx.ProjectsRoot, modelcache.Dir())
+	argv, err := h.Argv(s)
 	if err != nil {
 		return err
 	}
-	argv = append(argv, "--permission-mode", "auto")
-	if cont {
-		argv = append(argv, "--continue")
-	}
-	switch {
-	case print:
-		argv = append(argv, "-p", "/tickets:spec "+question, "--output-format", "stream-json", "--verbose")
-	case question != "":
-		argv = append(argv, "/tickets:spec "+question)
-	}
+	setEnv(h.Env(s))
 	if err := os.Chdir(dir); err != nil {
 		return err
 	}
-	if !print {
+	// kiro's one-shot answer goes straight to this terminal (tix reads
+	// Claude's stream-json progress only)
+	if !print || h.Name() != harness.Claude {
 		path, err := exec.LookPath(argv[0])
 		if err != nil {
 			return err
 		}
-		// So ct ws gc sees the session running while its process lives
+		// So tix ws gc sees the session running while its process lives
 		if err := workspace.RecordSession(dir, "spec"); err != nil {
 			warnf("couldn't record the session in %s: %v", workspace.SessionsFile(dir), err)
 		}
@@ -150,31 +166,39 @@ func specSession(ctx vault.Context, question string, cont, print, fetch bool) er
 	return passExit(session.Headless(log, argv))
 }
 
+// setEnv puts a harness's session variables in tix's own environment, for
+// the sessions it execs rather than launches (tix spec, tix claude).
+func setEnv(env map[string]string) {
+	for k, v := range env {
+		os.Setenv(k, v)
+	}
+}
+
 func specClaudeMD(ctx vault.Context, dir, sessionID string) string {
 	return fmt.Sprintf("# Spec session\n\n"+
-		"Written by ct spec; regenerated on every start, so don't edit it.\n\n"+
+		"Written by tix spec; regenerated on every start, so don't edit it.\n\n"+
 		"- Vault (knowledge base, read-write): `%[1]s`. Read its `AGENTS.md`.\n"+
 		"- Repos: main clones at `%[2]s/<provider>/<owner>/<repo>`, read-only,\n"+
-		"  fetched from their remotes when this session started. `ct ws repos`\n"+
+		"  fetched from their remotes when this session started. `tix ws repos`\n"+
 		"  lists every repo with its slug.\n"+
-		"- **Exploring branches:** `ct spec repo checkout <repo> [<branch>|<tag>|<commit>]`\n"+
+		"- **Exploring branches:** `tix spec repo checkout <repo> [<branch>|<tag>|<commit>]`\n"+
 		"  gives you an exploration clone at `%[3]s/<slug>` on that ref.\n"+
-		"  `ct spec repo fetch` refreshes remote branches, `ct spec repo ls` shows\n"+
-		"  what's checked out, `ct spec repo reset` drops clones.\n"+
+		"  `tix spec repo fetch` refreshes remote branches, `tix spec repo ls` shows\n"+
+		"  what's checked out, `tix spec repo reset` drops clones.\n"+
 		"- **Experiments are fine, changes aren't kept:** in your exploration clones\n"+
 		"  you may edit, build, run tests and add debug output to check how something\n"+
 		"  behaves. Those edits stay in this session: never commit or push (both\n"+
-		"  denied), and `ct spec repo checkout --force` discards them. The main clones in\n"+
+		"  denied), and `tix spec repo checkout --force` discards them. The main clones in\n"+
 		"  `%[2]s` are never edited.\n"+
 		"- **Issues become tickets:** when you find something that should be\n"+
 		"  investigated or fixed, create a manual ticket with\n"+
-		"  `ct new \"<summary>\"` and fill it in (see the `spec`\n"+
+		"  `tix new \"<summary>\"` and fill it in (see the `spec`\n"+
 		"  skill), so the work goes through the ticket workflow.\n"+
-		"- `ct vault groups %[1]s` shows which projects work together (groups,\n"+
+		"- `tix vault groups %[1]s` shows which projects work together (groups,\n"+
 		"  `depends-on`) and which are unrelated.\n"+
 		"- Follow the `spec` skill: answer from the vault, then the code. Investigate\n"+
 		"  unknowns, draft what you learn into `%[1]s/inbox/`, and run\n"+
-		"  `/tickets:save` before the session ends to promote the drafts.\n"+
+		"  `/tix:save` before the session ends to promote the drafts.\n"+
 		"- Session id (put it in the `session:` field of your inbox/ drafts):\n"+
 		"  `%[4]s`\n",
 		ctx.Vault, ctx.ProjectsRoot, dir, sessionID)
@@ -209,7 +233,7 @@ func specWorkspace() (string, error) {
 func specRepoOf(ctx vault.Context, dir, arg string) (specRepo, error) {
 	clone, ok := repo.Resolve(ctx.ProjectsRoot, arg)
 	if !ok {
-		return specRepo{}, fmt.Errorf("no main clone '%s' (see ct ws repos)", arg)
+		return specRepo{}, fmt.Errorf("no main clone '%s' (see tix ws repos)", arg)
 	}
 	slug := repo.Slug(clone)
 	return specRepo{ctx, dir, workspace.File(dir), clone, slug, filepath.Join(ctx.ProjectsRoot, clone), filepath.Join(dir, slug)}, nil
@@ -225,7 +249,7 @@ func (r specRepo) refresh() {
 	// Never prompt: no credentials, no host-key questions, just fail fast
 	git.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_SSH_COMMAND=ssh -o BatchMode=yes -o ConnectTimeout=10")
 	if git.Run() != nil {
-		fmt.Fprintf(os.Stderr, "ct spec repo: %s: can't reach origin from here; using the main clone's fetch (run ct ws fetch %s on the host for newer)\n", r.slug, r.slug)
+		fmt.Fprintf(os.Stderr, "tix spec repo: %s: can't reach origin from here; using the main clone's fetch (run tix ws fetch %s on the host for newer)\n", r.slug, r.slug)
 	}
 }
 
@@ -312,7 +336,7 @@ checked-out branch is fast-forwarded. Default: every exploration clone.`,
 					return err
 				}
 				if !r.exists() {
-					warnf("%s has no exploration clone (ct spec repo checkout %s)", r.slug, r.slug)
+					warnf("%s has no exploration clone (tix spec repo checkout %s)", r.slug, r.slug)
 					continue
 				}
 				r.refresh()
@@ -321,7 +345,7 @@ checked-out branch is fast-forwarded. Default: every exploration clone.`,
 						warnf("%s: can't fast-forward to %s", r.slug, up)
 					}
 				}
-				fmt.Printf("ct spec repo: %s fetched (%s)\n", r.slug, r.lastCommit())
+				fmt.Printf("tix spec repo: %s fetched (%s)\n", r.slug, r.lastCommit())
 			}
 			return nil
 		}),
@@ -373,7 +397,7 @@ checked-out branch is fast-forwarded. Default: every exploration clone.`,
 				if err := workspace.Drop(ws, r.slug); err != nil {
 					return err
 				}
-				fmt.Printf("ct spec repo: removed %s's exploration clone\n", r.slug)
+				fmt.Printf("tix spec repo: removed %s's exploration clone\n", r.slug)
 			}
 			return nil
 		}),
@@ -404,7 +428,7 @@ func (r specRepo) checkout(ref string, force bool) error {
 	r.refresh()
 	if !fresh && gitx.Dirty(r.path) {
 		if !force {
-			return fmt.Errorf("%s has local edits; ct spec repo checkout --force %s ... discards them", r.slug, r.slug)
+			return fmt.Errorf("%s has local edits; tix spec repo checkout --force %s ... discards them", r.slug, r.slug)
 		}
 		_ = gitx.Run(r.path, "reset", "--quiet", "--hard")
 		_ = gitx.Run(r.path, "clean", "--quiet", "-fd")
@@ -427,7 +451,7 @@ func (r specRepo) checkout(ref string, force bool) error {
 			return err
 		}
 	default:
-		return fmt.Errorf("no branch, tag or commit '%s' in %s (ct spec repo fetch %s, or ct ws fetch %s on the host)", ref, r.slug, r.slug, r.slug)
+		return fmt.Errorf("no branch, tag or commit '%s' in %s (tix spec repo fetch %s, or tix ws fetch %s on the host)", ref, r.slug, r.slug, r.slug)
 	}
 	parts := strings.SplitN(r.clone, "/", 3)
 	if err := workspace.Put(r.ws, workspace.Repo{
@@ -436,8 +460,8 @@ func (r specRepo) checkout(ref string, force bool) error {
 	}); err != nil {
 		return err
 	}
-	fmt.Printf("ct spec repo: %s at %s (%s)\n", r.slug, ref, r.lastCommit())
-	fmt.Printf("ct spec repo: path %s\n", r.path)
+	fmt.Printf("tix spec repo: %s at %s (%s)\n", r.slug, ref, r.lastCommit())
+	fmt.Printf("tix spec repo: path %s\n", r.path)
 	done = true
 	return nil
 }
@@ -450,7 +474,7 @@ func specLocationCmd() *cobra.Command {
 "vault <dir>", or "unset" (neither the project note's specs: field nor a
 specs/ in the repo: ask the user once). With repo or vault, writes the
 project note's specs: field, the answer to that question. The project note
-must exist (/tickets:save creates it).`,
+must exist (/tix:save creates it).`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := vault.Require()
@@ -460,7 +484,7 @@ must exist (/tickets:save creates it).`,
 			slug := args[0]
 			clone, ok := repo.Resolve(ctx.ProjectsRoot, slug)
 			if !ok {
-				return fmt.Errorf("no main clone '%s' (see ct ws repos)", slug)
+				return fmt.Errorf("no main clone '%s' (see tix ws repos)", slug)
 			}
 			slug = repo.Slug(clone)
 			pn := spec.ProjectNote(ctx.Vault, slug)
@@ -469,7 +493,7 @@ must exist (/tickets:save creates it).`,
 					return fmt.Errorf("location must be repo or vault, got %q", args[1])
 				}
 				if _, err := os.Stat(pn); err != nil {
-					return fmt.Errorf("no project note %s yet: it is created by /tickets:save", config.TildePath(pn))
+					return fmt.Errorf("no project note %s yet: it is created by /tix:save", config.TildePath(pn))
 				}
 				if err := note.Set(pn, "specs", args[1]); err != nil {
 					return err
@@ -534,7 +558,7 @@ still read, so its interface rows are matched against them.`,
 				kept := targets[:0:0]
 				for _, t := range targets {
 					if t.Slug == slug {
-						fmt.Fprintf(cmd.OutOrStdout(), "ct spec check: %s replaces the specs of %s\n", dir, slug)
+						fmt.Fprintf(cmd.OutOrStdout(), "tix spec check: %s replaces the specs of %s\n", dir, slug)
 						continue
 					}
 					kept = append(kept, t)
@@ -547,7 +571,7 @@ still read, so its interface rows are matched against them.`,
 				if clone, ok := repo.Resolve(ctx.ProjectsRoot, a); ok {
 					slug = repo.Slug(clone)
 				} else if _, err := os.Stat(spec.ProjectNote(ctx.Vault, a)); err != nil {
-					return fmt.Errorf("no repo '%s' (see ct ws repos)", a)
+					return fmt.Errorf("no repo '%s' (see tix ws repos)", a)
 				}
 				only = append(only, slug)
 			}
@@ -563,12 +587,12 @@ still read, so its interface rows are matched against them.`,
 				}
 				fmt.Fprintln(out, string(b))
 			} else if len(findings) == 0 {
-				fmt.Fprintf(out, "ct spec check: no findings (%d repos with specs)\n", len(targets))
+				fmt.Fprintf(out, "tix spec check: no findings (%d repos with specs)\n", len(targets))
 			} else {
 				for _, f := range findings {
 					fmt.Fprintf(out, "[%s] %s\n", f.Repo, f)
 				}
-				fmt.Fprintf(out, "ct spec check: %d findings\n", len(findings))
+				fmt.Fprintf(out, "tix spec check: %d findings\n", len(findings))
 			}
 			if len(findings) > 0 {
 				return exitError(1)
@@ -648,7 +672,7 @@ repo's specs live:
     branch left the base at), working tree included
   * vault specs: the ticket's copy under tickets/<source>/<ID>/specs/<slug>/
     against projects/<slug>/specs/; capabilities the copy lacks are unchanged.
-    Once ct spec promote has moved the copy into projects/, the before side is
+    Once tix spec promote has moved the copy into projects/, the before side is
     tickets/<source>/<ID>/specs-base/<slug>/ and the after side that snapshot
     with the files this ticket promoted (from specs-after/<slug>/) and the
     copy laid on, so another ticket's later promotion never shows up here

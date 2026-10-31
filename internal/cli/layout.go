@@ -12,11 +12,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/repo"
-	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/repo"
+	"github.com/zero4573/tix/internal/vault"
 )
 
 func layoutCmd() *cobra.Command {
@@ -26,7 +26,7 @@ func layoutCmd() *cobra.Command {
 		Use:   "layout [--apply] [--root <dir>]",
 		Short: "Move repos into <projectsRoot>/<provider>/<owner>/<repo>",
 		Long: `Reorganizes the git repos under the current vault's projectsRoot
-(~/Projects/repo-<vault> by default; see ct vault) or --root, wherever they
+(~/Projects/repo-<vault> by default; see tix vault) or --root, wherever they
 are nested, into <root>/<provider>/<owner>/<repo>, the layout the ticket workflow
 expects. All three come from each repo's origin URL:
   bitbucket  Server/DC (/scm/<key>/<repo>, ssh :7999/<key>/<repo>; owner =
@@ -35,7 +35,7 @@ expects. All three come from each repo's origin URL:
   gitlab     owner = group, subgroups joined with -
   other      provider = the host name, kebab-cased
 The vault names each repo by its slug,
-<provider>-<owner>-<repo> (ct ws repos lists them). Repos without a hosted
+<provider>-<owner>-<repo> (tix ws repos lists them). Repos without a hosted
 origin are left where they are.
 
 Without --apply it only prints the plan. Moving a repo is a rename on the
@@ -43,7 +43,7 @@ same filesystem, so uncommitted work is kept. Repos with linked worktrees
 are skipped, since moving them breaks the worktrees' links back to the repo
 (fix after a manual move with git worktree repair), and so are repos that
 shared clones in ticket or spec workspaces borrow objects from (remove those
-first: ct ws rm or gc). Repos are staged in a temporary folder under the
+first: tix ws rm or gc). Repos are staged in a temporary folder under the
 root and then put in place, so nested repos, and repos sitting where a
 provider or owner folder must go (e.g. a repo at <root>/bitbucket), are
 handled. Empty folders left behind are removed.`,
@@ -275,7 +275,7 @@ func layout(ctx vault.Context, root string, apply bool) error {
 				continue
 			}
 			if lender, ok := borrowedRepo(r); ok {
-				fmt.Printf("skip   %s -> %s (shared clones in ticket or spec workspaces borrow %s's objects; remove them first with ct ws rm / gc)\n", rel, target, relOf(lender))
+				fmt.Printf("skip   %s -> %s (shared clones in ticket or spec workspaces borrow %s's objects; remove them first with tix ws rm / gc)\n", rel, target, relOf(lender))
 				skipped++
 				continue
 			}
@@ -293,11 +293,11 @@ func layout(ctx vault.Context, root string, apply bool) error {
 	}
 
 	if !apply {
-		fmt.Printf("ct layout: %d repo(s) to move, %d skipped (dry run; --apply to move)\n", len(moving), skipped)
+		fmt.Printf("tix layout: %d repo(s) to move, %d skipped (dry run; --apply to move)\n", len(moving), skipped)
 		return nil
 	}
 	if len(moving) == 0 {
-		fmt.Println("ct layout: nothing to move")
+		fmt.Println("tix layout: nothing to move")
 		return nil
 	}
 
@@ -342,7 +342,7 @@ func layout(ctx vault.Context, root string, apply bool) error {
 	if os.Remove(staging) != nil {
 		warnf("some repos are still staged in %s", staging)
 	}
-	fmt.Printf("ct layout: moved %d repo(s), skipped %d\n", moved, skipped)
+	fmt.Printf("tix layout: moved %d repo(s), skipped %d\n", moved, skipped)
 	return nil
 }
 

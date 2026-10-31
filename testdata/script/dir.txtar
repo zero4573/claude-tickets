@@ -1,25 +1,25 @@
-# ct dir: the current vault's work, tickets and repo directories
+# tix dir: the current vault's work, tickets and repo directories
 mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/tickets
-exec ct dir work
+exec tix dir work
 stdout '^.*/home/Projects/work-a$'
-exec ct dir tickets
+exec tix dir tickets
 stdout '^.*/home/Documents/Obsidian/a/tickets$'
 
 # repos: no clones yet, the repo directory itself
-exec ct dir repos
+exec tix dir repos
 stdout '^.*/home/Projects/repo-a$'
 # one provider, one owner, one repo: the owner's folder, never the repo
 mkdir home/Projects/repo-a/github/acme/billing/.git
-exec ct dir repos
+exec tix dir repos
 stdout '^.*/home/Projects/repo-a/github/acme$'
 # two owners: the provider's folder
 mkdir home/Projects/repo-a/github/other/x/.git
-exec ct dir repos
+exec tix dir repos
 stdout '^.*/home/Projects/repo-a/github$'
 # two providers: the repo directory
 mkdir home/Projects/repo-a/bitbucket/acme/y/.git
-exec ct dir repos
+exec tix dir repos
 stdout '^.*/home/Projects/repo-a$'
 
-! exec ct dir nope
+! exec tix dir nope
 stderr 'dir: give work, tickets or repos, not .nope.'

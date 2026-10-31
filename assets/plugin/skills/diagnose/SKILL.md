@@ -1,6 +1,6 @@
 ---
 name: diagnose
-description: Disciplined diagnosis of a hard bug or performance regression in five phases (build a tight pass/fail feedback loop, reproduce and minimise, test ranked hypotheses, fix, regression test). Used by the ticket lead for a bug's root cause and by task agents whose task file lists skills [tickets:diagnose]; use whenever something is broken, throwing, failing or slow and the cause isn't known.
+description: Disciplined diagnosis of a hard bug or performance regression in five phases (build a tight pass/fail feedback loop, reproduce and minimise, test ranked hypotheses, fix, regression test). Used by the ticket lead for a bug's root cause and by task agents whose task file lists skills [tix:diagnose]; use whenever something is broken, throwing, failing or slow and the cause isn't known.
 ---
 
 # diagnose
@@ -71,10 +71,10 @@ minimal repro becomes the regression test.
 
 ## In the ticket workflow
 - **Lead, `bug` tickets:** the first task is "build the feedback loop" (`skills:
-  [tickets:diagnose]`, phases 1–2, and 3 when cheap); its report gives the loop command, the
+  [tix:diagnose]`, phases 1–2, and 3 when cheap); its report gives the loop command, the
   redacted red output and the ranked hypotheses. Write `plan.md ## Root cause` from it, then
   plan the fix task (phases 4–5) with the loop command in its `## Checks`.
-- **Task agents** whose task file lists `skills: [tickets:diagnose]` follow this skill for
+- **Task agents** whose task file lists `skills: [tix:diagnose]` follow this skill for
   the phases the task names, and report the loop command and its last verdict under Results.
 
 Adapted from mattpocock/skills (MIT); see THIRD_PARTY_NOTICES.md.

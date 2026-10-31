@@ -10,17 +10,17 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/repo"
-	"github.com/zero4573/claude-tickets/internal/spec"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/vaultlock"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/repo"
+	"github.com/zero4573/tix/internal/spec"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/vaultlock"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
-// pinNow is the clock of ct spec pin (a seam for tests).
+// pinNow is the clock of tix spec pin (a seam for tests).
 var pinNow = time.Now
 
 func specPinCmd() *cobra.Command {
@@ -28,15 +28,15 @@ func specPinCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pin <ID> | pin --refresh <slug>",
 		Short: "Pin a ticket's vault spec versions to the pushed commit",
-		Long: `ct spec pin <ID>: for every repo of the ticket's workspace whose specs live in
+		Long: `tix spec pin <ID>: for every repo of the ticket's workspace whose specs live in
 the vault and that has a version note, pins the note to the ticket branch's
 head when the push landed (the worktree's origin/<branch> is its <branch>),
 then resolves what it can (merged, tags). Prints per repo "<slug>: pinned
 <sha>", "<slug>: already pinned" or "<slug>: not pushed, left unpinned".
 Pushing a rewritten branch again re-pins it.
 
-ct spec pin --refresh <slug>: for every pinned version of the slug, in its
-main clone (fetch first, ct ws fetch): merged is the pinned commit when the
+tix spec pin --refresh <slug>: for every pinned version of the slug, in its
+main clone (fetch first, tix ws fetch): merged is the pinned commit when the
 base holds it (a merge), else the first commit on the base since the pin
 with the branch's patch-id (a squash; one with conflict fixes isn't found),
 and tags are the tags that hold it, oldest version first.
@@ -115,7 +115,7 @@ func pinTicket(cmd *cobra.Command, ctx vault.Context, id string) error {
 	if err != nil {
 		return fmt.Errorf("no workspace for %s: %w", id, err)
 	}
-	lk := &pinLock{vault: ctx.Vault, owner: "ct spec pin " + id}
+	lk := &pinLock{vault: ctx.Vault, owner: "tix spec pin " + id}
 	defer lk.release()
 	out := cmd.OutOrStdout()
 	for _, r := range info.Repos {
@@ -216,14 +216,14 @@ func cloneBase(ctx vault.Context, dir, id, slug string) (name, ref string) {
 func pinRefresh(cmd *cobra.Command, ctx vault.Context, arg string) error {
 	slug, dir := mainClone(ctx, arg)
 	if dir == "" {
-		return fmt.Errorf("no main clone '%s' (see ct ws repos)", arg)
+		return fmt.Errorf("no main clone '%s' (see tix ws repos)", arg)
 	}
 	loc, err := spec.Resolve(ctx.Vault, slug, dir)
 	if err != nil {
 		return err
 	}
 	if loc.Kind != spec.InVault {
-		return fmt.Errorf("%s: its specs are not in the vault (ct spec location %s)", slug, slug)
+		return fmt.Errorf("%s: its specs are not in the vault (tix spec location %s)", slug, slug)
 	}
 	vs, err := spec.ListVersions(ctx.Vault, slug)
 	if err != nil {
@@ -234,7 +234,7 @@ func pinRefresh(cmd *cobra.Command, ctx vault.Context, arg string) error {
 		fmt.Fprintf(out, "%s: no spec versions\n", slug)
 		return nil
 	}
-	lk := &pinLock{vault: ctx.Vault, owner: "ct spec pin --refresh " + slug}
+	lk := &pinLock{vault: ctx.Vault, owner: "tix spec pin --refresh " + slug}
 	defer lk.release()
 	for _, vf := range vs {
 		v := vf.Version

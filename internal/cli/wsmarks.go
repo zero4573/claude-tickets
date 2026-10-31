@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 func wsMarkCmd() *cobra.Command {
@@ -19,8 +19,8 @@ func wsMarkCmd() *cobra.Command {
 		Short: "Record that tidy was done at the repos' current commit",
 		Long: `Records HEAD, its tree and the time as the ticket's tidy mark of
 the named repos (default: all of the workspace). A repo with uncommitted
-changes is skipped with a warning, and the command exits 1. ct ws marks
-shows where the marks stand; /tickets:save checks them before it pushes.`,
+changes is skipped with a warning, and the command exits 1. tix ws marks
+shows where the marks stand; /tix:save checks them before it pushes.`,
 		Args: cobra.MinimumNArgs(2),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, s string) ([]string, cobra.ShellCompDirective) {
 			switch len(args) {
@@ -91,7 +91,7 @@ func wsMark(ctx vault.Context, key, kind string, slugs []string) error {
 		if err := workspace.SetMark(workspace.File(dir), r.Slug, kind, m); err != nil {
 			return err
 		}
-		fmt.Printf("ct ws: %s: %s marked at %s\n", r.Slug, kind, shortSHA(commit))
+		fmt.Printf("tix ws: %s: %s marked at %s\n", r.Slug, kind, shortSHA(commit))
 	}
 	if failed {
 		return exitError(1)
@@ -149,7 +149,7 @@ func wsMarksCmd() *cobra.Command {
 		Short: "Show whether tidy was done after each repo's last commit",
 		Long: `One line per repo: <slug> tidy <ok|stale|none>. ok:
 the marked tree is the repo's current one; stale: commits came after the
-mark; none: not marked (ct ws mark). Exits 0 when every repo is ok,
+mark; none: not marked (tix ws mark). Exits 0 when every repo is ok,
 else 3.`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeWorkspaceID,
@@ -183,5 +183,5 @@ else 3.`,
 }
 
 func wsWarn(format string, a ...any) {
-	fmt.Fprintf(os.Stderr, "ct ws: warning: "+format+"\n", a...)
+	fmt.Fprintf(os.Stderr, "tix ws: warning: "+format+"\n", a...)
 }

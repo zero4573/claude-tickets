@@ -5,7 +5,7 @@ package gitx
 import "os"
 
 func Writable(dir string) bool {
-	f, err := os.CreateTemp(dir, ".ct-writable-*")
+	f, err := os.CreateTemp(dir, ".tix-writable-*")
 	if err != nil {
 		return false
 	}

@@ -1,42 +1,42 @@
-# ct teach: a session per learning topic in ~/work/<vault>/.teach-<vault>/<topic>
+# tix teach: a session per learning topic in ~/work/<vault>/.teach-<vault>/<topic>
 mkdir home/Documents/Obsidian/a/.obsidian home/Projects/repo-a
 mkdir home/Documents/Obsidian/a/learning/rust-async home/Documents/Obsidian/a/learning/bash-basics home/Documents/Obsidian/a/learning/.hidden
 
-exec ct teach --help
+exec tix teach --help
 stdout 'learning/<topic>/'
-stdout '/tickets:teach'
+stdout '/tix:teach'
 stdout '--continue'
 
 # --list and completion: the topic folders, sorted, hidden ones left out
-exec ct teach --list
+exec tix teach --list
 cmp stdout topics.txt
-exec ct __complete teach ''
+exec tix __complete teach ''
 stdout '^bash-basics$'
 stdout '^rust-async$'
 ! stdout hidden
 
 # no topic and no terminal: the list, and a request for one
-! exec ct teach
+! exec tix teach
 cmp stdout topics.txt
-stderr 'name a topic: ct teach <topic>'
+stderr 'name a topic: tix teach <topic>'
 ! exists calls/claude
 
 # topics are kebab-case
-! exec ct teach Rust_Async
+! exec tix teach Rust_Async
 stderr 'not a kebab-case topic: .Rust_Async.'
-! exec ct teach rust--async
+! exec tix teach rust--async
 stderr 'not a kebab-case topic'
 ! exists calls/claude
 
-# in this terminal only, running /tickets:teach
-! exec ct teach rust-async
+# in this terminal only, running /tix:teach
+! exec tix teach rust-async
 stderr 'the session runs in this terminal, and this isn.t one'
 ! exists calls/claude
-exec ct-tty teach rust-async
-stdout '^ct teach: rust-async runs in this terminal$'
-grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a .*--permission-mode auto /tickets:teach rust-async$' calls/claude
+exec tix-tty teach rust-async
+stdout '^tix teach: rust-async runs in this terminal$'
+grep '^--plugin-dir .*/plugin --add-dir=.*/Obsidian/a --add-dir=.*/home/Projects/repo-a .*--permission-mode auto /tix:teach rust-async$' calls/claude
 grep '/home/Projects/work-a/.teach-a/rust-async$' calls/claude-cwd
-grep '^CLAUDE_TICKETS_VAULT=.*/Obsidian/a$' calls/claude-env
+grep '^TIX_VAULT=.*/Obsidian/a$' calls/claude-env
 grep '"command": "teach"' home/Projects/work-a/.teach-a/rust-async/.sessions.json
 grep '"id": "teach-rust-async"' home/Projects/work-a/.teach-a/rust-async/workspace.json
 grep '"vault": ".*/Obsidian/a"' home/Projects/work-a/.teach-a/rust-async/workspace.json
@@ -46,42 +46,42 @@ grep 'teach-rust-async` around writes' home/Projects/work-a/.teach-a/rust-async/
 grep '"Bash\(git commit:\*\)"' home/Projects/work-a/.teach-a/rust-async/.claude/settings.json
 grep '"Edit\(//.*/home/Projects/repo-a/\*/\*/\*/\*\*\)"' home/Projects/work-a/.teach-a/rust-async/.claude/settings.json
 grep '"hasTrustDialogAccepted": true' home/.claude.json
-exec ct status
+exec tix status
 ! stdout 'rust-async'
 
 # a new conversation by default; --continue continues one that ran
 cp state.json home/Projects/work-a/.teach-a/rust-async/.agent-state
 rm calls/claude
-exec ct-tty teach rust-async
+exec tix-tty teach rust-async
 ! stdout continuing
 ! grep ' --continue' calls/claude
-exec ct-tty teach -c rust-async
+exec tix-tty teach -c rust-async
 stdout 'runs in this terminal \(continuing its last session\)'
-grep ' --permission-mode auto --continue /tickets:teach rust-async$' calls/claude
+grep ' --permission-mode auto --continue /tix:teach rust-async$' calls/claude
 # nothing to continue on a new topic: a new conversation, with a warning
 rm calls/claude
-exec ct-tty teach --continue go-generics
+exec tix-tty teach --continue go-generics
 stderr 'go-generics: no earlier session on this topic to continue, starting a new one'
 ! grep ' --continue' calls/claude
 
 # a topic whose session runs in another terminal isn't started again
 [!container] live-session home/Projects/work-a/.teach-a/rust-async
 [!container] rm calls/claude
-[!container] ! exec ct-tty teach rust-async
+[!container] ! exec tix-tty teach rust-async
 [!container] stderr 'rust-async: a teach session on it is running \(pid [0-9]+\) in another terminal'
 [!container] ! exists calls/claude
 [!container] rm home/Projects/work-a/.teach-a/rust-async/.sessions.json
 
 # from a terminal with no topic: pick one by number, or type a new one
 stdin two.txt
-exec ct-tty teach
+exec tix-tty teach
 stderr '  2\) rust-async'
-grep '^--plugin-dir .*/tickets:teach rust-async$' calls/claude
+grep '^--plugin-dir .*/tix:teach rust-async$' calls/claude
 stdin new.txt
-exec ct-tty teach
-grep '^--plugin-dir .*/tickets:teach sql-joins$' calls/claude
+exec tix-tty teach
+grep '^--plugin-dir .*/tix:teach sql-joins$' calls/claude
 stdin bad.txt
-! exec ct-tty teach
+! exec tix-tty teach
 stderr 'not a kebab-case topic: .Not A Topic.'
 
 -- topics.txt --

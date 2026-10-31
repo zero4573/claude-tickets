@@ -264,7 +264,7 @@ func TestRefusalMessage(t *testing.T) {
 	}
 	msg := err.Error()
 	lines := strings.Split(msg, "\n")
-	if lines[0] != "ct: "+repo+": git config not on ct's safe list:" {
+	if lines[0] != "tix: "+repo+": git config not on tix's safe list:" {
 		t.Errorf("first line %q", lines[0])
 	}
 	if lines[1] != `  "remote.x';id;'.foo" at `+filepath.Join(dotgit, "config")+":2" {

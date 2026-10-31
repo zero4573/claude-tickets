@@ -1,5 +1,5 @@
 // Package mcptest is a fake Atlassian MCP server (Streamable HTTP,
-// JSON-RPC) serving Jira data from a fixture, for testing ct sync.
+// JSON-RPC) serving Jira data from a fixture, for testing tix sync.
 //
 // A fixture is JSON:
 //

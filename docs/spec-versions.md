@@ -6,14 +6,14 @@ spec describes. For the spec model see [the spec workflow](spec-workflow.md).
 
 ```
 tickets/<source>/<ID>/
-  specs/<slug>/          working copy, made by ct spec start, emptied by promotion
+  specs/<slug>/          working copy, made by tix spec start, emptied by promotion
   specs-base/<slug>/     projects/<slug>/specs/ as it was when the copy started
   specs-after/<slug>/    the files this ticket promoted, as its last promotion left them
   specs-stage/<slug>/    a promotion in flight (stage, journal), removed when it is done
 projects/<slug>/spec-versions/<slug>-spec-<ID>.md    one version note per ticket
 ```
 
-The version note is written whole by ct (the body is generated). Its frontmatter:
+The version note is written whole by tix (the body is generated). Its frontmatter:
 `type: spec-version`, `slug`, `ticket`, `project`, `promoted` (last promotion), `files`
 (every file the ticket promoted, accumulated), `branch`, `commit` and `pinned` (empty
 until pinned), `merged` (the base commit that holds it) and `tags`. The body names the
@@ -23,7 +23,7 @@ changed capability's before and after, and prints the requirement changes.
 ```mermaid
 sequenceDiagram
   participant P as PO or save
-  participant C as ct spec
+  participant C as tix spec
   participant V as vault
   participant G as git
   P->>C: spec start ID slug capability
@@ -43,7 +43,7 @@ sequenceDiagram
 
 ## Start
 
-`ct spec start <ID> <slug> [<capability>...]` makes the copy folder, copies the named
+`tix spec start <ID> <slug> [<capability>...]` makes the copy folder, copies the named
 capabilities from `projects/<slug>/specs/` (none: an empty copy for new capabilities; a
 file already in the copy is kept) and, if `specs-base/<slug>/` doesn't exist, writes it as
 a snapshot of the whole `projects/<slug>/specs/`. Every snapshot write is atomic
@@ -59,9 +59,9 @@ pending promote journal of the ticket first, under the vault lock.
 
 ## Promote
 
-`ct spec promote [--json] [--resolve <slug>=theirs|ours|merged]... <ID>` moves the copy
+`tix spec promote [--json] [--resolve <slug>=theirs|ours|merged]... <ID>` moves the copy
 into `projects/<slug>/specs/` and records the version, per vault-spec repo of the
-workspace. A copy without a `specs-base/` is an error naming `ct spec start`.
+workspace. A copy without a `specs-base/` is an error naming `tix spec start`.
 
 1. Conflict check: a copy file whose `projects/` version differs from both the base and
    the after snapshot was changed by another ticket. The repo is refused and nothing is
@@ -77,7 +77,7 @@ workspace. A copy without a `specs-base/` is an error naming `ct spec start`.
 A refusal has three exits: keep theirs (`--resolve <slug>=theirs` drops the copy's
 conflicting files; they are listed in `specs-after/.<slug>.kept`), keep ours (`=ours`
 replaces them) or merge by hand and rerun with `=merged`. While a journal or rebase marker
-is pending, `ct spec diff` and `show` of that ticket refuse; `log` annotates it and `pin`
+is pending, `tix spec diff` and `show` of that ticket refuse; `log` annotates it and `pin`
 skips it; other tickets read as usual. Exit 1 when any repo was refused; `--json` prints
 the same as data with `status` `promoted`, `nothing` or `refused`.
 
@@ -87,20 +87,20 @@ When the after tree changes in any of `files`, the pin is cleared.
 
 ## Diff
 
-`ct spec diff [--stat] <ID>` for a vault spec: before the first promote, the copy against
+`tix spec diff [--stat] <ID>` for a vault spec: before the first promote, the copy against
 `projects/` (or, with a snapshot, against its start); after it, `specs-base/` against the
 base with the promoted files from `specs-after/` and the copy laid on. `projects/` isn't
 read, so another ticket's later promotion never enters this ticket's diff or description.
 
 ## Pin
 
-`ct spec pin <ID>` runs after the pushes. For each repo with a version note it records
+`tix spec pin <ID>` runs after the pushes. For each repo with a version note it records
 `commit` and `pinned` only when the worktree's `origin/<branch>` equals its `<branch>`,
 and prints `<slug>: pinned <sha>`, `already pinned` or `not pushed, left unpinned`. The
 pushed head is the first SHA that won't change: tidy rewrites only unpushed commits. A save
 that doesn't push leaves the version unpinned and the next one pins it.
 
-`ct spec pin --refresh <slug>` resolves, in the main clone (after `ct ws fetch`), each
+`tix spec pin --refresh <slug>` resolves, in the main clone (after `tix ws fetch`), each
 pinned version without `merged`: the commit if the base holds it (a merge), else the first
 commit on the base since the pin whose `git patch-id --stable` equals the branch's (a
 squash; one with conflict fixes isn't found), plus `tags` that contain it. Pin writes the
@@ -108,13 +108,13 @@ notes under the vault lock and fails naming the holder when another session has 
 
 ## Log and show
 
-`ct spec log <slug> [<capability>] [--json]` lists versions, newest promotion first: ticket,
+`tix spec log <slug> [<capability>] [--json]` lists versions, newest promotion first: ticket,
 date, pinned commit and branch (or `unpinned`), `merged <sha>` or `not found on <base>`,
 the first tag, then the requirement changes per capability (`+` added, `-` removed,
 `~` changed, status flips as `from→to`). It resolves merged and tags at read time without
 writing. For a repo-located slug it prints the base's git log of `specs/`.
 
-`ct spec show <slug>@<rev> [<capability>] [--diff]` prints the spec as of `<rev>`: a ticket
+`tix spec show <slug>@<rev> [<capability>] [--diff]` prints the spec as of `<rev>`: a ticket
 ID with a version note, or a tag or commit (the newest version whose merged or pinned
 commit it holds, so `@v1.4.0` is the spec at that release; an unpinned version never
 matches). `--diff` prints that version's change. A repo spec reads git at the rev.

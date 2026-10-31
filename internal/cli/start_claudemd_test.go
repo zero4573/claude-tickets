@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/tix/internal/vault"
 )
 
 func TestTicketClaudeMDCommitRules(t *testing.T) {

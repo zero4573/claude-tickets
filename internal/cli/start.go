@@ -12,72 +12,76 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/zero4573/claude-tickets/internal/launcher"
-	"github.com/zero4573/claude-tickets/internal/modelcache"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/session"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/harness"
+	"github.com/zero4573/tix/internal/launcher"
+	"github.com/zero4573/tix/internal/modelcache"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 type startOpts struct {
 	force, noFetch, feedback, cont, list, all bool
+	// agent is --agent: the CLI the session runs (claude or kiro), else
+	// $TIX_AGENT, else the vault's .workflow.json "agent"
+	agent string
 	// dev is --dev (a checkout slug, or none)
 	dev string
-	// name is the command as typed (ct start, ct feedback), for messages
+	// name is the command as typed (tix start, tix feedback), for messages
 	name string
 }
 
 // isTerminal: stdin and stdout are a terminal (a session can run here).
 var isTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd())) }
 
-// AssumeTerminal makes ct treat stdin and stdout as a terminal. For tests
-// only: the ct-tty command of the CLI tests.
+// AssumeTerminal makes tix treat stdin and stdout as a terminal. For tests
+// only: the tix-tty command of the CLI tests.
 func AssumeTerminal() {
 	isTerminal = func() bool { return true }
 }
 
 const forceHelp = "start tickets marked ignore: true too, one covered by an open lead ticket on its own, or one whose session only looks running from its .agent-state"
 const continueHelp = "continue the workspace's last conversation instead of starting a new one"
+const agentHelp = "the agent CLI the session runs: claude or kiro (default: $TIX_AGENT, else the vault's .workflow.json \"agent\", else claude)"
 
-// foregroundHelp is the part of ct start's and ct feedback's help about
+// foregroundHelp is the part of tix start's and tix feedback's help about
 // where the session runs.
-const foregroundHelp = `The session runs in this terminal, in the foreground (ct becomes claude):
+const foregroundHelp = `The session runs in this terminal, in the foreground (tix becomes claude):
 one ticket per run, from a terminal. A ticket whose session is running (its
 process is alive on this host) isn't started again; one whose session only
 looks running (its .agent-state is less than a day old and not exited, e.g.
 after its terminal was closed) needs --force.`
 
 func startCmd() *cobra.Command {
-	o := startOpts{name: "ct start"}
+	o := startOpts{name: "tix start"}
 	cmd := &cobra.Command{
-		Use:   "start [--force] [--no-fetch] [--feedback] [--continue] [--dev <slug>|none] <ID> | --list [--all]",
+		Use:   "start [--agent claude|kiro] [--force] [--no-fetch] [--feedback] [--continue] [--dev <slug>|none] <ID> | --list [--all]",
 		Short: "Start (or re-open) a ticket's session in this terminal",
 		Long: `Starts (or re-opens) a Claude session for the ticket named, from the
-current vault (ct vault default), in this terminal, running
-/tickets:work-ticket <ID> in the workspace <workRoot>/<ID> (by default
-~/Projects/work-<vault>/<ID>; see ct vault). It must be a ticket of the
-vault: tickets/<source>/<ID>/<ID>.md, synced by ct sync or a manual ticket
-from ct new.
+current vault (tix vault default), in this terminal, running
+/tix:work-ticket <ID> in the workspace <workRoot>/<ID> (by default
+~/Projects/work-<vault>/<ID>; see tix vault). It must be a ticket of the
+vault: tickets/<source>/<ID>/<ID>.md, synced by tix sync or a manual ticket
+from tix new.
 
 Each session is a new conversation, even in a workspace that already ran
-one: /tickets:work-ticket resumes from the ticket's board.md, so a fresh
+one: /tix:work-ticket resumes from the ticket's board.md, so a fresh
 conversation every wave or two keeps the context small. --continue (-c)
 continues the workspace's last conversation instead. The workspace is marked as trusted in Claude Code, so the session starts
-without asking. ct status shows every ticket's session.
+without asking. tix status shows every ticket's session.
 
 ` + foregroundHelp + `
 
---feedback runs /tickets:pr-feedback <ID> instead: apply the review feedback
-on your open PRs for the ticket (ct feedback is a shorthand). For a ticket
-whose session is running, type /tickets:pr-feedback in its terminal.
+--feedback runs /tix:pr-feedback <ID> instead: apply the review feedback
+on your open PRs for the ticket (tix feedback is a shorthand). For a ticket
+whose session is running, type /tix:pr-feedback in its terminal.
 
 --dev <slug> makes the workspace a dev workspace, for a ticket that changes
-claude-tickets itself: at each start ct builds ct from the workspace's
+tix itself: at each start tix builds tix from the workspace's
 checkout <slug> (go build, into <workspace>/.cache/dev) and copies its
-plugin there, and its sessions run that ct (first on PATH) and that plugin
-instead of the installed ones. ct never runs the
-build itself; a running session keeps the build it started with, and ct clean
+plugin there, and its sessions run that tix (first on PATH) and that plugin
+instead of the installed ones. tix never runs the
+build itself; a running session keeps the build it started with, and tix clean
 saves on the installed ones. It's kept in workspace.json for later starts;
 --dev none clears it.
 
@@ -94,7 +98,7 @@ saves on the installed ones. It's kept in workspace.json for later starts;
 				return nil
 			}
 			if len(args) == 0 {
-				return errors.New("name at least one ticket (ct start --list shows them)")
+				return errors.New("name at least one ticket (tix start --list shows them)")
 			}
 			return start(ctx, args, o)
 		},
@@ -102,26 +106,27 @@ saves on the installed ones. It's kept in workspace.json for later starts;
 	f := cmd.Flags()
 	f.BoolVar(&o.force, "force", false, forceHelp)
 	f.BoolVar(&o.noFetch, "no-fetch", false, "skip fetching the main clones first")
-	f.BoolVar(&o.feedback, "feedback", false, "run /tickets:pr-feedback instead of /tickets:work-ticket")
+	f.BoolVar(&o.feedback, "feedback", false, "run /tix:pr-feedback instead of /tix:work-ticket")
 	f.BoolVarP(&o.cont, "continue", "c", false, continueHelp)
 	f.BoolVar(&o.list, "list", false, "print the vault's open tickets")
 	f.BoolVar(&o.all, "all", false, "with --list: done and closed tickets too")
 	f.StringVar(&o.dev, "dev", "", devHelp)
+	f.StringVar(&o.agent, "agent", "", agentHelp)
 	return cmd
 }
 
 func feedbackCmd() *cobra.Command {
-	o := startOpts{name: "ct feedback"}
+	o := startOpts{name: "tix feedback"}
 	cmd := &cobra.Command{
-		Use:   "feedback [--force] [--no-fetch] [--continue] <ID>",
-		Short: "ct start --feedback: apply the review feedback on your open PRs",
-		Long: `Starts a session for the ticket named running /tickets:pr-feedback <ID>:
-it applies the review feedback on your open PRs for the ticket, as ct start
+		Use:   "feedback [--agent claude|kiro] [--force] [--no-fetch] [--continue] <ID>",
+		Short: "tix start --feedback: apply the review feedback on your open PRs",
+		Long: `Starts a session for the ticket named running /tix:pr-feedback <ID>:
+it applies the review feedback on your open PRs for the ticket, as tix start
 --feedback does. Each session is a new conversation; --continue (-c)
 continues the workspace's last conversation instead.
 
 ` + foregroundHelp + ` A running session gets no keys typed into it: type
-/tickets:pr-feedback in its terminal yourself.`,
+/tix:pr-feedback in its terminal yourself.`,
 		Args:              cobra.MinimumNArgs(1),
 		ValidArgsFunction: completeOneID(openTickets),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -137,10 +142,11 @@ continues the workspace's last conversation instead.
 	f.BoolVar(&o.force, "force", false, forceHelp)
 	f.BoolVar(&o.noFetch, "no-fetch", false, "skip fetching the main clones first")
 	f.BoolVarP(&o.cont, "continue", "c", false, continueHelp)
+	f.StringVar(&o.agent, "agent", "", agentHelp)
 	return cmd
 }
 
-// completeOneID completes a single ticket ID: ct start and ct feedback take one.
+// completeOneID completes a single ticket ID: tix start and tix feedback take one.
 func completeOneID(list func(vault.Context) []note.Ticket) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 	ids := completeIDs(list)
 	return func(cmd *cobra.Command, args []string, s string) ([]string, cobra.ShellCompDirective) {
@@ -174,7 +180,7 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("not a ticket of the %s vault: %s (no tickets/<source>/<ID>/<ID>.md; ct sync, or ct new for a manual ticket; ct start --list shows them); nothing started",
+		return fmt.Errorf("not a ticket of the %s vault: %s (no tickets/<source>/<ID>/<ID>.md; tix sync, or tix new for a manual ticket; tix start --list shows them); nothing started",
 			filepath.Base(ctx.Vault), strings.Join(missing, " "))
 	}
 	skill := "work-ticket"
@@ -203,9 +209,9 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 			st := note.Get(note.TicketPath(ctx.Vault, lead), "status")
 			if st != "done" && st != "closed" {
 				if o.feedback {
-					warnf("%s: covered by %s, so its PRs are handled there: ct feedback %s (or --force)", k, lead, lead)
+					warnf("%s: covered by %s, so its PRs are handled there: tix feedback %s (or --force)", k, lead, lead)
 				} else {
-					warnf("%s: covered by %s, so it's worked there: ct start %s (or --force to start it on its own)", k, lead, lead)
+					warnf("%s: covered by %s, so it's worked there: tix start %s (or --force to start it on its own)", k, lead, lead)
 				}
 				continue
 			}
@@ -232,23 +238,17 @@ func start(ctx vault.Context, args []string, o startOpts) error {
 			return err
 		}
 	}
-	dirs := sessionDirs(ctx)
+	h, err := harness.Select(o.agent, vault.AgentOf(ctx.Vault))
+	if err != nil {
+		return err
+	}
 
 	k := launch[0]
-	w, resume, err := prepareSession(ctx, k, skill, dirs, o.cont, devRebuild)
+	w, resume, err := prepareSession(ctx, k, skill, h, o.cont, devRebuild)
 	if err != nil {
 		return err
 	}
 	return runForeground(k, w, resume, o)
-}
-
-// sessionDirs is what a ticket session works in, given to claude as
-// --add-dir: the vault, the repo directory (writable: ct ws clone and ct ws
-// add's worktrees; one --add-dir, not one per repo, which would grow every
-// session's context) and the embedding model cache (read-only; each is
-// added only when it exists).
-func sessionDirs(ctx vault.Context) []string {
-	return []string{ctx.Vault, ctx.ProjectsRoot, modelcache.Dir()}
 }
 
 // refuseRunning keeps a second session out of a workspace whose session
@@ -268,11 +268,11 @@ func refuseRunning(ctx vault.Context, key string, o startOpts) error {
 			ts = "-"
 		}
 		force := o.name + " --force " + key
-		if o.feedback && o.name == "ct start" {
-			force = "ct start --feedback --force " + key
+		if o.feedback && o.name == "tix start" {
+			force = "tix start --feedback --force " + key
 		}
 		if o.feedback {
-			return fmt.Errorf("%s: its session looks running (.agent-state: %s at %s); type /tickets:pr-feedback in that session's terminal, or if it isn't running, %s",
+			return fmt.Errorf("%s: its session looks running (.agent-state: %s at %s); type /tix:pr-feedback in that session's terminal, or if it isn't running, %s",
 				key, st.State.State, ts, force)
 		}
 		return fmt.Errorf("%s: its session looks running (.agent-state: %s at %s); it's in the terminal where it was started. If it isn't (terminal closed), %s",
@@ -286,7 +286,7 @@ func refuseRunning(ctx vault.Context, key string, o startOpts) error {
 // (--force doesn't override it: that session isn't stale).
 func runningPIDError(key string, pid int, startedAt string, o startOpts) error {
 	if o.feedback {
-		return fmt.Errorf("%s: its session is running (pid %d) in another terminal; type /tickets:pr-feedback there", key, pid)
+		return fmt.Errorf("%s: its session is running (pid %d) in another terminal; type /tix:pr-feedback there", key, pid)
 	}
 	started := ""
 	if t, err := time.Parse(time.RFC3339, startedAt); err == nil {
@@ -295,85 +295,107 @@ func runningPIDError(key string, pid int, startedAt string, o startOpts) error {
 	return fmt.Errorf("%s: its session is running (pid %d%s) in another terminal; continue there, or end it first", key, pid, started)
 }
 
-// prepareTicketSession readies a ticket's workspace for a session (its
-// workspace.json, settings, trust, CLAUDE.md) and returns it with the
-// claude command line to run there (no prompt yet) and, in a dev workspace
-// (ct start --dev; devMode says what to do with its build), the build.
-func prepareTicketSession(ctx vault.Context, key string, dirs []string, mode devMode) (string, []string, *devBuild, error) {
+// ticketSession is a ticket's session in its workspace dir: the vault and
+// the repo directory read-write (tix ws clone and tix ws add's worktrees:
+// one folder, not one per repo, which would grow every session's context),
+// the embedding model cache read-only (each only when it exists), and the
+// workspace's instructions.
+func ticketSession(ctx vault.Context, key, dir string) harness.Session {
+	return harness.Session{
+		Dir:          dir,
+		Dirs:         []string{ctx.Vault, ctx.ProjectsRoot},
+		ReadOnly:     []string{modelcache.Dir()},
+		Instructions: ticketClaudeMD(ctx, key, dir),
+		Settings:     true,
+	}
+}
+
+// prepareTicketSession readies a ticket's workspace for a session of h (its
+// workspace.json, tool versions, and h's files: settings, trust and
+// CLAUDE.md for claude) and returns the session (no prompt yet) and, in a
+// dev workspace (tix start --dev; devMode says what to do with its build),
+// the build.
+func prepareTicketSession(ctx vault.Context, key string, h harness.Harness, mode devMode) (harness.Session, *devBuild, error) {
 	dir := filepath.Join(ctx.WorkRoot, key)
 	if err := workspace.Ensure(dir, key, ctx.Vault); err != nil {
-		return "", nil, nil, err
+		return harness.Session{}, nil, err
 	}
 	dev, err := prepareDev(dir, mode)
 	if err != nil {
-		return "", nil, nil, err
+		return harness.Session{}, nil, err
 	}
-	if err := session.WriteSettings(dir); err != nil {
-		return "", nil, nil, err
+	s := ticketSession(ctx, key, dir)
+	if dev != nil {
+		s.Plugin, s.Hooks = dev.plugin, dev.tix
 	}
 	writeToolVersions(ctx, dir)
-	if err := session.Trust(dir); err != nil {
-		warnf("couldn't mark %s as trusted in %s: %v", dir, session.ClaudeConfig(), err)
+	if err := h.Prepare(s); err != nil {
+		return harness.Session{}, nil, err
 	}
-	if err := writeTicketClaudeMD(ctx, key, dir); err != nil {
-		return "", nil, nil, err
-	}
-	if dev != nil {
-		return dir, session.CommandPlugin(dev.plugin, dirs...), dev, nil
-	}
-	argv, err := session.Command(dirs...)
-	return dir, argv, nil, err
+	return s, dev, nil
 }
 
 // prepareSession readies a ticket's workspace (prepareTicketSession) and
-// builds its session: a new conversation, or with cont
-// (--continue) the workspace's last one (resume) when it already ran one.
-func prepareSession(ctx vault.Context, key, skill string, dirs []string, cont bool, mode devMode) (launcher.Session, bool, error) {
-	_, err := os.Stat(filepath.Join(ctx.WorkRoot, key, ".agent-state"))
+// builds its session: a new conversation, or with cont (--continue) the
+// workspace's last one (resume) when it already ran one, with the same
+// agent CLI.
+func prepareSession(ctx vault.Context, key, skill string, h harness.Harness, cont bool, mode devMode) (launcher.Session, bool, error) {
+	dir := filepath.Join(ctx.WorkRoot, key)
+	_, err := os.Stat(filepath.Join(dir, ".agent-state"))
 	resume := err == nil && cont
 	if cont && !resume {
 		warnf("%s: no earlier session in its workspace to continue, starting a new one", key)
 	}
-	dir, argv, dev, err := prepareTicketSession(ctx, key, dirs, mode)
+	if prev := workspace.Agent(dir); resume && prev != h.Name() {
+		warnf("%s: its last session ran %s, not %s, so it can't be continued: starting a new one", key, prev, h.Name())
+		resume = false
+	}
+	s, dev, err := prepareTicketSession(ctx, key, h, mode)
 	if err != nil {
 		return launcher.Session{}, false, err
 	}
-	env := map[string]string{"CLAUDE_TICKETS_VAULT": ctx.Vault}
+	if err := workspace.SetAgent(dir, h.Name()); err != nil {
+		warnf("couldn't record the agent in %s: %v", workspace.File(dir), err)
+	}
+	env := h.Env(s)
+	env["TIX_VAULT"] = ctx.Vault
 	pathFirst := ""
 	if dev != nil {
 		pathFirst = dev.bin
 		// For a wrapper (sandbox, container) that sets its own PATH: it
-		// prepends this to have the built ct first
-		env["CLAUDE_TICKETS_DEV_BIN"] = dev.bin
+		// prepends this to have the built tix first
+		env["TIX_DEV_BIN"] = dev.bin
 	}
-	argv = append(argv, "--permission-mode", "auto")
-	if resume {
-		argv = append(argv, "--continue")
+	s.Continue = resume
+	s.Prompt = startPrompt(h, skill, key, resume)
+	argv, err := h.Argv(s)
+	if err != nil {
+		return launcher.Session{}, false, err
 	}
-	argv = append(argv, startPrompt(skill, key, resume))
 	return launcher.Session{Dir: dir, Argv: argv, Env: env, PathFirst: pathFirst}, resume, nil
 }
 
-func sessionPrompt(skill, key string) string { return "/tickets:" + skill + " " + key }
+func sessionPrompt(h harness.Harness, skill, key string) string { return h.SkillRef(skill) + " " + key }
 
 // continueNudge is what a continued work-ticket session is sent: its
 // conversation already holds the playbook, so resending the skill would load
 // a second copy. Plain words (no quotes, backticks, # or ;) so a wrapper
-// passing it through a shell keeps it unchanged. %s is the ticket ID.
-const continueNudge = "ct start --continue: a new process, so agents of the last run are gone. " +
-	"Redo step 0 of /tickets:work-ticket %s from board.md and the Open part of relay.md, then carry on. " +
-	"If that playbook is no longer in your context, run /tickets:work-ticket %s."
+// passing it through a shell keeps it unchanged. %[1]s is the skill command
+// (/tix:work-ticket), %[2]s the ticket ID.
+const continueNudge = "tix start --continue: a new process, so agents of the last run are gone. " +
+	"Redo step 0 of %[1]s %[2]s from board.md and the Open part of relay.md, then carry on. " +
+	"If that playbook is no longer in your context, run %[1]s %[2]s."
 
 // startPrompt is the session's first prompt: the nudge when a work-ticket
 // session really continues, else the skill's own command.
-func startPrompt(skill, key string, resume bool) string {
+func startPrompt(h harness.Harness, skill, key string, resume bool) string {
 	if resume && skill == "work-ticket" {
-		return fmt.Sprintf(continueNudge, key, key)
+		return fmt.Sprintf(continueNudge, h.SkillRef("work-ticket"), key)
 	}
-	return sessionPrompt(skill, key)
+	return sessionPrompt(h, skill, key)
 }
 
-// runForeground runs the session in this terminal: ct becomes claude
+// runForeground runs the session in this terminal: tix becomes claude
 // (Windows: waits for it), and the session's process is recorded so other
 // commands see it running.
 func runForeground(key string, w launcher.Session, resume bool, o startOpts) error {
@@ -385,7 +407,7 @@ func runForeground(key string, w launcher.Session, resume bool, o startOpts) err
 	if o.feedback {
 		command = "feedback"
 	}
-	// Checked again under the record's lock: another ct start of this ticket
+	// Checked again under the record's lock: another tix start of this ticket
 	// may have passed refuseRunning while this one fetched
 	if err := workspace.ClaimSession(w.Dir, command); err != nil {
 		var running *workspace.RunningError
@@ -398,7 +420,7 @@ func runForeground(key string, w launcher.Session, resume bool, o startOpts) err
 	if resume {
 		cont = " (continuing its last session)"
 	}
-	fmt.Printf("ct start: %s runs in this terminal%s; ct start %s later continues it\n", key, cont, key)
+	fmt.Printf("tix start: %s runs in this terminal%s; tix start %s later continues it\n", key, cont, key)
 	return passExit(launcher.Run(w))
 }
 
@@ -416,49 +438,49 @@ func ticketClaudeMD(ctx vault.Context, key, dir string) string {
 		gitSubject = "subject starting with `" + key + "`, unless the repo's own convention says otherwise"
 	}
 	return fmt.Sprintf("# Ticket workspace: %[1]s\n\n"+
-		"Written by ct start; regenerated on every start, so don't edit it.\n\n"+
+		"Written by tix start; regenerated on every start, so don't edit it.\n\n"+
 		"- Ticket: `%[1]s` (source: `%[2]s`)\n"+
 		"- Vault: `%[3]s` (read its `AGENTS.md` for note rules)\n"+
 		"- Ticket note: `%[4]s`\n"+
 		"- Ticket folder (the only place in the vault this session writes to before\n"+
-		"  `/tickets:save`): `%[9]s`. A lead ticket (`ticket-type: epic`)\n"+
+		"  `/tix:save`): `%[9]s`. A lead ticket (`ticket-type: epic`)\n"+
 		"  may also write the work sections and `status` of the tickets in its\n"+
 		"  `covers`.\n"+
 		"- Repos in this workspace: `%[5]s/workspace.json` (each repo's path, base\n"+
-		"  and branch), kept current by `ct ws add`. Checkouts are at\n"+
+		"  and branch), kept current by `tix ws add`. Checkouts are at\n"+
 		"  `%[5]s/<slug>`, normally on `%[7]s`.\n"+
 		"- Main clones: `%[6]s/<provider>/<owner>/<repo>`. Never edit\n"+
-		"  them: their `.git` is only writable so `ct ws add` can create\n"+
+		"  them: their `.git` is only writable so `tix ws add` can create\n"+
 		"  worktrees. Each\n"+
-		"  repo's slug is `<provider>-<owner>-<repo>` (`ct ws repos` lists\n"+
+		"  repo's slug is `<provider>-<owner>-<repo>` (`tix ws repos` lists\n"+
 		"  them); the vault names repos by slug.\n"+
-		"- Vault tools: `ct vault lock` and `ct vault links` (used by `/tickets:save`).\n"+
-		"  `ct new` files a manual ticket.\n"+
+		"- Vault tools: `tix vault lock` and `tix vault links` (used by `/tix:save`).\n"+
+		"  `tix new` files a manual ticket.\n"+
 		"- Go: `GOPATH`, `GOMODCACHE` and `GOCACHE` are under `%[5]s/.cache/go`\n"+
 		"  (set in `.claude/settings.json`), so modules are fetched into this\n"+
 		"  workspace. `.ignore` keeps it out of Grep searches: name the path to\n"+
 		"  search it.\n"+
 		"- Tools: `go`, `gofmt` and `python3` come from `.tool-versions` (asdf), pinned\n"+
-		"  by ct, so don't export `ASDF_*_VERSION`.\n\n"+
+		"  by tix, so don't export `ASDF_*_VERSION`.\n\n"+
 		"- Git: commit your work on the ticket branch in coherent steps (%[8]s).\n"+
 		"  Vault-only IDs (task numbers, waves, R-/B- entries, review findings) never\n"+
 		"  go into code, comments, docs or commit messages.\n"+
 		"  Commits are signed with the session's signing key when one is set up\n"+
 		"  (unsigned ones are re-signed by the user on the host). Push only\n"+
-		"  through `/tickets:save`, which pushes each repo's ticket branch; never\n"+
+		"  through `/tix:save`, which pushes each repo's ticket branch; never\n"+
 		"  force push, delete branches or tags, rewrite pushed commits, reset\n"+
 		"  --hard, or remove the ticket worktrees (those are the user's steps);\n"+
 		"  the lead adds and removes task worktrees under `tasks/`.\n"+
 		"- Workflow: this session is the PO, the one the user talks to. It runs one\n"+
-		"  `tickets:lead` subagent, which plans the ticket in waves of task agents\n"+
+		"  `tix:lead` subagent, which plans the ticket in waves of task agents\n"+
 		"  (each in its own task worktree and branch, merged into the ticket branch\n"+
 		"  and reviewed after each wave), and spawns every agent the lead asks for.\n"+
 		"  Requests, questions and answers between the user, the PO and the lead go\n"+
 		"  through `relay.md`; `board.md` tracks the tasks. When the context is\n"+
-		"  heavy, `/tickets:po-refresh` checkpoints them and gives the `/compact` to run.\n\n"+
-		"Run `/tickets:work-ticket %[1]s` to (re)start the workflow (`ct start %[1]s`\n"+
-		"opens a new conversation, which resumes from `board.md`; `ct start\n"+
-		"--continue %[1]s` reopens the last one), and `/tickets:save` once the user\n"+
+		"  heavy, `/tix:po-refresh` checkpoints them and gives the `/compact` to run.\n\n"+
+		"Run `/tix:work-ticket %[1]s` to (re)start the workflow (`tix start %[1]s`\n"+
+		"opens a new conversation, which resumes from `board.md`; `tix start\n"+
+		"--continue %[1]s` reopens the last one), and `/tix:save` once the user\n"+
 		"has reviewed the changes: it pushes the ticket branches.\n",
 		key, note.Get(ticket, "source"), v, ticket, dir, p, branchText, gitSubject,
 		note.TicketDir(v, key)+string(filepath.Separator))

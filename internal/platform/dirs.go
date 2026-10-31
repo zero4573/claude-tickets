@@ -1,5 +1,5 @@
 // Package platform holds everything that differs between operating
-// systems: where claude-tickets keeps its files, and the desktop tools it
+// systems: where tix keeps its files, and the desktop tools it
 // uses (notifications, opening files, a shell). Every OS specific belongs
 // here (or behind a build tag in the package that owns it), so the rest
 // of the code stays the same on Linux, macOS and Windows.
@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strings"
 )
 
 type Dirs struct {
@@ -17,19 +18,19 @@ type Dirs struct {
 	Logs   string // command logs (ticket-sync-<vault>.log, ...)
 }
 
-const app = "claude-tickets"
+const app = "tix"
 
 // DirsFor, per GOOS:
 //
-//	linux    $XDG_CONFIG_HOME|~/.config/claude-tickets, $XDG_CACHE_HOME|~/.cache/claude-tickets,
+//	linux    $XDG_CONFIG_HOME|~/.config/tix, $XDG_CACHE_HOME|~/.cache/tix,
 //	         logs in $XDG_STATE_HOME|~/.local/state
-//	darwin   ~/Library/Application Support/claude-tickets, ~/Library/Caches/claude-tickets,
-//	         ~/Library/Logs/claude-tickets
-//	windows  %AppData%\claude-tickets, %LocalAppData%\claude-tickets\cache,
-//	         %LocalAppData%\claude-tickets\logs
+//	darwin   ~/Library/Application Support/tix, ~/Library/Caches/tix,
+//	         ~/Library/Logs/tix
+//	windows  %AppData%\tix, %LocalAppData%\tix\cache,
+//	         %LocalAppData%\tix\logs
 //
-// On every OS, CLAUDE_TICKETS_CONFIG_DIR, CLAUDE_TICKETS_CACHE and
-// CLAUDE_TICKETS_STATE_DIR win, then the XDG variables when set.
+// On every OS, TIX_CONFIG_DIR, TIX_CACHE and
+// TIX_STATE_DIR win, then the XDG variables when set.
 func DirsFor(goos string, getenv func(string) string, home string) Dirs {
 	// Unix paths join with / whatever OS computes them (tested everywhere)
 	join := path.Join
@@ -62,13 +63,13 @@ func DirsFor(goos string, getenv func(string) string, home string) Dirs {
 	if x := getenv("XDG_STATE_HOME"); x != "" {
 		d.Logs = x
 	}
-	if x := getenv("CLAUDE_TICKETS_CONFIG_DIR"); x != "" {
+	if x := getenv("TIX_CONFIG_DIR"); x != "" {
 		d.Config = x
 	}
-	if x := getenv("CLAUDE_TICKETS_CACHE"); x != "" {
+	if x := getenv("TIX_CACHE"); x != "" {
 		d.Cache = x
 	}
-	if x := getenv("CLAUDE_TICKETS_STATE_DIR"); x != "" {
+	if x := getenv("TIX_STATE_DIR"); x != "" {
 		d.Logs = x
 	}
 	return d
@@ -101,3 +102,97 @@ func Home() string {
 }
 
 func Current() Dirs { return DirsFor(runtime.GOOS, os.Getenv, Home()) }
+
+// legacyApp is the name tix had before (claude-tickets): its folders move
+// to tix's on the first run (MigrateLegacy).
+const legacyApp = "claude-tickets"
+
+// LegacyDirsFor is DirsFor under the old name, without the TIX_*
+// overrides: where an older install kept its files.
+func LegacyDirsFor(goos string, getenv func(string) string, home string) Dirs {
+	noOverrides := func(k string) string {
+		switch k {
+		case "TIX_CONFIG_DIR", "TIX_CACHE", "TIX_STATE_DIR":
+			return ""
+		}
+		return getenv(k)
+	}
+	d := DirsFor(goos, noOverrides, home)
+	swap := func(p string) string {
+		// the app name is the last element, or (Windows cache and logs) the
+		// one before it
+		sep := "/"
+		if goos == "windows" {
+			sep = `\`
+		}
+		parts := splitOn(p, sep)
+		for i := len(parts) - 1; i >= 0 && i >= len(parts)-2; i-- {
+			if parts[i] == app {
+				parts[i] = legacyApp
+				return joinOn(parts, sep)
+			}
+		}
+		return ""
+	}
+	return Dirs{swap(d.Config), swap(d.Cache), swap(d.Logs)}
+}
+
+// Migration is one folder MigrateLegacy moved (or failed to).
+type Migration struct {
+	From, To string
+	Err      error
+}
+
+// MigrateLegacy moves the folders of an install under the old name to
+// tix's (config, cache, and logs where they are tix's own): each one only
+// when tix's doesn't exist yet and no TIX_* variable points it elsewhere.
+// A move that fails (another filesystem) is reported, the old folder left.
+func MigrateLegacy(goos string, getenv func(string) string, home string) []Migration {
+	cur, old := DirsFor(goos, getenv, home), LegacyDirsFor(goos, getenv, home)
+	pairs := []struct {
+		env      string
+		from, to string
+	}{
+		{"TIX_CONFIG_DIR", old.Config, cur.Config},
+		{"TIX_CACHE", old.Cache, cur.Cache},
+		{"TIX_STATE_DIR", old.Logs, cur.Logs},
+	}
+	var out []Migration
+	for _, p := range pairs {
+		if getenv(p.env) != "" || p.from == "" || p.from == p.to {
+			continue
+		}
+		if st, err := os.Stat(p.from); err != nil || !st.IsDir() {
+			continue
+		}
+		if _, err := os.Lstat(p.to); err == nil {
+			continue
+		}
+		err := os.MkdirAll(dirOf(p.to, goos), 0o755)
+		if err == nil {
+			err = os.Rename(p.from, p.to)
+		}
+		out = append(out, Migration{p.from, p.to, err})
+	}
+	// Windows' cache and logs were both under %LocalAppData%\claude-tickets
+	if goos == "windows" {
+		_ = os.Remove(dirOf(old.Cache, goos))
+	}
+	return out
+}
+
+func splitOn(p, sep string) []string { return strings.Split(p, sep) }
+
+func joinOn(parts []string, sep string) string { return strings.Join(parts, sep) }
+
+func dirOf(p, goos string) string {
+	sep := "/"
+	if goos == "windows" {
+		sep = `\`
+	}
+	parts := splitOn(p, sep)
+	if len(parts) <= 1 {
+		return p
+	}
+	return joinOn(parts[:len(parts)-1], sep)
+}

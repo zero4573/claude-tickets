@@ -12,8 +12,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/note"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/note"
 )
 
 // VersionType is the type: of a vault spec version note.
@@ -76,7 +76,7 @@ func CopyDir(vault, id, slug string) string {
 	return filepath.Join(note.TicketDir(vault, id), "specs", slug)
 }
 
-// BaseDir is the before snapshot: projects/<slug>/specs/ when ct spec start
+// BaseDir is the before snapshot: projects/<slug>/specs/ when tix spec start
 // first made the ticket's copy.
 func BaseDir(vault, id, slug string) string {
 	return filepath.Join(note.TicketDir(vault, id), "specs-base", slug)
@@ -88,16 +88,16 @@ func AfterDir(vault, id, slug string) string {
 	return filepath.Join(note.TicketDir(vault, id), "specs-after", slug)
 }
 
-// RebaseMarker is the file ct spec start writes before it rebases the
+// RebaseMarker is the file tix spec start writes before it rebases the
 // snapshots and removes once both are written: it lists the files being
 // rebased, so a run that stopped between the base and the after snapshot
-// is finished by the next ct spec start, and ct spec promote refuses until
+// is finished by the next tix spec start, and tix spec promote refuses until
 // then. It sits beside the base snapshot, outside it.
 func RebaseMarker(vault, id, slug string) string {
 	return filepath.Join(note.TicketDir(vault, id), "specs-base", "."+slug+".rebase")
 }
 
-// KeptList is the list of files ct spec promote --resolve <slug>=theirs
+// KeptList is the list of files tix spec promote --resolve <slug>=theirs
 // kept as projects/ holds them: the after snapshot holds them (so a later
 // change made on top of theirs isn't refused), and every later promotion
 // carries them over. They are not promoted files: the version note, its
@@ -136,7 +136,7 @@ func WriteKept(path string, files []string) error {
 // PendingRebase is nil unless ticket id's rebase marker for slug exists
 // (RebaseMarker): its snapshots are then part way rebased, a rebased file's
 // base and after disagree, and nothing should read them until the next
-// ct spec start finishes them. The error names that rerun.
+// tix spec start finishes them. The error names that rerun.
 func PendingRebase(vault, id, slug string) error {
 	_, err := os.Lstat(RebaseMarker(vault, id, slug))
 	if errors.Is(err, os.ErrNotExist) {
@@ -145,7 +145,7 @@ func PendingRebase(vault, id, slug string) error {
 	if err != nil {
 		return err
 	}
-	return &pendingRebaseError{fmt.Sprintf("%s: the snapshots of %s are part way rebased (a ct spec start stopped while it rebased them): run ct spec start %s %s again to finish them", slug, id, id, slug)}
+	return &pendingRebaseError{fmt.Sprintf("%s: the snapshots of %s are part way rebased (a tix spec start stopped while it rebased them): run tix spec start %s %s again to finish them", slug, id, id, slug)}
 }
 
 // ErrRebasePending matches (errors.Is) what PendingRebase returns, so a
@@ -160,7 +160,7 @@ func (e *pendingRebaseError) Is(target error) bool { return target == ErrRebaseP
 // RefreshPending is the note a listing gives a version whose ticket's
 // rebase marker is there: only that ticket's snapshots are unreadable.
 func RefreshPending(id, slug string) string {
-	return fmt.Sprintf("refresh pending: run ct spec start %s %s", id, slug)
+	return fmt.Sprintf("refresh pending: run tix spec start %s %s", id, slug)
 }
 
 // ReadSnapshot reads a snapshot folder; nil (not an empty Tree) when the
@@ -297,7 +297,7 @@ func PinStale(old, cur Tree, files []string) bool {
 // takes that change for this ticket's. A promoted file prev and now both
 // lack takes projects' entry (Unfilled lists them): promote writes the
 // after snapshot with the copy's files before it moves them, so this only
-// happens for a move that stopped part way under an older ct; the caller
+// happens for a move that stopped part way under an older tix; the caller
 // refuses when another ticket promoted such a file since this ticket did,
 // as projects/ then holds that ticket's content, not this one's.
 func TicketAfter(prev, projects Tree, promoted []string, now Tree) Tree {
@@ -356,7 +356,7 @@ func ChangedBy(vault, slug string, versions []VersionFile, id, file string, cur 
 			if !ok {
 				// a deletion only when the ticket recorded an after
 				// snapshot of this repo at all. A partial move under an
-				// older ct (an after snapshot lacking a file the note
+				// older tix (an after snapshot lacking a file the note
 				// lists) also reads as a deletion here: accepted, it only
 				// names that ticket in a report or refusal
 				if _, err := os.Stat(AfterDir(vault, o, slug)); err == nil {
@@ -384,7 +384,7 @@ func ChangedBy(vault, slug string, versions []VersionFile, id, file string, cur 
 //   - base and after: before = base, after = base with the promoted files
 //     of the after snapshot and then the copy laid on, so another
 //     ticket's later promotion never enters this ticket's change;
-//   - base only, nothing promoted yet (ct spec start took the base):
+//   - base only, nothing promoted yet (tix spec start took the base):
 //     before = projects with the base's version of the copy's files laid
 //     on, after = projects with the copy laid on, so another ticket's
 //     promotion since the start shows on neither side;
@@ -432,7 +432,7 @@ func SameFile(a, b Tree, f string) bool {
 
 // Rebase moves the entries of files in the base snapshot, and in the after
 // snapshot when there is one (nil: none), onto projects: the content a copy
-// file that ct spec start writes from projects/ starts at, so the diff and
+// file that tix spec start writes from projects/ starts at, so the diff and
 // the conflict check measure the ticket's change from there. The after
 // snapshot holds the ticket's promoted files only, so only an entry it has
 // is moved; a file it lacks stays out of it. It returns the
@@ -607,7 +607,7 @@ func RenderVersion(v Version, ticketRel string, before Tree, d Diff) ([]byte, er
 	}
 	b.WriteString("---\n")
 	fmt.Fprintf(&b, "# %s spec version %s\n\n", v.Slug, v.ID())
-	b.WriteString("Generated by ct spec promote; edits are overwritten.\n\n")
+	b.WriteString("Generated by tix spec promote; edits are overwritten.\n\n")
 	b.WriteString(VersionState(v) + "\n")
 	if len(d.Caps) > 0 {
 		b.WriteString("\n")

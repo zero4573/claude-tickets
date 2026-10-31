@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/embed"
-	"github.com/zero4573/claude-tickets/internal/modelcache"
+	"github.com/zero4573/tix/internal/embed"
+	"github.com/zero4573/tix/internal/modelcache"
 )
 
 func put(t *testing.T, vault, rel, body string) {
@@ -25,7 +25,7 @@ func put(t *testing.T, vault, rel, body string) {
 
 func setup(t *testing.T, embedder string) string {
 	t.Helper()
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", embedder)
+	t.Setenv("TIX_EMBEDDER", embedder)
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	v := t.TempDir()
 	put(t, v, "a.md", "---\ntype: project\ntags: [x, y]\nprojects: [acme]\ndepends-on: [[b]]\ngroups: [\"[[g1]]\"]\n---\n# A\n\nIntro with [[b|the bee]] and ![[c]].\n\n## Part\n\nMore text about [[d]].\n")
@@ -47,7 +47,7 @@ func TestUpdateFlow(t *testing.T) {
 	if st.Notes != 2 || st.Changed != 2 || st.Chunks != 3 || st.Embedded != 3 || st.KeywordOnly || st.Model != "stub" {
 		t.Fatalf("first: %+v", st)
 	}
-	if b, _ := os.ReadFile(filepath.Join(v, ".ct", ".gitignore")); string(b) != "*\n" {
+	if b, _ := os.ReadFile(filepath.Join(v, ".tix", ".gitignore")); string(b) != "*\n" {
 		t.Fatalf("gitignore %q", b)
 	}
 	ix, err := Load(v)
@@ -149,7 +149,7 @@ func TestKeywordOnlyThenModel(t *testing.T) {
 		t.Fatal("hint marker missing")
 	}
 	// A model appearing rebuilds with vectors.
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "stub")
+	t.Setenv("TIX_EMBEDDER", "stub")
 	st, _ = Update(v, UpdateOptions{})
 	if st.Embedded != 3 || st.KeywordOnly {
 		t.Fatalf("%+v", st)
@@ -232,7 +232,7 @@ func TestMissingModelKeepsVectors(t *testing.T) {
 	if _, err := Update(v, UpdateOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
+	t.Setenv("TIX_EMBEDDER", "none")
 	put(t, v, "sub/b.md", "# B\n\nBrand new words.\n")
 	put(t, v, "c.md", "# C\n\nAnother note.\n")
 	st, err := Update(v, UpdateOptions{})
@@ -257,7 +257,7 @@ func TestMissingModelKeepsVectors(t *testing.T) {
 		t.Fatalf("%+v", st)
 	}
 	// The model returns: only the zero rows are embedded (notes unchanged on disk).
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "stub")
+	t.Setenv("TIX_EMBEDDER", "stub")
 	st, err = Update(v, UpdateOptions{})
 	if err != nil || st.Embedded != 2 || st.Changed != 0 {
 		t.Fatalf("%+v %v", st, err)
@@ -270,7 +270,7 @@ func TestMissingModelKeepsVectors(t *testing.T) {
 		t.Fatalf("%+v", st)
 	}
 	// An explicit --full without a model is the keyword-only rebuild.
-	t.Setenv("CLAUDE_TICKETS_EMBEDDER", "none")
+	t.Setenv("TIX_EMBEDDER", "none")
 	st, _ = Update(v, UpdateOptions{Full: true})
 	ix, _ = Load(v)
 	if !st.KeywordOnly || ix.Meta.Dims != 0 {
@@ -645,4 +645,23 @@ func TestSalvageRefusesModelAndShaMismatch(t *testing.T) {
 			t.Fatalf("%+v %v", st, err)
 		}
 	})
+}
+
+// A vault's .ct folder (the index under tix's old name) becomes .tix, once
+// and only when .tix doesn't exist
+func TestMigrateLegacy(t *testing.T) {
+	v := t.TempDir()
+	put(t, v, ".ct/index/meta.json", "{}")
+	MigrateLegacy(v)
+	if _, err := os.Stat(filepath.Join(Dir(v), "meta.json")); err != nil {
+		t.Fatalf("not moved: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(v, ".ct")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf(".ct left: %v", err)
+	}
+	put(t, v, ".ct/index/meta.json", "old")
+	MigrateLegacy(v)
+	if data, _ := os.ReadFile(filepath.Join(Dir(v), "meta.json")); string(data) != "{}" {
+		t.Errorf("an existing .tix was replaced: %q", data)
+	}
 }

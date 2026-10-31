@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/prompt"
-	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/prompt"
+	"github.com/zero4573/tix/internal/vault"
 )
 
 func vaultCmd() *cobra.Command {
@@ -19,7 +19,7 @@ func vaultCmd() *cobra.Command {
 		Short: "The current vault and where its tools work; vault setup",
 		Long: `Without a subcommand: the vault every command acts on (the default vault,
 else the only one), where its workspaces and main clones are (its
-.workflow.json), and where ct keeps its own settings, cache and logs.`,
+.workflow.json), and where tix keeps its own settings, cache and logs.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v, err := vault.Current()
@@ -51,7 +51,7 @@ else the only one), where its workspaces and main clones are (its
 	return cmd
 }
 
-// vaultSubcommands are more ct vault subcommands, each registered from its
+// vaultSubcommands are more tix vault subcommands, each registered from its
 // own file's init (vault search, index, note, model), so files that add one
 // don't all edit vaultCmd.
 var vaultSubcommands []func() *cobra.Command
@@ -63,13 +63,13 @@ func vaultDefaultCmd() *cobra.Command {
 		Short: "Show or set the default vault, the one every command acts on",
 		Long: `Shows or sets the default Obsidian vault: the vault every command acts on.
 Switch it to work on another vault. Without one, the commands use the only
-vault under ~/Documents/Obsidian. ct vault init always asks.
+vault under ~/Documents/Obsidian. tix vault init always asks.
 
-  ct vault default          show the default and where it comes from
-  ct vault default <vault>  set it: a vault name under ~/Documents/Obsidian
+  tix vault default          show the default and where it comes from
+  tix vault default <vault>  set it: a vault name under ~/Documents/Obsidian
                             (or a path)
-  ct vault default --pick   choose it from the list of vaults
-  ct vault default --unset  remove it
+  tix vault default --pick   choose it from the list of vaults
+  tix vault default --unset  remove it
 
 The default is stored in ` + config.TildePath(filepath.Join(config.Dir(), "default-vault")) + `. Sessions
 already running keep the vault they started with.`,
@@ -86,7 +86,7 @@ already running keep the vault they started with.`,
 				if err := vault.UnsetDefault(); err != nil {
 					return err
 				}
-				fmt.Println("ct: default vault removed")
+				fmt.Println("tix: default vault removed")
 				return nil
 			case pick || len(args) == 1:
 				var path string
@@ -106,19 +106,19 @@ already running keep the vault they started with.`,
 				if err != nil {
 					return err
 				}
-				fmt.Printf("ct: default vault is now %s\n", saved)
+				fmt.Printf("tix: default vault is now %s\n", saved)
 				if config.LaunchVault != "" {
-					fmt.Fprintf(os.Stderr, "ct: this shell has CLAUDE_TICKETS_VAULT=%s (from a ticket session), which wins over the default here; unset CLAUDE_TICKETS_VAULT\n", config.LaunchVault)
+					fmt.Fprintf(os.Stderr, "tix: this shell has TIX_VAULT=%s (from a ticket session), which wins over the default here; unset TIX_VAULT\n", config.LaunchVault)
 				}
 				return nil
 			}
 			switch {
 			case config.LaunchVault != "":
-				fmt.Printf("default vault: %s (CLAUDE_TICKETS_VAULT: the vault this session was started with)\n", config.LaunchVault)
+				fmt.Printf("default vault: %s (TIX_VAULT: the vault this session was started with)\n", config.LaunchVault)
 			case vault.SavedDefault() != "":
 				fmt.Printf("default vault: %s (from %s)\n", vault.SavedDefault(), config.TildePath(config.DefaultVaultFile()))
 			default:
-				fmt.Println("no default vault set (ct vault default <vault> to set one)")
+				fmt.Println("no default vault set (tix vault default <vault> to set one)")
 				return exitError(1)
 			}
 			if _, ok, err := vault.Default(); !ok {

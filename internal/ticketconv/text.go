@@ -1,5 +1,5 @@
 // Package ticketconv converts a manual ticket into one filed at a ticket
-// source (ct ticket convert): the text rewrites on the ticket's vault
+// source (tix ticket convert): the text rewrites on the ticket's vault
 // folder and workspace.json live here, the command's order of steps in Run.
 package ticketconv
 
@@ -95,7 +95,7 @@ var taskRe = regexp.MustCompile(`(?m)^(\s*(?:[-*+]|\d+[.)])\s+)\[([ xX]?)\]\s`)
 func HasTaskList(text string) bool { return taskRe.MatchString(text) }
 
 // plainTasks rewrites task list items to plain list items that keep the
-// state as text (`- \[ \] item`), the form ct sync writes for them: the
+// state as text (`- \[ \] item`), the form tix sync writes for them: the
 // source's markdown shows a real checkbox as a bare "[]".
 func plainTasks(md string) string {
 	return taskRe.ReplaceAllStringFunc(md, func(m string) string {

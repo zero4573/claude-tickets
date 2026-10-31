@@ -1,4 +1,4 @@
-# ct vault search: hybrid with the stub embedder, JSON shape, filters, budget,
+# tix vault search: hybrid with the stub embedder, JSON shape, filters, budget,
 # keyword-only without a model, --mode semantic failing, usage errors.
 mkdir home/Documents/Obsidian/v/.obsidian
 mkdir home/Documents/Obsidian/v/projects/acme
@@ -7,74 +7,74 @@ cp acme.md home/Documents/Obsidian/v/projects/acme/acme.md
 cp crossing.md home/Documents/Obsidian/v/projects/acme/crossing.md
 cp far.md home/Documents/Obsidian/v/other/far.md
 
-env CLAUDE_TICKETS_EMBEDDER=stub
+env TIX_EMBEDDER=stub
 
 # No index yet: built first (progress on stderr), then searched.
-exec ct vault search zebra crossing
+exec tix vault search zebra crossing
 stdout '^1\. projects/acme/crossing\.md › Crossing  \([0-9.]+\)$'
 stdout '^   Zebra crossing paint rules\.'
-exists home/Documents/Obsidian/v/.ct/index/meta.json
+exists home/Documents/Obsidian/v/.tix/index/meta.json
 
-exec ct vault search zebra crossing --json
+exec tix vault search zebra crossing --json
 stdout '"query":"zebra crossing","mode":"hybrid","model":"stub","keyword_only":false,"results":\[\{"rank":1,"note":"crossing","path":"projects/acme/crossing.md","heading":\["Crossing"\],"start_line":\d+,"end_line":\d+,"tokens":\d+,"score":[0-9.]+,"scores":\{"semantic":[0-9.e-]+,"keyword":[0-9.]+,"link":[0-9.]+\},"excerpt":"Zebra crossing paint rules\."\}'
 ! stdout '"budget"'
 ! stdout '"text"'
 
 # Filters.
-exec ct vault search granite --path other --json
+exec tix vault search granite --path other --json
 stdout '"path":"other/far.md"'
-exec ct vault search zebra --path other
+exec tix vault search zebra --path other
 ! stdout 'crossing'
-exec ct vault search zebra --type project
+exec tix vault search zebra --type project
 ! stdout 'crossing'
-exec ct vault search zebra --tag misc --project acme --no-update
+exec tix vault search zebra --tag misc --project acme --no-update
 stdout 'crossing\.md'
-exec ct vault search zebra --tag nope
+exec tix vault search zebra --tag nope
 ! stdout 'crossing'
-exec ct vault search zebra --vault v --k 1 --no-links --mode keyword --json
+exec tix vault search zebra --vault v --k 1 --no-links --mode keyword --json
 stdout '"mode":"keyword"'
 
 # Budget: full text, cumulative tokens, at least one result.
-exec ct vault search zebra giraffe granite --budget 1 --json
+exec tix vault search zebra giraffe granite --budget 1 --json
 stdout '"text":"Quartz basalt granite\."'
 stdout '"budget":\{"limit":1,"used":\d+,"truncated":true\}'
-exec ct vault search zebra giraffe granite --budget 5000 --json
+exec tix vault search zebra giraffe granite --budget 5000 --json
 stdout '"truncated":false'
 
 # Usage errors exit 2.
-! exec ct vault search
-! exec ct vault search x --mode bogus
+! exec tix vault search
+! exec tix vault search x --mode bogus
 stderr 'unknown --mode'
 
 # Keyword only: no model, keyword and link search, the hint once.
-rm home/Documents/Obsidian/v/.ct
-env CLAUDE_TICKETS_EMBEDDER=none
-exec ct vault search zebra --json
+rm home/Documents/Obsidian/v/.tix
+env TIX_EMBEDDER=none
+exec tix vault search zebra --json
 stdout '"keyword_only":true'
 stdout '"path":"projects/acme/crossing.md"'
 stderr 'no embedding model, keyword search only'
-! exec ct vault search zebra --mode semantic
-stderr 'ct vault model fetch'
+! exec tix vault search zebra --mode semantic
+stderr 'tix vault model fetch'
 
 # --no-update without an index is an error.
-rm home/Documents/Obsidian/v/.ct
-! exec ct vault search zebra --no-update
-stderr 'ct vault index'
+rm home/Documents/Obsidian/v/.tix
+! exec tix vault search zebra --no-update
+stderr 'tix vault index'
 
 # W3 S01: a failing update with an index in place warns and searches on.
-exec ct vault index
-rm home/Documents/Obsidian/v/.ct/index.lock
-mkdir home/Documents/Obsidian/v/.ct/index.lock
-exec ct vault search zebra crossing
-stderr 'ct: vault index not updated, results may be stale'
+exec tix vault index
+rm home/Documents/Obsidian/v/.tix/index.lock
+mkdir home/Documents/Obsidian/v/.tix/index.lock
+exec tix vault search zebra crossing
+stderr 'tix: vault index not updated, results may be stale'
 stdout 'projects/acme/crossing\.md'
-exec ct vault related projects/acme/crossing.md
-stderr 'ct: vault index not updated'
-rm home/Documents/Obsidian/v/.ct/index.lock
+exec tix vault related projects/acme/crossing.md
+stderr 'tix: vault index not updated'
+rm home/Documents/Obsidian/v/.tix/index.lock
 
 # Specs: a repo's specs/ (read from its default branch), a vault-located spec,
 # --type spec, --no-specs, a refresh after an edit, a clone without specs.
-env CLAUDE_TICKETS_EMBEDDER=stub
+env TIX_EMBEDDER=stub
 expand gitconfig
 exec git init -q -b main seed
 exec git -C seed add -A
@@ -88,40 +88,40 @@ mkdir home/Documents/Obsidian/v/projects/beta/specs/payout
 cp beta.md home/Documents/Obsidian/v/projects/beta/beta.md
 cp payout.md home/Documents/Obsidian/v/projects/beta/specs/payout/spec.md
 
-exec ct vault search quokka --json
+exec tix vault search quokka --json
 stdout '"path":"github-acme-billing:specs/ledger/spec\.md"'
 stdout '"note":"ledger"'
 stdout '"type":"spec","project":"github-acme-billing"'
-exists home/.cache/claude-tickets/spec-index/github-acme-billing/.ct/index/meta.json
-! exists home/.cache/claude-tickets/spec-index/github-acme-plain
+exists home/.cache/tix/spec-index/github-acme-billing/.tix/index/meta.json
+! exists home/.cache/tix/spec-index/github-acme-plain
 
 # A vault-located spec is a vault note.
-exec ct vault search wombat --json
+exec tix vault search wombat --json
 stdout '"path":"projects/beta/specs/payout/spec\.md"'
 ! stdout 'github-acme-billing'
 
 # --type spec: both kinds of spec, no other note.
-exec ct vault search zebra --type spec
+exec tix vault search zebra --type spec
 ! stdout 'crossing'
-exec ct vault search quokka wombat --type spec
+exec tix vault search quokka wombat --type spec
 stdout 'github-acme-billing:specs/ledger/spec\.md'
 stdout 'projects/beta/specs/payout/spec\.md'
-exec ct vault search quokka --type spec --project github-acme-billing --json
+exec tix vault search quokka --type spec --project github-acme-billing --json
 stdout '"project":"github-acme-billing"'
 ! stdout 'payout'
 
 # --no-specs leaves both out; --path leaves the repo specs out.
-exec ct vault search quokka wombat --no-specs
+exec tix vault search quokka wombat --no-specs
 ! stdout 'spec\.md'
-exec ct vault search quokka --path projects --no-update
+exec tix vault search quokka --path projects --no-update
 ! stdout 'github-acme-billing'
-exec ct vault search quokka --type note
+exec tix vault search quokka --type note
 ! stdout 'ledger'
 
 # A changed tree rebuilds the index; the working tree is not read.
 exec git -C home/Projects/repo-v/github/acme/billing checkout -q -b elsewhere
 cp ledger2.md home/Projects/repo-v/github/acme/billing/specs/ledger/spec.md
-exec ct vault search platypus
+exec tix vault search platypus
 ! stdout 'ledger'
 exec git -C home/Projects/repo-v/github/acme/billing checkout -q -- specs
 exec git -C home/Projects/repo-v/github/acme/billing checkout -q main
@@ -129,13 +129,13 @@ cp ledger2.md seed/specs/ledger/spec.md
 exec git -C seed commit -q -am 'edit spec'
 exec git -C seed push -q ../remote/acme/billing.git main
 exec git -C home/Projects/repo-v/github/acme/billing fetch -q origin
-exec ct vault search platypus --json
+exec tix vault search platypus --json
 stdout '"path":"github-acme-billing:specs/ledger/spec\.md"'
-exec ct vault search quokka --type spec
+exec tix vault search quokka --type spec
 ! stdout 'ledger'
 
 # --no-update searches what is there.
-exec ct vault search platypus --no-update --type spec
+exec tix vault search platypus --no-update --type spec
 stdout 'ledger'
 
 -- gitconfig --

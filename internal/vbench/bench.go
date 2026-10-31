@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/chunk"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/notesec"
-	"github.com/zero4573/claude-tickets/internal/vsearch"
+	"github.com/zero4573/tix/internal/chunk"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/notesec"
+	"github.com/zero4573/tix/internal/vsearch"
 )
 
 // Budget is the `--budget` the NEW kb strategy searches with.
@@ -193,7 +193,7 @@ func Old(vault string, files []string, f Fact) Outcome {
 	return Outcome{Tokens: chunk.Tokens(s), Found: strings.Contains(s, f.Sentence)}
 }
 
-// Render is what `ct vault search --budget` prints to the agent for a response.
+// Render is what `tix vault search --budget` prints to the agent for a response.
 func Render(r *vsearch.Response) string {
 	var b strings.Builder
 	for _, x := range r.Results {

@@ -1,11 +1,11 @@
-// Package scaffold is what ct ships into a vault (assets/vault-scaffold/,
-// copied by ct vault init) and how a vault's copies compare with it: each
+// Package scaffold is what tix ships into a vault (assets/vault-scaffold/,
+// copied by tix vault init) and how a vault's copies compare with it: each
 // shipped file is missing, up to date, an unedited older version (stale),
 // or edited in the vault. A copy is an unedited older version when its
 // content is in the built-in history (assets/scaffold-history.json,
 // generated from git; see genhistory). A copy whose content is what the
-// vault's .scaffold.json records but this ct doesn't know was shipped by a
-// newer ct: it's kept (Newer), never downgraded. Contents are compared
+// vault's .scaffold.json records but this tix doesn't know was shipped by a
+// newer tix: it's kept (Newer), never downgraded. Contents are compared
 // through Key: normalized (Norm), so line endings and trailing newlines
 // don't count as edits, and a .base file by its parsed YAML, so Obsidian
 // reformatting it or dropping its comments doesn't either.
@@ -26,14 +26,14 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/zero4573/claude-tickets/assets"
+	"github.com/zero4573/tix/assets"
 )
 
-// Skipped is in the scaffold but never copied: ct vault init merges it into
+// Skipped is in the scaffold but never copied: tix vault init merges it into
 // .obsidian/types.json.
 const Skipped = "obsidian-types.json"
 
-// File is one shipped file of the running ct. Rel is slash-separated.
+// File is one shipped file of the running tix. Rel is slash-separated.
 type File struct {
 	Rel  string
 	Data []byte
@@ -46,7 +46,7 @@ type Source struct {
 	History map[string][]string // rel → normalized sha256s ever shipped
 }
 
-// Embedded is the running ct's scaffold and its history.
+// Embedded is the running tix's scaffold and its history.
 func Embedded() (Source, error) {
 	files, err := FromFS(assets.Scaffold, "vault-scaffold")
 	if err != nil {
@@ -129,12 +129,12 @@ type State int
 const (
 	Missing       State = iota // shipped, absent from the vault: added
 	UpToDate                   // the current shipped version: nothing to do
-	Stale                      // an older version this ct knows: updated
+	Stale                      // an older version this tix knows: updated
 	Edited                     // matches no shipped version, or isn't a regular file: kept
 	RetiredClean               // not shipped any more, unedited: kept
 	RetiredEdited              // not shipped any more, edited: kept
-	// Newer: what the record says was shipped, but a version this ct doesn't
-	// know, so a newer ct wrote it: kept (never downgraded), its entry too
+	// Newer: what the record says was shipped, but a version this tix doesn't
+	// know, so a newer tix wrote it: kept (never downgraded), its entry too
 	Newer
 )
 
@@ -198,7 +198,7 @@ func Classify(vault string, src Source, rec Record) ([]Entry, error) {
 		case have == f.Hash:
 			e.State = UpToDate
 		case recorded && r.SHA256 == have && !contains(src.History[f.Rel], have):
-			// what a newer ct shipped: never downgraded
+			// what a newer tix shipped: never downgraded
 			e.State = Newer
 		case contains(src.History[f.Rel], have):
 			e.State = Stale
@@ -234,7 +234,7 @@ func Classify(vault string, src Source, rec Record) ([]Entry, error) {
 		case contains(src.History[rel], have):
 			e.State = RetiredClean
 		case recorded && r.SHA256 == have:
-			e.State = Newer // shipped by a newer ct, not by this one
+			e.State = Newer // shipped by a newer tix, not by this one
 		}
 		entries = append(entries, e)
 	}
@@ -242,7 +242,7 @@ func Classify(vault string, src Source, rec Record) ([]Entry, error) {
 	return entries, nil
 }
 
-// Removed are the retired files ct vault update deletes when unedited
+// Removed are the retired files tix vault update deletes when unedited
 // (the old task views, replaced by inbox.md and the per-ticket status
 // file). Other retired files are only ever kept.
 var Removed = []string{"done.md", "follow-ups.md", "pending.md"}

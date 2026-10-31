@@ -14,7 +14,7 @@ mkdir home/Projects/work-a/MAN-1/repo-b/.git
 cp empty home/Projects/work-a/MAN-1/repo-b/.dirty
 live-session home/Projects/work-a/MAN-1
 
-exec ct status
+exec tix status
 stdout '^Vault a \(sessions run in their own terminal\)$'
 stdout '^TICKET +SOURCE +AGENT +STATUS +REPOS +SINCE +WAITING ON$'
 stdout '^MAN-1 +manual +needs-input +new +2 \(1 dirty\) +10:00:00 +Which base branch\?$'
@@ -23,22 +23,22 @@ stdout '^MAN-2 +jira +working \(stale\) +in-progress +0 \(0 dirty\)'
 stdout '(?s)MAN-1.*MAN-2'
 
 # open: VS Code-style editors get a multi-root workspace
-exec ct open --list
+exec tix open --list
 stdout '^MAN-1\t'
 stdout '^MAN-2\t'
-env CLAUDE_TICKETS_EDITOR='no-such-editor --new-window'
-! exec ct open MAN-1
+env TIX_EDITOR='no-such-editor --new-window'
+! exec tix open MAN-1
 stderr 'editor .no-such-editor. not found'
 mkdir stub2
 cp $WORK/stub/editor stub2/code
 chmod 755 stub2/code
 env PATH=$WORK/stub2:$PATH
-env CLAUDE_TICKETS_EDITOR='code --new-window'
-exec ct open MAN-1
+env TIX_EDITOR='code --new-window'
+exec tix open MAN-1
 grep '^--new-window .*/work-a/MAN-1/MAN-1.code-workspace$' calls/editor
 grep '"name": "github-me-foo \(feature/MAN-1\)"' home/Projects/work-a/MAN-1/MAN-1.code-workspace
 grep '"name": "MAN-1 notes \(vault\)"' home/Projects/work-a/MAN-1/MAN-1.code-workspace
-! exec ct open MAN-9
+! exec tix open MAN-9
 stderr 'MAN-9 has no workspace'
 
 -- man-1.md --

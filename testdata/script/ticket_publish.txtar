@@ -1,4 +1,4 @@
-# ct ticket publish: the description with its ## Spec change section rebuilt
+# tix ticket publish: the description with its ## Spec change section rebuilt
 # from the ticket's and its covered tickets' spec diffs; nothing is written.
 env GIT_AUTHOR_NAME=x GIT_AUTHOR_EMAIL=x@example.com GIT_COMMITTER_NAME=x GIT_COMMITTER_EMAIL=x@example.com
 env V=home/Documents/Obsidian/a
@@ -29,7 +29,7 @@ cp posting-new.md $W/PROJ-2/ledger/specs/posting/spec.md
 cp orders-new.md $W/PROJ-1/billing/specs/orders/spec.md
 
 # replaced in place from the live description; sections around it untouched; the covered ticket's change included
-exec ct ticket publish PROJ-1 --description-file live1.md
+exec tix ticket publish PROJ-1 --description-file live1.md
 stdout '^Intro text\.$'
 stdout '^## Spec change$'
 stdout '^### github-acme-billing . orders$'
@@ -45,14 +45,14 @@ stdout '^_No description\._$'
 
 # a stdin description that differs from the note is the one rewritten
 stdin live-stdin.md
-exec ct ticket publish PROJ-1 --description-file -
+exec tix ticket publish PROJ-1 --description-file -
 stdout '^Edited at the source\.$'
 ! stdout 'Intro text'
 ! stdout 'keep this'
 stdout 'REQ-LED-2'
 
 # --dry-run with a file: old and new section only, not approximate
-exec ct ticket publish PROJ-1 --dry-run --description-file live1.md
+exec tix ticket publish PROJ-1 --dry-run --description-file live1.md
 stdout '^--- old ---$'
 stdout '^stale$'
 stdout '^--- new ---$'
@@ -61,48 +61,48 @@ stdout 'REQ-LED-2'
 ! stdout 'approximate'
 
 # --dry-run without a file reads the note and says so
-exec ct ticket publish PROJ-1 --dry-run
+exec tix ticket publish PROJ-1 --dry-run
 stdout '^\(approximate: '
 stdout '^stale$'
 
 # without a file nothing is printed to publish
-! exec ct ticket publish PROJ-1
+! exec tix ticket publish PROJ-1
 stderr '--description-file'
 ! stdout .
 
 # a description without the section gets it appended; nothing changes on disk
-exec ct ticket publish PROJ-3 --description-file live3.md
+exec tix ticket publish PROJ-3 --description-file live3.md
 stdout '^Plain description\.$'
 stdout '^## Spec change$'
 stdout 'No spec change\.'
-exec ct ticket publish PROJ-3 --dry-run --description-file live3.md
+exec tix ticket publish PROJ-3 --dry-run --description-file live3.md
 stdout '^\(none\)$'
 grep 'stale' $V/tickets/jira/PROJ-1/PROJ-1.md
 
 # an empty change never blanks a non-empty section
-! exec ct ticket publish PROJ-3 --description-file live-nonempty.md
+! exec tix ticket publish PROJ-3 --description-file live-nonempty.md
 stderr 'no spec change was found'
 stderr 'left as is'
 stderr '--allow-empty'
-! exec ct ticket publish PROJ-3 --dry-run --description-file live-nonempty.md
+! exec tix ticket publish PROJ-3 --dry-run --description-file live-nonempty.md
 stderr 'no spec change was found'
 
 # --allow-empty clears the section on purpose
-exec ct ticket publish PROJ-3 --description-file live-nonempty.md --allow-empty
+exec tix ticket publish PROJ-3 --description-file live-nonempty.md --allow-empty
 stdout 'No spec change\.'
 ! stdout 'left as is'
-exec ct ticket publish PROJ-3 --dry-run --allow-empty --description-file live-nonempty.md
+exec tix ticket publish PROJ-3 --dry-run --allow-empty --description-file live-nonempty.md
 stdout '^--- new ---'
 stdout 'No spec change\.'
 
 # refusals
-! exec ct ticket publish nope
+! exec tix ticket publish nope
 stderr 'invalid ticket ID'
-! exec ct ticket publish PROJ-9 --description-file live3.md
+! exec tix ticket publish PROJ-9 --description-file live3.md
 stderr 'no note for PROJ-9'
-! exec ct ticket publish PROJ-2 --dry-run
+! exec tix ticket publish PROJ-2 --dry-run
 stderr 'no source block'
-! exec ct ticket publish PROJ-1 --description-file missing.md
+! exec tix ticket publish PROJ-1 --description-file missing.md
 stderr 'missing.md'
 
 -- live1.md --

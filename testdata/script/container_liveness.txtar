@@ -1,5 +1,5 @@
 # inside a container (its own PID namespace) a recorded session can't be
-# proved dead: ct status doesn't call it stale, and ws gc keeps its workspace
+# proved dead: tix status doesn't call it stale, and ws gc keeps its workspace
 mkdir home/Documents/Obsidian/a/.obsidian home/Documents/Obsidian/a/tickets/MAN-2
 cp open.md home/Documents/Obsidian/a/tickets/MAN-2/MAN-2.md
 expand ws2.json
@@ -7,10 +7,10 @@ mkdir home/Projects/work-a/MAN-2
 cp ws2.json home/Projects/work-a/MAN-2/workspace.json
 exec touch -d '3 days ago' home/Projects/work-a/MAN-2/workspace.json
 live-session home/Projects/work-a/MAN-2
-env CT_TEST_CONTAINER=1
-exec ct status
+env TIX_TEST_CONTAINER=1
+exec tix status
 ! stdout 'stale'
-! exec ct ws gc
+! exec tix ws gc
 stderr 'gc: run it on the host, not inside a container'
 exists home/Projects/work-a/MAN-2/workspace.json
 -- open.md --

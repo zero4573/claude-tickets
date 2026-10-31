@@ -7,13 +7,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/clean"
-	"github.com/zero4573/claude-tickets/internal/config"
-	"github.com/zero4573/claude-tickets/internal/gitx"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/prompt"
-	"github.com/zero4573/claude-tickets/internal/session"
-	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/tix/internal/clean"
+	"github.com/zero4573/tix/internal/config"
+	"github.com/zero4573/tix/internal/gitx"
+	"github.com/zero4573/tix/internal/harness"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/prompt"
+	"github.com/zero4573/tix/internal/session"
+	"github.com/zero4573/tix/internal/vault"
 )
 
 func finishedTickets(ctx vault.Context) []note.Ticket {
@@ -42,25 +43,25 @@ at a time:
   other notes link or embed (a log, an image) move to archive/tickets/<source>/<ID>/
   first, so those links keep working;
 - a manual ticket (or a synced one without a source-url) moves whole to
-  archive/tickets/<source>/<ID>/: links to it keep resolving, and ct new never reuses
+  archive/tickets/<source>/<ID>/: links to it keep resolving, and tix new never reuses
   its number. --keep-manual leaves them where they are.
 
-Its workspace goes first (as ct ws rm <ID>). Links in a synced ticket's
+Its workspace goes first (as tix ws rm <ID>). Links in a synced ticket's
 sync-owned parts (parent, children, blocked-by, blocks, related, covers,
 covered-by, source-* fields, and the source block) are left as they are:
-ct sync rewrites those.
+tix sync rewrites those.
 
 A ticket is skipped, with the reason, when:
 - it isn't closed (done ones too with --include-done, but never synced
-  done ones: ct sync would re-create them while they're open at the source);
+  done ones: tix sync would re-create them while they're open at the source);
 - --days N and its note was updated less than N days ago;
 - its session is running, or its workspace has uncommitted changes, or
   commits on no remote (or a stash). Commits whose changes are already in
   origin/<base> count as pushed: a squash-merged branch whose remote
   branch was deleted goes;
-- its work wasn't saved: no saved: marker (written by /tickets:save) or
+- its work wasn't saved: no saved: marker (written by /tix:save) or
   summary block, and it has ticket files, logs or commits, or kb-drafts
-  not yet promoted. --save runs /tickets:save headless in its workspace
+  not yet promoted. --save runs /tix:save headless in its workspace
   first (refused when a repo there has no target version: the save would
   have to ask), logged to ` + logPath("clean-save-<ID>") + `;
 - it's a lead (ticket-type: epic) with covered tickets that aren't going in
@@ -69,9 +70,9 @@ A ticket is skipped, with the reason, when:
 
 It prints the plan, one line per ticket, then asks; without a terminal it
 needs --yes. --dry-run only prints the plan and changes nothing. Each ticket
-is cleaned under the vault lock (ct vault lock), so it never interleaves with
-a /tickets:save. Skipped tickets you can act on become tasks in a follow-up
-note, inbox/<date>-ct-clean-follow-ups.md. Run it on the host: inside a
+is cleaned under the vault lock (tix vault lock), so it never interleaves with
+a /tix:save. Skipped tickets you can act on become tasks in a follow-up
+note, inbox/<date>-tix-clean-follow-ups.md. Run it on the host: inside a
 container it can't see running sessions. Exits 1 if a named ticket was
 skipped or a step failed.`,
 		ValidArgsFunction: completeIDs(finishedTickets),
@@ -95,7 +96,7 @@ skipped or a step failed.`,
 	f := cmd.Flags()
 	f.BoolVarP(&dry, "dry-run", "n", false, "only print the plan")
 	f.BoolVarP(&yes, "yes", "y", false, "don't ask (needed without a terminal)")
-	f.BoolVar(&o.Save, "save", false, "run /tickets:save headless for worked, unsaved tickets first")
+	f.BoolVar(&o.Save, "save", false, "run /tix:save headless for worked, unsaved tickets first")
 	f.BoolVar(&o.IncludeDone, "include-done", false, "done tickets too (never synced ones)")
 	f.BoolVar(&o.KeepManual, "keep-manual", false, "leave manual tickets where they are instead of archiving them")
 	f.BoolVar(&o.Purge, "purge", false, "delete synced tickets' folders instead of moving them to .trash/")
@@ -107,7 +108,7 @@ func runClean(ctx vault.Context, o clean.Options, dry, yes bool) error {
 	items := clean.Plan(o)
 	acts, named := 0, false
 	for _, it := range items {
-		fmt.Println("ct clean: " + clean.Describe(o, items, it))
+		fmt.Println("tix clean: " + clean.Describe(o, items, it))
 		if it.Acts() {
 			acts++
 		}
@@ -120,7 +121,7 @@ func runClean(ctx vault.Context, o clean.Options, dry, yes bool) error {
 		return nil
 	}
 	if acts == 0 {
-		fmt.Println("ct clean: nothing to clean")
+		fmt.Println("tix clean: nothing to clean")
 	} else if !yes {
 		if !prompt.Interactive() {
 			return exitWith(2, errors.New("clean: not a terminal; review with --dry-run, then re-run with --yes"))
@@ -140,17 +141,25 @@ func runClean(ctx vault.Context, o clean.Options, dry, yes bool) error {
 	return nil
 }
 
-// headlessSave runs /tickets:save in a ticket's workspace, with no one to
-// answer questions, on the installed plugin and ct (a dev workspace's build
-// isn't used: nothing from its checkout runs unattended).
+// headlessSave runs /tix:save in a ticket's workspace, with no one to
+// answer questions, on the installed plugin and tix (a dev workspace's build
+// isn't used: nothing from its checkout runs unattended). It runs Claude
+// Code whatever the vault's agent is: its headless output (stream-json) is
+// what tix reads.
 func headlessSave(ctx vault.Context, id string) (string, error) {
 	log := config.StateLog("clean-save-" + id)
-	dir, argv, _, err := prepareTicketSession(ctx, id, sessionDirs(ctx), devIgnore)
+	h, _ := harness.Get(harness.Claude)
+	s, _, err := prepareTicketSession(ctx, id, h, devIgnore)
 	if err != nil {
 		return log, err
 	}
-	argv = append(argv, "--permission-mode", "auto", "--disallowedTools", "AskUserQuestion",
-		"-p", "/tickets:save", "--output-format", "stream-json", "--verbose")
-	fmt.Printf("ct clean: %s: running /tickets:save in %s (log: %s)\n", id, config.TildePath(dir), config.TildePath(log))
+	s.Skill, s.Print = "save", true
+	s.Extra = []string{"--disallowedTools", "AskUserQuestion"}
+	argv, err := h.Argv(s)
+	if err != nil {
+		return log, err
+	}
+	dir := s.Dir
+	fmt.Printf("tix clean: %s: running /tix:save in %s (log: %s)\n", id, config.TildePath(dir), config.TildePath(log))
 	return config.TildePath(log), session.HeadlessIn(dir, log, argv)
 }

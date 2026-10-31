@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/chunk"
-	"github.com/zero4573/claude-tickets/internal/mdsec"
+	"github.com/zero4573/tix/internal/chunk"
+	"github.com/zero4573/tix/internal/mdsec"
 )
 
 // OutlineEntry is one section of a note's outline.

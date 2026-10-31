@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/mcp/mcptest"
-	"github.com/zero4573/claude-tickets/internal/vault"
+	"github.com/zero4573/tix/internal/mcp/mcptest"
+	"github.com/zero4573/tix/internal/vault"
 )
 
 // syncEnv is a throwaway HOME and vault with a tickets/.sources.json, and
@@ -20,9 +20,9 @@ func syncEnv(t *testing.T, sources string) (vault.Context, *[][]string) {
 	t.Setenv("XDG_STATE_HOME", filepath.Join(home, "state"))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "config"))
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, "cache"))
-	t.Setenv("CLAUDE_TICKETS_CLAUDE", "true") // the headless step runs and does nothing
-	t.Setenv("CLAUDE_TICKETS_MCP_CONFIG", "")
-	t.Setenv("CLAUDE_TICKETS_MCP_PREPARE", "")
+	t.Setenv("TIX_CLAUDE", "true") // the headless step runs and does nothing
+	t.Setenv("TIX_MCP_CONFIG", "")
+	t.Setenv("TIX_MCP_PREPARE", "")
 	v := filepath.Join(home, "vault")
 	write(t, filepath.Join(v, "tickets", ".sources.json"), sources)
 	if err := os.MkdirAll(filepath.Join(v, ".obsidian"), 0o755); err != nil {
@@ -56,7 +56,7 @@ func fakeJira(t *testing.T, open ...string) {
 	if err := os.WriteFile(cfg, []byte(s.Config("atlassian")), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CLAUDE_TICKETS_MCP_CONFIG", cfg)
+	t.Setenv("TIX_MCP_CONFIG", cfg)
 }
 
 const jiraSources = `{"sources": {"jira": {"enabled": true, "mcp": "atlassian", "idPrefix": "", "query": "q"}}}`
@@ -101,7 +101,7 @@ func TestTicketSyncNoRefreshWhenSyncFalse(t *testing.T) {
 
 func TestTicketSyncUnreachableRefreshesFollowupOnly(t *testing.T) {
 	ctx, calls := syncEnv(t, jiraSources)
-	t.Setenv("CLAUDE_TICKETS_MCP_CONFIG", filepath.Join(t.TempDir(), "missing.json"))
+	t.Setenv("TIX_MCP_CONFIG", filepath.Join(t.TempDir(), "missing.json"))
 	_ = ticketSync(ctx, "", false)
 	if len(*calls) != 1 || len((*calls)[0]) != 1 {
 		t.Fatalf("want one call with the follow-up note only, got %v", *calls)

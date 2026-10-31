@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zero4573/claude-tickets/internal/fsx"
-	"github.com/zero4573/claude-tickets/internal/links"
-	"github.com/zero4573/claude-tickets/internal/note"
-	"github.com/zero4573/claude-tickets/internal/spec"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/fsx"
+	"github.com/zero4573/tix/internal/links"
+	"github.com/zero4573/tix/internal/note"
+	"github.com/zero4573/tix/internal/spec"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 // A move that fails on its second file leaves a note that lists both, so the
@@ -74,8 +74,8 @@ func TestPromoteFailureKeepsEveryFile(t *testing.T) {
 	}
 }
 
-// A copy made without ct spec start has nothing to tell another ticket's
-// change from its own: promote refuses it and names ct spec start, writing
+// A copy made without tix spec start has nothing to tell another ticket's
+// change from its own: promote refuses it and names tix spec start, writing
 // nothing.
 func TestPromoteWithoutSnapshot(t *testing.T) {
 	v := t.TempDir()
@@ -91,8 +91,8 @@ func TestPromoteWithoutSnapshot(t *testing.T) {
 		}
 	}
 	_, err := promoteRepo(ctx, "T-1", r, "")
-	if err == nil || !strings.Contains(err.Error(), "ct spec start T-1 acme-app") {
-		t.Fatalf("want a refusal naming ct spec start, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "tix spec start T-1 acme-app") {
+		t.Fatalf("want a refusal naming tix spec start, got %v", err)
 	}
 	if b, _ := os.ReadFile(filepath.Join(proj, "a", "spec.md")); string(b) != "a0" {
 		t.Fatalf("projects/ changed: %q", b)
@@ -165,7 +165,7 @@ func TestStartInterruptedRebase(t *testing.T) {
 	}
 	defer func() { writeSnapshot = spec.WriteTree }()
 	_, err := specStart(ctx, "T-1", r.Slug, []string{"a"})
-	if err == nil || !strings.Contains(err.Error(), "run ct spec start T-1 acme-app again") {
+	if err == nil || !strings.Contains(err.Error(), "run tix spec start T-1 acme-app again") {
 		t.Fatalf("want the injected failure naming the rerun, got %v", err)
 	}
 	writeSnapshot = spec.WriteTree
@@ -180,7 +180,7 @@ func TestStartInterruptedRebase(t *testing.T) {
 	}
 
 	// diff reads nothing half-rebased: it names the rerun
-	if _, _, err := specDiffRepo(ctx, "T-1", r); err == nil || !strings.Contains(err.Error(), "run ct spec start T-1 acme-app again") {
+	if _, _, err := specDiffRepo(ctx, "T-1", r); err == nil || !strings.Contains(err.Error(), "run tix spec start T-1 acme-app again") {
 		t.Fatalf("diff with the marker: %v", err)
 	}
 
@@ -331,7 +331,7 @@ func TestStartClearsOrphanMarker(t *testing.T) {
 // A rerun after a move that stopped part way takes a moved file's after
 // entry from the copy as it was moved, not from projects/, where another
 // ticket may have promoted the same file in between; an after snapshot
-// that lacks such a file (a move under an older ct) is refused instead.
+// that lacks such a file (a move under an older tix) is refused instead.
 func TestPromoteRerunIgnoresAnotherTicketsPromotion(t *testing.T) {
 	v := t.TempDir()
 	ctx := vault.Context{Vault: v}
@@ -412,7 +412,7 @@ func TestPromoteRerunIgnoresAnotherTicketsPromotion(t *testing.T) {
 	other("c/spec.md")
 	put(filepath.Join(cp, "b", "spec.md"), "b2")
 	_, err = promoteRepo(ctx, "T-1", r, "")
-	if err == nil || !strings.Contains(err.Error(), "T-2 promoted it since") || !strings.Contains(err.Error(), "Run ct spec start T-1 acme-app c to copy it again") {
+	if err == nil || !strings.Contains(err.Error(), "T-2 promoted it since") || !strings.Contains(err.Error(), "Run tix spec start T-1 acme-app c to copy it again") {
 		t.Fatalf("want a refusal naming T-2: %v", err)
 	}
 	if got, _ := os.ReadFile(filepath.Join(proj, "b", "spec.md")); string(got) != "b1" {
@@ -786,7 +786,7 @@ func TestPromoteJournalFailureSeams(t *testing.T) {
 
 // A file kept as theirs that the ticket never promoted, whose base is
 // still the one from before the other ticket's change (left by an older
-// ct's failed run): an edit on top of theirs promotes, measured from
+// tix's failed run): an edit on top of theirs promotes, measured from
 // theirs, and a second promote of it keeps that base.
 func TestPromoteKeptBaseIsTheirs(t *testing.T) {
 	v := t.TempDir()
@@ -857,10 +857,10 @@ func TestPromotePendingReaders(t *testing.T) {
 	}
 	writeSpecFile = fsx.WriteFileAtomic
 	err := spec.PendingPromote(ctx.Vault, "T-1", r.Slug)
-	if !errors.Is(err, spec.ErrPromotePending) || spec.PendingNote(err, "T-1", r.Slug) != "promote pending: run ct spec promote T-1" {
+	if !errors.Is(err, spec.ErrPromotePending) || spec.PendingNote(err, "T-1", r.Slug) != "promote pending: run tix spec promote T-1" {
 		t.Fatalf("pending: %v", err)
 	}
-	if _, _, err := vaultSpecSides(ctx, "T-1", r.Slug, spec.VaultDir(ctx.Vault, r.Slug)); err == nil || !strings.Contains(err.Error(), "promote pending: run ct spec promote T-1") {
+	if _, _, err := vaultSpecSides(ctx, "T-1", r.Slug, spec.VaultDir(ctx.Vault, r.Slug)); err == nil || !strings.Contains(err.Error(), "promote pending: run tix spec promote T-1") {
 		t.Fatalf("diff: %v", err)
 	}
 	if _, _, err := spec.VersionSides(ctx.Vault, r.Slug, spec.Version{Ticket: "[[T-1]]"}); !errors.Is(err, spec.ErrPromotePending) {
@@ -937,7 +937,7 @@ func (e *heldEnv) snap(dir func(v, id, slug string) string, id, f string) string
 	return e.read(filepath.Join(dir(e.v, id, e.r.Slug), filepath.FromSlash(f)))
 }
 
-// begin snapshots projects/ for id, as ct spec start does, and writes its
+// begin snapshots projects/ for id, as tix spec start does, and writes its
 // copy files.
 func (e *heldEnv) begin(id string, files map[string]string) {
 	e.t.Helper()
@@ -1150,7 +1150,7 @@ func TestPromoteReplayMarkedPutOvertaken(t *testing.T) {
 	}
 }
 
-// ct spec promote itself (not only promoteRepo) replays before its other
+// tix spec promote itself (not only promoteRepo) replays before its other
 // checks: a stop between the two renames of the base replace leaves no
 // base snapshot, which needsStart alone would refuse.
 func TestPromoteCommandReplaysFirst(t *testing.T) {
@@ -1174,7 +1174,7 @@ func TestPromoteCommandReplaysFirst(t *testing.T) {
 	}
 	res, err := runPromote(ctx, "T-1", []workspace.Repo{r}, map[string]string{r.Slug: keepTheirs})
 	if err != nil || len(res) != 1 || res[0].Status != promoteDone {
-		t.Fatalf("ct spec promote: %+v %v", res, err)
+		t.Fatalf("tix spec promote: %+v %v", res, err)
 	}
 }
 

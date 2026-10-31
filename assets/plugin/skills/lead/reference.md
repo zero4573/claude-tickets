@@ -37,11 +37,11 @@ Each printed `<file>: <ID>` (or `open line`: a leftover `open`/`fixing` line) ne
 
 ## Ticket types (they shape the plan, not the agents)
 - `dev`: the plan of `SKILL.md` as written. `chore`: one task, or you do it directly; review only if behaviour can change.
-- `bug`: follow the `tickets:diagnose` skill ("In the ticket workflow"). Wave 1's first task
-  is "build the feedback loop" with `skills: [tickets:diagnose]` (phases 1–2, and 3 when
+- `bug`: follow the `tix:diagnose` skill ("In the ticket workflow"). Wave 1's first task
+  is "build the feedback loop" with `skills: [tix:diagnose]` (phases 1–2, and 3 when
   cheap); from its report write `plan.md ## Root cause` (the loop command, the confirmed cause,
   the hypotheses ruled out; trace it through the code). The fix task also lists
-  `skills: [tickets:diagnose]`, runs the loop in `## Checks`, and its "Done when" names a
+  `skills: [tix:diagnose]`, runs the loop in `## Checks`, and its "Done when" names a
   regression test that fails before the fix.
 - `investigation`: a vault-only task, or you write `investigation.md` (template
   `investigation`, ≤150 lines); code only if the ticket asks for it.

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/note"
+	"github.com/zero4573/tix/internal/note"
 )
 
 const stubTemplate = "---\ntitle: {{title}}\nsummary:\ncreated: {{date}}\nsource:\nsource-id: {{title}}\ncovers: []\ncovered-by:\ntags: [ticket]\n---\n# {{title}}\n\n<!-- source:start -->\n## Source\n<!-- source:end -->\n"

@@ -1,9 +1,9 @@
 ---
 name: recall
-description: Recall where a project or ticket stands from the Obsidian vault (latest session logs, decision index, groups and dependencies, ticket task list) and summarize what's done and what's left. Use when the user runs /tickets:recall [project|ticket], or asks to pick up where things left off. (Named recall so it doesn't shadow Claude Code's built-in /resume, which reopens conversations.)
+description: Recall where a project or ticket stands from the Obsidian vault (latest session logs, decision index, groups and dependencies, ticket task list) and summarize what's done and what's left. Use when the user runs /tix:recall [project|ticket], or asks to pick up where things left off. (Named recall so it doesn't shadow Claude Code's built-in /resume, which reopens conversations.)
 ---
 
-# /tickets:recall [project | ticket-key]
+# /tix:recall [project | ticket-key]
 
 Read-only. Never write to the vault.
 
@@ -15,7 +15,7 @@ Read-only. Never write to the vault.
 - **A `spec` session** (`<workRoot>/.spec-<vault>`):
   `CLAUDE.md` names the vault.
 - **Otherwise:** the knowledge-base vault named in the system prompt
-  (`ct claude`). Failing that, the vaults are the folders under
+  (`tix claude`). Failing that, the vaults are the folders under
   `$OBSIDIAN_ROOT` (`~/Documents/Obsidian`) that contain `.obsidian/` (recall only reads);
   if there are several, ask which one with AskUserQuestion.
 - **Subject:** the argument if given: a ticket ID like `PROJ-12` or
@@ -29,10 +29,10 @@ Read-only. Never write to the vault.
 
 ## Project
 
-0. `ct vault search "<what's open, decided, in progress>" --project <project>
+0. `tix vault search "<what's open, decided, in progress>" --project <project>
    --budget 1000` to find what matters before reading (a bigger budget only
    adds tokens: recall reads the logs and notes below anyway); then
-   `ct vault note get <note> "<section>"` rather than whole notes.
+   `tix vault note get <note> "<section>"` rather than whole notes.
 1. The 3 most recent notes in `projects/<project>/logs/`, newest first by
    filename date.
 2. `projects/<project>/architecture/<project>-decisions.md`, plus the decision notes
@@ -40,16 +40,16 @@ Read-only. Never write to the vault.
 3. The project's index note `projects/<project>/<project>.md`, if it
    exists, and open tickets that list the project in `projects:`
    (`tickets/*/*/*.md` with `status` other than `closed` or `done`).
-   Then `ct vault groups <vault> <project>` (read-only) for its groups,
+   Then `tix vault groups <vault> <project>` (read-only) for its groups,
    `depends-on` and used-by.
 4. For each group it belongs to, the latest lines of
    `projects/<group>/architecture/<group>-decisions.md`.
 
 ## Ticket
 
-0. `ct vault search "<open tasks, status, blockers>" --path tickets/<source>/<ID>/
+0. `tix vault search "<open tasks, status, blockers>" --path tickets/<source>/<ID>/
    --type board --budget 1000` (the board holds the task state), then
-   `ct vault note get <note> "<section>"` rather than whole notes.
+   `tix vault note get <note> "<section>"` rather than whole notes.
 1. The ticket note: its content (the source block, or a manual ticket's
    description sections), `## Workspace`, `## Tasks`, `## Questions`,
    `## Follow-ups`, `## Review`, and the summaries at the end. Also its
@@ -69,9 +69,9 @@ Read-only. Never write to the vault.
      children that aren't the user's.
    - A covered ticket (`covered-by: "[[<LEAD>]]"`): it's worked in the
      lead's workspace, so recall the lead too, and say that
-     `ct start <LEAD>` is where to pick it up.
+     `tix start <LEAD>` is where to pick it up.
 4. For each repo in `## Workspace`, steps 1, 2 and 4 of **Project**.
-5. In a workspace, `ct ws ls <ID>` (branches, uncommitted changes).
+5. In a workspace, `tix ws ls <ID>` (branches, uncommitted changes).
 
 ## Summarize
 

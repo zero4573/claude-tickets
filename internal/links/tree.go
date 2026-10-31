@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/zero4573/claude-tickets/internal/fsx"
+	"github.com/zero4573/tix/internal/fsx"
 )
 
 // move is one file of a MoveTree: absolute paths, and vault-relative

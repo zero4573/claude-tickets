@@ -1,10 +1,10 @@
 # No vaults: every command says how to make one
-! exec ct vault
-stderr 'no Obsidian vaults under .*\(set one up with ct vault init\)'
+! exec tix vault
+stderr 'no Obsidian vaults under .*\(set one up with tix vault init\)'
 
 # One vault: it's the current one, with default locations
 mkdir home/Documents/Obsidian/a/.obsidian
-exec ct vault
+exec tix vault
 stdout 'vault: +~/Documents/Obsidian/a'
 stdout 'workspaces: +~/Projects/work-a$'
 stdout 'main clones: +~/Projects/repo-a$'
@@ -13,47 +13,47 @@ stdout 'main clones: +~/Projects/repo-a$'
 
 # Two vaults and no default: pick one
 mkdir home/Documents/Obsidian/b/.obsidian
-! exec ct vault
-stderr 'no default vault, and several .*\(a b\): pick one with ct vault default <name>'
-! exec ct vault default
+! exec tix vault
+stderr 'no default vault, and several .*\(a b\): pick one with tix vault default <name>'
+! exec tix vault default
 stdout 'no default vault set'
 
-exec ct vault default b
+exec tix vault default b
 stdout 'default vault is now b'
-exec ct vault
+exec tix vault
 stdout 'vault: +~/Documents/Obsidian/b'
-exec ct vault default
-stdout 'default vault: b \(from ~/.config/claude-tickets/default-vault\)'
+exec tix vault default
+stdout 'default vault: b \(from ~/.config/tix/default-vault\)'
 
 # .workflow.json moves the folders
 cp workflow.json home/Documents/Obsidian/b/.workflow.json
-exec ct vault
+exec tix vault
 stdout 'workspaces: +~/elsewhere/b'
 stdout 'main clones: +~/Code'
 
 # The session's vault wins, then the workspace the directory is in
-env CLAUDE_TICKETS_VAULT=$WORK/home/Documents/Obsidian/a
-exec ct vault
+env TIX_VAULT=$WORK/home/Documents/Obsidian/a
+exec tix vault
 stdout 'vault: +~/Documents/Obsidian/a'
-env CLAUDE_TICKETS_VAULT=
+env TIX_VAULT=
 mkdir ws
 expand ws.json
 cp ws.json ws/workspace.json
 cd ws
-exec ct vault
+exec tix vault
 stdout 'vault: +~/Documents/Obsidian/a'
 cd $WORK
 
-! exec ct vault default nope
+! exec tix vault default nope
 stderr 'no vault named .nope.'
-exec ct vault default --unset
+exec tix vault default --unset
 stdout 'default vault removed'
-! exec ct vault default
+! exec tix vault default
 
 # The old default-vault location is still read
 mkdir home/.config/tickets
 cp legacy home/.config/tickets/default-vault
-exec ct vault
+exec tix vault
 stdout 'vault: +~/Documents/Obsidian/a'
 
 -- workflow.json --

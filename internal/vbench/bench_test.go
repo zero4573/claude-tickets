@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/zero4573/claude-tickets/internal/vsearch"
+	"github.com/zero4573/tix/internal/vsearch"
 )
 
 func TestSearchOptions(t *testing.T) {
@@ -33,7 +33,7 @@ func TestRecallSkillBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := regexp.MustCompile(`ct vault search[^\x60]*--budget (\d+)`).FindAllStringSubmatch(string(data), -1)
+	m := regexp.MustCompile(`tix vault search[^\x60]*--budget (\d+)`).FindAllStringSubmatch(string(data), -1)
 	if len(m) != 2 {
 		t.Fatalf("want 2 step-0 searches (project, ticket), found %d", len(m))
 	}

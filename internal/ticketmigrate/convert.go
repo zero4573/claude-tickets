@@ -1,6 +1,6 @@
 // Package ticketmigrate converts a ticket's v1 files (board tables,
 // bare review dispositions, bare backlog items) to the checklist formats of
-// the vault-checklists contract, for ct vault update. The converters are
+// the vault-checklists contract, for tix vault update. The converters are
 // pure (bytes in, bytes out) and never guess: a file they can't parse is
 // left whole, with one problem per line. They keep the file's line
 // endings, final newline and BOM, and converting twice equals once.

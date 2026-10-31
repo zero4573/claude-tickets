@@ -38,7 +38,7 @@ tags: [ticket, jira, proj, unassigned]
 
 <!-- source:start -->
 ## Source (Jira)
-> Synced from Jira by ct sync. Edits here are overwritten. Dashboard: [[tickets.base|Tickets]]
+> Synced from Jira by tix sync. Edits here are overwritten. Dashboard: [[tickets.base|Tickets]]
 
 | | |
 |---|---|
@@ -76,4 +76,4 @@ _No comments._
 <!-- Written when the ticket reaches status: review -->
 
 ## Knowledge
-<!-- Notes created or updated by /tickets:save -->
+<!-- Notes created or updated by /tix:save -->

@@ -6,8 +6,8 @@ vault).
 
 ## What this is
 
-claude-tickets: a ticket workflow for Claude Code with an Obsidian vault as
-long-term memory. One Go command, `ct` (`cmd/ct` + `internal/`), a single
+tix: a ticket workflow for Claude Code with an Obsidian vault as
+long-term memory. One Go command, `tix` (`cmd/tix` + `internal/`), a single
 self-contained binary: `assets/` (the vault scaffold, the Claude Code plugin
 in `assets/plugin/`) is embedded in it, and the plugin is unpacked to the
 cache on first use
@@ -18,44 +18,51 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
 
 ## Conventions
 
-- **Sessions are plain Claude Code.** Commands start sessions only through
-  `internal/session` (`session.Command`) with standard flags
-  (`--plugin-dir`, `--add-dir`, `--mcp-config`, `--settings`) and the
-  workspace's `.claude/settings.json`. Never add flags or knowledge of a
+- **Sessions are a plain agent CLI.** Commands describe a session once
+  (`harness.Session`: its workspace, folders, read-only folders, denied
+  commands, instructions, first skill) and start it only through
+  `internal/harness`, which turns it into the CLI's files and command line:
+  Claude Code (`internal/session`: `--plugin-dir`, `--add-dir`,
+  `--settings` and the workspace's `.claude/settings.json`) or kiro
+  (`.kiro/agents/tix.json`, the plugin rendered into `.kiro/` by
+  `RenderKiro`, `chat --agent tix`). A new CLI is a new `Harness`; the
+  plugin stays one source in Claude's form, and whatever differs (skill
+  names, tool names) is the renderer's. Never add flags or knowledge of a
   particular sandbox or proxy: anything environment-specific is an
-  optional `CLAUDE_TICKETS_*` variable with a sensible default, documented
+  optional `TIX_*` variable with a sensible default, documented
   in the README's Configuration table and the home-manager module
-  (`nix/home.nix`).
+  (`nix/home.nix`). The one convention sessions share with a sandbox is
+  `SANDBOX_ADD_DIRS` / `SANDBOX_RO_PATHS` (what to mount), set by the harness.
 - **No workflow opinions in the defaults.** Only what the ticket system
-  needs to work goes in `session.WriteSettings` (today: ct's cache is never
+  needs to work goes in `session.WriteSettings` (today: tix's cache is never
   edited; spec and teach sessions also keep out of the repos; the repo
   directory is writable, protected on the host by the sandbox's read-only
   `.git/hooks`, `.git/config` and pointer files of existing clones and by `gitx.Command`, which
-  every ct git call uses: the repo's own config is read in Go and refused unless every key is on
+  every tix git call uses: the repo's own config is read in Go and refused unless every key is on
   the allowlist (`internal/gitx/allow.go`), then git runs with hooks, fsmonitor, sshCommand, credential
   helpers, signing, submodule recursion and non-https/ssh protocols off, and diff/log that read patches pass
   `--no-ext-diff --no-textconv`; not covered: the user's own git in a fresh clone, `.lfsconfig`,
   the check-to-read window). Everything else (git rules, MCP cost
-  guards) is the user's, through `CLAUDE_TICKETS_SESSION_SETTINGS`, and
+  guards) is the user's, through `TIX_SESSION_SETTINGS`, and
   recommended in the README.
-- **Plugin names are namespaced:** skills are `/tickets:<skill>`, agents
-  `tickets:<agent>`. Keep every reference (skills, tools, scaffold, README)
-  in that form. The plugin's hooks run `ct hook ...`; `assets.Materialize`
-  points them at this `ct` by path (the Nix package at its store `ct`).
-- **One command, `ct`.** Subcommands live in `internal/cli` (one file per
+- **Plugin names are namespaced:** skills are `/tix:<skill>`, agents
+  `tix:<agent>`. Keep every reference (skills, tools, scaffold, README)
+  in that form. The plugin's hooks run `tix hook ...`; `assets.Materialize`
+  points them at this `tix` by path (the Nix package at its store `tix`).
+- **One command, `tix`.** Subcommands live in `internal/cli` (one file per
   group), their logic in `internal/<area>`. Every change comes with tests:
-  testscript CLI tests in `testdata/script/*.txtar` (stub `claude`,
+  testscript CLI tests in `testdata/script/*.txtar` (stub `claude`, `kiro-cli`,
   `notify-send` and editor commands, real git), unit
-  tests next to the code. User-facing names are always `ct …`.
+  tests next to the code. User-facing names are always `tix …`.
 - **Specs over contracts:** a ticket's `contracts/` holds only shapes private to
   its own tasks (an internal signature). What another capability or repo uses
   lives in the capability spec's `## Interfaces`, and tasks cite requirement
   IDs (`requirements:`), not contract files (`docs/spec-workflow.md`, "Who writes specs").
-- **ct sync is pinned by golden vaults:** `testdata/sync/` holds a fake
+- **tix sync is pinned by golden vaults:** `testdata/sync/` holds a fake
   Jira (`state<n>.json`, built by `fixtures.jq`, served by
   `internal/mcp/mcptest`) and the vaults three runs must leave
   (`golden/run<n>`; they started as the bash ticket-sync's output). A
-  change to the notes ct sync writes updates them on purpose:
+  change to the notes tix sync writes updates them on purpose:
   `UPDATE_GOLDEN=1 go test -run TestScripts/sync .`, then review the diff.
   The `ticket-sync` skill writes the same layout for other sources: change
   both together.
@@ -69,11 +76,11 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
     otherwise.
   - running a session in the foreground of this terminal:
     `internal/launcher` (`Run`: exec where the OS can, a child process
-    with ct ignoring Ctrl-C on Windows; `exec_*.go`).
+    with tix ignoring Ctrl-C on Windows; `exec_*.go`).
   - process liveness (PID + start time): `internal/proc`.
   - locks, exec and writability: build-tagged files (`internal/lock`,
     `internal/gitx`, `exec_*.go`).
-  - terminal control for `ct status --watch` (VT mode on Windows consoles,
+  - terminal control for `tix status --watch` (VT mode on Windows consoles,
     resize signals): `internal/watch/term_unix.go` and `term_windows.go`.
 
   Never compare or split filesystem paths with `"/"`: use `filepath` and
@@ -88,7 +95,7 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
 - **The vault scaffold has a history:** a change to `assets/vault-scaffold/`
   needs `go generate ./assets`, which adds the new versions' hashes to
   `assets/scaffold-history.json` (read from git, so it needs full, not
-  shallow, history; hashes are only ever added). `ct vault update` uses it
+  shallow, history; hashes are only ever added). `tix vault update` uses it
   to tell an unedited old copy in a vault from an edited one, and
   `TestHistoryCoversScaffold` fails until it's run. On a merge conflict in
   the file, take either side and run it again.
@@ -100,9 +107,9 @@ guide; `UPDATES.md` lists every pin `nix flake update` doesn't move.
 go generate ./assets          # after changing assets/vault-scaffold/: its hash history
 make check                    # the one command: go vet, gofmt, go test $(TESTFLAGS) (default -p 4)
 make check TESTLOG=$(mktemp)  # also keeps `go test -json` output in that file (needs jq; a unique path per run or task, never a fixed shared one like /tmp/t.json); plain output stays on screen
-# inside a ct workspace its .tool-versions (asdf) pins Go and python; elsewhere set ASDF_GOLANG_VERSION
+# inside a tix workspace its .tool-versions (asdf) pins Go and python; elsewhere set ASDF_GOLANG_VERSION
 make cross                    # every OS/arch into dist/
-nix build .#default           # builds ct (runs go test)
+nix build .#default           # builds tix (runs go test)
 nix flake check
 ./configure --prefix="$(mktemp -d)" && make install   # the non-Nix path
 ```
@@ -120,5 +127,5 @@ gets a unit test that runs everywhere (e.g. `platform.DirsFor` for every
 GOOS).
 
 Test commands in a throwaway `HOME` / `XDG_CONFIG_HOME` / `OBSIDIAN_ROOT`
-with a stub `claude` on `PATH` that records its arguments; never against a
+with stub `claude` and `kiro-cli` on `PATH` that records its arguments; never against a
 real vault.

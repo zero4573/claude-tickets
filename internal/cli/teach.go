@@ -13,12 +13,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/launcher"
-	"github.com/zero4573/claude-tickets/internal/modelcache"
-	"github.com/zero4573/claude-tickets/internal/prompt"
-	"github.com/zero4573/claude-tickets/internal/session"
-	"github.com/zero4573/claude-tickets/internal/vault"
-	"github.com/zero4573/claude-tickets/internal/workspace"
+	"github.com/zero4573/tix/internal/harness"
+	"github.com/zero4573/tix/internal/launcher"
+	"github.com/zero4573/tix/internal/modelcache"
+	"github.com/zero4573/tix/internal/prompt"
+	"github.com/zero4573/tix/internal/vault"
+	"github.com/zero4573/tix/internal/workspace"
 )
 
 // topicRe is a learning topic's name: kebab-case, as it names the folder
@@ -27,11 +27,12 @@ var topicRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 func teachCmd() *cobra.Command {
 	var cont, list bool
+	var agent string
 	cmd := &cobra.Command{
-		Use:   "teach [--continue] [<topic>] | --list",
+		Use:   "teach [--continue] [--agent claude|kiro] [<topic>] | --list",
 		Short: "Learn a topic over many sessions, kept in the vault's learning/<topic>/",
 		Long: `Opens a teaching session on a topic (kebab-case, e.g. rust-async), from the
-current vault (ct vault default): a Claude session running /tickets:teach
+current vault (tix vault default): a Claude session running /tix:teach
 <topic>, in this terminal, in the foreground. A topic whose session runs
 in another terminal isn't started again.
 
@@ -71,11 +72,12 @@ instead.`,
 			if !topicRe.MatchString(topic) {
 				return fmt.Errorf("not a kebab-case topic: '%s' (lowercase letters, digits and dashes, e.g. rust-async)", topic)
 			}
-			return teach(ctx, topic, cont)
+			return teach(ctx, topic, cont, agent)
 		},
 	}
 	cmd.Flags().BoolVarP(&cont, "continue", "c", false, "continue the topic's last conversation instead of starting a new one")
 	cmd.Flags().BoolVar(&list, "list", false, "print the vault's learning topics")
+	cmd.Flags().StringVar(&agent, "agent", "", agentHelp)
 	return cmd
 }
 
@@ -110,7 +112,7 @@ func pickTopic(topics []string) (string, error) {
 		for _, t := range topics {
 			fmt.Println(t)
 		}
-		return "", errors.New("name a topic: ct teach <topic> (kebab-case; one above, or a new one)")
+		return "", errors.New("name a topic: tix teach <topic> (kebab-case; one above, or a new one)")
 	}
 	for i, t := range topics {
 		fmt.Fprintf(os.Stderr, "  %d) %s\n", i+1, t)
@@ -132,14 +134,14 @@ func pickTopic(topics []string) (string, error) {
 	return a, nil
 }
 
-func teach(ctx vault.Context, topic string, cont bool) error {
+func teach(ctx vault.Context, topic string, cont bool, agent string) error {
 	if !isTerminal() {
 		return errors.New("the session runs in this terminal, and this isn't one (stdin/stdout); run it from a terminal")
 	}
 	name := "teach-" + topic
 
 	// A workspace with no repos of its own, like kb's: the hooks record its
-	// state there. Hidden, so ct status and ct ws skip it.
+	// state there. Hidden, so tix status and tix ws skip it.
 	dir := filepath.Join(ctx.WorkRoot, ".teach-"+filepath.Base(ctx.Vault), topic)
 	_, err := os.Stat(filepath.Join(dir, ".agent-state"))
 	resume := err == nil && cont
@@ -149,26 +151,40 @@ func teach(ctx vault.Context, topic string, cont bool) error {
 	if err := workspace.Ensure(dir, name, ctx.Vault); err != nil {
 		return err
 	}
-	if err := session.Trust(dir); err != nil {
-		warnf("couldn't mark %s as trusted in %s: %v", dir, session.ClaudeConfig(), err)
-	}
-	if err := session.WriteSettings(dir, append(session.ReposReadOnly(ctx.ProjectsRoot), "Bash(git commit:*)", "Bash(git push:*)")...); err != nil {
-		return err
-	}
-	writeToolVersions(ctx, dir)
-	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte(teachClaudeMD(ctx, topic)), 0o644); err != nil {
-		return err
-	}
-	argv, err := session.Command(ctx.Vault, ctx.ProjectsRoot, modelcache.Dir())
+	h, err := harness.Select(agent, vault.AgentOf(ctx.Vault))
 	if err != nil {
 		return err
 	}
-	argv = append(argv, "--permission-mode", "auto")
-	if resume {
-		argv = append(argv, "--continue")
+	if prev := workspace.Agent(dir); resume && prev != h.Name() {
+		warnf("%s: its last session ran %s, not %s, so it can't be continued: starting a new one", topic, prev, h.Name())
+		resume = false
 	}
-	argv = append(argv, "/tickets:teach "+topic)
-	w := launcher.Session{Dir: dir, Argv: argv, Env: map[string]string{"CLAUDE_TICKETS_VAULT": ctx.Vault}}
+	if err := workspace.SetAgent(dir, h.Name()); err != nil {
+		warnf("couldn't record the agent in %s: %v", workspace.File(dir), err)
+	}
+	writeToolVersions(ctx, dir)
+	s := harness.Session{
+		Dir:          dir,
+		Dirs:         []string{ctx.Vault},
+		ReposRoot:    ctx.ProjectsRoot,
+		ReadOnly:     []string{modelcache.Dir()},
+		DenyShell:    []string{"git commit", "git push"},
+		Instructions: teachClaudeMD(ctx, topic),
+		Settings:     true,
+		Skill:        "teach",
+		Args:         topic,
+		Continue:     resume,
+	}
+	if err := h.Prepare(s); err != nil {
+		return err
+	}
+	argv, err := h.Argv(s)
+	if err != nil {
+		return err
+	}
+	env := h.Env(s)
+	env["TIX_VAULT"] = ctx.Vault
+	w := launcher.Session{Dir: dir, Argv: argv, Env: env}
 	again := ""
 	if resume {
 		again = " (continuing its last session)"
@@ -184,21 +200,21 @@ func teach(ctx vault.Context, topic string, cont bool) error {
 		}
 		warnf("couldn't record the session in %s: %v", workspace.SessionsFile(dir), err)
 	}
-	fmt.Printf("ct teach: %s runs in this terminal%s\n", topic, again)
+	fmt.Printf("tix teach: %s runs in this terminal%s\n", topic, again)
 	return passExit(launcher.Run(w))
 }
 
 func teachClaudeMD(ctx vault.Context, topic string) string {
 	return fmt.Sprintf("# Teaching session: %[1]s\n\n"+
-		"Written by ct teach; regenerated on every start, so don't edit it.\n\n"+
+		"Written by tix teach; regenerated on every start, so don't edit it.\n\n"+
 		"- Vault: `%[2]s`. Read its `AGENTS.md` for note rules.\n"+
 		"- Topic: `%[1]s`. This session writes **only** `%[2]s/learning/%[1]s/`,\n"+
-		"  directly (no `/tickets:save`), holding `ct vault lock acquire %[2]s\n"+
+		"  directly (no `/tix:save`), holding `tix vault lock acquire %[2]s\n"+
 		"  teach-%[1]s` around writes that touch more than one file.\n"+
 		"- Repos: main clones at `%[3]s/<provider>/<owner>/<repo>`, read-only, for\n"+
 		"  examples. Never edit, commit or push.\n\n"+
-		"Follow the `teach` skill (`/tickets:teach %[1]s`). `ct teach %[1]s` opens a new\n"+
-		"conversation, which picks up from the topic's notes; `ct teach --continue\n"+
+		"Follow the `teach` skill (`/tix:teach %[1]s`). `tix teach %[1]s` opens a new\n"+
+		"conversation, which picks up from the topic's notes; `tix teach --continue\n"+
 		"%[1]s` reopens the last one.\n",
 		topic, ctx.Vault, ctx.ProjectsRoot)
 }

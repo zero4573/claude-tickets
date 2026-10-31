@@ -40,7 +40,7 @@ func pluginTexts(t *testing.T) map[string]string {
 	return out
 }
 
-// Every tickets:<name> the skills and agents mention is an agent or a skill
+// Every tix:<name> the skills and agents mention is an agent or a skill
 // the plugin ships, so no spawn request or skill load names something gone
 // (e.g. an old role agent or a renamed skill).
 func TestPluginNamesResolve(t *testing.T) {
@@ -54,7 +54,7 @@ func TestPluginNamesResolve(t *testing.T) {
 			known[strings.TrimSuffix(e.Name(), ".md")] = true
 		}
 	}
-	re := regexp.MustCompile(`tickets:([a-z][a-z-]*[a-z])`)
+	re := regexp.MustCompile(`tix:([a-z][a-z-]*[a-z])`)
 	for p, s := range pluginTexts(t) {
 		for _, m := range re.FindAllStringSubmatch(s, -1) {
 			if !known[m[1]] {
@@ -108,12 +108,12 @@ func TestLeadFinalBlockHasPOActions(t *testing.T) {
 			t.Errorf("PO event loop has no action for Next: %s", v)
 		}
 	}
-	for _, a := range []string{"tickets:task", "tickets:mechanical", "tickets:reviewer", "tickets:reviewer-deep"} {
+	for _, a := range []string{"tix:task", "tix:mechanical", "tix:reviewer", "tix:reviewer-deep"} {
 		if !strings.Contains(lead, "`"+a+"`") {
 			t.Errorf("lead: doesn't name %s", a)
 		}
 	}
-	if !strings.Contains(po, "`tickets:task`, `tickets:mechanical`, `tickets:reviewer(-deep)`") {
+	if !strings.Contains(po, "`tix:task`, `tix:mechanical`, `tix:reviewer(-deep)`") {
 		t.Error("PO: the agents it spawns for the lead aren't listed")
 	}
 }
@@ -157,7 +157,7 @@ func TestPOLeadQAFixes(t *testing.T) {
 			t.Errorf("%s asks for a built-in Plan agent", p)
 		}
 	}
-	has("lead", lead, "You draft it yourself", "`tickets:reviewer-deep` pass on the contract file")
+	has("lead", lead, "You draft it yourself", "`tix:reviewer-deep` pass on the contract file")
 
 	// D2: liveness by session id, orphaned rows, no lead at review or done.
 	has("PO", po, "`$CLAUDE_CODE_SESSION_ID`", "po: session:", "never by a ping timeout", "`orphaned`",
@@ -520,10 +520,10 @@ func TestFollowUpsAskedPerItem(t *testing.T) {
 	texts["plugin/skills/work-ticket/SKILL.md"] += " " + texts["plugin/skills/work-ticket/workflow.md"]
 	for p, want := range map[string]string{
 		"plugin/skills/lead/SKILL.md":        "Never file a ticket on your own",
-		"plugin/skills/lead/handover.md":     "Never run `ct new` unasked",
-		"plugin/skills/spec/SKILL.md":        "Never run `ct new` without that answer",
+		"plugin/skills/lead/handover.md":     "Never run `tix new` unasked",
+		"plugin/skills/spec/SKILL.md":        "Never run `tix new` without that answer",
 		"plugin/skills/retro/SKILL.md":       "never file unasked",
-		"plugin/skills/work-ticket/SKILL.md": "nothing is filed with `ct new` before the answer",
+		"plugin/skills/work-ticket/SKILL.md": "nothing is filed with `tix new` before the answer",
 	} {
 		if !strings.Contains(texts[p], want) {
 			t.Errorf("%s: missing %q", p, want)
@@ -534,9 +534,9 @@ func TestFollowUpsAskedPerItem(t *testing.T) {
 	}
 }
 
-// /tickets:new-ticket files a ticket only after the user confirms the source
+// /tix:new-ticket files a ticket only after the user confirms the source
 // and the draft, never headless, under the current epic by default, with a
-// manual fallback; the synced note comes from ct sync in the source layout.
+// manual fallback; the synced note comes from tix sync in the source layout.
 func TestNewTicketSkill(t *testing.T) {
 	texts := pluginTexts(t)
 	s, ok := texts["plugin/skills/new-ticket/SKILL.md"]
@@ -556,16 +556,16 @@ func TestNewTicketSkill(t *testing.T) {
 	for _, want := range []string{
 		"AskUserQuestion", "create nothing", "Nothing is filed without a yes",
 		"`ticket-type: epic`", "parent: {key: <ID>}", "`covers`",
-		"`ct new --type", "tickets/<source>/<NEW-ID>/<NEW-ID>.md", "tickets/manual/",
-		"`ct sync --source <source>`", "write:jira:agent-interface", "Cost guard",
+		"`tix new --type", "tickets/<source>/<NEW-ID>/<NEW-ID>.md", "tickets/manual/",
+		"`tix sync --source <source>`", "write:jira:agent-interface", "Cost guard",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("new-ticket: missing %q", want)
 		}
 	}
 	for p, want := range map[string]string{
-		"plugin/skills/work-ticket/SKILL.md": "`/tickets:new-ticket`",
-		"plugin/skills/spec/SKILL.md":        "`/tickets:new-ticket`",
+		"plugin/skills/work-ticket/SKILL.md": "`/tix:new-ticket`",
+		"plugin/skills/spec/SKILL.md":        "`/tix:new-ticket`",
 	} {
 		if !strings.Contains(texts[p], want) {
 			t.Errorf("%s: missing %q", p, want)
@@ -636,7 +636,7 @@ func TestFollowUpAskWording(t *testing.T) {
 	}
 }
 
-// W7-claude-tickets-S01/S02: every quoted "Heading" cited after the vault's
+// W7-tix-S01/S02: every quoted "Heading" cited after the vault's
 // AGENTS.md (or [[AGENTS]]) or after work-ticket/workflow.md names a heading
 // that exists there, in the scaffold (templates, tree comments), the plugin
 // skills and agents.
@@ -853,13 +853,13 @@ func TestPOSpecSideAndTemplates(t *testing.T) {
 		}
 	}
 	skill := read("plugin/skills/work-ticket/SKILL.md")
-	has("work-ticket", skill, "ct relay add <ID> --from user --to lead", "`ct relay state <ID> R-nn <state>`", "never `>>`", "`ct spec diff <ID>`", "`specs.md`")
+	has("work-ticket", skill, "tix relay add <ID> --from user --to lead", "`tix relay state <ID> R-nn <state>`", "never `>>`", "`tix spec diff <ID>`", "`specs.md`")
 	if strings.Contains(skill, "append with `>>`") {
 		t.Error("work-ticket still appends to relay.md with >>")
 	}
-	has("specs.md", read("plugin/skills/work-ticket/specs.md"), "ct spec diff <ID>", "`## Specs`", "tickets/<source>/<ID>/specs/<slug>/", "promotes it", "at once", "`ready`", "`implemented`")
+	has("specs.md", read("plugin/skills/work-ticket/specs.md"), "tix spec diff <ID>", "`## Specs`", "tickets/<source>/<ID>/specs/<slug>/", "promotes it", "at once", "`ready`", "`implemented`")
 	has("kickoff", read("plugin/skills/work-ticket/kickoff.md"), "`spec-draft.md`", "write the spec diff")
-	has("workflow", read("plugin/skills/work-ticket/workflow.md"), "`ct relay add`", "`ct relay state`")
+	has("workflow", read("plugin/skills/work-ticket/workflow.md"), "`tix relay add`", "`tix relay state`")
 	has("board template", read("vault-scaffold/templates/board.md"), "## Specs\n", "draft|ready|building|merged", "needs <slug>/<capability>")
 	task := read("vault-scaffold/templates/task.md")
 	has("task template", task, "`board.md` `commit-style:`", "never the ticket ID", "full check set", "DB\nsuites included")

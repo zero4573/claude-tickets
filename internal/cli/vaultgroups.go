@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zero4573/claude-tickets/internal/projects"
+	"github.com/zero4573/tix/internal/projects"
 )
 
 func vaultGroupsCmd() *cobra.Command {

@@ -10,29 +10,29 @@ chmod 755 bin/ttt
 env PATH=$WORK/bin:$PATH
 
 # env set: it wins over ttt
-env CLAUDE_TICKETS_EDITOR='code --new-window'
-exec ct open MAN-1
+env TIX_EDITOR='code --new-window'
+exec tix open MAN-1
 grep 'MAN-1.code-workspace$' calls/editor
 ! grep 'repo-a' calls/editor
 rm calls/editor
 
 # no env, ttt on PATH: each worktree, then the vault folder
-env CLAUDE_TICKETS_EDITOR=
-exec ct open MAN-1
+env TIX_EDITOR=
+exec tix open MAN-1
 grep '/MAN-1/repo-a .*/MAN-1/repo-b .*/Obsidian/a/tickets/MAN-1$' calls/editor
 rm calls/editor
 
 # neither ttt nor env: code as before
 rm bin/ttt
-exec ct open MAN-1
+exec tix open MAN-1
 grep 'MAN-1.code-workspace$' calls/editor
 rm calls/editor
 
 # no env, no ttt, no code: the error
 rm bin/code
-exec sh -c 'ln -s "$(command -v ct)" bin/ct'
+exec sh -c 'ln -s "$(command -v tix)" bin/tix'
 env PATH=$WORK/bin
-! exec ct open MAN-1
+! exec tix open MAN-1
 stderr 'editor .code. not found'
 
 -- man-1.md --
