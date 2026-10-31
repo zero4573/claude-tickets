@@ -85,7 +85,7 @@ report `partial` with what's left instead of going on.
   commit what works and report `blocked`.
 
 ## Report (the only thing the lead reads; ≤40 lines, ≤15 for tix:mechanical)
-Write it under the task file's existing `## Report` heading, the line that is exactly `## Report` (never at a `## Report` quoted inside the task's text; task files already have one: fill it, never append a second), by Edit or by appending inside that section, never a shell redirect that rewrites the task file, then re-read it (`sed -n '/^## Report/,$p' <task file>`) (`sed -n '/^## Report/,$p'`; never hand back without it) and reply with the same text; if the write failed or the section is still empty, start the reply with `REPORT NOT WRITTEN: <reason>` (the reply goes to
+Write it with `tix vault note set-section <ID>-NN-<slug> '## Report' <<'EOF'` … `EOF` (the task file's bare name; run from your worktree or the workspace): it replaces only the body of the task file's own `## Report` heading (never one quoted inside a code block), atomically, and leaves every other byte of the file as it was. Never Edit, Write, truncate or redirect the task file itself (never a shell redirect that rewrites the task file), never append a second `## Report`. Then re-read it (`sed -n '/^## Report/,$p' <task file>`; never hand back without it) and reply with the same text; if the command failed (exit 2: not found or ambiguous; 3: refused) or the section is still empty, start the reply with `REPORT NOT WRITTEN: <reason>` (the reply goes to
 the PO, which tells the lead; the lead reads the task file):
 ```
 Task NN: done | partial | blocked

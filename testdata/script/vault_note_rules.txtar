@@ -18,6 +18,17 @@ grep '^added$' ../../v/tickets/PROJ-1/scratch.md
 exec tix vault note frontmatter PROJ-1 status --set doing
 exec tix vault note set-section PROJ-1 Tasks --file ../../add.txt
 
+# a task agent writes its task file's ## Report from its worktree (as
+# task-agent tells it): only that section changes, a ## Report quoted in a
+# fence stays, and the rest of the file is byte for byte what it was
+mkdir ../../v/tickets/PROJ-1/tasks ../tasks/acme-01
+cp ../../task.md ../../v/tickets/PROJ-1/tasks/PROJ-1-01-retry.md
+cd ../tasks/acme-01
+stdin ../../../report.txt
+exec tix vault note set-section PROJ-1-01-retry '## Report'
+stdout 'wrote tickets/PROJ-1/tasks/PROJ-1-01-retry.md'
+cmp ../../../v/tickets/PROJ-1/tasks/PROJ-1-01-retry.md ../../../task_after.md
+cd ../../sub
 # other folders are refused (exit 3) and left alone
 ! exec tix vault note append projects/acme/a.md Log --file ../../add.txt
 stderr 'tix vault note: refusing to write projects/acme/a.md: a ticket.s agents write only inside tickets/PROJ-1/ until /tix:save \(AGENTS.md, "Who writes what" 3\); /tix:save passes --save'
@@ -269,3 +280,47 @@ x
 k=$(printf 'status: x\ntitle')
 tix vault note frontmatter PROJ-1 "$k" --set hacked >/dev/null 2>&1
 echo "code=$?"
+-- task.md --
+---
+id: 01
+ticket: "[[PROJ-1]]"
+---
+## Goal
+Retry the upload.
+
+## Do
+- Write it as in this sample:
+```
+## Report
+not the heading
+```
+
+## Checks
+- make check
+
+## Report
+<!-- Written by the task agent -->
+-- report.txt --
+Task 01: done
+Commits: abc1234 feat(upload): retry
+-- task_after.md --
+---
+id: 01
+ticket: "[[PROJ-1]]"
+---
+## Goal
+Retry the upload.
+
+## Do
+- Write it as in this sample:
+```
+## Report
+not the heading
+```
+
+## Checks
+- make check
+
+## Report
+Task 01: done
+Commits: abc1234 feat(upload): retry

@@ -47,4 +47,4 @@ suites included (with their env); no subset.
 - ≤5 plain bullets
 
 ## Report
-<!-- Written by the task agent: ≤40 lines (≤15 for tix:mechanical) -->
+<!-- Written by the task agent, only with `tix vault note set-section <this note> '## Report'`: ≤40 lines (≤15 for tix:mechanical) -->
