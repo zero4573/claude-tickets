@@ -74,7 +74,7 @@ report `partial` with what's left instead of going on.
   style (`board.md` `commit-style:` wins: `conventional`, `repo` or `ticket`; else the workspace `CLAUDE.md`: `<ID> <summary>` for a synced ticket, else no ID), body says why.
   Commit signed (`git commit -S`); `--no-gpg-sign` only after a signed commit failed, and say so under `Checks:` in the report.
 - Vault-only IDs (task numbers, waves, `R-`/`B-` entries, review findings, a manual ticket's key)
-  never go into code, comments, test names, docs or commit messages; only the vault's files carry them.
+  never go into code, comments, test names, docs or commit messages (no `TestW116…`, even when a task file suggests one); only the vault's files carry them.
 - Never push, merge, rebase, reset, switch branches, or add or remove worktrees: the lead
   merges. Never edit the vault outside `tickets/<source>/<ID>/`.
 - No paid Rovo calls (the vault's `AGENTS.md`, "Cost guard"). No secrets in files.
@@ -107,7 +107,7 @@ On "stop: ..." from the PO or lead: `git add -A` (untracked files in `owns` incl
 
 ## Before you report
 - `git -C <worktree> status --short` is empty (everything committed), and the full check ran after the last commit.
-- `tix ws diff-check -C <worktree> --ticket <ID> <ticket-branch>..HEAD` exits 0: drop any binary or large file it flags from your branch (or name it in the report if it belongs there), and reword any `vault-id` line (the ticket's own vault-only IDs in code or commit messages), except a hit on a line kept from the base or in a fixture that models a ticket: note that one in the report, don't reword it.
+- `tix ws diff-check -C <worktree> --ticket <ID> <ticket-branch>..HEAD` exits 0: drop any binary or large file it flags from your branch (or name it in the report if it belongs there), and reword any `vault-id` line (the ticket's own vault-only IDs in code or commit messages), except a hit on a line kept from the base or in a fixture that models a ticket: note that one in the report, don't reword it. A `wave-test` line is a test named after a wave: rename it after the behaviour it checks.
 - Every subject of `git -C <worktree> log --format=%s <ticket-branch>..HEAD` follows the commit style (`conventional`: `type(scope): summary`, e.g. `fix(ws): …`); reword any that doesn't before reporting (your branch is unpushed).
 - Nothing left running: no background poll loops (`until … sleep`), watchers, dev servers or
   containers you started. Wait for a command in the foreground with a timeout instead.

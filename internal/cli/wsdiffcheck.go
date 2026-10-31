@@ -43,8 +43,15 @@ reworded line passes):
 
   vault-id  <the ID>  <short sha>  <path | :commit-message>
 
+and a test name built from one of the ticket's waves (the w<N> of board.md's
+task lines and of reviews/wave-<N>-*.md: TestW116Foo, test_w3_bar) that a
+commit adds to a test file (*_test.go, test_*.py, *.spec.ts, a file under
+test/ or spec/, ...) more often than it removes it:
+
+  wave-test  <the name>  <short sha>  <path>
+
 Lines are per commit in rev-list order, its size lines first, then its
-vault-id lines, then two informational note lines (they never change the
+vault-id and wave-test lines, then two informational note lines (they never change the
 exit code):
 
   note  test-changed  <name>  <short sha>  <path>
@@ -82,6 +89,7 @@ directory that is not a git checkout, or a bad range.`,
 				return fmt.Errorf("diff-check: git not found")
 			}
 			var ids []string
+			var waves []int
 			if ticket != "" {
 				ctx, err := vault.Require()
 				if err != nil {
@@ -92,14 +100,18 @@ directory that is not a git checkout, or a bad range.`,
 					return fmt.Errorf("diff-check: ticket %s not found in the vault", ticket)
 				}
 				ids = diffcheck.TicketIDs(folder, ticket)
+				waves = diffcheck.TicketWaves(folder)
 			}
 			found, err := diffcheck.Check(dir, args[0], limit)
 			if err != nil {
 				return fmt.Errorf("diff-check: %w", err)
 			}
-			var hits []diffcheck.IDHit
+			var hits, waveHits []diffcheck.IDHit
 			if ticket != "" {
 				if hits, err = diffcheck.CheckIDs(dir, args[0], ids); err != nil {
+					return fmt.Errorf("diff-check: %w", err)
+				}
+				if waveHits, err = diffcheck.CheckWaveTests(dir, args[0], waves); err != nil {
 					return fmt.Errorf("diff-check: %w", err)
 				}
 			}
@@ -114,7 +126,7 @@ directory that is not a git checkout, or a bad range.`,
 			}
 			signing := diffNoteBool(dir, "commit.gpgsign")
 			var b strings.Builder
-			fi, hi := 0, 0
+			fi, hi, wi := 0, 0, 0
 			for _, sha := range revs {
 				short := diffcheck.ShortSHA(sha)
 				for ; fi < len(found) && found[fi].Commit == short; fi++ {
@@ -125,11 +137,15 @@ directory that is not a git checkout, or a bad range.`,
 					h := hits[hi]
 					fmt.Fprintf(&b, "vault-id\t%s\t%s\t%s\n", h.ID, h.Commit, h.Path)
 				}
+				for ; wi < len(waveHits) && waveHits[wi].Commit == short; wi++ {
+					h := waveHits[wi]
+					fmt.Fprintf(&b, "wave-test\t%s\t%s\t%s\n", h.ID, h.Commit, h.Path)
+				}
 				for _, n := range diffNotes(dir, sha, short, signing, limit) {
 					b.WriteString(n + "\n")
 				}
 			}
-			if fi != len(found) || hi != len(hits) {
+			if fi != len(found) || hi != len(hits) || wi != len(waveHits) {
 				return fmt.Errorf("diff-check: the range changed while it was checked")
 			}
 			for _, h := range specHits {
@@ -142,10 +158,13 @@ directory that is not a git checkout, or a bad range.`,
 			if len(hits) > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "tix ws diff-check: %d vault-only ID(s) of %s in the range\n", len(hits), ticket)
 			}
+			if len(waveHits) > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "tix ws diff-check: %d test name(s) built from a wave of %s (name the test after the behaviour)\n", len(waveHits), ticket)
+			}
 			if len(specHits) > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "tix ws diff-check: %d requirement ID(s) taken twice in specs/ (renumber the later one)\n", len(specHits))
 			}
-			if len(found) > 0 || len(hits) > 0 || len(specHits) > 0 {
+			if len(found) > 0 || len(hits) > 0 || len(waveHits) > 0 || len(specHits) > 0 {
 				return exitError(3)
 			}
 			return nil

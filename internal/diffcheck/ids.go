@@ -59,6 +59,11 @@ func TicketIDs(folder, id string) []string {
 	return out
 }
 
+// matcher counts the occurrences of what it looks for in a line
+type matcher interface {
+	count(s string, into map[string]int)
+}
+
 // idMatcher finds whole-word occurrences of any of a set of IDs with one
 // alternation regex. IDs start and end with a word character, so `\b`
 // marks a whole word (as `[^A-Za-z0-9_]` or the line's edge would).
@@ -114,7 +119,7 @@ func CheckIDs(dir, revRange string, ids []string) ([]IDHit, error) {
 	m := newIDMatcher(ids)
 	var hits []IDHit
 	for _, sha := range revs {
-		h, err := commitIDs(dir, sha, m)
+		h, err := commitIDs(dir, sha, m, true, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -123,16 +128,21 @@ func CheckIDs(dir, revRange string, ids []string) ([]IDHit, error) {
 	return hits, nil
 }
 
-func commitIDs(dir, sha string, m idMatcher) ([]IDHit, error) {
-	msg, err := gitx.OutIn(dir, nil, "log", "-1", "--format=%B", sha)
-	if err != nil {
-		return nil, err
-	}
+// commitIDs lists what m finds that the commit introduces: in its message
+// (when message) any occurrence, in a file (of those keep accepts; nil is
+// every file) one it adds more often than it removes.
+func commitIDs(dir, sha string, m matcher, message bool, keep func(path string) bool) ([]IDHit, error) {
 	var hits []IDHit
-	inMsg := map[string]int{}
-	m.count(msg, inMsg)
-	for _, id := range sortedKeys(inMsg) {
-		hits = append(hits, IDHit{ID: id, Commit: ShortSHA(sha), Path: MessagePath})
+	if message {
+		msg, err := gitx.OutIn(dir, nil, "log", "-1", "--format=%B", sha)
+		if err != nil {
+			return nil, err
+		}
+		inMsg := map[string]int{}
+		m.count(msg, inMsg)
+		for _, id := range sortedKeys(inMsg) {
+			hits = append(hits, IDHit{ID: id, Commit: ShortSHA(sha), Path: MessagePath})
+		}
 	}
 	diffArgs := []string{"diff-tree", "-r", "--root", "--no-renames", "--no-commit-id", "--no-ext-diff", "--no-textconv"}
 	// the paths, raw, in the order of the patch's `diff --git` blocks
@@ -160,7 +170,7 @@ func commitIDs(dir, sha string, m idMatcher) ([]IDHit, error) {
 		case strings.HasPrefix(l, "diff --git "):
 			block++
 			inHunk, cur = false, nil
-			if block < len(paths) {
+			if block < len(paths) && (keep == nil || keep(paths[block])) {
 				p := paths[block]
 				if per[p] == nil {
 					per[p] = &counts{map[string]int{}, map[string]int{}}

@@ -78,6 +78,7 @@ range exit 1.
 |---|---|
 | `binary`, `large`, `binary,large`, size, short sha, path | a file a commit adds or modifies that git treats as binary or whose blob is over the limit |
 | `vault-id`, ID, short sha, path or `:commit-message` | with `--ticket`, the ticket's own vault-only IDs (the key, relay `R-nn`, backlog `B-nn`, review finding IDs) that a commit introduces; a line kept from the base passes |
+| `wave-test`, test name, short sha, path | with `--ticket`, a test name built from one of the ticket's waves (`TestW116Foo`, `test_w3_bar`) that a commit adds to a test file; a name kept from the base passes |
 | `spec-id`, REQ-ID, short sha, spec file | for `A..B` or `A...B`, a requirement ID that B adds but A already defines, or that B defines twice |
 | `note test-changed <name> <sha> <path>` | a commit changes or removes a Go `Test*`, `Benchmark*`, `Fuzz*` or `Example*` func that its first parent had; name `-` stands for a `testdata/**/*.txtar` file or a test file that couldn't be parsed |
 | `note unsigned - <sha> :commit` | a commit with no signature, printed only when `commit.gpgsign` is true in that checkout |

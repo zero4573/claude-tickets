@@ -70,6 +70,29 @@ exec tix ws diff-check -C repo main..topic
 ! exec tix ws diff-check -C repo --ticket NOPE-1 main..topic
 stderr 'not found'
 
+# wave-test: a test named after one of the ticket's waves (w1, from
+# reviews/wave-1-acme.md), only in test files and only when added
+exec git -C repo reset -q --hard main
+cp wavetest repo/retry_test.go
+cp wavetest repo/notes.go
+exec git -C repo add -A
+exec git -C repo commit -q -m 'add retry test'
+! exec tix ws diff-check -C repo --ticket PROJ-12 main..topic
+stdout '^wave-test\tTestW1Retry\t[0-9a-f]+\tretry_test.go$'
+! stdout 'notes.go'
+! stdout 'TestW12Other'
+stderr '1 test name\(s\) built from a wave of PROJ-12'
+# without --ticket nothing is known about waves
+exec tix ws diff-check -C repo main..topic
+! stdout .
+# kept from the base: passes
+exec git -C repo branch -f main
+cp wavetest-edited repo/retry_test.go
+exec git -C repo commit -q -am 'edit the retry test'
+exec tix ws diff-check -C repo --ticket PROJ-12 main..topic
+! stdout 'wave-test'
+stdout '^note\ttest-changed\tTestW1Retry\t'
+
 # spec-id: a requirement ID taken twice in specs/
 exec git init -q -b main srepo
 mkdir srepo/specs/orders srepo/specs/billing
@@ -172,3 +195,15 @@ prefix: BIL
 ### REQ-ORD-2 · Taken
 status: proposed
 The system SHALL bill.
+-- wavetest --
+package acme
+
+func TestW1Retry(t *testing.T) {}
+
+func TestW12Other(t *testing.T) {}
+-- wavetest-edited --
+package acme
+
+func TestW1Retry(t *testing.T) { t.Log("edited") }
+
+func TestW12Other(t *testing.T) {}

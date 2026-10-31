@@ -107,6 +107,15 @@ lines before its ID lines. A generic `R-9090` that the ticket's relay doesn't ha
 ticket that is not in the vault is a usage error (exit 1). The skills treat a hit in a fixture
 that models a ticket as a note, not a must-fix.
 
+The same `--ticket` run flags test names built from the ticket's waves, whose numbers come from
+the board's task lines (`· w<N> ·`, in `board.md` and `board-archive.md`) and the review files'
+names (`reviews/wave-<N>-*.md`): an identifier like `TestW116DeleteConflict`, `test_w3_retries`
+or `testW3` that a commit adds to a test file (`*_test.go`, `test_*.py`, `*.test.ts`,
+`*.spec.ts`, `*_spec.rb`, `*_test.exs`, `*_test.dart`, or a file under `test/`, `tests/`,
+`__tests__/` or `spec/`) more often than it removes it. Each is a `wave-test` line after the
+commit's `vault-id` lines, and exit 3 applies. Only the ticket's own wave numbers count, so
+`TestW2Form` passes in a ticket without a wave 2.
+
 ```mermaid
 sequenceDiagram
   participant T as task agent
