@@ -99,6 +99,7 @@ func kiroAgent(s Session, exe string, subagents []string) []byte {
 		"name":           AgentName,
 		"description":    "tix session",
 		"prompt":         p.String(),
+		"model":          KiroSessionModel, // the start: /model changes it for the session
 		"tools":          []string{"*"},
 		"includeMcpJson": true,
 		"hooks": map[string]any{

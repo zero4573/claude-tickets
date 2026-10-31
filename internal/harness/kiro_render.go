@@ -38,6 +38,30 @@ const kiroToolNotes = "> **In kiro:** this playbook names Claude Code's tools. U
 	"> new instructions, or hand them over through the files the workflow already uses\n" +
 	"> (`relay.md`, `board.md`).\n\n"
 
+// The kiro models (ids from `kiro-cli chat --list-models`). The session's
+// agent (the PO) starts on KiroSessionModel, a default only: /model
+// switches it for the session, and --model in $TIX_KIRO wins over it. The
+// subagents run on kiroAgentModels[<agent>], else kiroAgentModelDefault
+// (kiro's router). Claude's models are the agents' own frontmatter.
+const (
+	KiroSessionModel      = "claude-sonnet-5.5"
+	kiroAgentModelDefault = "auto"
+)
+
+// kiroAgentModels: the agents that run on a fixed model, by plugin name
+var kiroAgentModels = map[string]string{
+	"lead":          "claude-opus-5.5",
+	"reviewer-deep": "claude-opus-5.5",
+}
+
+// KiroAgentModel is the kiro model of the plugin's agent name.
+func KiroAgentModel(name string) string {
+	if m, ok := kiroAgentModels[name]; ok {
+		return m
+	}
+	return kiroAgentModelDefault
+}
+
 var kiroRefs = regexp.MustCompile(`(/?)tix:([a-z][a-z0-9-]*)`)
 
 // KiroText is text of the plugin (or of a tix-written instructions file)
@@ -128,11 +152,13 @@ func RenderKiro(plugin, dotKiro string) ([]string, error) {
 			return nil, err
 		}
 		front, body := splitFrontmatter(string(data))
-		name := "tix-" + strings.TrimSuffix(filepath.Base(f), ".md")
+		base := strings.TrimSuffix(filepath.Base(f), ".md")
+		name := "tix-" + base
 		cfg := map[string]any{
 			"name":        name,
 			"description": KiroText(frontValue(front, "description")),
 			"prompt":      kiroToolNotes + KiroText(strings.TrimLeft(body, "\n")),
+			"model":       KiroAgentModel(base),
 			"tools":       []string{"*"},
 			// kiro gives an agent without it no MCP servers, so the
 			// subagents couldn't reach Jira/Bitbucket as the session can

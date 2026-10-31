@@ -230,12 +230,15 @@ workspace, where tix writes at every start:
   the session works in (kiro has no `--add-dir`), the commands it never runs
   (spec and teach: `git commit`, `git push`), `AGENTS.md` as a resource,
   `includeMcpJson`, and hooks that run `tix hook --agent kiro agent-state`
-  for `tix status`
+  for `tix status`. It starts on `claude-sonnet-5.5`: only a default,
+  `/model` switches it for the session (and `--model` in `$TIX_KIRO`
+  overrides it at start)
 - the plugin, rendered for kiro: each skill as `.kiro/skills/tix-<name>/`
   (kiro skill names can't hold `:`, so `/tix:save` is `/tix-save`), each agent
   as `.kiro/agents/tix-<name>.json` (the `subagent_tix-<name>` tool, with
   `includeMcpJson` like the session's agent, or it would get no MCP
-  servers), with
+  servers, and a model: `claude-opus-5.5` for `tix-lead` and
+  `tix-reviewer-deep`, `auto` for the rest), with
   every `tix:<name>` reference rewritten and a short table mapping the
   Claude tool names the playbooks use onto kiro's. Files of your own in
   `.kiro/` stay; `tix-*` ones are replaced

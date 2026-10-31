@@ -86,6 +86,14 @@ func TestRenderKiroPlugin(t *testing.T) {
 		if cfg["includeMcpJson"] != true {
 			t.Errorf("%s.json: includeMcpJson = %v, want true", a, cfg["includeMcpJson"])
 		}
+		// the lead and the deep reviewer on opus, the rest on kiro's router
+		want := "auto"
+		if a == "tix-lead" || a == "tix-reviewer-deep" {
+			want = "claude-opus-5.5"
+		}
+		if cfg["model"] != want {
+			t.Errorf("%s.json: model = %v, want %s", a, cfg["model"], want)
+		}
 	}
 	skills, _ := os.ReadDir(filepath.Join(dot, "skills"))
 	srcSkills, _ := os.ReadDir(filepath.Join(plugin, "skills"))

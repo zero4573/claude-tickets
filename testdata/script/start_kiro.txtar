@@ -35,7 +35,9 @@ grep '"file://AGENTS.md"' $A
 grep 'hook --agent kiro agent-state working' $A
 grep 'hook --agent kiro agent-state idle' $A
 grep 'subagent_tix-lead' $A
-# the plugin, rendered: skills as tix-<name>, agents as tix-<name>.json
+# the session starts on sonnet (a default: /model switches it), the lead on opus
+grep '"model": "claude-sonnet-5.5"' $A
+grep '"model": "claude-opus-5.5"' home/Projects/work-a/MAN-1/.kiro/agents/tix-lead.json# the plugin, rendered: skills as tix-<name>, agents as tix-<name>.json
 env S=home/Projects/work-a/MAN-1/.kiro/skills/tix-work-ticket
 grep '^name: tix-work-ticket$' $S/SKILL.md
 grep 'In kiro:' $S/SKILL.md
