@@ -48,7 +48,12 @@ to this file; only then) and do it (it creates `relay.md` and `board.md`, ends w
   or review feedback (then 2, "User input").
 
 ## 1. Spawn the lead (one only)
-Only when no lead runs in this conversation. Spawn `tix:lead` with:
+Only when no lead runs in this conversation. The first lead of a session waits for the signing
+probe (one call): `for r in <ws>/*/; do [ "$(git -C "$r" config --bool commit.gpgsign 2>/dev/null)" = true ] || continue; git -C "$r" commit-tree -S -m sign-check "$(git -C "$r" rev-parse 'HEAD^{tree}')" </dev/null >/dev/null 2>&1 && echo "signing ok $r" || echo "SIGNING FAILS $r"; done`.
+A `SIGNING FAILS` line: tell the user at once that the agents' and your commits would land unsigned
+(the signing agent on the host refused: unlock it or approve the request), and spawn only on
+their answer: "go on" (run the probe again) or "unsigned is fine" (note it in `## Questions`).
+Spawn `tix:lead` with:
 `Lead for <ID>. Workspace: <ws>. Vault: <vault>. New since the last lead: <one line|none>.`
 At once record it: `sed -i -E 's/^lead:.*/lead: <agentId>/; s/^lead-since:.*/lead-since: <date
 time>/; s/^  session:.*/  session: <$CLAUDE_CODE_SESSION_ID>/' <vault>/tickets/<source>/<ID>/board.md`.

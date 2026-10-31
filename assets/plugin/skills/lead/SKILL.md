@@ -38,7 +38,7 @@ the vault (`<source>`: the note's `source:`, e.g. `jira`; the workspace `CLAUDE.
 1. `rg -n '^- \[.\] [0-9]+ · |^(status|wave|last-reviewed):' tickets/<source>/<ID>/board.md tickets/<source>/<ID>/<ID>.md`
    and the mismatch check (fix any hit with the sed recipe of 5):
    `rg -n '^- \[x\] [0-9]+ · (planned|running|orphaned|partial|blocked|pending)|^- \[ \] [0-9]+ · (running|orphaned|partial|blocked|pending)|^- \[[ /]\] [0-9]+ · merged ' tickets/<source>/<ID>/board.md`
-2. `tail -n 25 tickets/<source>/<ID>/backlog.md; sed -n '/^## Open/,$p' tickets/<source>/<ID>/relay.md`
+2. `tail -n 25 tickets/<source>/<ID>/backlog.md; sed -n '/^## Open/,$p' tickets/<source>/<ID>/relay.md; sed -n '/^## Waves/,/^## [^W]/p' tickets/<source>/<ID>/plan.md`
 3. `for r in <ws>/*/; do git -C "$r" worktree list; done 2>/dev/null` (stray task worktrees)
 
 A board with no task lines: a new ticket (the PO did the kickoff and created `board.md` and
@@ -52,7 +52,7 @@ the task branch (name from call 3 or `git branch --list 'task/<ID>-*'`, then
 it again with "New since: resumed, commits so far …", or re-plan it; `running` lines → their
 agents live, `Next: wait-tasks`; a merged wave without a `## Reviews` line → 6; open must-fixes
 (by word: `rg -n '^- \[.\] W[0-9]+-[a-z0-9-]+-M[0-9]+ · (open|fixing)' tickets/<source>/<ID>/reviews/`) →
-7; `planned` lines → 4; nothing left → hand-over (8). After a sandbox or container wipe (the PO says so, or task worktrees or the stack are gone) every `running` line is `orphaned`.
+7; `planned` lines → 4; scope in `plan.md ## Waves` that no board line covers (never started, not dropped in `## Decisions`) → plan it (2, steps 4-5), or ask through the gate whether to drop it, never let it wait unnamed; nothing left → hand-over (8). After a sandbox or container wipe (the PO says so, or task worktrees or the stack are gone) every `running` line is `orphaned`.
 
 ## 1. relay.md (shared with the PO)
 One line per entry, added only with `tix relay add <ID> --from lead --to <user|po> --kind <kind> [--state <state>] "<text>"` (it locks the file, takes the next `R-nn` and prints it) ; change the state (last field) of any line only with `tix relay state <ID> R-nn <state>`; never `>>` or `sed -i` on `relay.md`:
@@ -77,7 +77,7 @@ state `copied`), or ask (the gate). A clarify round (`tix:clarify`, run by the P
    write wave 1 as 2–6 task files `tasks/<ID>-NN-<slug>.md` (frontmatter
    `id`, `ticket`, `wave`, `repo`, `agent`, `depends_on`, `owns`, `branch`, `worktree`,
    `context_budget`, `contracts`, `db: none|heavy`, `fixes: [B-nn, W<N>-<repo>-<M|S|C>nn]` (set when planning a fix), optional `skills: [tix:diagnose]`; body `## Goal` ≤5 lines, `## Do` ≤25, `## Checks`,
-   `## Done when` ≤5). `owns` is exact repo-relative files or `dir/**`. Name tests in task files after their behaviour, never after a wave, task or finding (`TestW116…`: diff-check's `wave-test`). Write each task file with the Write tool or a quoted heredoc (`<<'EOF'`), never an unquoted heredoc (backticks and `$` expand); substitute values afterwards. With a `board.md ## Specs` list, plan from its `ready` capabilities and cite requirement IDs, not contracts (`specs.md`).
+   `## Done when` ≤5). `owns` is exact repo-relative files or `dir/**`. A size cap on what a task writes (a doc's or note's lines) only where you can estimate it: for completeness-driven docs (every field, all code inline) count the items in the source first and cap from that, or set none; a task that hits its cap reports it and keeps the content. Notes that map fields between systems derive their tables from the struct or schema code at the pinned commit, and their worked examples come before (or with) the prose that describes them. Name tests in task files after their behaviour, never after a wave, task or finding (`TestW116…`: diff-check's `wave-test`). Write each task file with the Write tool or a quoted heredoc (`<<'EOF'`), never an unquoted heredoc (backticks and `$` expand); substitute values afterwards. With a `board.md ## Specs` list, plan from its `ready` capabilities and cite requirement IDs, not contracts (`specs.md`).
 5. Fill `board.md` (the PO created it; a `- [ ] NN · planned · …` line per task, format in its `## Tasks` comment) and write `backlog.md`, add
    the plan and wave lines to `## Tasks`, set `status: in-progress`.
 
@@ -91,7 +91,7 @@ A change that writes several files or trees as one step (moves, snapshots, notes
 
 ## 4. Implement (through Spawn)
 - At most **4 agents in flight**. Tasks whose `owns` overlap never share a wave and never run
-  concurrently: split ownership by file in the task files, not by "be careful". Concurrent
+  concurrently: split ownership by file in the task files, not by "be careful". Disjoint `owns` isn't enough when two tasks change code on one call path (a function both change the callers or callees of, a value one writes and the other reads, e.g. a shared serializer): find it with Grep while planning (the callers of what each task changes) and order those tasks with `depends_on`, or give the shared code to one of them. Concurrent
   tasks in one Go package get distinct name prefixes (in each task file) for their helpers and
   `Test` functions, so names can't clash at merge. A task starts only when its `depends_on` lines are `merged`.
   Nor do they share a writable test DB, fixed port or container (give each its own). `db: heavy` marks a task that runs DB suites on a shared stack: at most one `db: heavy` task per repo stack in flight.
@@ -143,7 +143,7 @@ something risky or lists "Outside owns". Then:
 One reviewer per repo the wave touched, all in one `Spawn:` block: `tix:reviewer`, or
 `tix:reviewer-deep` only for risky waves (security, sandbox, git, data moves, contracts). With specs, one per capability, whose prompt adds the requirement IDs and `tix spec diff` (`specs.md`, "Review"). Prompt:
 ticket, wave N, slug, ticket worktree, range `<last-reviewed>..<head sha>` (first wave:
-`git merge-base <base> HEAD`), the previous fix-task IDs and review file, `conventions.md ## Test DB` (the reviewer runs the DB suites with it), and a ≤5-line impact
+`git merge-base <base> HEAD`), the previous fix-task IDs and review file, `conventions.md ## Test DB` (the reviewer runs the DB suites with it) and every `conventions.md` section naming the tool env the repo's checks need (SDK paths, caches such as `PUB_CACHE`, `PATH` additions; the reviewer exports them so it can run the checks, not just read), and a ≤5-line impact
 note from searching for the callers of the changed symbols (`git diff --stat <range>` for the
 files). It writes `reviews/wave-N-<slug>.md` and replies to the PO, who tells you once, when
 all the wave's reviews are written ("wave 2 reviews written: <slug>, <slug>"): per file read the
@@ -189,8 +189,8 @@ Every finding ends resolved, kept or deferred in the file's `## Dispositions` (c
   yourself and record them in `plan.md ## Decisions`.
 
 ## 8. Hand-over
-When the gate (7) prints nothing and no line is `planned`, `running`, `partial` or
-`orphaned`: read `handover.md` (next to this file) and do it. Never run `/tix:save` or push.
+When the gate (7) prints nothing, no line is `planned`, `running`, `partial` or
+`orphaned`, and every item of `plan.md ## Waves` is merged or dropped with the user's answer: read `handover.md` (next to this file) and do it. Never run `/tix:save` or push.
 
 ## Ticket types
 Types `dev`, `chore`, `bug`, `investigation`, `epic` shape the plan, not the agents: `reference.md`, "Ticket types".
@@ -226,7 +226,7 @@ Next: wait-tasks | wait-user | rotate | handover-done
 `Spawn: none` when there's nothing to start; the PO uses each prompt verbatim, with the entry's `model` and `effort` when given. `wait-tasks`:
 agents are running; `wait-user`: an `Ask user` is pending; `rotate`: a wave is merged and
 reviewed (or your context is heavy), board, backlog, plan and relay carry the state, no line is
-`running`, and `Spawn: none`; the PO then starts a fresh lead. `handover-done`: hand-over is
+`running`, `Status:` names the `plan.md ## Waves` scope no board line covers yet, and `Spawn: none`; the PO then starts a fresh lead. `handover-done`: hand-over is
 finished. Between runs you're idle: the PO wakes you with one-line messages, once per wave
 when its last task or reviewer finishes, at once for a `blocked` or failed task, an answer or
 new user input. A task's blocking question comes from the task agent itself.

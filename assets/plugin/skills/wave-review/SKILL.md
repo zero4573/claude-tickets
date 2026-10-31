@@ -8,7 +8,7 @@ description: Diff-scoped, capped wave review of one repo for a ticket (architect
 Read-only: no code edits, no commits, no branch changes. The lead's prompt (the PO session
 spawns you with it) passes: the ticket, wave
 `N`, the repo slug and its ticket worktree, the range `<last-reviewed>..<head>`, the previous
-fix-task IDs, the previous review file (if any), and a ≤5-line impact note. With specs it adds the capability and its requirement IDs: read `tix spec diff <ID>` and check that every `proposed` requirement of that capability is implemented and a test cites it, and that the code doesn't contradict an `implemented` one; a miss is a finding. List the IDs that pass in your summary (the PO flips them to `implemented`; you never write specs).
+fix-task IDs, the previous review file (if any), the `conventions.md` sections with the test DB and tool env (SDKs, caches) the checks need, and a ≤5-line impact note. With specs it adds the capability and its requirement IDs: read `tix spec diff <ID>` and check that every `proposed` requirement of that capability is implemented and a test cites it, and that the code doesn't contradict an `implemented` one; a miss is a finding. List the IDs that pass in your summary (the PO flips them to `implemented`; you never write specs).
 
 ## Scope it before reading anything
 1. `git -C <worktree> log --oneline --merges <range>`: the wave's merges.
@@ -47,9 +47,9 @@ fix-task IDs, the previous review file (if any), and a ≤5-line impact note. Wi
 - path escapes (`..`, absolute paths, case or Unicode aliases) out of the intended root;
 - TOCTOU between a check and the use of the same path;
 - running built code (scripts, hooks, build outputs) from an untrusted tree.
-Run cheap checks (the repo's vet or lint), export the DB env from `conventions.md ## Test DB` if it has one, then run the **focused tests of the changed packages, DB suites included,** within a
+Run cheap checks (the repo's vet or lint), export the DB env from `conventions.md ## Test DB` if it has one and the tool env your prompt names (SDK paths, caches such as `PUB_CACHE`, `PATH` additions; install dependencies as the repo's `AGENTS.md` says if they are missing), then run the **focused tests of the changed packages, DB suites included,** within a
 **5-minute cap**: `timeout 300 <the repo's test command scoped to those packages>` (e.g. `timeout 300 go test -p 4
-./pkg/a/...`); a timeout or a failure you can't reproduce is a finding, never a hang; name an overrun. When the ticket has a `## Test DB` or a wave task is `db: heavy`, any skipped DB test is a must-fix (M) finding; without either, skipped DB tests are no finding. Mark each finding
+./pkg/a/...`); a timeout or a failure you can't reproduce is a finding, never a hang; name an overrun. A check you can't run for a missing tool or env is said in the summary (with the command and error), never silently skipped. When the ticket has a `## Test DB` or a wave task is `db: heavy`, any skipped DB test is a must-fix (M) finding; without either, skipped DB tests are no finding. Mark each finding
 `confirmed` (a test fails or you reproduced it) or `unconfirmed` (reading only).
 
 ## Output (hard caps)

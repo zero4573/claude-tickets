@@ -68,6 +68,9 @@ report `partial` with what's left instead of going on.
   another path, make the smallest change, and list it under "Outside owns" with the reason.
 - Follow the task's contracts exactly. If one is wrong or missing something, stop and report
   it; never change a contract file yourself.
+- A note that maps fields between systems (a mapping table, worked examples) takes each row
+  from the struct or schema definition at the pinned commit, never from prose (yours or
+  another note's); when the task writes both examples and prose, write the examples first.
 - Tests come with the change: unit tests for new logic; for a bug, a regression test that
   fails before the fix (say so in the report).
 - Commit in your worktree, on your task branch, in coherent steps: subject in the ticket's commit
@@ -107,8 +110,8 @@ On "stop: ..." from the PO or lead: `git add -A` (untracked files in `owns` incl
 
 ## Before you report
 - `git -C <worktree> status --short` is empty (everything committed), and the full check ran after the last commit.
+- A note you wrote or changed that cites code (`path:line`, `path:N-M`, or a chunk captioned `**<repo>** · `<path>` · … · lines N-M`): it pins each repo's commit (`<repo> `<branch>` @ `<sha>``, in the note or the ticket's `conventions.md`), and `tix cite check --pins-from <vault>/tickets/<source>/<ID>/conventions.md <note>...` exits 0. Every line it prints is a wrong citation: a file not at the pinned commit, lines outside it, or a chunk that isn't the file's text there; fix the citation from `git -C <worktree> show <sha>:<path>`, never the checker's input. Name the run (citations, failed) under `Checks:`. One shared checker: never write your own against `git show`.
 - `tix ws diff-check -C <worktree> --ticket <ID> <ticket-branch>..HEAD` exits 0: drop any binary or large file it flags from your branch (or name it in the report if it belongs there), and reword any `vault-id` line (the ticket's own vault-only IDs in code or commit messages), except a hit on a line kept from the base or in a fixture that models a ticket: note that one in the report, don't reword it. A `wave-test` line is a test named after a wave: rename it after the behaviour it checks.
 - Every subject of `git -C <worktree> log --format=%s <ticket-branch>..HEAD` follows the commit style (`conventional`: `type(scope): summary`, e.g. `fix(ws): …`); reword any that doesn't before reporting (your branch is unpushed).
 - Nothing left running: no background poll loops (`until … sleep`), watchers, dev servers or
-- A note you wrote or changed that cites code (`path:line`, `path:N-M`, or a chunk captioned `**<repo>** · `<path>` · … · lines N-M`): it pins each repo's commit (`<repo> `<branch>` @ `<sha>``, in the note or the ticket's `conventions.md`), and `tix cite check --pins-from <vault>/tickets/<source>/<ID>/conventions.md <note>...` exits 0. Every line it prints is a wrong citation: a file not at the pinned commit, lines outside it, or a chunk that isn't the file's text there; fix the citation from `git -C <worktree> show <sha>:<path>`, never the checker's input. Name the run (citations, failed) under `Checks:`. One shared checker: never write your own against `git show`.
   containers you started. Wait for a command in the foreground with a timeout instead.

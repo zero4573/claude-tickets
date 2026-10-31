@@ -1,7 +1,9 @@
 # lead: hand-over
 
 Read by the lead (the `tix:lead` agent) when the review-disposition gate (`SKILL.md` 7)
-prints nothing and the board has no `planned`, `running`, `partial` or `orphaned` line.
+prints nothing, the board has no `planned`, `running`, `partial` or `orphaned` line, and every
+item of `plan.md ## Waves` is merged or dropped with the user's answer (unstarted scope is asked
+about through the gate, never handed over silently).
 Ends with the ticket at `status: review` and `Next: handover-done`. Never run `/tix:save` or push.
 
 ## 0. Disposition gate (precondition)
