@@ -28,6 +28,7 @@ flowchart LR
 | `tix ws refresh <ID>` | rewrite the workspace's `CLAUDE.md` from the vault (commit style, repos) |
 | `tix ws mark`, `marks` | the tidy mark, see [finishing a ticket](finishing-a-ticket.md) |
 | `tix ws tidy-clean <ID>` | remove tidy's scratch clones under `tasks/` |
+| `tix ws task-clean <ID>` | on the host: remove merged task worktrees under `tasks/` and their branches (the sandbox can't when a worktree existed at its start) |
 | `tix ws diff-check` | flag binary, large and vault-only-ID changes in a range |
 | `tix ws rm <ID>`, `tix ws gc` | remove a workspace, free disk |
 

@@ -14,7 +14,7 @@ In one chain per repo:
 `git -C <ws>/<slug> worktree list` (only the ticket worktree is left),
 `git -C <ws>/<slug> branch --list 'task/<ID>-*'` (empty), and
 `git -C <ws>/<slug> status --short` (empty; commit leftovers with a subject in the ticket's commit style). A task worktree or branch you couldn't remove stays on the board as
-`pending — user`, with the exact command in `## Review`.
+`pending — user`, with the exact command in `## Review` (merged task worktrees the sandbox keeps busy: `tix ws task-clean <ID>`, run on the host).
 
 ## 2. Retro (short; the method of the user-invoked `/tix:retro`)
 Over the board lines, the reviews' `## Summary` and finding lines, and the task reports

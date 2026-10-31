@@ -128,7 +128,7 @@ whatever the filtered output shows, and stops the chain before the board line; t
 something risky or lists "Outside owns". Then:
 - the board line, the last link of that chain: one sed recipe for every state, with `merged $(git rev-parse --short HEAD)` (recipe: `reference.md`, "Board line"); a task with `fixes:` also closes each entry: its backlog line becomes `fixed · task NN (<sha>) ✅ <date>` under `## Closed` `### w<N>`, a review finding's disposition `resolved` (`reference.md`, "Disposition line formats");
 - `git worktree remove <ws>/tasks/<slug>-NN && git merge-base --is-ancestor task/<ID>-NN-<task-slug> HEAD && git update-ref -d refs/heads/task/<ID>-NN-<task-slug>`. It leaves no reflog and any `branch.<name>.*` config (harmless).
-  If removal is denied, mark the line `pending — user` and put the command in `Status:`.
+  If removal is denied (in the sandbox, a task worktree that existed when the session started is busy: "Device or resource busy"), mark the line `pending — user` and put `tix ws task-clean <ID>` (the user runs it on the host: it removes merged task worktrees and their branches) in `Status:`.
 - A `repo: vault` task has nothing to merge: check its files, set the line `merged -`.
 - A conflicting branch (`git merge --abort`) or a failing merge check (revert, above): mark its line `partial` with the
   reason, and go on merging the rest of the wave; then ask for a follow-up of the task with the

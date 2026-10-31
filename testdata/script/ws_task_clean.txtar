@@ -1,0 +1,92 @@
+# tix ws task-clean: removes a ticket's merged task worktrees (and their
+# branches) from the host, through the main clone
+env TIX_TEST_CONTAINER=0
+mkdir home/Documents/Obsidian/a/.obsidian
+mkdir home/Documents/Obsidian/a/tickets/MAN-1
+cp man-1.md home/Documents/Obsidian/a/tickets/MAN-1/MAN-1.md
+expand gitconfig
+exec git init -q -b main seed
+exec git -C seed add -A
+exec git -C seed commit -q -m init
+exec git clone -q --bare seed remote/acme/billing.git
+exec git clone -q git@github.com:acme/billing.git home/Projects/repo-a/github/acme/billing
+exec tix ws add MAN-1 github-acme-billing --base main --desc tasks
+env M=home/Projects/repo-a/github/acme/billing
+env R=home/Projects/work-a/MAN-1/github-acme-billing
+env T=home/Projects/work-a/MAN-1/tasks
+
+# none yet
+exec tix ws task-clean MAN-1
+stdout 'tix ws: no task worktrees of MAN-1 in .*tasks$'
+
+# a merged task (as the lead makes and merges it), an unmerged one, a dirty
+# merged one, and another ticket's task branch
+exec git -C $R worktree add -q $WORK/$T/github-acme-billing-01 -b task/MAN-1-01-retry HEAD
+cp seed/README.md $T/github-acme-billing-01/retry.txt
+exec git -C $T/github-acme-billing-01 add retry.txt
+exec git -C $T/github-acme-billing-01 commit -q -m retry
+exec git -C $R merge -q --no-ff task/MAN-1-01-retry -m 'add retry'
+exec git -C $R worktree add -q $WORK/$T/github-acme-billing-02 -b task/MAN-1-02-open HEAD
+cp seed/README.md $T/github-acme-billing-02/open.txt
+exec git -C $T/github-acme-billing-02 add open.txt
+exec git -C $T/github-acme-billing-02 commit -q -m open
+exec git -C $R worktree add -q $WORK/$T/github-acme-billing-03 -b task/MAN-1-03-dirty HEAD
+cp seed/README.md $T/github-acme-billing-03/scratch.txt
+exec git -C $R worktree add -q $WORK/$T/github-acme-billing-09 -b task/MAN-9-01-other HEAD
+
+! exec tix ws task-clean MAN-1 --dry-run
+stdout 'would remove .*github-acme-billing-01 \(branch task/MAN-1-01-retry deleted \(merged\)\)'
+! stdout 'billing-09'
+stderr 'github-acme-billing-02 kept: branch task/MAN-1-02-open isn.t on feature/tasks \(use --force\)'
+stderr 'github-acme-billing-03 kept: uncommitted changes: scratch.txt \(use --force\)'
+exists $T/github-acme-billing-01
+
+! exec tix ws task-clean MAN-1
+stdout 'tix ws: removed .*github-acme-billing-01 \(branch task/MAN-1-01-retry deleted \(merged\)\)'
+stderr 'task-clean: kept 2 task worktree\(s\)'
+! exists $T/github-acme-billing-01
+exists $T/github-acme-billing-02
+exists $T/github-acme-billing-03
+exists $T/github-acme-billing-09
+! exec git -C $M rev-parse -q --verify refs/heads/task/MAN-1-01-retry
+exec git -C $M rev-parse -q --verify refs/heads/task/MAN-1-02-open
+
+# --force: the worktrees go, the unmerged branch stays; another ticket's
+# task worktree is never touched
+exec tix ws task-clean MAN-1 --force
+stdout 'removed .*github-acme-billing-02 \(branch task/MAN-1-02-open kept\)'
+stdout 'removed .*github-acme-billing-03 \(branch task/MAN-1-03-dirty deleted \(merged\)\)'
+! exists $T/github-acme-billing-02
+! exists $T/github-acme-billing-03
+exec git -C $M rev-parse -q --verify refs/heads/task/MAN-1-02-open
+exists $T/github-acme-billing-09
+
+# a task branch whose worktree points outside tasks/ is left alone
+exec git -C $R worktree add -q $WORK/outside -b task/MAN-1-04-out HEAD
+exec tix ws task-clean MAN-1 --force
+exists outside
+
+# inside a container it refuses (the sandbox's mounts are the reason it exists)
+env TIX_TEST_CONTAINER=1
+! exec tix ws task-clean MAN-1
+stderr 'run it on the host'
+
+-- man-1.md --
+---
+summary: First
+status: in-progress
+---
+-- gitconfig --
+# Trusted only because it is the user's global config (tix checks a repo's
+# own config, never this): the local remotes stand in for real hosts
+[protocol "file"]
+	allow = always
+[url "$WORK/remote/"]
+	insteadOf = git@github.com:
+[user]
+	name = Jane Doe
+	email = jane@example.com
+[commit]
+	gpgsign = false
+-- seed/README.md --
+# billing
