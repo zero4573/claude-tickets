@@ -134,6 +134,9 @@ func RenderKiro(plugin, dotKiro string) ([]string, error) {
 			"description": KiroText(frontValue(front, "description")),
 			"prompt":      kiroToolNotes + KiroText(strings.TrimLeft(body, "\n")),
 			"tools":       []string{"*"},
+			// kiro gives an agent without it no MCP servers, so the
+			// subagents couldn't reach Jira/Bitbucket as the session can
+			"includeMcpJson": true,
 		}
 		out, err := marshalIndent(cfg)
 		if err != nil {

@@ -1,6 +1,7 @@
 package harness
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -72,6 +73,19 @@ func TestRenderKiroPlugin(t *testing.T) {
 	known := map[string]bool{"tix": true}
 	for _, a := range agents {
 		known[a] = true
+		// every agent gets the MCP servers of kiro's mcp.json, as the
+		// session's own agent does
+		data, err := os.ReadFile(filepath.Join(dot, "agents", a+".json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var cfg map[string]any
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			t.Fatalf("%s.json: %v", a, err)
+		}
+		if cfg["includeMcpJson"] != true {
+			t.Errorf("%s.json: includeMcpJson = %v, want true", a, cfg["includeMcpJson"])
+		}
 	}
 	skills, _ := os.ReadDir(filepath.Join(dot, "skills"))
 	srcSkills, _ := os.ReadDir(filepath.Join(plugin, "skills"))

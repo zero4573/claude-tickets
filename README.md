@@ -233,7 +233,9 @@ workspace, where tix writes at every start:
   for `tix status`
 - the plugin, rendered for kiro: each skill as `.kiro/skills/tix-<name>/`
   (kiro skill names can't hold `:`, so `/tix:save` is `/tix-save`), each agent
-  as `.kiro/agents/tix-<name>.json` (the `subagent_tix-<name>` tool), with
+  as `.kiro/agents/tix-<name>.json` (the `subagent_tix-<name>` tool, with
+  `includeMcpJson` like the session's agent, or it would get no MCP
+  servers), with
   every `tix:<name>` reference rewritten and a short table mapping the
   Claude tool names the playbooks use onto kiro's. Files of your own in
   `.kiro/` stay; `tix-*` ones are replaced
